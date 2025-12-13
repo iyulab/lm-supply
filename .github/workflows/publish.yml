@@ -76,11 +76,31 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${{ steps.version.outputs.VERSION }}" -m "Release v${{ steps.version.outputs.VERSION }}"
-          git push origin "v${{ steps.version.outputs.VERSION }}"
+          TAG_NAME="v${{ steps.version.outputs.VERSION }}"
+          # Check if tag already exists
+          if git ls-remote --tags origin | grep -q "refs/tags/${TAG_NAME}$"; then
+            echo "Tag ${TAG_NAME} already exists, skipping tag creation"
+          else
+            git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}"
+            git push origin "${TAG_NAME}"
+          fi
+
+      - name: Check if Release exists
+        if: steps.check.outputs.SKIP != 'true'
+        id: release_check
+        run: |
+          TAG_NAME="v${{ steps.version.outputs.VERSION }}"
+          if gh release view "${TAG_NAME}" &>/dev/null; then
+            echo "RELEASE_EXISTS=true" >> $GITHUB_OUTPUT
+            echo "Release ${TAG_NAME} already exists"
+          else
+            echo "RELEASE_EXISTS=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release
-        if: steps.check.outputs.SKIP != 'true'
+        if: steps.check.outputs.SKIP != 'true' && steps.release_check.outputs.RELEASE_EXISTS != 'true'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.version.outputs.VERSION }}
