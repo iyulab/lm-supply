@@ -3,6 +3,7 @@
 [![CI](https://github.com/iyulab/local-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/iyulab/local-ai/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/v/LocalAI.Embedder.svg)](https://www.nuget.org/packages/LocalAI.Embedder)
 [![NuGet](https://img.shields.io/nuget/v/LocalAI.Reranker.svg)](https://www.nuget.org/packages/LocalAI.Reranker)
+[![NuGet](https://img.shields.io/nuget/v/LocalAI.Generator.svg)](https://www.nuget.org/packages/LocalAI.Generator)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Philosophy
@@ -55,7 +56,7 @@ float[] embedding = await model.EmbedAsync("Hello, world!");
 |---------|-------------|--------|
 | [LocalAI.Embedder](docs/embedder.md) | Text → Vector embeddings | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Embedder.svg)](https://www.nuget.org/packages/LocalAI.Embedder) |
 | [LocalAI.Reranker](docs/reranker.md) | Semantic reranking for search | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Reranker.svg)](https://www.nuget.org/packages/LocalAI.Reranker) |
-| LocalAI.Generator | Text generation & chat | 🚧 Coming Soon |
+| [LocalAI.Generator](docs/generator.md) | Text generation & chat | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Generator.svg)](https://www.nuget.org/packages/LocalAI.Generator) |
 | LocalAI.Transcriber | Speech → Text (Whisper) | 📋 Planned |
 | LocalAI.Synthesizer | Text → Speech | 📋 Planned |
 | LocalAI.Translator | Neural machine translation | 📋 Planned |
@@ -114,6 +115,35 @@ foreach (var result in results)
 }
 ```
 
+### Text Generation
+
+```csharp
+using LocalAI.Generator;
+
+// Simple generation
+var generator = await TextGeneratorBuilder.Create()
+    .WithDefaultModel()  // Phi-3.5 Mini
+    .BuildAsync();
+
+string response = await generator.GenerateCompleteAsync("What is machine learning?");
+Console.WriteLine(response);
+
+// Chat format
+var messages = new[]
+{
+    new ChatMessage(ChatRole.System, "You are a helpful assistant."),
+    new ChatMessage(ChatRole.User, "Explain quantum computing simply.")
+};
+
+string chatResponse = await generator.GenerateChatCompleteAsync(messages);
+
+// Streaming
+await foreach (var token in generator.GenerateAsync("Write a story:"))
+{
+    Console.Write(token);
+}
+```
+
 ---
 
 ## Available Models
@@ -134,6 +164,15 @@ foreach (var result in results)
 | `quality` | ms-marco-MiniLM-L-12-v2 | 512 | ~134MB |
 | `fast` | ms-marco-TinyBERT-L-2-v2 | 512 | ~18MB |
 | `multilingual` | bge-reranker-v2-m3 | 8192 | ~1.1GB |
+
+### Generator
+
+| Alias | Model | Parameters | License |
+|-------|-------|------------|---------|
+| `default` | Phi-3.5-mini-instruct | 3.8B | MIT |
+| `fast` | Llama-3.2-1B-Instruct | 1B | Llama 3.2 |
+| `quality` | phi-4 | 14B | MIT |
+| `small` | Llama-3.2-1B-Instruct | 1B | Llama 3.2 |
 
 ---
 
@@ -182,6 +221,7 @@ Models are cached following HuggingFace Hub conventions:
 
 - [Embedder Guide](docs/embedder.md)
 - [Reranker Guide](docs/reranker.md)
+- [Generator Guide](docs/generator.md)
 
 ---
 

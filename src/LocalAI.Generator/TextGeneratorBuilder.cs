@@ -13,6 +13,7 @@ public sealed class TextGeneratorBuilder
     private GeneratorModelOptions _modelOptions = new();
     private Models.GeneratorOptions? _defaultGeneratorOptions;
     private GeneratorPoolOptions? _poolOptions;
+    private MemoryAwareOptions? _memoryOptions;
 
     /// <summary>
     /// Creates a new TextGeneratorBuilder.
@@ -167,6 +168,26 @@ public sealed class TextGeneratorBuilder
     }
 
     /// <summary>
+    /// Enables memory-aware generation with the specified limit in gigabytes.
+    /// </summary>
+    /// <param name="limitGB">Maximum memory usage in gigabytes.</param>
+    public TextGeneratorBuilder WithMemoryLimit(double limitGB)
+    {
+        _memoryOptions = MemoryAwareOptions.WithLimitGB(limitGB);
+        return this;
+    }
+
+    /// <summary>
+    /// Enables memory-aware generation with custom options.
+    /// </summary>
+    /// <param name="options">Memory management options.</param>
+    public TextGeneratorBuilder WithMemoryManagement(MemoryAwareOptions options)
+    {
+        _memoryOptions = options ?? throw new ArgumentNullException(nameof(options));
+        return this;
+    }
+
+    /// <summary>
     /// Builds the text generator asynchronously.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -184,7 +205,15 @@ public sealed class TextGeneratorBuilder
         var modelId = _modelId ?? Path.GetFileName(modelPath);
         var chatFormatter = ResolveChatFormatter(modelId);
 
-        return new Internal.OnnxGeneratorModel(modelId, modelPath, chatFormatter, _modelOptions);
+        IGeneratorModel generator = new Internal.OnnxGeneratorModel(modelId, modelPath, chatFormatter, _modelOptions);
+
+        // Wrap with memory management if configured
+        if (_memoryOptions != null)
+        {
+            generator = new MemoryAwareGenerator(generator, _memoryOptions);
+        }
+
+        return generator;
     }
 
     /// <summary>

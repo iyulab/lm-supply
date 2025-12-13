@@ -2,7 +2,7 @@
 
   <!-- Centralized Version Management -->
   <PropertyGroup>
-    <Version>0.4.0</Version>
+    <Version>0.5.0</Version>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -27,7 +27,13 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/iyulab/local-ai</RepositoryUrl>
     <PackageProjectUrl>https://github.com/iyulab/local-ai</PackageProjectUrl>
+    <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
+
+  <!-- Package Icon -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)icon.png" Pack="true" PackagePath="" />
+  </ItemGroup>
 
   <!-- Enable Central Package Management -->
   <PropertyGroup>

@@ -69,26 +69,63 @@ public class OnnxGeneratorModelFactoryTests
     }
 
     [Fact]
-    public async Task CreateAsync_NonExistentModel_ThrowsException()
+    public async Task CreateAsync_NonExistentModel_ThrowsHttpException()
     {
         // Arrange
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        var factory = new OnnxGeneratorModelFactory(tempDir, ExecutionProvider.Auto);
+        using var factory = new OnnxGeneratorModelFactory(tempDir, ExecutionProvider.Auto);
 
-        // Act & Assert
+        // Act & Assert - attempts download which fails with HTTP error
         var action = () => factory.CreateAsync("nonexistent/model");
-        await action.Should().ThrowAsync<NotSupportedException>()
-            .WithMessage("*Automatic model download not yet implemented*");
+        await action.Should().ThrowAsync<HttpRequestException>();
     }
 
     [Fact]
-    public async Task DownloadModelAsync_NotImplemented_ThrowsNotSupportedException()
+    public async Task DownloadModelAsync_InvalidModel_ThrowsHttpException()
+    {
+        // Arrange
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        using var factory = new OnnxGeneratorModelFactory(tempDir, ExecutionProvider.Auto);
+
+        // Act & Assert - attempts download which fails with HTTP error
+        var action = () => factory.DownloadModelAsync("test/model");
+        await action.Should().ThrowAsync<HttpRequestException>();
+    }
+
+    [Fact]
+    public async Task DownloadModelAsync_AlreadyAvailable_SkipsDownload()
+    {
+        // Arrange
+        var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var modelDir = Path.Combine(tempDir, "models--test--model");
+        Directory.CreateDirectory(modelDir);
+        try
+        {
+            // Create a valid model structure
+            File.WriteAllText(Path.Combine(modelDir, "genai_config.json"), "{}");
+
+            using var factory = new OnnxGeneratorModelFactory(tempDir, ExecutionProvider.Auto);
+
+            // Act - should not throw, as model is available
+            await factory.DownloadModelAsync("test/model");
+
+            // Assert - if we get here without exception, model was found
+            factory.IsModelAvailable("test/model").Should().BeTrue();
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Dispose_CanBeCalledMultipleTimes()
     {
         // Arrange
         var factory = new OnnxGeneratorModelFactory();
 
-        // Act & Assert
-        var action = () => factory.DownloadModelAsync("test/model");
-        await action.Should().ThrowAsync<NotSupportedException>();
+        // Act & Assert - should not throw
+        factory.Dispose();
+        factory.Dispose();
     }
 }

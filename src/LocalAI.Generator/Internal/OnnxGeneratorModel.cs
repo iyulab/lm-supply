@@ -43,8 +43,9 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
             Math.Max(1, options.MaxConcurrentRequests),
             Math.Max(1, options.MaxConcurrentRequests));
 
-        // TODO: Detect from model config
-        MaxContextLength = options.MaxContextLength ?? 4096;
+        // Detect max context length from model config, or use provided/default value
+        MaxContextLength = options.MaxContextLength
+            ?? GenAiConfigReader.ReadMaxContextLength(modelPath);
     }
 
     /// <inheritdoc />
