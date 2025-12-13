@@ -5,22 +5,66 @@
 [![NuGet](https://img.shields.io/nuget/v/LocalAI.Reranker.svg)](https://www.nuget.org/packages/LocalAI.Reranker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-.NET libraries for on-device AI inference with zero external API dependencies. Run embeddings, reranking, and more entirely on your local machine with automatic GPU acceleration.
+## Philosophy
 
-## Features
+**Start small. Download what you need. Run locally.**
 
-- **Zero Configuration**: Works out of the box with sensible defaults
-- **Automatic GPU Acceleration**: Detects and uses CUDA, DirectML, or CoreML automatically
-- **HuggingFace Compatible**: Downloads models from HuggingFace Hub with standard caching
-- **Cross-Platform**: Windows, Linux, macOS support
-- **Production Ready**: Thread-safe, async-first, IAsyncDisposable support
+```csharp
+// This is all you need. No setup. No configuration. No API keys.
+await using var model = await LocalEmbedder.LoadAsync("default");
+float[] embedding = await model.EmbedAsync("Hello, world!");
+```
+
+LocalAI is designed around three core principles:
+
+### 🪶 Minimal Footprint
+Your application ships with **zero bundled models**. The base package is tiny. Models, tokenizers, and runtime components are downloaded **only when first requested** and cached for reuse.
+
+### ⚡ Lazy Everything
+```
+First run:  LoadAsync("default") → Downloads model → Caches → Runs inference
+Next runs:  LoadAsync("default") → Uses cached model → Runs inference instantly
+```
+No pre-download scripts. No model management. Just use it.
+
+### 🎯 Zero Boilerplate
+Traditional approach:
+```csharp
+// ❌ Without LocalAI: 50+ lines of setup
+var tokenizer = LoadTokenizer(modelPath);
+var session = new InferenceSession(modelPath, sessionOptions);
+var inputIds = tokenizer.Encode(text);
+var attentionMask = CreateAttentionMask(inputIds);
+var inputs = new List<NamedOnnxValue> { ... };
+var outputs = session.Run(inputs);
+var embeddings = PostProcess(outputs);
+// ... error handling, pooling, normalization, cleanup ...
+```
+
+```csharp
+// ✅ With LocalAI: 2 lines
+await using var model = await LocalEmbedder.LoadAsync("default");
+float[] embedding = await model.EmbedAsync("Hello, world!");
+```
+
+---
 
 ## Packages
 
-| Package | Description | NuGet |
-|---------|-------------|-------|
-| [LocalAI.Embedder](docs/embedder.md) | Text embeddings with sentence-transformers models | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Embedder.svg)](https://www.nuget.org/packages/LocalAI.Embedder) |
-| [LocalAI.Reranker](docs/reranker.md) | Semantic reranking with cross-encoder models | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Reranker.svg)](https://www.nuget.org/packages/LocalAI.Reranker) |
+| Package | Description | Status |
+|---------|-------------|--------|
+| [LocalAI.Embedder](docs/embedder.md) | Text → Vector embeddings | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Embedder.svg)](https://www.nuget.org/packages/LocalAI.Embedder) |
+| [LocalAI.Reranker](docs/reranker.md) | Semantic reranking for search | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Reranker.svg)](https://www.nuget.org/packages/LocalAI.Reranker) |
+| LocalAI.Generator | Text generation & chat | 🚧 Coming Soon |
+| LocalAI.Transcriber | Speech → Text (Whisper) | 📋 Planned |
+| LocalAI.Synthesizer | Text → Speech | 📋 Planned |
+| LocalAI.Translator | Neural machine translation | 📋 Planned |
+| LocalAI.Detector | Object detection | 📋 Planned |
+| LocalAI.Segmenter | Image segmentation | 📋 Planned |
+| LocalAI.Ocr | Document OCR | 📋 Planned |
+| LocalAI.Captioner | Image → Text | 📋 Planned |
+
+---
 
 ## Quick Start
 
@@ -29,10 +73,9 @@
 ```csharp
 using LocalAI.Embedder;
 
-// Load a model (downloads automatically on first use)
 await using var model = await LocalEmbedder.LoadAsync("default");
 
-// Generate embeddings
+// Single text
 float[] embedding = await model.EmbedAsync("Hello, world!");
 
 // Batch processing
@@ -43,7 +86,7 @@ float[][] embeddings = await model.EmbedBatchAsync(new[]
     "Third document"
 });
 
-// Calculate similarity
+// Similarity
 float similarity = model.CosineSimilarity(embeddings[0], embeddings[1]);
 ```
 
@@ -52,10 +95,8 @@ float similarity = model.CosineSimilarity(embeddings[0], embeddings[1]);
 ```csharp
 using LocalAI.Reranker;
 
-// Load a reranker model
 await using var reranker = await LocalReranker.LoadAsync("default");
 
-// Rerank documents by relevance to a query
 var results = await reranker.RerankAsync(
     query: "What is machine learning?",
     documents: new[]
@@ -73,9 +114,11 @@ foreach (var result in results)
 }
 ```
 
+---
+
 ## Available Models
 
-### Embedder Models
+### Embedder
 
 | Alias | Model | Dimensions | Size |
 |-------|-------|------------|------|
@@ -83,7 +126,7 @@ foreach (var result in results)
 | `large` | all-mpnet-base-v2 | 768 | ~420MB |
 | `multilingual` | paraphrase-multilingual-MiniLM-L12-v2 | 384 | ~470MB |
 
-### Reranker Models
+### Reranker
 
 | Alias | Model | Max Tokens | Size |
 |-------|-------|------------|------|
@@ -92,53 +135,55 @@ foreach (var result in results)
 | `fast` | ms-marco-TinyBERT-L-2-v2 | 512 | ~18MB |
 | `multilingual` | bge-reranker-v2-m3 | 8192 | ~1.1GB |
 
+---
+
 ## GPU Acceleration
 
-GPU acceleration is automatic when available:
+GPU acceleration is automatic when detected:
 
 ```csharp
-// Auto-detect best provider (default)
+// Auto-detect (default) - uses GPU if available, falls back to CPU
 var options = new EmbedderOptions { Provider = ExecutionProvider.Auto };
 
 // Force specific provider
-var options = new EmbedderOptions { Provider = ExecutionProvider.Cuda };
-var options = new EmbedderOptions { Provider = ExecutionProvider.DirectML }; // Windows
+var options = new EmbedderOptions { Provider = ExecutionProvider.Cuda };     // NVIDIA
+var options = new EmbedderOptions { Provider = ExecutionProvider.DirectML }; // Windows GPU
 var options = new EmbedderOptions { Provider = ExecutionProvider.CoreML };   // macOS
-var options = new EmbedderOptions { Provider = ExecutionProvider.Cpu };
 ```
 
-For GPU support, install the appropriate ONNX Runtime package:
+Install the appropriate ONNX Runtime package for GPU support:
 
 ```bash
-# NVIDIA CUDA
-dotnet add package Microsoft.ML.OnnxRuntime.Gpu
-
-# Windows DirectML (AMD, Intel, NVIDIA)
-dotnet add package Microsoft.ML.OnnxRuntime.DirectML
-
-# macOS CoreML
-dotnet add package Microsoft.ML.OnnxRuntime.CoreML
+dotnet add package Microsoft.ML.OnnxRuntime.Gpu       # NVIDIA CUDA
+dotnet add package Microsoft.ML.OnnxRuntime.DirectML  # Windows (AMD, Intel, NVIDIA)
+dotnet add package Microsoft.ML.OnnxRuntime.CoreML    # macOS
 ```
+
+---
 
 ## Model Caching
 
-Models are cached following HuggingFace Hub standard:
+Models are cached following HuggingFace Hub conventions:
 
-- Default: `~/.cache/huggingface/hub`
-- Override with `HF_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME` environment variables
-- Or specify directly: `new EmbedderOptions { CacheDirectory = "/path/to/cache" }`
+- **Default**: `~/.cache/huggingface/hub`
+- **Environment variables**: `HF_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME`
+- **Manual override**: `new EmbedderOptions { CacheDirectory = "/path/to/cache" }`
+
+---
 
 ## Requirements
 
-- .NET 8.0 or later
+- .NET 8.0+
 - Windows, Linux, or macOS
+
+---
 
 ## Documentation
 
 - [Embedder Guide](docs/embedder.md)
 - [Reranker Guide](docs/reranker.md)
-- [API Reference](docs/api-reference.md)
-- [Performance Tips](docs/performance.md)
+
+---
 
 ## License
 
