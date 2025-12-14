@@ -411,20 +411,34 @@ Each package MUST include a README with:
 
 ## Appendix A: Current Implementation Status
 
-| Aspect | Embedder | Reranker | Generator | Target |
-|--------|----------|----------|-----------|--------|
-| Entry Point | `LoadAsync` | `LoadAsync` | `LoadAsync` | `LoadAsync` |
-| Interface | `IEmbeddingModel` | `IRerankerModel` | `IGeneratorModel` | `I{Domain}Model` |
-| Options | `EmbedderOptions` | `RerankerOptions` | `GeneratorOptions` | `{Domain}Options` |
-| Builder | - | - | `TextGeneratorBuilder` | Optional |
-| `WarmupAsync` | ✅ | ✅ | ✅ | Required |
-| `GetModelInfo` | ✅ | ✅ | ✅ | Required |
-| `IAsyncDisposable` | ✅ | ✅ | ✅ | Required |
-| Aliases | Partial | ✅ | ✅ | Required |
+### Text Packages
+
+| Aspect | Embedder | Reranker | Generator | Translator | Target |
+|--------|----------|----------|-----------|------------|--------|
+| Entry Point | `LoadAsync` | `LoadAsync` | `LoadAsync` | `LoadAsync` | `LoadAsync` |
+| Interface | `IEmbeddingModel` | `IRerankerModel` | `IGeneratorModel` | `ITranslatorModel` | `I{Domain}Model` |
+| Options | `EmbedderOptions` | `RerankerOptions` | `GeneratorOptions` | `TranslatorOptions` | `{Domain}Options` |
+| Builder | - | - | `TextGeneratorBuilder` | - | Optional |
+| `WarmupAsync` | ✅ | ✅ | ✅ | ✅ | Required |
+| `GetModelInfo` | ✅ | ✅ | ✅ | ✅ | Required |
+| `IAsyncDisposable` | ✅ | ✅ | ✅ | ✅ | Required |
+| Aliases | ✅ | ✅ | ✅ | ✅ | Required |
+
+### Vision Packages
+
+| Aspect | Captioner | Ocr | Detector | Segmenter | Target |
+|--------|-----------|-----|----------|-----------|--------|
+| Entry Point | `LoadAsync` | `LoadAsync` | `LoadAsync` | `LoadAsync` | `LoadAsync` |
+| Interface | `ICaptionerModel` | `IOcrModel` | `IDetectorModel` | `ISegmenterModel` | `I{Domain}Model` |
+| Options | `CaptionerOptions` | `OcrOptions` | `DetectorOptions` | `SegmenterOptions` | `{Domain}Options` |
+| `WarmupAsync` | ✅ | ✅ | ✅ | ✅ | Required |
+| `GetModelInfo` | ✅ | ✅ | ✅ | ✅ | Required |
+| `IAsyncDisposable` | ✅ | ✅ | ✅ | ✅ | Required |
+| Aliases | ✅ | ✅ | ✅ | ✅ | Required |
 
 ### Remaining Work
 
-1. **Embedder**: Complete standard alias support (`fast`, `quality`, `large`, `multilingual`)
+All current packages are fully compliant with API design guidelines.
 
 ---
 
@@ -471,4 +485,4 @@ public sealed class TranscriberOptions
 
 ---
 
-*Last Updated: 2025-01*
+*Last Updated: 2025-12*

@@ -1,11 +1,6 @@
 # LocalAI
 
 [![CI](https://github.com/iyulab/local-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/iyulab/local-ai/actions/workflows/ci.yml)
-[![Embedder](https://img.shields.io/nuget/v/LocalAI.Embedder.svg)](https://www.nuget.org/packages/LocalAI.Embedder)
-[![Reranker](https://img.shields.io/nuget/v/LocalAI.Reranker.svg)](https://www.nuget.org/packages/LocalAI.Reranker)
-[![Generator](https://img.shields.io/nuget/v/LocalAI.Generator.svg)](https://www.nuget.org/packages/LocalAI.Generator)
-[![Captioner](https://img.shields.io/nuget/v/LocalAI.Captioner.svg)](https://www.nuget.org/packages/LocalAI.Captioner)
-[![Ocr](https://img.shields.io/nuget/v/LocalAI.Ocr.svg)](https://www.nuget.org/packages/LocalAI.Ocr)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Philosophy
@@ -61,11 +56,11 @@ float[] embedding = await model.EmbedAsync("Hello, world!");
 | [LocalAI.Generator](docs/generator.md) | Text generation & chat | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Generator.svg)](https://www.nuget.org/packages/LocalAI.Generator) |
 | [LocalAI.Captioner](docs/captioner.md) | Image → Text captioning | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Captioner.svg)](https://www.nuget.org/packages/LocalAI.Captioner) |
 | [LocalAI.Ocr](docs/ocr.md) | Document OCR | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Ocr.svg)](https://www.nuget.org/packages/LocalAI.Ocr) |
-| LocalAI.Detector | Object detection | 📋 Planned |
-| LocalAI.Segmenter | Image segmentation | 📋 Planned |
-| LocalAI.Translator | Neural machine translation | 📋 Planned |
-| LocalAI.Transcriber | Speech → Text (Whisper) | 📋 Planned |
-| LocalAI.Synthesizer | Text → Speech | 📋 Planned |
+| [LocalAI.Detector](docs/detector.md) | Object detection | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Detector.svg)](https://www.nuget.org/packages/LocalAI.Detector) |
+| [LocalAI.Segmenter](docs/segmenter.md) | Image segmentation | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Segmenter.svg)](https://www.nuget.org/packages/LocalAI.Segmenter) |
+| [LocalAI.Translator](docs/translator.md) | Neural machine translation | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Translator.svg)](https://www.nuget.org/packages/LocalAI.Translator) |
+| [LocalAI.Transcriber](docs/transcriber.md) | Speech → Text (Whisper) | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Transcriber.svg)](https://www.nuget.org/packages/LocalAI.Transcriber) |
+| [LocalAI.Synthesizer](docs/synthesizer.md) | Text → Speech (Piper) | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Synthesizer.svg)](https://www.nuget.org/packages/LocalAI.Synthesizer) |
 
 ---
 
@@ -146,6 +141,60 @@ await foreach (var token in generator.GenerateAsync("Write a story:"))
 }
 ```
 
+### Translation
+
+```csharp
+using LocalAI.Translator;
+
+await using var translator = await LocalTranslator.LoadAsync("ko-en");
+
+// Translate Korean to English
+string english = await translator.TranslateAsync("안녕하세요, 세계!");
+Console.WriteLine(english); // "Hello, world!"
+
+// Batch translation
+string[] translations = await translator.TranslateBatchAsync(new[]
+{
+    "첫 번째 문장입니다.",
+    "두 번째 문장입니다."
+});
+```
+
+### Speech Recognition (Transcriber)
+
+```csharp
+using LocalAI.Transcriber;
+
+await using var transcriber = await LocalTranscriber.LoadAsync("default");
+
+// Transcribe audio file
+var result = await transcriber.TranscribeAsync("audio.wav");
+Console.WriteLine(result.Text);
+Console.WriteLine($"Language: {result.Language}");
+
+// Streaming transcription
+await foreach (var segment in transcriber.TranscribeStreamingAsync("audio.wav"))
+{
+    Console.WriteLine($"[{segment.Start:F2}s] {segment.Text}");
+}
+```
+
+### Text-to-Speech (Synthesizer)
+
+```csharp
+using LocalAI.Synthesizer;
+
+await using var synthesizer = await LocalSynthesizer.LoadAsync("default");
+
+// Synthesize and save to file
+await synthesizer.SynthesizeToFileAsync("Hello, world!", "output.wav");
+
+// Get audio samples
+var result = await synthesizer.SynthesizeAsync("Hello!");
+Console.WriteLine($"Duration: {result.DurationSeconds:F2}s");
+Console.WriteLine($"Real-time factor: {result.RealTimeFactor:F1}x");
+```
+
 ---
 
 ## Available Models
@@ -181,6 +230,38 @@ await foreach (var token in generator.GenerateAsync("Write a story:"))
 | `quality` | phi-4 | 14B | 16K | MIT | Best reasoning |
 | `medium` | Phi-3.5-mini-instruct | 3.8B | 128K | MIT | Long context |
 | `multilingual` | gemma-2-2b-it | 2B | 8K | Gemma ToU | Multi-language |
+
+### Translator
+
+| Alias | Direction | Model | Best For |
+|-------|-----------|-------|----------|
+| `ko-en` | Korean → English | OPUS-MT | Korean translation |
+| `en-ko` | English → Korean | OPUS-MT | Korean translation |
+| `ja-en` | Japanese → English | OPUS-MT | Japanese translation |
+| `zh-en` | Chinese → English | OPUS-MT | Chinese translation |
+| `multilingual` | Many → English | mBART/M2M100 | 100+ languages |
+
+### Transcriber (Whisper)
+
+| Alias | Model | Params | Size | WER | Best For |
+|-------|-------|--------|------|-----|----------|
+| `fast` | Whisper Tiny | 39M | ~150MB | 7.6% | Ultra-fast transcription |
+| `default` | Whisper Base | 74M | ~290MB | 5.0% | Balanced speed/quality |
+| `quality` | Whisper Small | 244M | ~970MB | 3.4% | Higher accuracy |
+| `large` | Whisper Large V3 | 1.5B | ~6GB | 2.5% | Best accuracy |
+| `english` | Whisper Base.en | 74M | ~290MB | 4.3% | English-optimized |
+
+### Synthesizer (Piper TTS)
+
+| Alias | Voice | Language | Sample Rate | Best For |
+|-------|-------|----------|-------------|----------|
+| `default` | Lessac | en-US | 22050 Hz | Balanced quality |
+| `fast` | Ryan | en-US | 16000 Hz | Ultra-fast synthesis |
+| `quality` | Amy | en-US | 22050 Hz | High quality |
+| `british` | Semaine | en-GB | 22050 Hz | British English |
+| `korean` | KSS | ko-KR | 22050 Hz | Korean |
+| `japanese` | JSUT | ja-JP | 22050 Hz | Japanese |
+| `chinese` | Huayan | zh-CN | 22050 Hz | Mandarin Chinese |
 
 ---
 
@@ -227,11 +308,21 @@ Models are cached following HuggingFace Hub conventions:
 
 ## Documentation
 
-- [Embedder Guide](docs/embedder.md)
-- [Reranker Guide](docs/reranker.md)
-- [Generator Guide](docs/generator.md)
-- [Captioner Guide](docs/captioner.md)
-- [OCR Guide](docs/ocr.md)
+### Text & Language
+- [Embedder Guide](docs/embedder.md) - Text → Vector embeddings
+- [Reranker Guide](docs/reranker.md) - Semantic reranking
+- [Generator Guide](docs/generator.md) - Text generation & chat
+- [Translator Guide](docs/translator.md) - Neural machine translation
+
+### Vision
+- [Captioner Guide](docs/captioner.md) - Image → Text captioning
+- [OCR Guide](docs/ocr.md) - Document text recognition
+- [Detector Guide](docs/detector.md) - Object detection
+- [Segmenter Guide](docs/segmenter.md) - Image segmentation
+
+### Audio
+- [Transcriber Guide](docs/transcriber.md) - Speech → Text (Whisper)
+- [Synthesizer Guide](docs/synthesizer.md) - Text → Speech (Piper)
 
 ---
 
