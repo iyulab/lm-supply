@@ -24,25 +24,27 @@ public static class LocalOcr
     /// </param>
     /// <param name="options">Optional configuration options.</param>
     /// <param name="progress">Optional progress reporting for downloads.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A loaded OCR pipeline ready for inference.</returns>
     public static async Task<IOcr> LoadAsync(
         string detectionModel = "default",
         string? recognitionModel = null,
         OcrOptions? options = null,
-        IProgress<DownloadProgress>? progress = null)
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(detectionModel);
         options ??= new OcrOptions();
 
         // Resolve detection model
         var (detModelInfo, detModelPath) = await ResolveDetectionModelAsync(
-            detectionModel, options, progress).ConfigureAwait(false);
+            detectionModel, options, progress, cancellationToken).ConfigureAwait(false);
 
         // Resolve recognition model based on language hint if not specified
         recognitionModel ??= ModelRegistry.GetRecognitionModelForLanguage(options.LanguageHint).Alias;
 
         var (recModelInfo, recModelPath, dictPath) = await ResolveRecognitionModelAsync(
-            recognitionModel, options, progress).ConfigureAwait(false);
+            recognitionModel, options, progress, cancellationToken).ConfigureAwait(false);
 
         // Create detector and recognizer
         var detector = await DbNetDetector.CreateAsync(detModelPath, detModelInfo, options)
@@ -62,17 +64,19 @@ public static class LocalOcr
     /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh", "ja").</param>
     /// <param name="options">Optional configuration options.</param>
     /// <param name="progress">Optional progress reporting for downloads.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A loaded OCR pipeline ready for inference.</returns>
     public static async Task<IOcr> LoadForLanguageAsync(
         string languageCode,
         OcrOptions? options = null,
-        IProgress<DownloadProgress>? progress = null)
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         options ??= new OcrOptions { LanguageHint = languageCode };
         options.LanguageHint = languageCode;
 
         var recognitionModel = ModelRegistry.GetRecognitionModelForLanguage(languageCode).Alias;
-        return await LoadAsync("default", recognitionModel, options, progress).ConfigureAwait(false);
+        return await LoadAsync("default", recognitionModel, options, progress, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -96,7 +100,8 @@ public static class LocalOcr
     private static async Task<(DetectionModelInfo info, string modelPath)> ResolveDetectionModelAsync(
         string modelIdOrPath,
         OcrOptions options,
-        IProgress<DownloadProgress>? progress)
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
         // Check if it's a local file path
         if (File.Exists(modelIdOrPath))
@@ -118,7 +123,8 @@ public static class LocalOcr
             var modelDir = await downloader.DownloadModelAsync(
                 knownModel.RepoId,
                 subfolder: knownModel.Subfolder,
-                progress: progress).ConfigureAwait(false);
+                progress: progress,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             var modelPath = Path.Combine(modelDir, knownModel.ModelFile);
 
@@ -140,7 +146,8 @@ public static class LocalOcr
     private static async Task<(RecognitionModelInfo info, string modelPath, string dictPath)> ResolveRecognitionModelAsync(
         string modelIdOrPath,
         OcrOptions options,
-        IProgress<DownloadProgress>? progress)
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
         // Check if it's a local file path
         if (File.Exists(modelIdOrPath))
@@ -171,7 +178,8 @@ public static class LocalOcr
             var modelDir = await downloader.DownloadModelAsync(
                 knownModel.RepoId,
                 subfolder: knownModel.Subfolder,
-                progress: progress).ConfigureAwait(false);
+                progress: progress,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             var modelPath = Path.Combine(modelDir, knownModel.ModelFile);
             var dictPath = Path.Combine(modelDir, knownModel.DictFile);

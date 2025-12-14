@@ -1,14 +1,28 @@
+using LocalAI.Captioner.Models;
+
 namespace LocalAI.Captioner;
 
 /// <summary>
 /// Interface for image captioning models.
 /// </summary>
-public interface ICaptioner : IDisposable
+public interface ICaptioner : IAsyncDisposable
 {
     /// <summary>
     /// Gets the model identifier.
     /// </summary>
     string ModelId { get; }
+
+    /// <summary>
+    /// Pre-loads the model to avoid cold start latency.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task WarmupAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets information about the loaded model.
+    /// </summary>
+    /// <returns>Model information or null if not available.</returns>
+    ModelInfo? GetModelInfo();
 
     /// <summary>
     /// Gets whether this model supports visual question answering.

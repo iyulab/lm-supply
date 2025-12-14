@@ -199,7 +199,7 @@ Console.WriteLine($"Real-time factor: {result.RealTimeFactor:F1}x");
 
 ## Available Models
 
-*Updated: 2025-01 based on MTEB leaderboard and community benchmarks*
+*Updated: 2025-12 based on MTEB leaderboard and community benchmarks*
 
 ### Embedder
 
@@ -329,17 +329,3 @@ Models are cached following HuggingFace Hub conventions:
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-### Release Process
-
-Releases are automated via GitHub Actions when `Directory.Build.props` is updated:
-
-1. Update the `<Version>` in `Directory.Build.props`
-2. Commit and push to main
-3. CI automatically publishes all packages to NuGet and creates a GitHub release
-
-Requires `NUGET_API_KEY` secret configured in GitHub repository settings.

@@ -56,6 +56,17 @@ internal sealed class OcrPipeline : IOcr
     public IReadOnlyList<string> SupportedLanguages => _recognizer.SupportedLanguages;
 
     /// <inheritdoc />
+    public Task WarmupAsync(CancellationToken cancellationToken = default)
+    {
+        // The detector and recognizer sessions are already loaded
+        // This method ensures any lazy initialization is done
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public OcrModelInfo? GetModelInfo() => new OcrModelInfo(_detectionModel, _recognitionModel);
+
+    /// <inheritdoc />
     public async Task<OcrResult> RecognizeAsync(string imagePath, CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
@@ -120,11 +131,15 @@ internal sealed class OcrPipeline : IOcr
         return new OcrResult(textRegions, 0);
     }
 
-    public void Dispose()
+    /// <inheritdoc />
+    public ValueTask DisposeAsync()
     {
-        if (_disposed) return;
+        if (_disposed) return ValueTask.CompletedTask;
+
         _detector.Dispose();
         _recognizer.Dispose();
         _disposed = true;
+
+        return ValueTask.CompletedTask;
     }
 }

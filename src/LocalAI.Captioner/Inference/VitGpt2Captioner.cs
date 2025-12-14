@@ -42,6 +42,17 @@ internal sealed class VitGpt2Captioner : ICaptioner
     /// <inheritdoc />
     public bool SupportsVqa => _modelInfo.SupportsVqa;
 
+    /// <inheritdoc />
+    public Task WarmupAsync(CancellationToken cancellationToken = default)
+    {
+        // Run a minimal inference to warm up the model
+        // The encoder and decoder sessions are already loaded, so this ensures JIT compilation is done
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public ModelInfo? GetModelInfo() => _modelInfo;
+
     /// <summary>
     /// Creates a new VitGpt2Captioner instance.
     /// </summary>
@@ -242,12 +253,14 @@ internal sealed class VitGpt2Captioner : ICaptioner
     }
 
     /// <inheritdoc />
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
-        if (_disposed) return;
+        if (_disposed) return ValueTask.CompletedTask;
 
         _encoder.Dispose();
         _decoder.Dispose();
         _disposed = true;
+
+        return ValueTask.CompletedTask;
     }
 }

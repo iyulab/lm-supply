@@ -1,9 +1,11 @@
+using LocalAI.Ocr.Models;
+
 namespace LocalAI.Ocr;
 
 /// <summary>
 /// Interface for optical character recognition (OCR) models.
 /// </summary>
-public interface IOcr : IDisposable
+public interface IOcr : IAsyncDisposable
 {
     /// <summary>
     /// Gets the detection model identifier.
@@ -19,6 +21,18 @@ public interface IOcr : IDisposable
     /// Gets the supported language codes for recognition.
     /// </summary>
     IReadOnlyList<string> SupportedLanguages { get; }
+
+    /// <summary>
+    /// Pre-loads the models to avoid cold start latency.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task WarmupAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets information about the loaded OCR pipeline.
+    /// </summary>
+    /// <returns>Combined model information or null if not available.</returns>
+    OcrModelInfo? GetModelInfo();
 
     /// <summary>
     /// Performs OCR on an image from a file path.

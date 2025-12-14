@@ -19,11 +19,13 @@ public static class LocalEmbedder
     /// </param>
     /// <param name="options">Optional configuration options.</param>
     /// <param name="progress">Optional progress reporting for downloads.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A loaded embedding model ready for inference.</returns>
     public static async Task<IEmbeddingModel> LoadAsync(
         string modelIdOrPath,
         EmbedderOptions? options = null,
-        IProgress<DownloadProgress>? progress = null)
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         options ??= new EmbedderOptions();
 
@@ -69,7 +71,8 @@ public static class LocalEmbedder
             var modelDir = await downloader.DownloadModelAsync(
                 modelInfo.RepoId,
                 subfolder: modelInfo.Subfolder,
-                progress: progress);
+                progress: progress,
+                cancellationToken: cancellationToken);
 
             modelPath = Path.Combine(modelDir, "model.onnx");
             vocabPath = Path.Combine(modelDir, "vocab.txt");
@@ -83,7 +86,8 @@ public static class LocalEmbedder
 
             var modelDir = await downloader.DownloadModelAsync(
                 modelIdOrPath,
-                progress: progress);
+                progress: progress,
+                cancellationToken: cancellationToken);
 
             modelPath = Path.Combine(modelDir, "model.onnx");
             vocabPath = Path.Combine(modelDir, "vocab.txt");

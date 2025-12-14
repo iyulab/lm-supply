@@ -19,11 +19,13 @@ public static class LocalCaptioner
     /// </param>
     /// <param name="options">Optional configuration options.</param>
     /// <param name="progress">Optional progress reporting for downloads.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A loaded captioning model ready for inference.</returns>
     public static async Task<ICaptioner> LoadAsync(
         string modelIdOrPath,
         CaptionerOptions? options = null,
-        IProgress<DownloadProgress>? progress = null)
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
         options ??= new CaptionerOptions();
@@ -54,7 +56,8 @@ public static class LocalCaptioner
             modelDir = await downloader.DownloadModelAsync(
                 modelInfo.RepoId,
                 subfolder: modelInfo.Subfolder,
-                progress: progress).ConfigureAwait(false);
+                progress: progress,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         // Check if it's a HuggingFace repo ID
         else if (modelIdOrPath.Contains('/'))
@@ -64,7 +67,8 @@ public static class LocalCaptioner
 
             modelDir = await downloader.DownloadModelAsync(
                 modelIdOrPath,
-                progress: progress).ConfigureAwait(false);
+                progress: progress,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             // Try to infer model info
             if (!TryInferModelInfo(modelDir, out modelInfo))
