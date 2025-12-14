@@ -5,6 +5,13 @@ on:
     branches: [main]
     paths:
       - 'Directory.Build.props'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force publish even if version exists on NuGet'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   publish:
@@ -29,13 +36,18 @@ jobs:
       - name: Check if version already published
         id: check
         run: |
-          CORE_EXISTS=$(dotnet nuget search LocalAI.Core --source https://api.nuget.org/v3/index.json | grep -c "${{ steps.version.outputs.VERSION }}" || true)
-          if [ "$CORE_EXISTS" -gt "0" ]; then
-            echo "SKIP=true" >> $GITHUB_OUTPUT
-            echo "Version ${{ steps.version.outputs.VERSION }} already exists on NuGet"
-          else
+          if [ "${{ inputs.force }}" == "true" ]; then
             echo "SKIP=false" >> $GITHUB_OUTPUT
-            echo "Version ${{ steps.version.outputs.VERSION }} is new, will publish"
+            echo "Force publish enabled, skipping version check"
+          else
+            CORE_EXISTS=$(dotnet nuget search LocalAI.Core --source https://api.nuget.org/v3/index.json | grep -c "${{ steps.version.outputs.VERSION }}" || true)
+            if [ "$CORE_EXISTS" -gt "0" ]; then
+              echo "SKIP=true" >> $GITHUB_OUTPUT
+              echo "Version ${{ steps.version.outputs.VERSION }} already exists on NuGet"
+            else
+              echo "SKIP=false" >> $GITHUB_OUTPUT
+              echo "Version ${{ steps.version.outputs.VERSION }} is new, will publish"
+            fi
           fi
 
       - name: Restore dependencies
