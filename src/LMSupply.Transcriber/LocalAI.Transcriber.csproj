@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>LMSupply.Transcriber</PackageId>
+    <Description>Local speech-to-text transcription using Whisper models with ONNX Runtime. Zero-configuration, automatic GPU acceleration, and lazy model downloading.</Description>
+    <PackageTags>ai;ml;whisper;speech-to-text;asr;transcription;onnx;local;offline</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LMSupply.Core\LMSupply.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" />
+  </ItemGroup>
+
+</Project>

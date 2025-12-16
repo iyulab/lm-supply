@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>LMSupply.Segmenter</PackageId>
+    <Description>A lightweight, zero-configuration image segmenter for .NET. Supports semantic and instance segmentation with SegFormer and MobileSAM models. Start small. Download what you need. Run locally.</Description>
+    <PackageTags>AI;ML;ONNX;Segmentation;Semantic;Instance;SegFormer;SAM;Computer-Vision;Image-Processing</PackageTags>
+    <PackageProjectUrl>https://github.com/iyulab/lm-supply</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/iyulab/lm-supply.git</RepositoryUrl>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LMSupply.Core\LMSupply.Core.csproj" />
+    <ProjectReference Include="..\LMSupply.Vision.Core\LMSupply.Vision.Core.csproj" />
+  </ItemGroup>
+
+</Project>

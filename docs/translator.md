@@ -1,11 +1,11 @@
-# LocalAI.Translator
+# LMSupply.Translator
 
 A lightweight, zero-configuration neural machine translation library for .NET with automatic GPU acceleration.
 
 ## Installation
 
 ```bash
-dotnet add package LocalAI.Translator
+dotnet add package LMSupply.Translator
 ```
 
 For GPU acceleration:
@@ -24,7 +24,7 @@ dotnet add package Microsoft.ML.OnnxRuntime.CoreML
 ## Basic Usage
 
 ```csharp
-using LocalAI.Translator;
+using LMSupply.Translator;
 
 // Load a translation model (Korean to English)
 await using var translator = await LocalTranslator.LoadAsync("ko-en");

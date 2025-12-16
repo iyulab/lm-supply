@@ -1,11 +1,11 @@
-# LocalAI.Reranker
+# LMSupply.Reranker
 
 A lightweight, zero-configuration semantic reranking library for .NET using cross-encoder models.
 
 ## Installation
 
 ```bash
-dotnet add package LocalAI.Reranker
+dotnet add package LMSupply.Reranker
 ```
 
 For GPU acceleration:
@@ -33,7 +33,7 @@ Reranking improves search quality by using a cross-encoder model to score the re
 ## Basic Usage
 
 ```csharp
-using LocalAI.Reranker;
+using LMSupply.Reranker;
 
 // Load the default model
 await using var reranker = await LocalReranker.LoadAsync("default");
@@ -145,8 +145,8 @@ var batchResults = await reranker.RerankBatchAsync(
 ## RAG Integration Example
 
 ```csharp
-using LocalAI.Embedder;
-using LocalAI.Reranker;
+using LMSupply.Embedder;
+using LMSupply.Reranker;
 
 public class RagPipeline
 {

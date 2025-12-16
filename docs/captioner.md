@@ -1,11 +1,11 @@
-# LocalAI.Captioner
+# LMSupply.Captioner
 
 A lightweight, zero-configuration image captioning library for .NET with automatic GPU acceleration.
 
 ## Installation
 
 ```bash
-dotnet add package LocalAI.Captioner
+dotnet add package LMSupply.Captioner
 ```
 
 For GPU acceleration:
@@ -24,7 +24,7 @@ dotnet add package Microsoft.ML.OnnxRuntime.CoreML
 ## Basic Usage
 
 ```csharp
-using LocalAI.Captioner;
+using LMSupply.Captioner;
 
 // Load the default model
 await using var captioner = await LocalCaptioner.LoadAsync("default");

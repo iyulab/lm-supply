@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>LMSupply.Synthesizer</PackageId>
+    <Description>Local text-to-speech synthesis using VITS/Piper models with ONNX Runtime. Run TTS locally without cloud APIs or network dependencies.</Description>
+    <PackageTags>$(PackageTags);text-to-speech;tts;speech-synthesis;audio;voice</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LMSupply.Core\LMSupply.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" />
+  </ItemGroup>
+
+</Project>

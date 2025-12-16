@@ -1,11 +1,11 @@
-# LocalAI.Detector
+# LMSupply.Detector
 
 A lightweight, zero-configuration object detection library for .NET with automatic GPU acceleration.
 
 ## Installation
 
 ```bash
-dotnet add package LocalAI.Detector
+dotnet add package LMSupply.Detector
 ```
 
 For GPU acceleration:
@@ -24,7 +24,7 @@ dotnet add package Microsoft.ML.OnnxRuntime.CoreML
 ## Basic Usage
 
 ```csharp
-using LocalAI.Detector;
+using LMSupply.Detector;
 
 // Load the default model
 await using var detector = await LocalDetector.LoadAsync("default");

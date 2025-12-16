@@ -5,57 +5,57 @@ VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Core", "src\LocalAI.Core\LocalAI.Core.csproj", "{ECA0E768-D175-CCD4-1BC1-A0495926801B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Core", "src\LMSupply.Core\LMSupply.Core.csproj", "{ECA0E768-D175-CCD4-1BC1-A0495926801B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Embedder", "src\LocalAI.Embedder\LocalAI.Embedder.csproj", "{D7B2DC17-0BF2-A4DA-693F-3105A07B5960}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Embedder", "src\LMSupply.Embedder\LMSupply.Embedder.csproj", "{D7B2DC17-0BF2-A4DA-693F-3105A07B5960}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Reranker", "src\LocalAI.Reranker\LocalAI.Reranker.csproj", "{CB1606AE-500D-2D97-5821-3E1CC5633020}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Reranker", "src\LMSupply.Reranker\LMSupply.Reranker.csproj", "{CB1606AE-500D-2D97-5821-3E1CC5633020}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Core.Tests", "tests\LocalAI.Core.Tests\LocalAI.Core.Tests.csproj", "{1C14CFBF-0771-4023-8AC9-0A1DE49537DD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Core.Tests", "tests\LMSupply.Core.Tests\LMSupply.Core.Tests.csproj", "{1C14CFBF-0771-4023-8AC9-0A1DE49537DD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Generator", "src\LocalAI.Generator\LocalAI.Generator.csproj", "{1BF5F47D-BC64-448D-B398-E62937DC3FC9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Generator", "src\LMSupply.Generator\LMSupply.Generator.csproj", "{1BF5F47D-BC64-448D-B398-E62937DC3FC9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Generator.Tests", "tests\LocalAI.Generator.Tests\LocalAI.Generator.Tests.csproj", "{96A019C6-84F7-4E3B-9673-C349906B4E4E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Generator.Tests", "tests\LMSupply.Generator.Tests\LMSupply.Generator.Tests.csproj", "{96A019C6-84F7-4E3B-9673-C349906B4E4E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Embedder.Tests", "tests\LocalAI.Embedder.Tests\LocalAI.Embedder.Tests.csproj", "{8903600D-B0C2-4003-A58A-9256B63A14F7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Embedder.Tests", "tests\LMSupply.Embedder.Tests\LMSupply.Embedder.Tests.csproj", "{8903600D-B0C2-4003-A58A-9256B63A14F7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Reranker.Tests", "tests\LocalAI.Reranker.Tests\LocalAI.Reranker.Tests.csproj", "{87EC1E27-EB7A-4296-9B2C-07EDB4CA7B4F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Reranker.Tests", "tests\LMSupply.Reranker.Tests\LMSupply.Reranker.Tests.csproj", "{87EC1E27-EB7A-4296-9B2C-07EDB4CA7B4F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Vision.Core", "src\LocalAI.Vision.Core\LocalAI.Vision.Core.csproj", "{0C623FD1-2E9C-4075-8158-BA980B97AB4F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Vision.Core", "src\LMSupply.Vision.Core\LMSupply.Vision.Core.csproj", "{0C623FD1-2E9C-4075-8158-BA980B97AB4F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Captioner", "src\LocalAI.Captioner\LocalAI.Captioner.csproj", "{A314F57F-5956-4900-83C7-464F0843FE6D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Captioner", "src\LMSupply.Captioner\LMSupply.Captioner.csproj", "{A314F57F-5956-4900-83C7-464F0843FE6D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Vision.Core.Tests", "tests\LocalAI.Vision.Core.Tests\LocalAI.Vision.Core.Tests.csproj", "{704A3CA3-9F52-4A41-8991-E6C5D24A5103}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Vision.Core.Tests", "tests\LMSupply.Vision.Core.Tests\LMSupply.Vision.Core.Tests.csproj", "{704A3CA3-9F52-4A41-8991-E6C5D24A5103}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Captioner.Tests", "tests\LocalAI.Captioner.Tests\LocalAI.Captioner.Tests.csproj", "{B33807AA-ADC9-4C31-AEBE-F34A87CD74F1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Captioner.Tests", "tests\LMSupply.Captioner.Tests\LMSupply.Captioner.Tests.csproj", "{B33807AA-ADC9-4C31-AEBE-F34A87CD74F1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Ocr", "src\LocalAI.Ocr\LocalAI.Ocr.csproj", "{04979C96-3B2D-45A1-AA50-F0442E07DEA0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Ocr", "src\LMSupply.Ocr\LMSupply.Ocr.csproj", "{04979C96-3B2D-45A1-AA50-F0442E07DEA0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Ocr.Tests", "tests\LocalAI.Ocr.Tests\LocalAI.Ocr.Tests.csproj", "{6D5A8B2E-C9EB-48A8-94C9-EA6E34790E58}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Ocr.Tests", "tests\LMSupply.Ocr.Tests\LMSupply.Ocr.Tests.csproj", "{6D5A8B2E-C9EB-48A8-94C9-EA6E34790E58}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Detector", "src\LocalAI.Detector\LocalAI.Detector.csproj", "{DAE289E2-362D-4AD3-B9A5-F749C5D41E10}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Detector", "src\LMSupply.Detector\LMSupply.Detector.csproj", "{DAE289E2-362D-4AD3-B9A5-F749C5D41E10}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Detector.Tests", "tests\LocalAI.Detector.Tests\LocalAI.Detector.Tests.csproj", "{679CF742-72FA-450A-BD7A-FA84EB07666B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Detector.Tests", "tests\LMSupply.Detector.Tests\LMSupply.Detector.Tests.csproj", "{679CF742-72FA-450A-BD7A-FA84EB07666B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Segmenter", "src\LocalAI.Segmenter\LocalAI.Segmenter.csproj", "{2307AF0D-3F8C-418F-8063-7D7557C4851E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Segmenter", "src\LMSupply.Segmenter\LMSupply.Segmenter.csproj", "{2307AF0D-3F8C-418F-8063-7D7557C4851E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Segmenter.Tests", "tests\LocalAI.Segmenter.Tests\LocalAI.Segmenter.Tests.csproj", "{F6818F06-3BE5-445B-90BD-C9966E7F3C62}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Segmenter.Tests", "tests\LMSupply.Segmenter.Tests\LMSupply.Segmenter.Tests.csproj", "{F6818F06-3BE5-445B-90BD-C9966E7F3C62}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Translator", "src\LocalAI.Translator\LocalAI.Translator.csproj", "{51C64E87-C975-41ED-B548-21205F47A678}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Translator", "src\LMSupply.Translator\LMSupply.Translator.csproj", "{51C64E87-C975-41ED-B548-21205F47A678}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Text.Core", "src\LocalAI.Text.Core\LocalAI.Text.Core.csproj", "{205000A7-49A8-445B-B29B-5EFF8E0D7514}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Text.Core", "src\LMSupply.Text.Core\LMSupply.Text.Core.csproj", "{205000A7-49A8-445B-B29B-5EFF8E0D7514}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Text.Core.Tests", "tests\LocalAI.Text.Core.Tests\LocalAI.Text.Core.Tests.csproj", "{E718A044-9B03-4143-87A6-70412C088BA3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Text.Core.Tests", "tests\LMSupply.Text.Core.Tests\LMSupply.Text.Core.Tests.csproj", "{E718A044-9B03-4143-87A6-70412C088BA3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Transcriber", "src\LocalAI.Transcriber\LocalAI.Transcriber.csproj", "{47393588-134E-4B58-9419-F71FBB0D7548}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Transcriber", "src\LMSupply.Transcriber\LMSupply.Transcriber.csproj", "{47393588-134E-4B58-9419-F71FBB0D7548}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Transcriber.Tests", "tests\LocalAI.Transcriber.Tests\LocalAI.Transcriber.Tests.csproj", "{710BBB8D-D565-49D5-8867-F97569490B66}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Transcriber.Tests", "tests\LMSupply.Transcriber.Tests\LMSupply.Transcriber.Tests.csproj", "{710BBB8D-D565-49D5-8867-F97569490B66}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Synthesizer", "src\LocalAI.Synthesizer\LocalAI.Synthesizer.csproj", "{0F061BE3-7051-4D34-8511-31948957A28D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Synthesizer", "src\LMSupply.Synthesizer\LMSupply.Synthesizer.csproj", "{0F061BE3-7051-4D34-8511-31948957A28D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalAI.Synthesizer.Tests", "tests\LocalAI.Synthesizer.Tests\LocalAI.Synthesizer.Tests.csproj", "{4EFB839A-F1B6-48A8-914D-6C38E4F3ABB6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LMSupply.Synthesizer.Tests", "tests\LMSupply.Synthesizer.Tests\LMSupply.Synthesizer.Tests.csproj", "{4EFB839A-F1B6-48A8-914D-6C38E4F3ABB6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

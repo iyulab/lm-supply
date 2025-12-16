@@ -1,6 +1,6 @@
-# LocalAI
+# LMSupply
 
-[![CI](https://github.com/iyulab/local-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/iyulab/local-ai/actions/workflows/ci.yml)
+[![CI](https://github.com/iyulab/lm-supply/actions/workflows/ci.yml/badge.svg)](https://github.com/iyulab/lm-supply/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Philosophy
@@ -13,7 +13,7 @@ await using var model = await LocalEmbedder.LoadAsync("default");
 float[] embedding = await model.EmbedAsync("Hello, world!");
 ```
 
-LocalAI is designed around three core principles:
+LMSupply is designed around three core principles:
 
 ### 🪶 Minimal Footprint
 Your application ships with **zero bundled models**. The base package is tiny. Models, tokenizers, and runtime components are downloaded **only when first requested** and cached for reuse.
@@ -28,7 +28,7 @@ No pre-download scripts. No model management. Just use it.
 ### 🎯 Zero Boilerplate
 Traditional approach:
 ```csharp
-// ❌ Without LocalAI: 50+ lines of setup
+// ❌ Without LMSupply: 50+ lines of setup
 var tokenizer = LoadTokenizer(modelPath);
 var session = new InferenceSession(modelPath, sessionOptions);
 var inputIds = tokenizer.Encode(text);
@@ -40,7 +40,7 @@ var embeddings = PostProcess(outputs);
 ```
 
 ```csharp
-// ✅ With LocalAI: 2 lines
+// ✅ With LMSupply: 2 lines
 await using var model = await LocalEmbedder.LoadAsync("default");
 float[] embedding = await model.EmbedAsync("Hello, world!");
 ```
@@ -51,16 +51,16 @@ float[] embedding = await model.EmbedAsync("Hello, world!");
 
 | Package | Description | Status |
 |---------|-------------|--------|
-| [LocalAI.Embedder](docs/embedder.md) | Text → Vector embeddings | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Embedder.svg)](https://www.nuget.org/packages/LocalAI.Embedder) |
-| [LocalAI.Reranker](docs/reranker.md) | Semantic reranking for search | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Reranker.svg)](https://www.nuget.org/packages/LocalAI.Reranker) |
-| [LocalAI.Generator](docs/generator.md) | Text generation & chat | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Generator.svg)](https://www.nuget.org/packages/LocalAI.Generator) |
-| [LocalAI.Captioner](docs/captioner.md) | Image → Text captioning | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Captioner.svg)](https://www.nuget.org/packages/LocalAI.Captioner) |
-| [LocalAI.Ocr](docs/ocr.md) | Document OCR | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Ocr.svg)](https://www.nuget.org/packages/LocalAI.Ocr) |
-| [LocalAI.Detector](docs/detector.md) | Object detection | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Detector.svg)](https://www.nuget.org/packages/LocalAI.Detector) |
-| [LocalAI.Segmenter](docs/segmenter.md) | Image segmentation | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Segmenter.svg)](https://www.nuget.org/packages/LocalAI.Segmenter) |
-| [LocalAI.Translator](docs/translator.md) | Neural machine translation | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Translator.svg)](https://www.nuget.org/packages/LocalAI.Translator) |
-| [LocalAI.Transcriber](docs/transcriber.md) | Speech → Text (Whisper) | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Transcriber.svg)](https://www.nuget.org/packages/LocalAI.Transcriber) |
-| [LocalAI.Synthesizer](docs/synthesizer.md) | Text → Speech (Piper) | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Synthesizer.svg)](https://www.nuget.org/packages/LocalAI.Synthesizer) |
+| [LMSupply.Embedder](docs/embedder.md) | Text → Vector embeddings | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Embedder.svg)](https://www.nuget.org/packages/LMSupply.Embedder) |
+| [LMSupply.Reranker](docs/reranker.md) | Semantic reranking for search | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Reranker.svg)](https://www.nuget.org/packages/LMSupply.Reranker) |
+| [LMSupply.Generator](docs/generator.md) | Text generation & chat | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Generator.svg)](https://www.nuget.org/packages/LMSupply.Generator) |
+| [LMSupply.Captioner](docs/captioner.md) | Image → Text captioning | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Captioner.svg)](https://www.nuget.org/packages/LMSupply.Captioner) |
+| [LMSupply.Ocr](docs/ocr.md) | Document OCR | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Ocr.svg)](https://www.nuget.org/packages/LMSupply.Ocr) |
+| [LMSupply.Detector](docs/detector.md) | Object detection | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Detector.svg)](https://www.nuget.org/packages/LMSupply.Detector) |
+| [LMSupply.Segmenter](docs/segmenter.md) | Image segmentation | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Segmenter.svg)](https://www.nuget.org/packages/LMSupply.Segmenter) |
+| [LMSupply.Translator](docs/translator.md) | Neural machine translation | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Translator.svg)](https://www.nuget.org/packages/LMSupply.Translator) |
+| [LMSupply.Transcriber](docs/transcriber.md) | Speech → Text (Whisper) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Transcriber.svg)](https://www.nuget.org/packages/LMSupply.Transcriber) |
+| [LMSupply.Synthesizer](docs/synthesizer.md) | Text → Speech (Piper) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Synthesizer.svg)](https://www.nuget.org/packages/LMSupply.Synthesizer) |
 
 ---
 
@@ -69,7 +69,7 @@ float[] embedding = await model.EmbedAsync("Hello, world!");
 ### Text Embeddings
 
 ```csharp
-using LocalAI.Embedder;
+using LMSupply.Embedder;
 
 await using var model = await LocalEmbedder.LoadAsync("default");
 
@@ -91,7 +91,7 @@ float similarity = model.CosineSimilarity(embeddings[0], embeddings[1]);
 ### Semantic Reranking
 
 ```csharp
-using LocalAI.Reranker;
+using LMSupply.Reranker;
 
 await using var reranker = await LocalReranker.LoadAsync("default");
 
@@ -115,7 +115,7 @@ foreach (var result in results)
 ### Text Generation
 
 ```csharp
-using LocalAI.Generator;
+using LMSupply.Generator;
 
 // Simple generation
 var generator = await TextGeneratorBuilder.Create()
@@ -144,7 +144,7 @@ await foreach (var token in generator.GenerateAsync("Write a story:"))
 ### Translation
 
 ```csharp
-using LocalAI.Translator;
+using LMSupply.Translator;
 
 await using var translator = await LocalTranslator.LoadAsync("ko-en");
 
@@ -163,7 +163,7 @@ string[] translations = await translator.TranslateBatchAsync(new[]
 ### Speech Recognition (Transcriber)
 
 ```csharp
-using LocalAI.Transcriber;
+using LMSupply.Transcriber;
 
 await using var transcriber = await LocalTranscriber.LoadAsync("default");
 
@@ -182,7 +182,7 @@ await foreach (var segment in transcriber.TranscribeStreamingAsync("audio.wav"))
 ### Text-to-Speech (Synthesizer)
 
 ```csharp
-using LocalAI.Synthesizer;
+using LMSupply.Synthesizer;
 
 await using var synthesizer = await LocalSynthesizer.LoadAsync("default");
 

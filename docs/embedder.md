@@ -1,11 +1,11 @@
-# LocalAI.Embedder
+# LMSupply.Embedder
 
 A lightweight, zero-configuration text embedding library for .NET with automatic GPU acceleration.
 
 ## Installation
 
 ```bash
-dotnet add package LocalAI.Embedder
+dotnet add package LMSupply.Embedder
 ```
 
 For GPU acceleration:
@@ -24,7 +24,7 @@ dotnet add package Microsoft.ML.OnnxRuntime.CoreML
 ## Basic Usage
 
 ```csharp
-using LocalAI.Embedder;
+using LMSupply.Embedder;
 
 // Load the default model
 await using var model = await LocalEmbedder.LoadAsync("default");
@@ -98,7 +98,7 @@ float distance = model.EuclideanDistance(embedding1, embedding2);
 ## Semantic Search Example
 
 ```csharp
-using LocalAI.Embedder;
+using LMSupply.Embedder;
 
 await using var model = await LocalEmbedder.LoadAsync("default");
 

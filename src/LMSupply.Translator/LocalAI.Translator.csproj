@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>LMSupply.Translator</PackageId>
+    <Description>A lightweight, zero-configuration neural machine translator for .NET. Supports OPUS-MT models for high-quality bilingual translation. Start small. Download what you need. Run locally.</Description>
+    <PackageTags>AI;ML;ONNX;NMT;Translation;NLP;Machine-Translation;OPUS-MT;Korean;English</PackageTags>
+    <PackageProjectUrl>https://github.com/iyulab/lm-supply</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/iyulab/lm-supply.git</RepositoryUrl>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LMSupply.Core\LMSupply.Core.csproj" />
+    <ProjectReference Include="..\LMSupply.Text.Core\LMSupply.Text.Core.csproj" />
+  </ItemGroup>
+
+</Project>

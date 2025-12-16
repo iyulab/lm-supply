@@ -1,11 +1,11 @@
-# LocalAI.Transcriber
+# LMSupply.Transcriber
 
 Speech-to-text transcription using Whisper models with ONNX Runtime.
 
 ## Quick Start
 
 ```csharp
-using LocalAI.Transcriber;
+using LMSupply.Transcriber;
 
 // Load the default model (Whisper Base)
 var transcriber = await LocalTranscriber.LoadAsync("default");
@@ -20,7 +20,7 @@ Console.WriteLine($"Duration: {result.DurationSeconds}s");
 ## Installation
 
 ```bash
-dotnet add package LocalAI.Transcriber
+dotnet add package LMSupply.Transcriber
 ```
 
 ## Features

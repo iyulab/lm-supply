@@ -1,11 +1,11 @@
-# LocalAI.Generator
+# LMSupply.Generator
 
 Local text generation and chat with ONNX Runtime GenAI.
 
 ## Installation
 
 ```bash
-dotnet add package LocalAI.Generator
+dotnet add package LMSupply.Generator
 ```
 
 ## Quick Start
@@ -13,7 +13,7 @@ dotnet add package LocalAI.Generator
 ### Simple Text Generation
 
 ```csharp
-using LocalAI.Generator;
+using LMSupply.Generator;
 
 // Using the builder pattern
 var generator = await TextGeneratorBuilder.Create()
@@ -30,8 +30,8 @@ await generator.DisposeAsync();
 ### Chat Completion
 
 ```csharp
-using LocalAI.Generator;
-using LocalAI.Generator.Models;
+using LMSupply.Generator;
+using LMSupply.Generator.Models;
 
 var generator = await TextGeneratorBuilder.Create()
     .WithDefaultModel()
@@ -149,7 +149,7 @@ var generator = await TextGeneratorBuilder.Create()
 ## Hardware Detection
 
 ```csharp
-using LocalAI.Generator;
+using LMSupply.Generator;
 
 // Get hardware recommendations
 var recommendation = HardwareDetector.GetRecommendation();
@@ -172,7 +172,7 @@ var provider = HardwareDetector.GetBestProvider();
 Speed up generation by using a smaller draft model:
 
 ```csharp
-using LocalAI.Generator;
+using LMSupply.Generator;
 
 // Create draft (small/fast) and target (large/accurate) models
 var draftModel = await TextGeneratorBuilder.Create()
@@ -209,7 +209,7 @@ Console.WriteLine(result.Stats.GetSummary());
 For advanced scenarios with multiple models:
 
 ```csharp
-using LocalAI.Generator;
+using LMSupply.Generator;
 
 using var factory = new OnnxGeneratorModelFactory();
 

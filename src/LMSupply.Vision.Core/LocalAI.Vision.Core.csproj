@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>LMSupply.Vision.Core</PackageId>
+    <Description>Core vision processing components for LMSupply: image loading, preprocessing, and tensor conversion utilities shared by LMSupply.Captioner and LMSupply.Ocr.</Description>
+    <PackageTags>LMSupply;vision;image-processing;onnx;ml;ai;imagesharp</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- Build Settings -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LMSupply.Vision.Core.Tests" />
+    <InternalsVisibleTo Include="LMSupply.Captioner" />
+    <InternalsVisibleTo Include="LMSupply.Ocr" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LMSupply.Core\LMSupply.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

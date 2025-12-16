@@ -1,4 +1,4 @@
-# LocalAI.Generator Implementation Roadmap
+# LMSupply.Generator Implementation Roadmap
 
 > Based on Research 01-06 findings and detailed analysis reports
 
@@ -35,7 +35,7 @@
 
 | Item | Decision | Rationale |
 |------|----------|-----------|
-| **Inference Engine** | ONNX Runtime GenAI v0.11.4 | LocalAI stack consistency, Microsoft support, 9.46x perf vs llama.cpp |
+| **Inference Engine** | ONNX Runtime GenAI v0.11.4 | LMSupply stack consistency, Microsoft support, 9.46x perf vs llama.cpp |
 | **Default Model** | microsoft/Phi-3.5-mini-instruct-onnx | MIT license, 3.8B params, 128K context |
 | **Quantization** | INT4 (AWQ/RTN) | 87.5% memory reduction, minimal quality loss |
 | **Tokenizer** | GenAI built-in | No separate library needed |
@@ -49,11 +49,11 @@
 
 ### 1.1 Project Structure Setup
 
-**Task 1.1.1**: Create LocalAI.Generator project
+**Task 1.1.1**: Create LMSupply.Generator project
 ```
 src/
-├── LocalAI.Generator/
-│   ├── LocalAI.Generator.csproj
+├── LMSupply.Generator/
+│   ├── LMSupply.Generator.csproj
 │   ├── Abstractions/
 │   │   ├── ITextGenerator.cs
 │   │   ├── IChatFormatter.cs
@@ -79,7 +79,7 @@ src/
   <ItemGroup>
     <!-- CPU package as base, GPU via runtime detection -->
     <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" />
-    <ProjectReference Include="..\LocalAI.Core\LocalAI.Core.csproj" />
+    <ProjectReference Include="..\LMSupply.Core\LMSupply.Core.csproj" />
   </ItemGroup>
 </Project>
 ```
@@ -138,7 +138,7 @@ public record ChatMessage(ChatRole Role, string Content);
 ```
 
 ### Deliverables
-- [ ] LocalAI.Generator.csproj created
+- [ ] LMSupply.Generator.csproj created
 - [ ] Core interfaces defined (ITextGenerator, IChatFormatter)
 - [ ] Model classes defined (GeneratorOptions, ChatMessage, ModelInfo)
 - [ ] Package references configured
@@ -487,7 +487,7 @@ public static class HardwareDetector
 
 ### 4.2 Model Management
 
-**Task 4.2.1**: Implement ModelDownloader (extend LocalAI.Core pattern)
+**Task 4.2.1**: Implement ModelDownloader (extend LMSupply.Core pattern)
 ```csharp
 public sealed class GeneratorModelDownloader
 {
@@ -725,7 +725,7 @@ public static class WellKnownModels
 **Task 5.3.1**: Unit tests structure
 ```
 tests/
-└── LocalAI.Generator.Tests/
+└── LMSupply.Generator.Tests/
     ├── ChatFormatterTests.cs
     ├── StopSequenceDetectorTests.cs
     ├── GeneratorOptionsTests.cs
@@ -750,9 +750,9 @@ tests/
 ## Risk Mitigation
 
 ### DLL Hell Prevention (Critical)
-- LocalAI.Generator uses separate ONNX Runtime GenAI binaries
+- LMSupply.Generator uses separate ONNX Runtime GenAI binaries
 - Pin exact package versions in Directory.Packages.props
-- Test coexistence with LocalAI.Embedder/Reranker
+- Test coexistence with LMSupply.Embedder/Reranker
 
 ### DirectML Chat Mode Limitation
 - Document that continuous decoding not supported on DirectML
@@ -782,7 +782,7 @@ tests/
 
 ### Phase 4
 - [ ] Hardware auto-detection works
-- [ ] Model download integrates with LocalAI.Core
+- [ ] Model download integrates with LMSupply.Core
 - [ ] Memory limits enforced
 
 ### Phase 5
@@ -794,18 +794,18 @@ tests/
 
 ## Recommended Start Point
 
-**Begin with Phase 1, Task 1.1.1**: Create the LocalAI.Generator project structure.
+**Begin with Phase 1, Task 1.1.1**: Create the LMSupply.Generator project structure.
 
 ```bash
 # Create project
-dotnet new classlib -n LocalAI.Generator -o src/LocalAI.Generator
-cd src/LocalAI.Generator
+dotnet new classlib -n LMSupply.Generator -o src/LMSupply.Generator
+cd src/LMSupply.Generator
 
 # Add to solution
-dotnet sln ../../LocalAI.sln add LocalAI.Generator.csproj
+dotnet sln ../../LMSupply.sln add LMSupply.Generator.csproj
 
 # Add project reference
-dotnet add reference ../LocalAI.Core/LocalAI.Core.csproj
+dotnet add reference ../LMSupply.Core/LMSupply.Core.csproj
 ```
 
 Then proceed with interface definitions before any implementation.

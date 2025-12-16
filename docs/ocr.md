@@ -1,11 +1,11 @@
-# LocalAI.Ocr
+# LMSupply.Ocr
 
 A lightweight, zero-configuration OCR library for .NET with automatic GPU acceleration. Features a 2-stage detection + recognition pipeline using PaddleOCR ONNX models.
 
 ## Installation
 
 ```bash
-dotnet add package LocalAI.Ocr
+dotnet add package LMSupply.Ocr
 ```
 
 For GPU acceleration:
@@ -24,7 +24,7 @@ dotnet add package Microsoft.ML.OnnxRuntime.CoreML
 ## Basic Usage
 
 ```csharp
-using LocalAI.Ocr;
+using LMSupply.Ocr;
 
 // Load default OCR pipeline (English)
 await using var ocr = await LocalOcr.LoadAsync();
@@ -160,7 +160,7 @@ GPU acceleration is automatic when available. Priority order:
 
 ## Model Architecture
 
-LocalAI.Ocr uses a 2-stage pipeline:
+LMSupply.Ocr uses a 2-stage pipeline:
 
 1. **Detection (DBNet)**: Differentiable Binarization Network detects text regions
 2. **Recognition (CRNN)**: Convolutional Recurrent Neural Network with CTC decoding

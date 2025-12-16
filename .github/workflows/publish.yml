@@ -40,7 +40,7 @@ jobs:
             echo "SKIP=false" >> $GITHUB_OUTPUT
             echo "Force publish enabled, skipping version check"
           else
-            CORE_EXISTS=$(dotnet nuget search LocalAI.Core --source https://api.nuget.org/v3/index.json | grep -c "${{ steps.version.outputs.VERSION }}" || true)
+            CORE_EXISTS=$(dotnet nuget search LMSupply.Core --source https://api.nuget.org/v3/index.json | grep -c "${{ steps.version.outputs.VERSION }}" || true)
             if [ "$CORE_EXISTS" -gt "0" ]; then
               echo "SKIP=true" >> $GITHUB_OUTPUT
               echo "Version ${{ steps.version.outputs.VERSION }} already exists on NuGet"

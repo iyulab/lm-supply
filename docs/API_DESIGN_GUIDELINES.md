@@ -1,12 +1,12 @@
-# LocalAI API Design Guidelines
+# LMSupply API Design Guidelines
 
-This document defines the API design principles and patterns for all LocalAI packages.
-These guidelines ensure a consistent developer experience across the LocalAI family while allowing each package to express its unique characteristics.
+This document defines the API design principles and patterns for all LMSupply packages.
+These guidelines ensure a consistent developer experience across the LMSupply family while allowing each package to express its unique characteristics.
 
 ## Design Priorities
 
 1. **Domain-First**: Each package's API should optimally serve its specific use case
-2. **Consistency**: Predictable patterns across the LocalAI family
+2. **Consistency**: Predictable patterns across the LMSupply family
 3. **Simplicity**: Minimal boilerplate for common operations
 4. **Flexibility**: Advanced options available without cluttering the simple path
 
@@ -15,18 +15,18 @@ These guidelines ensure a consistent developer experience across the LocalAI fam
 ## 1. Package Naming Convention
 
 ```
-LocalAI.{Domain}
+LMSupply.{Domain}
 ```
 
 | Package | Domain | Description |
 |---------|--------|-------------|
-| LocalAI.Embedder | Text → Vector | Embedding generation |
-| LocalAI.Reranker | Query + Docs → Scores | Semantic reranking |
-| LocalAI.Generator | Prompt → Text | Text generation |
-| LocalAI.Transcriber | Audio → Text | Speech recognition |
-| LocalAI.Synthesizer | Text → Audio | Speech synthesis |
-| LocalAI.Captioner | Image → Text | Image captioning |
-| LocalAI.Detector | Image → Boxes | Object detection |
+| LMSupply.Embedder | Text → Vector | Embedding generation |
+| LMSupply.Reranker | Query + Docs → Scores | Semantic reranking |
+| LMSupply.Generator | Prompt → Text | Text generation |
+| LMSupply.Transcriber | Audio → Text | Speech recognition |
+| LMSupply.Synthesizer | Text → Audio | Speech synthesis |
+| LMSupply.Captioner | Image → Text | Image captioning |
+| LMSupply.Detector | Image → Boxes | Object detection |
 
 ---
 
@@ -245,7 +245,7 @@ All packages MUST support these standard aliases:
 ### 5.2 WellKnownModels Registry
 
 ```csharp
-// Centralized in LocalAI.Generator (or future LocalAI.Common)
+// Centralized in LMSupply.Generator (or future LMSupply.Common)
 public static class WellKnownModels
 {
     public static class Embedder { /* ... */ }
@@ -290,13 +290,13 @@ public readonly record struct {Domain}ModelInfo(
 ### 7.1 Exception Types
 
 ```csharp
-// Base exception in LocalAI.Core
-public class LocalAIException : Exception
+// Base exception in LMSupply.Core
+public class LMSupplyException : Exception
 
 // Domain-specific exceptions
-public class ModelNotFoundException : LocalAIException
-public class ModelLoadException : LocalAIException
-public class InferenceException : LocalAIException
+public class ModelNotFoundException : LMSupplyException
+public class ModelLoadException : LMSupplyException
+public class InferenceException : LMSupplyException
 ```
 
 ### 7.2 Validation
@@ -313,7 +313,7 @@ public class InferenceException : LocalAIException
 All long-running operations MUST support progress reporting:
 
 ```csharp
-// Shared in LocalAI.Core
+// Shared in LMSupply.Core
 public readonly record struct DownloadProgress(
     string FileName,
     long BytesDownloaded,
@@ -355,7 +355,7 @@ using var model = await LocalEmbedder.LoadAsync("default");
 ## 10. Namespace Structure
 
 ```
-LocalAI.{Domain}/
+LMSupply.{Domain}/
 ├── Local{Domain}.cs           # Static factory
 ├── I{Domain}Model.cs          # Main interface
 ├── {Domain}Options.cs         # Configuration
@@ -445,7 +445,7 @@ All current packages are fully compliant with API design guidelines.
 ## Appendix B: Future Package Template
 
 ```csharp
-// LocalAI.Transcriber example
+// LMSupply.Transcriber example
 
 public static class LocalTranscriber
 {

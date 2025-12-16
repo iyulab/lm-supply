@@ -1,17 +1,17 @@
-# LocalAI.Synthesizer
+# LMSupply.Synthesizer
 
 Text-to-speech synthesis using VITS/Piper models with ONNX Runtime.
 
 ## Quick Start
 
 ```csharp
-using LocalAI.Synthesizer;
+using LMSupply.Synthesizer;
 
 // Load the default model (English US Lessac)
 var synthesizer = await LocalSynthesizer.LoadAsync("default");
 
 // Synthesize speech from text
-var result = await synthesizer.SynthesizeAsync("Hello, welcome to LocalAI!");
+var result = await synthesizer.SynthesizeAsync("Hello, welcome to LMSupply!");
 Console.WriteLine($"Duration: {result.DurationSeconds:F2}s");
 Console.WriteLine($"Real-time factor: {result.RealTimeFactor:F1}x");
 
@@ -22,7 +22,7 @@ await synthesizer.SynthesizeToFileAsync("Hello world!", "output.wav");
 ## Installation
 
 ```bash
-dotnet add package LocalAI.Synthesizer
+dotnet add package LMSupply.Synthesizer
 ```
 
 ## Features

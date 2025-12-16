@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Package Metadata -->
+    <PackageId>LMSupply.Embedder</PackageId>
+    <Description>A simple .NET library for local text embeddings with automatic model downloading from HuggingFace. Supports CUDA, DirectML, and CoreML GPU acceleration.</Description>
+    <PackageTags>embeddings;ai;ml;onnx;bert;nlp;vector;semantic-search;huggingface;gpu;cuda;directml</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- Build Settings -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LMSupply.Embedder.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LMSupply.Core\LMSupply.Core.csproj" />
+    <ProjectReference Include="..\LMSupply.Text.Core\LMSupply.Text.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Numerics.Tensors" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <!-- Exclude native runtimes from NuGet package - they will be lazy-loaded -->
+  <ItemGroup>
+    <None Remove="runtimes\**\*" />
+  </ItemGroup>
+
+  <Target Name="ExcludeNativeAssets" BeforeTargets="GenerateNuspec">
+    <ItemGroup>
+      <_PackageFiles Remove="@(_PackageFiles)" Condition="$([System.String]::Copy('%(Identity)').Contains('runtimes'))" />
+    </ItemGroup>
+  </Target>
+
+</Project>

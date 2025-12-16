@@ -25,8 +25,8 @@
     <Copyright>Copyright (c) 2025 iyulab</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>https://github.com/iyulab/local-ai</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/iyulab/local-ai</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/iyulab/lm-supply</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/iyulab/lm-supply</PackageProjectUrl>
     <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
 

@@ -1,11 +1,11 @@
-# LocalAI.Segmenter
+# LMSupply.Segmenter
 
 A lightweight, zero-configuration image segmentation library for .NET with automatic GPU acceleration.
 
 ## Installation
 
 ```bash
-dotnet add package LocalAI.Segmenter
+dotnet add package LMSupply.Segmenter
 ```
 
 For GPU acceleration:
@@ -24,7 +24,7 @@ dotnet add package Microsoft.ML.OnnxRuntime.CoreML
 ## Basic Usage
 
 ```csharp
-using LocalAI.Segmenter;
+using LMSupply.Segmenter;
 
 // Load the default model
 await using var segmenter = await LocalSegmenter.LoadAsync("default");
