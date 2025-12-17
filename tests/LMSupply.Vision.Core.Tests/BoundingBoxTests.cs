@@ -87,8 +87,8 @@ public class BoundingBoxTests
 
         clipped.X.Should().Be(0);
         clipped.Y.Should().Be(0);
-        clipped.Right.Should().BeLessOrEqualTo(100);
-        clipped.Bottom.Should().BeLessOrEqualTo(100);
+        clipped.Right.Should().BeLessThanOrEqualTo(100);
+        clipped.Bottom.Should().BeLessThanOrEqualTo(100);
     }
 
     [Theory]

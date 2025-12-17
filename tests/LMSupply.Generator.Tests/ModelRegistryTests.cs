@@ -12,7 +12,7 @@ public class ModelRegistryTests
 
         // Assert
         models.Should().NotBeEmpty();
-        models.Should().HaveCountGreaterOrEqualTo(5);
+        models.Should().HaveCountGreaterThanOrEqualTo(5);
     }
 
     [Fact]

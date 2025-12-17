@@ -50,10 +50,10 @@ public class DetectionTests
         var detection = new Detection(new BoundingBox(-10, -20, 200, 150), 0, 0.9f);
         var clipped = detection.Clip(100, 100);
 
-        clipped.X.Should().BeGreaterOrEqualTo(0);
-        clipped.Y.Should().BeGreaterOrEqualTo(0);
-        clipped.BoundingBox.Right.Should().BeLessOrEqualTo(100);
-        clipped.BoundingBox.Bottom.Should().BeLessOrEqualTo(100);
+        clipped.X.Should().BeGreaterThanOrEqualTo(0);
+        clipped.Y.Should().BeGreaterThanOrEqualTo(0);
+        clipped.BoundingBox.Right.Should().BeLessThanOrEqualTo(100);
+        clipped.BoundingBox.Bottom.Should().BeLessThanOrEqualTo(100);
     }
 
     [Fact]
@@ -186,8 +186,8 @@ public class DetectionExtensionsTests
 
         var clipped = overflowing.Clip(100, 100).ToList();
 
-        clipped[0].X.Should().BeGreaterOrEqualTo(0);
-        clipped[1].BoundingBox.Right.Should().BeLessOrEqualTo(100);
+        clipped[0].X.Should().BeGreaterThanOrEqualTo(0);
+        clipped[1].BoundingBox.Right.Should().BeLessThanOrEqualTo(100);
     }
 
     [Fact]
