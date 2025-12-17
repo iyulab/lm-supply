@@ -19,7 +19,8 @@ public static class ModelRegistry
             DefaultQuantization = Quantization.INT4,
             RecommendedContextLength = 16384,
             NumLayers = 32,
-            HiddenSize = 3072
+            HiddenSize = 3072,
+            Subfolder = "cpu_and_mobile/cpu-int4-rtn-block-32-acc-level-4"
         },
         ["microsoft/Phi-3.5-mini-instruct-onnx"] = new ModelInfo
         {
@@ -32,7 +33,8 @@ public static class ModelRegistry
             DefaultQuantization = Quantization.INT4,
             RecommendedContextLength = 4096,
             NumLayers = 32,
-            HiddenSize = 3072
+            HiddenSize = 3072,
+            Subfolder = "cpu_and_mobile/cpu-int4-awq-block-128-acc-level-4"
         },
         ["microsoft/phi-4-onnx"] = new ModelInfo
         {
@@ -45,7 +47,8 @@ public static class ModelRegistry
             DefaultQuantization = Quantization.INT4,
             RecommendedContextLength = 8192,
             NumLayers = 40,
-            HiddenSize = 5120
+            HiddenSize = 5120,
+            Subfolder = "cpu_and_mobile/cpu-int4-rtn-block-32-acc-level-4"
         },
 
         // Tier 2: Conditional - Usage restrictions apply
@@ -61,7 +64,8 @@ public static class ModelRegistry
             DefaultQuantization = Quantization.INT4,
             RecommendedContextLength = 4096,
             NumLayers = 16,
-            HiddenSize = 2048
+            HiddenSize = 2048,
+            Subfolder = "onnx"
         },
         ["onnx-community/Llama-3.2-3B-Instruct-ONNX"] = new ModelInfo
         {
@@ -75,7 +79,8 @@ public static class ModelRegistry
             DefaultQuantization = Quantization.INT4,
             RecommendedContextLength = 4096,
             NumLayers = 28,
-            HiddenSize = 3072
+            HiddenSize = 3072,
+            Subfolder = "onnx"
         },
         ["google/gemma-2-2b-it-onnx"] = new ModelInfo
         {
@@ -89,7 +94,8 @@ public static class ModelRegistry
             DefaultQuantization = Quantization.INT4,
             RecommendedContextLength = 4096,
             NumLayers = 26,
-            HiddenSize = 2304
+            HiddenSize = 2304,
+            Subfolder = "onnx"
         }
     };
 
@@ -245,6 +251,11 @@ public sealed record ModelInfo
     /// Hidden dimension size.
     /// </summary>
     public required int HiddenSize { get; init; }
+
+    /// <summary>
+    /// Subfolder within the repository containing the ONNX files.
+    /// </summary>
+    public string? Subfolder { get; init; }
 
     /// <summary>
     /// Gets memory configuration for this model.

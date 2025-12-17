@@ -1,3 +1,4 @@
+using LMSupply.Core.Download;
 using LMSupply.Embedder.Inference;
 using LMSupply.Embedder.Pooling;
 using LMSupply.Embedder.Utils;
@@ -105,13 +106,27 @@ public static class LocalEmbedder
             var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
             using var downloader = new HuggingFaceDownloader(cacheDir);
 
-            var modelDir = await downloader.DownloadModelAsync(
+            // Use auto-discovery to find ONNX files and config
+            var (downloadedDir, discovery) = await downloader.DownloadWithDiscoveryAsync(
                 modelIdOrPath,
+                preferences: ModelPreferences.Default,
                 progress: progress,
                 cancellationToken: cancellationToken);
 
-            modelPath = Path.Combine(modelDir, "model.onnx");
-            vocabPath = Path.Combine(modelDir, "vocab.txt");
+            // Find the main model ONNX file
+            var mainOnnxFile = discovery.OnnxFiles.FirstOrDefault(f =>
+                f.EndsWith("model.onnx", StringComparison.OrdinalIgnoreCase)) ??
+                discovery.OnnxFiles.FirstOrDefault();
+
+            if (mainOnnxFile is null)
+            {
+                throw new ModelNotFoundException(
+                    $"No ONNX model file found in repository '{modelIdOrPath}'.",
+                    modelIdOrPath);
+            }
+
+            modelPath = Path.Combine(downloadedDir, Path.GetFileName(mainOnnxFile));
+            vocabPath = Path.Combine(downloadedDir, "vocab.txt");
             modelId = modelIdOrPath.Split('/').Last();
         }
         else

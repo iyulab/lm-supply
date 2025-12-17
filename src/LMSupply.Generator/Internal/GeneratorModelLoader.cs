@@ -1,3 +1,4 @@
+using LMSupply.Core.Download;
 using LMSupply.Download;
 using LMSupply.Generator.Abstractions;
 using LMSupply.Generator.ChatFormatters;
@@ -29,14 +30,33 @@ internal static class GeneratorModelLoader
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         using var downloader = new HuggingFaceDownloader(cacheDir);
 
-        // Download model files (GenAI models need specific files)
-        var modelPath = await downloader.DownloadModelAsync(
-            modelId,
-            files: GenAIModelFiles,
-            revision: "main",
-            subfolder: null,
-            progress: progress,
-            cancellationToken: cancellationToken);
+        // Look up model in registry to get subfolder
+        var modelInfo = ModelRegistry.GetModel(modelId);
+
+        string modelPath;
+
+        if (modelInfo is not null)
+        {
+            // Known model: use registry subfolder
+            modelPath = await downloader.DownloadModelAsync(
+                modelId,
+                files: GenAIModelFiles,
+                revision: "main",
+                subfolder: modelInfo.Subfolder,
+                progress: progress,
+                cancellationToken: cancellationToken);
+        }
+        else
+        {
+            // Unknown model: use auto-discovery to find ONNX files
+            var (downloadedDir, _) = await downloader.DownloadWithDiscoveryAsync(
+                modelId,
+                preferences: ModelPreferences.Default,
+                progress: progress,
+                cancellationToken: cancellationToken);
+
+            modelPath = downloadedDir;
+        }
 
         return await LoadFromPathAsync(modelPath, options, modelId);
     }

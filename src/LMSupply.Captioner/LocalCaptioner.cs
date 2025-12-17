@@ -1,5 +1,6 @@
 using LMSupply.Captioner.Inference;
 using LMSupply.Captioner.Models;
+using LMSupply.Core.Download;
 using LMSupply.Download;
 using LMSupply.Exceptions;
 
@@ -69,16 +70,21 @@ public static class LocalCaptioner
             var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
             using var downloader = new HuggingFaceDownloader(cacheDir);
 
-            modelDir = await downloader.DownloadModelAsync(
+            // Use auto-discovery to find ONNX files and config
+            var (downloadedDir, discovery) = await downloader.DownloadWithDiscoveryAsync(
                 modelIdOrPath,
+                preferences: ModelPreferences.Default,
                 progress: progress,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            modelDir = downloadedDir;
 
             // Try to infer model info
             if (!TryInferModelInfo(modelDir, out modelInfo))
             {
                 throw new ModelNotFoundException(
                     $"Could not determine model type for: {modelIdOrPath}. " +
+                    $"Discovered ONNX files: [{string.Join(", ", discovery.OnnxFiles)}]. " +
                     "Use a known model ID (e.g., 'default', 'vit-gpt2') or ensure the model follows a supported format.",
                     modelIdOrPath);
             }

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using LMSupply.Core.Download;
 using LMSupply.Exceptions;
 
 namespace LMSupply.Download;
@@ -44,6 +45,51 @@ public sealed class HuggingFaceDownloader : IDisposable
 
         _httpClient.DefaultRequestHeaders.UserAgent.Add(
             new ProductInfoHeaderValue("LMSupply", "1.0"));
+    }
+
+    /// <summary>
+    /// Downloads a model from HuggingFace using automatic file discovery.
+    /// This eliminates the need to specify subfolder or file list manually.
+    /// </summary>
+    /// <param name="repoId">The HuggingFace repository ID (e.g., "microsoft/Phi-3-mini-4k-instruct-onnx").</param>
+    /// <param name="preferences">Optional preferences for model selection (quantization, device, etc.).</param>
+    /// <param name="revision">The revision/branch (default: "main").</param>
+    /// <param name="progress">Optional progress reporter.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Discovery result with local directory path and file information.</returns>
+    public async Task<(string LocalPath, ModelDiscoveryResult Discovery)> DownloadWithDiscoveryAsync(
+        string repoId,
+        ModelPreferences? preferences = null,
+        string revision = "main",
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
+
+        using var discoveryService = new ModelDiscoveryService(_cacheDir);
+        var discovery = await discoveryService.DiscoverModelAsync(repoId, preferences, revision, cancellationToken);
+
+        var modelDir = CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
+        Directory.CreateDirectory(modelDir);
+
+        // Download all discovered files
+        foreach (var file in discovery.GetAllFiles())
+        {
+            var fileName = Path.GetFileName(file);
+            var localPath = Path.Combine(modelDir, fileName);
+
+            if (!File.Exists(localPath) || CacheManager.IsLfsPointerFile(localPath))
+            {
+                // Determine subfolder from file path
+                var fileSubfolder = file.Contains('/') ? file[..file.LastIndexOf('/')] : null;
+
+                await DownloadFileWithRetryAsync(
+                    repoId, fileName, localPath, revision, fileSubfolder,
+                    progress, cancellationToken);
+            }
+        }
+
+        return (modelDir, discovery);
     }
 
     /// <summary>
