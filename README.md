@@ -289,6 +289,27 @@ dotnet add package Microsoft.ML.OnnxRuntime.CoreML    # macOS
 
 ---
 
+## Custom Models
+
+LMSupply supports any HuggingFace repository with ONNX models through automatic file discovery:
+
+```csharp
+// Use any HuggingFace ONNX model repository
+await using var embedder = await LocalEmbedder.LoadAsync("my-org/my-custom-embedder");
+await using var captioner = await LocalCaptioner.LoadAsync("my-org/my-vision-model");
+var generator = await LocalGenerator.LoadAsync("my-org/my-llm-onnx");
+```
+
+The system automatically:
+- Discovers ONNX files via HuggingFace API
+- Detects subfolder structure (`onnx/`, `cpu/`, `cuda/`)
+- Selects appropriate quantization variants
+- Downloads required tokenizer and config files
+
+For private repositories, set the `HF_TOKEN` environment variable.
+
+---
+
 ## Model Caching
 
 Models are cached following HuggingFace Hub conventions:
