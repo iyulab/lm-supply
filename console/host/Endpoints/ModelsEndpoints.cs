@@ -111,6 +111,14 @@ public static class ModelsEndpoints
                 return;
             }
 
+            // SSE 응답 전에 CORS 헤더를 수동으로 설정 (응답 시작 후 CORS 미들웨어 충돌 방지)
+            var origin = context.Request.Headers.Origin.ToString();
+            if (!string.IsNullOrEmpty(origin))
+            {
+                context.Response.Headers.AccessControlAllowOrigin = origin;
+                context.Response.Headers.AccessControlAllowCredentials = "true";
+            }
+
             context.Response.ContentType = "text/event-stream";
             context.Response.Headers.CacheControl = "no-cache";
             context.Response.Headers.Connection = "keep-alive";

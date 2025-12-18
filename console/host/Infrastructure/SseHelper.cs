@@ -20,6 +20,9 @@ public static class SseHelper
         IAsyncEnumerable<T> source,
         CancellationToken cancellationToken = default)
     {
+        // SSE 응답 전에 CORS 헤더를 수동으로 설정 (응답 시작 후 CORS 미들웨어 충돌 방지)
+        SetCorsHeaders(context);
+
         context.Response.Headers.ContentType = "text/event-stream";
         context.Response.Headers.CacheControl = "no-cache";
         context.Response.Headers.Connection = "keep-alive";
@@ -43,6 +46,9 @@ public static class SseHelper
         IAsyncEnumerable<string> tokens,
         CancellationToken cancellationToken = default)
     {
+        // SSE 응답 전에 CORS 헤더를 수동으로 설정 (응답 시작 후 CORS 미들웨어 충돌 방지)
+        SetCorsHeaders(context);
+
         context.Response.Headers.ContentType = "text/event-stream";
         context.Response.Headers.CacheControl = "no-cache";
         context.Response.Headers.Connection = "keep-alive";
@@ -56,5 +62,18 @@ public static class SseHelper
 
         await context.Response.WriteAsync("data: [DONE]\n\n", cancellationToken);
         await context.Response.Body.FlushAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// SSE 응답 전에 CORS 헤더를 수동으로 설정
+    /// </summary>
+    private static void SetCorsHeaders(HttpContext context)
+    {
+        var origin = context.Request.Headers.Origin.ToString();
+        if (!string.IsNullOrEmpty(origin))
+        {
+            context.Response.Headers.AccessControlAllowOrigin = origin;
+            context.Response.Headers.AccessControlAllowCredentials = "true";
+        }
     }
 }
