@@ -120,3 +120,65 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      skip: ${{ steps.check.outputs.SKIP }}
+
+  # Build Console Host for multiple platforms
+  build-console:
+    needs: publish
+    if: needs.publish.outputs.skip != 'true'
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            artifact: lm-supply-win-x64.zip
+          - os: ubuntu-latest
+            rid: linux-x64
+            artifact: lm-supply-linux-x64.tar.gz
+          - os: macos-latest
+            rid: osx-x64
+            artifact: lm-supply-osx-x64.tar.gz
+          - os: macos-latest
+            rid: osx-arm64
+            artifact: lm-supply-osx-arm64.tar.gz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish Console Host
+        run: |
+          dotnet publish console/host/LMSupply.Console.Host.csproj \
+            --configuration Release \
+            --runtime ${{ matrix.rid }} \
+            --output ./publish/${{ matrix.rid }}
+
+      - name: Package (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path ./publish/${{ matrix.rid }}/* -DestinationPath ./publish/${{ matrix.artifact }}
+
+      - name: Package (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd ./publish/${{ matrix.rid }}
+          tar -czvf ../${{ matrix.artifact }} *
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.publish.outputs.version }}
+          files: ./publish/${{ matrix.artifact }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
