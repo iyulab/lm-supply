@@ -1,5 +1,7 @@
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.FileProviders;
 using LMSupply.Console.Host.Endpoints;
 using LMSupply.Console.Host.Services;
 
@@ -40,14 +42,26 @@ builder.Services.AddSingleton<DownloadService>();
 
 var app = builder.Build();
 
-// 개발 환경에서 Swagger UI
-if (app.Environment.IsDevelopment())
+// Swagger UI
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "LMSupply Console API v1");
+    c.RoutePrefix = "swagger";
+});
 
 app.UseCors();
+
+// 임베디드 리소스에서 정적 파일 제공
+var assembly = Assembly.GetExecutingAssembly();
+var embeddedProvider = new ManifestEmbeddedFileProvider(assembly, "wwwroot");
+var hasEmbeddedFiles = embeddedProvider.GetDirectoryContents("/").Exists;
+
+if (hasEmbeddedFiles)
+{
+    app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = embeddedProvider });
+    app.UseStaticFiles(new StaticFileOptions { FileProvider = embeddedProvider });
+}
 
 // API 엔드포인트 매핑
 app.MapModelsEndpoints();
@@ -65,5 +79,27 @@ app.MapTranslateEndpoints();
 
 // Health check
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
+
+// 루트 엔드포인트
+app.MapGet("/", () =>
+{
+    var indexFile = embeddedProvider.GetFileInfo("index.html");
+    if (indexFile.Exists)
+    {
+        return Results.Stream(indexFile.CreateReadStream(), "text/html");
+    }
+    return Results.Redirect("/swagger");
+});
+
+// SPA 폴백: API 이외의 경로는 index.html로 (클라이언트 사이드 라우팅)
+app.MapFallback(() =>
+{
+    var indexFile = embeddedProvider.GetFileInfo("index.html");
+    if (indexFile.Exists)
+    {
+        return Results.Stream(indexFile.CreateReadStream(), "text/html");
+    }
+    return Results.NotFound();
+});
 
 app.Run();

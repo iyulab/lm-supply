@@ -8,8 +8,15 @@
     <RootNamespace>LMSupply.Console.Host</RootNamespace>
     <IsPackable>false</IsPackable>
     <AssemblyName>lm-supply</AssemblyName>
+    <!-- 임베디드 파일 매니페스트 생성 (ManifestEmbeddedFileProvider용) -->
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
   </PropertyGroup>
 
+  <!-- wwwroot 파일을 임베디드 리소스로 포함 (단일 실행파일에 포함) -->
+  <ItemGroup>
+    <EmbeddedResource Include="wwwroot\**" />
+    <Content Remove="wwwroot\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- LMSupply References -->
@@ -30,6 +37,8 @@
     <!-- OpenAPI/Swagger -->
     <PackageReference Include="Swashbuckle.AspNetCore" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- 임베디드 정적 파일 제공 -->
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" />
   </ItemGroup>
 
 </Project>

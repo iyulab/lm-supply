@@ -43,3 +43,6 @@ docs/research/
 claudedocs/
 local-docs/
 nul
+
+# Console Host - Vite build output (embedded at build time)
+console/host/wwwroot/
