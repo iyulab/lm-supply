@@ -24,6 +24,9 @@ import type {
   TranslateLanguage,
   ModelRegistry,
   ModelTypeInfo,
+  ImageGenerationRequest,
+  ImageGenerationExtendedResponse,
+  ImageModelInfo,
 } from './types';
 
 const API_BASE = '/api';
@@ -426,4 +429,27 @@ export const api = {
   getModelRegistry: () => fetchJson<ModelRegistry>(`${API_BASE}/registry/models`),
 
   getModelsByType: (type: string) => fetchJson<ModelTypeInfo>(`${API_BASE}/registry/models/${encodeURIComponent(type)}`),
+
+  // ============================================================================
+  // Image Generation Endpoints
+  // ============================================================================
+
+  generateImage: (request: ImageGenerationRequest) =>
+    fetchJson<ImageGenerationExtendedResponse>(`${V1_BASE}/images/generate`, {
+      method: 'POST',
+      body: JSON.stringify({
+        prompt: request.prompt,
+        model: request.model,
+        size: request.size,
+        steps: request.steps,
+        guidance_scale: request.guidance_scale,
+        seed: request.seed,
+        negative_prompt: request.negative_prompt,
+      }),
+    }),
+
+  getImageModels: async (): Promise<ImageModelInfo[]> => {
+    const response = await fetchJson<{ models: ImageModelInfo[] }>(`${V1_BASE}/images/models`);
+    return response.models;
+  },
 };

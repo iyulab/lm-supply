@@ -347,3 +347,54 @@ export interface ModelTypeInfo {
 export interface ModelRegistry {
   modelTypes: ModelTypeInfo[];
 }
+
+// ============================================================================
+// Image Generation Types
+// ============================================================================
+
+export interface ImageGenerationRequest {
+  prompt: string;
+  model?: string;
+  n?: number;
+  size?: string;
+  response_format?: string;
+  steps?: number;
+  guidance_scale?: number;
+  seed?: number;
+  negative_prompt?: string;
+}
+
+export interface GeneratedImageData {
+  b64_json?: string;
+  url?: string;
+  revised_prompt?: string;
+}
+
+export interface ImageGenerationResponse {
+  created: number;
+  data: GeneratedImageData[];
+}
+
+export interface GeneratedImageExtendedData {
+  b64_json?: string;
+  width: number;
+  height: number;
+  seed: number;
+  steps: number;
+  prompt?: string;
+}
+
+export interface ImageGenerationExtendedResponse {
+  id: string;
+  model: string;
+  created: number;
+  data: GeneratedImageExtendedData[];
+  generation_time_ms: number;
+}
+
+export interface ImageModelInfo {
+  id: string;
+  repo_id: string;
+  recommended_steps: number;
+  recommended_guidance_scale: number;
+}

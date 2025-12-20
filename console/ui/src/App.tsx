@@ -13,6 +13,7 @@ import {
   Detect,
   Segment,
   Translate,
+  ImageGenerate,
 } from './pages';
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/detect" element={<Detect />} />
           <Route path="/segment" element={<Segment />} />
           <Route path="/translate" element={<Translate />} />
+          <Route path="/image-generate" element={<ImageGenerate />} />
           <Route path="/models" element={<Models />} />
         </Route>
       </Routes>

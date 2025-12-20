@@ -10,3 +10,4 @@ export { Ocr } from './Ocr';
 export { Detect } from './Detect';
 export { Segment } from './Segment';
 export { Translate } from './Translate';
+export { ImageGenerate } from './ImageGenerate';

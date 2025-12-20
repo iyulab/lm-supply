@@ -14,6 +14,7 @@ import {
   Languages,
   FileText,
   ExternalLink,
+  Wand2,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -34,6 +35,7 @@ const featureNavItems = [
   { to: '/detect', icon: ScanSearch, label: 'Detect' },
   { to: '/segment', icon: Grid3X3, label: 'Segment' },
   { to: '/translate', icon: Languages, label: 'Translate' },
+  { to: '/image-generate', icon: Wand2, label: 'Image Gen' },
 ];
 
 export function Layout() {
