@@ -83,6 +83,7 @@ public sealed class LcmScheduler
         }
 
         // Select subset of timesteps for actual inference
+        // Timesteps go from high noise (high t) to low noise (low t)
         var skippingStep = lcmOriginSteps / numInferenceSteps;
         _timesteps = new int[numInferenceSteps];
         for (int i = 0; i < numInferenceSteps; i++)
@@ -90,9 +91,6 @@ public sealed class LcmScheduler
             var idx = Math.Min(lcmOriginSteps - 1 - (i * skippingStep), lcmOriginSteps - 1);
             _timesteps[numInferenceSteps - 1 - i] = allTimesteps[idx];
         }
-
-        // Reverse to go from high noise to low noise
-        Array.Reverse(_timesteps);
     }
 
     /// <summary>
