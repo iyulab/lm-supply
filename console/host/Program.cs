@@ -76,6 +76,7 @@ app.MapOcrEndpoints();
 app.MapDetectEndpoints();
 app.MapSegmentEndpoints();
 app.MapTranslateEndpoints();
+app.MapImageEndpoints();
 
 // Health check
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));

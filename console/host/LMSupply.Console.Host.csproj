@@ -31,6 +31,7 @@
     <ProjectReference Include="..\..\src\LMSupply.Detector\LMSupply.Detector.csproj" />
     <ProjectReference Include="..\..\src\LMSupply.Segmenter\LMSupply.Segmenter.csproj" />
     <ProjectReference Include="..\..\src\LMSupply.Translator\LMSupply.Translator.csproj" />
+    <ProjectReference Include="..\..\src\LMSupply.ImageGenerator\LMSupply.ImageGenerator.csproj" />
   </ItemGroup>
 
   <ItemGroup>

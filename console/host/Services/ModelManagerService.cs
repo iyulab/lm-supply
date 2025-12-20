@@ -4,6 +4,7 @@ using LMSupply.Detector;
 using LMSupply.Embedder;
 using LMSupply.Generator;
 using LMSupply.Generator.Abstractions;
+using LMSupply.ImageGenerator;
 using LMSupply.Ocr;
 using LMSupply.Reranker;
 using LMSupply.Segmenter;
@@ -217,6 +218,23 @@ public sealed class ModelManagerService : IAsyncDisposable
             // LocalTranslator.LoadAsync already calls WarmupAsync internally
             return model;
         }, "translator", modelId, cancellationToken);
+    }
+
+    /// <summary>
+    /// ImageGenerator 모델 조회 (없으면 로드)
+    /// </summary>
+    public async Task<IImageGeneratorModel> GetImageGeneratorAsync(
+        string modelId,
+        CancellationToken cancellationToken = default)
+    {
+        var key = $"imagegen:{modelId}";
+        return (IImageGeneratorModel)await GetOrLoadModelAsync(key, async () =>
+        {
+            _logger.LogInformation("Loading ImageGenerator model: {ModelId}", modelId);
+            var model = await LocalImageGenerator.LoadAsync(modelId, cancellationToken: cancellationToken);
+            await model.WarmupAsync(cancellationToken);
+            return model;
+        }, "imagegen", modelId, cancellationToken);
     }
 
     /// <summary>
