@@ -66,7 +66,12 @@ public static class OcrEndpoints
         })
         .DisableAntiforgery()
         .WithName("RecognizeText")
-        .WithSummary("Extract text from an image (OCR)");
+        .WithSummary("Extract text from an image (OCR)")
+        .WithDescription("Performs optical character recognition to extract text from images.")
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces<OcrResponse>()
+        .Produces<ErrorResponse>(400)
+        .Produces<ErrorResponse>(500);
 
         // GET /v1/images/ocr/languages - List supported OCR languages
         group.MapGet("/ocr/languages", () =>
@@ -75,6 +80,7 @@ public static class OcrEndpoints
             return Results.Ok(new { languages });
         })
         .WithName("ListOcrLanguages")
-        .WithSummary("List supported OCR languages");
+        .WithSummary("List supported OCR languages")
+        .WithDescription("Returns a list of language codes supported for OCR.");
     }
 }

@@ -76,7 +76,11 @@ public static class TranslateEndpoints
             }
         })
         .WithName("Translate")
-        .WithSummary("Translate text between languages");
+        .WithSummary("Translate text between languages")
+        .WithDescription("Translates text from one language to another using neural machine translation.")
+        .Produces<TranslateResponse>()
+        .Produces<ErrorResponse>(400)
+        .Produces<ErrorResponse>(500);
 
         // GET /v1/translate/languages - List available translation directions
         group.MapGet("/translate/languages", () =>
@@ -94,6 +98,7 @@ public static class TranslateEndpoints
             });
         })
         .WithName("ListTranslateLanguages")
-        .WithSummary("List available translation directions");
+        .WithSummary("List available translation directions")
+        .WithDescription("Returns all supported translation language pairs and their aliases.");
     }
 }

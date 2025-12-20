@@ -48,6 +48,10 @@ public static class SynthesizeEndpoints
             }
         })
         .WithName("CreateSpeech")
-        .WithSummary("Generate audio from text (OpenAI compatible)");
+        .WithSummary("Generate audio from text (OpenAI compatible)")
+        .WithDescription("Generates audio from text input. Compatible with OpenAI's text-to-speech API.")
+        .Produces(200, contentType: "audio/wav")
+        .Produces<ErrorResponse>(400)
+        .Produces<ErrorResponse>(500);
     }
 }

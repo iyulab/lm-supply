@@ -69,7 +69,12 @@ public static class DetectEndpoints
         })
         .DisableAntiforgery()
         .WithName("DetectObjects")
-        .WithSummary("Detect objects in an image");
+        .WithSummary("Detect objects in an image")
+        .WithDescription("Detects objects in an image and returns their locations and labels using YOLO-based detection.")
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces<DetectionResponse>()
+        .Produces<ErrorResponse>(400)
+        .Produces<ErrorResponse>(500);
 
         // GET /v1/images/detect/labels - List COCO class labels
         group.MapGet("/detect/labels", () =>
@@ -81,6 +86,7 @@ public static class DetectEndpoints
             });
         })
         .WithName("ListDetectionLabels")
-        .WithSummary("List available object detection labels");
+        .WithSummary("List available object detection labels")
+        .WithDescription("Returns the COCO class labels used for object detection.");
     }
 }

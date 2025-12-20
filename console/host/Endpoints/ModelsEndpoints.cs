@@ -48,7 +48,9 @@ public static class ModelsEndpoints
             return Results.Ok(new ModelListResponse { Data = allModels });
         })
         .WithName("ListModels")
-        .WithSummary("List available models (OpenAI compatible)");
+        .WithSummary("List available models (OpenAI compatible)")
+        .WithDescription("Returns a list of models available in the local cache and loaded models.")
+        .Produces<ModelListResponse>();
 
         // GET /v1/models/{model} - Get model info (OpenAI compatible)
         v1Group.MapGet("/models/{*model}", (string model) =>
@@ -60,7 +62,9 @@ public static class ModelsEndpoints
             });
         })
         .WithName("GetModel")
-        .WithSummary("Get model information (OpenAI compatible)");
+        .WithSummary("Get model information (OpenAI compatible)")
+        .WithDescription("Returns information about a specific model.")
+        .Produces<ModelInfo>();
 
         // Cache management endpoints (LMSupply-specific)
         var cacheGroup = app.MapGroup("/api/cache")
@@ -79,7 +83,8 @@ public static class ModelsEndpoints
             });
         })
         .WithName("GetCachedModels")
-        .WithSummary("List all cached models");
+        .WithSummary("List all cached models")
+        .WithDescription("Returns all models stored in the local cache directory.");
 
         // GET /api/cache/models/type/{type} - List cached models by type
         cacheGroup.MapGet("/models/type/{type}", (string type, CacheService cache) =>
@@ -93,7 +98,9 @@ public static class ModelsEndpoints
             return Results.Ok(models);
         })
         .WithName("GetModelsByType")
-        .WithSummary("List cached models by type");
+        .WithSummary("List cached models by type")
+        .WithDescription("Returns cached models filtered by type (embedder, reranker, generator, etc.).")
+        .Produces<ErrorResponse>(400);
 
         // GET /api/cache/loaded - List currently loaded models
         cacheGroup.MapGet("/loaded", (ModelManagerService manager) =>
@@ -102,28 +109,33 @@ public static class ModelsEndpoints
             return Results.Ok(models);
         })
         .WithName("GetLoadedModels")
-        .WithSummary("List currently loaded models");
+        .WithSummary("List currently loaded models")
+        .WithDescription("Returns models currently loaded in memory and ready for inference.");
 
         // DELETE /api/cache/models/{repoId} - Delete cached model
         cacheGroup.MapDelete("/models/{*repoId}", async (string repoId, CacheService cache, ModelManagerService manager) =>
         {
+            // URL decode the repoId (handles nvidia%2Fmodel → nvidia/model)
+            var decodedRepoId = Uri.UnescapeDataString(repoId);
+
             // Unload model first if loaded
             var loadedModels = manager.GetLoadedModels();
-            foreach (var loaded in loadedModels.Where(m => m.ModelId == repoId))
+            foreach (var loaded in loadedModels.Where(m => m.ModelId == decodedRepoId))
             {
-                await manager.UnloadModelAsync($"{loaded.ModelType}:{repoId}");
+                await manager.UnloadModelAsync($"{loaded.ModelType}:{decodedRepoId}");
             }
 
-            var success = cache.DeleteModel(repoId);
+            var success = cache.DeleteModel(decodedRepoId);
             if (success)
             {
-                return Results.Ok(new { message = $"Model deleted: {repoId}" });
+                return Results.Ok(new { message = $"Model deleted: {decodedRepoId}" });
             }
 
-            return Results.NotFound(new { error = $"Model not found: {repoId}" });
+            return Results.NotFound(new { error = $"Model not found: {decodedRepoId}" });
         })
         .WithName("DeleteModel")
-        .WithSummary("Delete a cached model");
+        .WithSummary("Delete a cached model")
+        .WithDescription("Deletes a model from the local cache. The model is unloaded first if currently loaded.");
 
         // GET /api/cache/stats - Cache statistics
         cacheGroup.MapGet("/stats", (CacheService cache) =>
@@ -141,7 +153,8 @@ public static class ModelsEndpoints
             });
         })
         .WithName("GetCacheStats")
-        .WithSummary("Cache statistics");
+        .WithSummary("Cache statistics")
+        .WithDescription("Returns statistics about the model cache including total count, size, and breakdown by type.");
 
         // Download endpoints
         var downloadGroup = app.MapGroup("/api/download")
@@ -160,7 +173,9 @@ public static class ModelsEndpoints
             return Results.Ok(result);
         })
         .WithName("CheckModel")
-        .WithSummary("Check model availability on HuggingFace");
+        .WithSummary("Check model availability on HuggingFace")
+        .WithDescription("Checks if a model repository exists on HuggingFace Hub and returns metadata.")
+        .Produces<ErrorResponse>(400);
 
         // POST /api/download/model - Download model from HuggingFace (SSE progress)
         downloadGroup.MapPost("/model", async (ModelDownloadRequest request, DownloadService download, HttpContext context, CancellationToken ct) =>
@@ -211,7 +226,8 @@ public static class ModelsEndpoints
             }
         })
         .WithName("DownloadModel")
-        .WithSummary("Download model from HuggingFace (SSE progress)");
+        .WithSummary("Download model from HuggingFace (SSE progress)")
+        .WithDescription("Downloads a model from HuggingFace Hub with real-time progress via Server-Sent Events.");
     }
 }
 

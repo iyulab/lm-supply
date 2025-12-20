@@ -3,26 +3,33 @@ import { useSystemStore } from '../stores/systemStore';
 import { formatBytes, formatDate } from '../lib/utils';
 import { Trash2, RefreshCw, Power, Download, Search, Loader2 } from 'lucide-react';
 import { api } from '../api/client';
-import type { ModelCheckResult, DownloadProgress } from '../api/types';
+import type { ModelCheckResult } from '../api/types';
 
 export function Models() {
   const {
     cachedModels,
     loadedModels,
+    downloadingModels,
     isLoading,
     fetchModels,
     fetchLoadedModels,
     deleteModel,
     unloadModel,
+    startDownload,
+    isDownloading: checkIsDownloading,
   } = useSystemStore();
 
-  // Download state
+  // Download form state
   const [repoId, setRepoId] = useState('');
   const [checkResult, setCheckResult] = useState<ModelCheckResult | null>(null);
   const [isChecking, setIsChecking] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
+
+  // Get current download state for the form input
+  const currentDownload = downloadingModels.get(repoId);
+  const isDownloading = currentDownload !== undefined && !currentDownload.error && currentDownload.progress?.status !== 'Completed';
+  const downloadProgress = currentDownload?.progress ?? null;
+  const downloadError = currentDownload?.error ?? null;
 
   useEffect(() => {
     fetchModels();
@@ -48,12 +55,12 @@ export function Models() {
     if (!repoId.trim()) return;
     setIsChecking(true);
     setCheckResult(null);
-    setDownloadError(null);
+    setCheckError(null);
     try {
       const result = await api.checkModel(repoId.trim());
       setCheckResult(result);
     } catch (err) {
-      setDownloadError((err as Error).message);
+      setCheckError((err as Error).message);
     } finally {
       setIsChecking(false);
     }
@@ -61,27 +68,7 @@ export function Models() {
 
   const handleDownload = async () => {
     if (!repoId.trim()) return;
-    setIsDownloading(true);
-    setDownloadProgress(null);
-    setDownloadError(null);
-    try {
-      for await (const progress of api.downloadModel(repoId.trim())) {
-        setDownloadProgress(progress);
-        if (progress.status === 'Failed') {
-          setDownloadError(progress.error || 'Download failed');
-          break;
-        }
-        if (progress.status === 'Completed') {
-          // Refresh models list
-          fetchModels();
-          break;
-        }
-      }
-    } catch (err) {
-      setDownloadError((err as Error).message);
-    } finally {
-      setIsDownloading(false);
-    }
+    startDownload(repoId.trim());
   };
 
   return (
@@ -192,9 +179,9 @@ export function Models() {
           )}
 
           {/* Error */}
-          {downloadError && (
+          {(checkError || downloadError) && (
             <div className="p-3 bg-destructive/10 border border-destructive/30 rounded">
-              <p className="text-destructive">Error: {downloadError}</p>
+              <p className="text-destructive">Error: {checkError || downloadError}</p>
             </div>
           )}
         </div>
@@ -234,6 +221,49 @@ export function Models() {
         )}
       </div>
 
+      {/* Downloading Models */}
+      {downloadingModels.size > 0 && (
+        <div className="bg-card border border-border rounded-lg p-4">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            Downloading ({downloadingModels.size})
+          </h2>
+          <div className="space-y-3">
+            {Array.from(downloadingModels.values()).map((dl) => (
+              <div key={dl.repoId} className="p-3 bg-muted rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-medium">{dl.repoId}</span>
+                  {dl.error ? (
+                    <span className="text-destructive text-sm">Failed</span>
+                  ) : dl.progress?.status === 'Completed' ? (
+                    <span className="text-green-500 text-sm">✓ Completed</span>
+                  ) : (
+                    <span className="text-primary text-sm">
+                      {dl.progress?.percentComplete?.toFixed(1) ?? 0}%
+                    </span>
+                  )}
+                </div>
+                {dl.error ? (
+                  <p className="text-sm text-destructive">{dl.error}</p>
+                ) : dl.progress && dl.progress.status !== 'Completed' ? (
+                  <>
+                    <div className="w-full bg-secondary rounded-full h-2 mb-1">
+                      <div
+                        className="bg-primary h-2 rounded-full transition-all"
+                        style={{ width: `${dl.progress.percentComplete}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {dl.progress.fileName} - {formatBytes(dl.progress.bytesDownloaded)} / {formatBytes(dl.progress.totalBytes)}
+                    </p>
+                  </>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Cached Models */}
       <div className="bg-card border border-border rounded-lg p-4">
         <h2 className="text-lg font-semibold mb-4">
@@ -252,38 +282,58 @@ export function Models() {
                   <th className="p-2 font-medium">Type</th>
                   <th className="p-2 font-medium">Size</th>
                   <th className="p-2 font-medium">Files</th>
-                  <th className="p-2 font-medium">Modified</th>
+                  <th className="p-2 font-medium">Status</th>
                   <th className="p-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {cachedModels.map((model) => (
-                  <tr key={model.repoId} className="border-b border-border/50">
-                    <td className="p-2">
-                      <p className="font-medium">{model.repoId}</p>
-                      <p className="text-xs text-muted-foreground truncate max-w-xs">
-                        {model.localPath}
-                      </p>
-                    </td>
-                    <td className="p-2">
-                      <span className="px-2 py-1 bg-muted rounded text-xs">
-                        {model.detectedType}
-                      </span>
-                    </td>
-                    <td className="p-2 text-sm">{formatBytes(model.sizeBytes)}</td>
-                    <td className="p-2 text-sm">{model.fileCount}</td>
-                    <td className="p-2 text-sm">{formatDate(model.lastModified)}</td>
-                    <td className="p-2">
-                      <button
-                        onClick={() => handleDelete(model.repoId)}
-                        className="p-2 hover:bg-destructive/20 rounded text-destructive"
-                        title="Delete model"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {cachedModels.map((model) => {
+                  const downloading = checkIsDownloading(model.repoId);
+                  const loaded = loadedModels.some(m => m.modelId === model.repoId);
+                  return (
+                    <tr key={model.repoId} className="border-b border-border/50">
+                      <td className="p-2">
+                        <p className="font-medium">{model.repoId}</p>
+                        <p className="text-xs text-muted-foreground truncate max-w-xs">
+                          {model.localPath}
+                        </p>
+                      </td>
+                      <td className="p-2">
+                        <span className="px-2 py-1 bg-muted rounded text-xs">
+                          {model.detectedType}
+                        </span>
+                      </td>
+                      <td className="p-2 text-sm">{formatBytes(model.sizeBytes)}</td>
+                      <td className="p-2 text-sm">{model.fileCount}</td>
+                      <td className="p-2">
+                        {downloading ? (
+                          <span className="px-2 py-1 bg-blue-500/20 text-blue-500 rounded text-xs flex items-center gap-1 w-fit">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Downloading
+                          </span>
+                        ) : loaded ? (
+                          <span className="px-2 py-1 bg-green-500/20 text-green-500 rounded text-xs">
+                            Loaded
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-muted text-muted-foreground rounded text-xs">
+                            Ready
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-2">
+                        <button
+                          onClick={() => handleDelete(model.repoId)}
+                          disabled={downloading || loaded}
+                          className="p-2 hover:bg-destructive/20 rounded text-destructive disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={downloading ? "Cannot delete while downloading" : loaded ? "Unload model first" : "Delete model"}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

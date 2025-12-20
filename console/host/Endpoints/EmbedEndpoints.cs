@@ -49,6 +49,10 @@ public static class EmbedEndpoints
             }
         })
         .WithName("CreateEmbedding")
-        .WithSummary("Create embeddings for text (OpenAI compatible)");
+        .WithSummary("Create embeddings for text (OpenAI compatible)")
+        .WithDescription("Creates embeddings for the given text input. Compatible with OpenAI's embedding API.")
+        .Produces<EmbeddingResponse>()
+        .Produces<ErrorResponse>(400)
+        .Produces<ErrorResponse>(500);
     }
 }

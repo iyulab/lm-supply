@@ -17,14 +17,45 @@ public static class ChatEndpoints
         // POST /v1/chat/completions - OpenAI compatible
         group.MapPost("/completions", async (ChatCompletionRequest request, HttpContext context, ModelManagerService manager) =>
         {
+            var ct = context.RequestAborted;
+
+            // Handle streaming separately to avoid IResult after response started
+            if (request.Stream)
+            {
+                try
+                {
+                    var generator = await manager.GetGeneratorAsync(request.Model, ct);
+                    var messages = request.Messages.Select(m =>
+                        new ChatMessage(Enum.Parse<ChatRole>(m.Role, ignoreCase: true), m.Content));
+                    var options = new GenerationOptions
+                    {
+                        MaxTokens = request.MaxTokens ?? 2048,
+                        Temperature = request.Temperature ?? 0.7f,
+                        TopP = request.TopP ?? 0.9f,
+                        StopSequences = request.Stop?.ToList()
+                    };
+
+                    var tokens = generator.GenerateChatAsync(messages, options, ct);
+                    await SseHelper.StreamChatCompletionAsync(context, generator.ModelId, tokens, ct);
+                }
+                catch (Exception ex)
+                {
+                    // If response hasn't started, we can still write error
+                    if (!context.Response.HasStarted)
+                    {
+                        context.Response.StatusCode = 500;
+                        await context.Response.WriteAsJsonAsync(new { error = ex.Message }, ct);
+                    }
+                }
+                return;
+            }
+
+            // Non-streaming response
             try
             {
-                var ct = context.RequestAborted;
                 var generator = await manager.GetGeneratorAsync(request.Model, ct);
-
                 var messages = request.Messages.Select(m =>
                     new ChatMessage(Enum.Parse<ChatRole>(m.Role, ignoreCase: true), m.Content));
-
                 var options = new GenerationOptions
                 {
                     MaxTokens = request.MaxTokens ?? 2048,
@@ -33,18 +64,10 @@ public static class ChatEndpoints
                     StopSequences = request.Stop?.ToList()
                 };
 
-                if (request.Stream)
-                {
-                    var tokens = generator.GenerateChatAsync(messages, options, ct);
-                    await SseHelper.StreamChatCompletionAsync(context, generator.ModelId, tokens, ct);
-                    return Results.Empty;
-                }
-
-                // Non-streaming response with usage tracking
                 var result = await generator.GenerateChatWithUsageAsync(messages, options, ct);
                 var id = ApiHelper.GenerateId("chatcmpl");
 
-                return Results.Ok(new ChatCompletionResponse
+                await context.Response.WriteAsJsonAsync(new ChatCompletionResponse
                 {
                     Id = id,
                     Model = generator.ModelId,
@@ -67,14 +90,19 @@ public static class ChatEndpoints
                         CompletionTokens = result.Usage.CompletionTokens,
                         TotalTokens = result.Usage.TotalTokens
                     }
-                });
+                }, ct);
             }
             catch (Exception ex)
             {
-                return ApiHelper.InternalError(ex);
+                context.Response.StatusCode = 500;
+                await context.Response.WriteAsJsonAsync(new { error = ex.Message }, ct);
             }
         })
         .WithName("CreateChatCompletion")
-        .WithSummary("Create a chat completion (OpenAI compatible)");
+        .WithSummary("Create a chat completion (OpenAI compatible)")
+        .WithDescription("Creates a model response for the given chat conversation. Compatible with OpenAI's chat completions API.")
+        .Produces<ChatCompletionResponse>()
+        .Produces<ErrorResponse>(400)
+        .Produces<ErrorResponse>(500);
     }
 }

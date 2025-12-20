@@ -77,7 +77,12 @@ public static class SegmentEndpoints
         })
         .DisableAntiforgery()
         .WithName("SegmentImage")
-        .WithSummary("Segment an image into semantic regions");
+        .WithSummary("Segment an image into semantic regions")
+        .WithDescription("Performs semantic segmentation on an image, classifying each pixel into predefined categories.")
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces<SegmentationResponse>()
+        .Produces<ErrorResponse>(400)
+        .Produces<ErrorResponse>(500);
 
         // GET /v1/images/segment/labels - List ADE20K class labels
         group.MapGet("/segment/labels", () =>
@@ -89,6 +94,7 @@ public static class SegmentEndpoints
             });
         })
         .WithName("ListSegmentLabels")
-        .WithSummary("List available segmentation labels (ADE20K)");
+        .WithSummary("List available segmentation labels (ADE20K)")
+        .WithDescription("Returns the ADE20K dataset class labels used for semantic segmentation.");
     }
 }

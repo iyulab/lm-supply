@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Loader2, ChevronDown, AlertCircle } from 'lucide-react';
+import { useSystemStore } from '../stores/systemStore';
 
 interface CachedModel {
   repoId: string;
@@ -32,9 +33,15 @@ const MODEL_TYPE_LABELS: Record<string, string> = {
 };
 
 export function ModelSelector({ modelType, value, onChange, disabled }: ModelSelectorProps) {
-  const [models, setModels] = useState<CachedModel[]>([]);
+  const [allModels, setAllModels] = useState<CachedModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Get downloading models from store
+  const { isDownloading } = useSystemStore();
+
+  // Filter out downloading models
+  const models = allModels.filter(m => !isDownloading(m.repoId));
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -47,11 +54,7 @@ export function ModelSelector({ modelType, value, onChange, disabled }: ModelSel
           throw new Error('Failed to fetch models');
         }
         const data = await response.json();
-        setModels(data);
-        // Auto-select first model if none selected
-        if (data.length > 0 && !value) {
-          onChange(data[0].repoId);
-        }
+        setAllModels(data);
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -60,6 +63,13 @@ export function ModelSelector({ modelType, value, onChange, disabled }: ModelSel
     };
     fetchModels();
   }, [modelType]);
+
+  // Auto-select first available model if none selected or current is downloading
+  useEffect(() => {
+    if (models.length > 0 && (!value || isDownloading(value))) {
+      onChange(models[0].repoId);
+    }
+  }, [models, value, isDownloading, onChange]);
 
   if (isLoading) {
     return (

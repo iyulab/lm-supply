@@ -79,6 +79,12 @@ public static class TranscribeEndpoints
         })
         .DisableAntiforgery()
         .WithName("CreateTranscription")
-        .WithSummary("Transcribe audio to text (OpenAI compatible)");
+        .WithSummary("Transcribe audio to text (OpenAI compatible)")
+        .WithDescription("Transcribes audio into text. Compatible with OpenAI's audio transcription API.")
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces<TranscriptionResponse>()
+        .Produces<VerboseTranscriptionResponse>()
+        .Produces<ErrorResponse>(400)
+        .Produces<ErrorResponse>(500);
     }
 }

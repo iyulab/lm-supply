@@ -56,7 +56,12 @@ public static class CaptionEndpoints
         })
         .DisableAntiforgery()
         .WithName("CaptionImage")
-        .WithSummary("Generate a caption for an image");
+        .WithSummary("Generate a caption for an image")
+        .WithDescription("Generates a text description of the image content.")
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces<CaptionResponse>()
+        .Produces<ErrorResponse>(400)
+        .Produces<ErrorResponse>(500);
 
         // POST /v1/images/vqa - Visual Question Answering
         group.MapPost("/vqa", async (HttpRequest request, ModelManagerService manager, CancellationToken ct) =>
@@ -109,6 +114,11 @@ public static class CaptionEndpoints
         })
         .DisableAntiforgery()
         .WithName("VisualQA")
-        .WithSummary("Answer a question about an image");
+        .WithSummary("Answer a question about an image")
+        .WithDescription("Answers natural language questions about image content using visual question answering.")
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces<VqaResponse>()
+        .Produces<ErrorResponse>(400)
+        .Produces<ErrorResponse>(500);
     }
 }

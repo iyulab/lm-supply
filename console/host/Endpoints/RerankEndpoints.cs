@@ -57,6 +57,10 @@ public static class RerankEndpoints
             }
         })
         .WithName("Rerank")
-        .WithSummary("Rerank documents by relevance (Cohere API compatible)");
+        .WithSummary("Rerank documents by relevance (Cohere API compatible)")
+        .WithDescription("Ranks documents based on their relevance to a query. Compatible with Cohere's rerank API.")
+        .Produces<RerankResponse>()
+        .Produces<ErrorResponse>(400)
+        .Produces<ErrorResponse>(500);
     }
 }
