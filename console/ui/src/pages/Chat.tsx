@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { api } from '../api/client';
 import type { ChatMessage } from '../api/types';
 import { ModelSelector } from '../components/ModelSelector';
-import { Send, Bot, User, Loader2 } from 'lucide-react';
+import { Send, Bot, User, Square } from 'lucide-react';
 
 export function Chat() {
   const [modelId, setModelId] = useState('');
@@ -11,6 +11,7 @@ export function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -19,6 +20,20 @@ export function Chat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, streamingContent]);
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
+  const handleCancel = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,13 +45,17 @@ export function Chat() {
     setIsLoading(true);
     setStreamingContent('');
 
-    try {
-      const allMessages = [...messages, userMessage];
-      let fullContent = '';
+    // Create new abort controller for this request
+    abortControllerRef.current = new AbortController();
 
+    const allMessages = [...messages, userMessage];
+    let fullContent = '';
+
+    try {
       for await (const token of api.chatStream({
         modelId,
         messages: allMessages,
+        signal: abortControllerRef.current.signal,
       })) {
         fullContent += token;
         setStreamingContent(fullContent);
@@ -48,13 +67,26 @@ export function Chat() {
       ]);
       setStreamingContent('');
     } catch (error) {
-      console.error('Chat error:', error);
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: `Error: ${(error as Error).message}` },
-      ]);
+      // Handle abort separately from other errors
+      if (error instanceof Error && error.name === 'AbortError') {
+        // User cancelled - save partial content if any
+        if (fullContent) {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'assistant', content: fullContent + '\n\n(cancelled)' },
+          ]);
+        }
+        setStreamingContent('');
+      } else {
+        console.error('Chat error:', error);
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: `Error: ${(error as Error).message}` },
+        ]);
+      }
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -138,17 +170,24 @@ export function Chat() {
             className="flex-1 px-4 py-2 bg-muted border border-border rounded-lg"
             disabled={isLoading}
           />
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim() || !modelId}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50 flex items-center gap-2"
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
+          {isLoading ? (
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg flex items-center gap-2 hover:bg-destructive/90"
+              title="Cancel generation"
+            >
+              <Square className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!input.trim() || !modelId}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50 flex items-center gap-2"
+            >
               <Send className="w-4 h-4" />
-            )}
-          </button>
+            </button>
+          )}
         </div>
       </form>
     </div>

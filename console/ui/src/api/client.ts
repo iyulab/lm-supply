@@ -32,6 +32,16 @@ import type {
 const API_BASE = '/api';
 const V1_BASE = '/v1';
 
+// Direct backend URL for SSE endpoints (bypasses Vite proxy to avoid chunked encoding issues)
+const getBackendUrl = () => {
+  // In development, connect directly to backend for SSE
+  if (import.meta.env.DEV) {
+    return 'http://localhost:5000';
+  }
+  // In production, use relative URLs (same origin)
+  return '';
+};
+
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
@@ -84,7 +94,9 @@ export const api = {
     }),
 
   downloadModel: async function* (repoId: string): AsyncGenerator<DownloadProgress> {
-    const response = await fetch(`${API_BASE}/download/model`, {
+    // Use direct backend URL for SSE to bypass Vite proxy
+    const backendUrl = getBackendUrl();
+    const response = await fetch(`${backendUrl}${API_BASE}/download/model`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ repoId }),
@@ -140,6 +152,7 @@ export const api = {
         temperature: request.options?.temperature,
         top_p: request.options?.topP,
       }),
+      signal: request.signal,
     });
 
     if (!response.ok) {

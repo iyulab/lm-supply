@@ -107,6 +107,7 @@ export interface ChatRequest {
   modelId: string;
   messages: ChatMessage[];
   options?: ChatOptions;
+  signal?: AbortSignal;
 }
 
 // ============================================================================

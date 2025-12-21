@@ -22,7 +22,13 @@ public sealed class ModelDiscoveryService : IDisposable
     private static readonly string[] PreferredSubfolders =
         ["onnx", "cpu", "cpu-int4", "cpu-int8", "default"];
 
-    // Config and tokenizer files that are typically in root
+    // Diffusion pipeline model directories (Stable Diffusion, LCM, etc.)
+    private static readonly HashSet<string> DiffusionPipelineDirectories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "text_encoder", "text_encoder_2", "unet", "vae_decoder", "vae_encoder", "vae"
+    };
+
+    // Config and tokenizer files that are typically in root or pipeline subdirectories
     private static readonly HashSet<string> ConfigFileNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "config.json",
@@ -35,7 +41,10 @@ public sealed class ModelDiscoveryService : IDisposable
         "sentencepiece.bpe.model",
         "generation_config.json",
         "preprocessor_config.json",
-        "genai_config.json"
+        "genai_config.json",
+        // Diffusion pipeline specific
+        "scheduler_config.json",
+        "model_index.json"
     };
 
     /// <summary>
@@ -303,6 +312,11 @@ public sealed class ModelDiscoveryService : IDisposable
     /// <summary>
     /// Selects ONNX files to download based on subfolder and preferences.
     /// </summary>
+    /// <remarks>
+    /// For diffusion pipeline models (Stable Diffusion, LCM, etc.), ONNX files are spread
+    /// across multiple subdirectories (text_encoder, unet, vae_decoder). This method detects
+    /// such structures and selects all required pipeline components.
+    /// </remarks>
     private static List<string> SelectOnnxFiles(
         List<RepoFile> onnxFiles,
         string? subfolder,
@@ -326,7 +340,13 @@ public sealed class ModelDiscoveryService : IDisposable
                 return requested;
         }
 
-        // Filter by subfolder
+        // Check if this is a diffusion pipeline model
+        if (IsDiffusionPipelineModel(onnxFiles))
+        {
+            return SelectDiffusionPipelineFiles(onnxFiles, preferences);
+        }
+
+        // Filter by subfolder for non-diffusion models
         var candidates = subfolder is null
             ? onnxFiles.Where(f => f.Directory is null).ToList()
             : onnxFiles.Where(f => f.Directory?.Equals(subfolder, StringComparison.OrdinalIgnoreCase) == true).ToList();
@@ -337,6 +357,57 @@ public sealed class ModelDiscoveryService : IDisposable
 
         // Select best quantization variant
         return SelectBestQuantizationVariants(candidates, preferences);
+    }
+
+    /// <summary>
+    /// Checks if the repository contains a diffusion pipeline model structure.
+    /// </summary>
+    private static bool IsDiffusionPipelineModel(List<RepoFile> onnxFiles)
+    {
+        // A diffusion pipeline model has ONNX files in at least 2 of these directories:
+        // text_encoder, unet, vae_decoder (or vae)
+        var directories = onnxFiles
+            .Where(f => f.Directory is not null)
+            .Select(f => f.Directory!.Split('/')[0]) // Get top-level directory
+            .Distinct()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var pipelineComponentCount = DiffusionPipelineDirectories.Count(d => directories.Contains(d));
+        return pipelineComponentCount >= 2;
+    }
+
+    /// <summary>
+    /// Selects all required ONNX files for a diffusion pipeline model.
+    /// </summary>
+    private static List<string> SelectDiffusionPipelineFiles(
+        List<RepoFile> onnxFiles,
+        ModelPreferences preferences)
+    {
+        var selected = new List<string>();
+
+        // Select files from each pipeline directory
+        foreach (var pipelineDir in DiffusionPipelineDirectories)
+        {
+            var dirFiles = onnxFiles
+                .Where(f => f.Directory?.Equals(pipelineDir, StringComparison.OrdinalIgnoreCase) == true ||
+                            f.Directory?.StartsWith(pipelineDir + "/", StringComparison.OrdinalIgnoreCase) == true)
+                .ToList();
+
+            if (dirFiles.Count > 0)
+            {
+                // Select best quantization variant for this component
+                selected.AddRange(SelectBestQuantizationVariants(dirFiles, preferences));
+            }
+        }
+
+        // Also include any root-level ONNX files if present
+        var rootFiles = onnxFiles.Where(f => f.Directory is null).ToList();
+        if (rootFiles.Count > 0)
+        {
+            selected.AddRange(SelectBestQuantizationVariants(rootFiles, preferences));
+        }
+
+        return selected;
     }
 
     /// <summary>
@@ -441,38 +512,59 @@ public sealed class ModelDiscoveryService : IDisposable
         return dataFiles;
     }
 
+    // Common subdirectories for diffusion pipeline models (all config-containing directories)
+    private static readonly string[] PipelineSubdirectories =
+        ["tokenizer", "scheduler", "feature_extractor", "text_encoder", "text_encoder_2",
+         "safety_checker", "unet", "vae_decoder", "vae_encoder", "vae"];
+
     /// <summary>
     /// Finds configuration and tokenizer files.
     /// </summary>
+    /// <remarks>
+    /// For diffusion pipeline models (LCM, Stable Diffusion, etc.), config files are often
+    /// located in subdirectories like tokenizer/, scheduler/, etc. This method searches
+    /// all relevant locations including root, main subfolder, and common pipeline subdirectories.
+    /// </remarks>
     private static List<string> FindConfigFiles(IReadOnlyList<RepoFile> allFiles, string? subfolder)
     {
-        var configFiles = new List<string>();
+        var configFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var fileName in ConfigFileNames)
         {
-            // First look in root
+            // 1. Look in root
             var rootPath = allFiles.FirstOrDefault(f =>
                 f.Path.Equals(fileName, StringComparison.OrdinalIgnoreCase));
-
             if (rootPath is not null)
             {
                 configFiles.Add(rootPath.Path);
-                continue;
             }
 
-            // Then look in subfolder if specified
+            // 2. Look in main subfolder if specified
             if (subfolder is not null)
             {
                 var subPath = $"{subfolder}/{fileName}";
                 var subFile = allFiles.FirstOrDefault(f =>
                     f.Path.Equals(subPath, StringComparison.OrdinalIgnoreCase));
-
                 if (subFile is not null)
+                {
                     configFiles.Add(subFile.Path);
+                }
+            }
+
+            // 3. Look in common pipeline subdirectories (for diffusion models)
+            foreach (var pipelineDir in PipelineSubdirectories)
+            {
+                var pipelinePath = $"{pipelineDir}/{fileName}";
+                var pipelineFile = allFiles.FirstOrDefault(f =>
+                    f.Path.Equals(pipelinePath, StringComparison.OrdinalIgnoreCase));
+                if (pipelineFile is not null)
+                {
+                    configFiles.Add(pipelineFile.Path);
+                }
             }
         }
 
-        return configFiles;
+        return configFiles.ToList();
     }
 
     /// <summary>

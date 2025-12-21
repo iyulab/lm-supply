@@ -80,6 +80,9 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
             var generatedTokenCount = 0;
             var maxNewTokens = options.MaxNewTokens ?? int.MaxValue;
 
+            // Accumulate generated text for multi-token stop sequence detection
+            var accumulatedText = new StringBuilder();
+
             while (!generator.IsDone())
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -97,8 +100,11 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
                 var newToken = outputTokens[^1];
                 var decoded = tokenizerStream.Decode(newToken);
 
-                // Check stop sequences
-                if (ShouldStop(decoded, options.StopSequences))
+                // Append to accumulated text for stop sequence detection
+                accumulatedText.Append(decoded);
+
+                // Check stop sequences using accumulated text (handles multi-token sequences)
+                if (ShouldStop(accumulatedText.ToString(), options.StopSequences))
                 {
                     yield break;
                 }
@@ -209,11 +215,30 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
 
     private GenerationOptions MergeStopSequences(GenerationOptions options)
     {
-        var formatterStops = _chatFormatter.GetStopSequences();
+        var merged = new List<string>();
+        
+        // 1. Stop sequences from chat formatter (model-specific tokens like <|end|>)
+        merged.AddRange(_chatFormatter.GetStopSequences());
+        
+        // 2. Stop sequences from config file (if defined in genai_config.json)
+        var configStops = GenAiConfigReader.ReadStopSequences(_modelPath);
+        foreach (var stop in configStops)
+        {
+            if (!merged.Contains(stop, StringComparer.Ordinal))
+            {
+                merged.Add(stop);
+            }
+        }
+        
+        // 3. User-provided stop sequences
         var userStops = options.StopSequences ?? [];
-
-        var merged = new List<string>(formatterStops);
-        merged.AddRange(userStops);
+        foreach (var stop in userStops)
+        {
+            if (!merged.Contains(stop, StringComparer.Ordinal))
+            {
+                merged.Add(stop);
+            }
+        }
 
         return new GenerationOptions
         {
@@ -231,16 +256,18 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         };
     }
 
-    private static bool ShouldStop(string token, IReadOnlyList<string>? stopSequences)
+    private static bool ShouldStop(string accumulatedText, IReadOnlyList<string>? stopSequences)
     {
         if (stopSequences == null || stopSequences.Count == 0)
         {
             return false;
         }
 
+        // Check if any stop sequence appears at the end of accumulated text
+        // This handles multi-token stop sequences like "<|end|>" properly
         foreach (var stop in stopSequences)
         {
-            if (token.Contains(stop, StringComparison.Ordinal))
+            if (accumulatedText.EndsWith(stop, StringComparison.Ordinal))
             {
                 return true;
             }

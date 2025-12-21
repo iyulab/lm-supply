@@ -125,8 +125,19 @@ public static class LocalEmbedder
                     modelIdOrPath);
             }
 
-            modelPath = Path.Combine(downloadedDir, Path.GetFileName(mainOnnxFile));
-            vocabPath = Path.Combine(downloadedDir, "vocab.txt");
+            // Preserve full path including subfolder (e.g., "onnx/model.onnx")
+            modelPath = Path.Combine(downloadedDir, mainOnnxFile);
+
+            // Look for vocab.txt in the same directory as the model
+            var modelDir = Path.GetDirectoryName(modelPath)!;
+            vocabPath = Path.Combine(modelDir, "vocab.txt");
+
+            // Fall back to root if not in model directory
+            if (!File.Exists(vocabPath))
+            {
+                vocabPath = Path.Combine(downloadedDir, "vocab.txt");
+            }
+
             modelId = modelIdOrPath.Split('/').Last();
         }
         else

@@ -195,16 +195,51 @@ public static class ModelsEndpoints
                 context.Response.Headers.AccessControlAllowCredentials = "true";
             }
 
-            context.Response.ContentType = "text/event-stream";
+            // SSE headers with proxy compatibility
+            context.Response.ContentType = "text/event-stream; charset=utf-8";
             context.Response.Headers.CacheControl = "no-cache";
             context.Response.Headers.Connection = "keep-alive";
+            context.Response.Headers["X-Accel-Buffering"] = "no"; // Disable nginx/proxy buffering
+
+            // Disable response buffering for real-time streaming
+            var responseBodyFeature = context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpResponseBodyFeature>();
+            responseBodyFeature?.DisableBuffering();
+
+            // Start response to prevent CORS middleware from trying to add headers later
+            await context.Response.StartAsync(ct);
+
+            // Use separate cancellation for download - allows download to continue even if SSE stream fails
+            using var downloadCts = new CancellationTokenSource();
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, downloadCts.Token);
+
+            // Throttle progress updates to reduce SSE traffic (max 2 updates per second)
+            var lastUpdate = DateTime.MinValue;
+            var updateInterval = TimeSpan.FromMilliseconds(500);
+            var writeLock = new object();
+            var lastPercentReported = -1;
 
             try
             {
                 await download.DownloadModelAsync(
                     request.RepoId,
-                    progress =>
+                    async progress =>
                     {
+                        // Throttle: only send update if enough time has passed or significant progress
+                        var now = DateTime.UtcNow;
+                        var percentInt = (int)progress.PercentComplete;
+
+                        lock (writeLock)
+                        {
+                            if (now - lastUpdate < updateInterval && percentInt == lastPercentReported && percentInt < 100)
+                                return;
+
+                            lastUpdate = now;
+                            lastPercentReported = percentInt;
+                        }
+
+                        if (ct.IsCancellationRequested)
+                            return;
+
                         var data = System.Text.Json.JsonSerializer.Serialize(new
                         {
                             fileName = progress.FileName,
@@ -212,17 +247,30 @@ public static class ModelsEndpoints
                             totalBytes = progress.TotalBytes,
                             percentComplete = progress.PercentComplete
                         });
-                        context.Response.WriteAsync($"data: {data}\n\n", ct).GetAwaiter().GetResult();
-                        context.Response.Body.FlushAsync(ct).GetAwaiter().GetResult();
+                        await context.Response.WriteAsync($"data: {data}\n\n", ct);
+                        await context.Response.Body.FlushAsync(ct);
                     },
-                    ct);
+                    linkedCts.Token);
 
                 await context.Response.WriteAsync("data: {\"status\":\"Completed\",\"percentComplete\":100}\n\n", ct);
+                await context.Response.Body.FlushAsync(ct);
+            }
+            catch (OperationCanceledException)
+            {
+                // Client disconnected - don't try to write to closed response
             }
             catch (Exception ex)
             {
-                var escapedError = ex.Message.Replace("\\", "\\\\").Replace("\"", "\\\"");
-                await context.Response.WriteAsync($"data: {{\"status\":\"Failed\",\"error\":\"{escapedError}\"}}\n\n", ct);
+                try
+                {
+                    var escapedError = ex.Message.Replace("\\", "\\\\").Replace("\"", "\\\"");
+                    await context.Response.WriteAsync($"data: {{\"status\":\"Failed\",\"error\":\"{escapedError}\"}}\n\n", ct);
+                    await context.Response.Body.FlushAsync(ct);
+                }
+                catch
+                {
+                    // Ignore write errors if client disconnected
+                }
             }
         })
         .WithName("DownloadModel")

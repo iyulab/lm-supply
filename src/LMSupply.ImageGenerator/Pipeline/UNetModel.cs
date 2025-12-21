@@ -12,6 +12,8 @@ internal sealed class UNetModel : IAsyncDisposable
     private readonly string _sampleInput;
     private readonly string _timestepInput;
     private readonly string _encoderHiddenStatesInput;
+    private readonly string? _timestepCondInput;
+    private readonly int _timestepCondDim;
     private readonly string _output;
     private bool _disposed;
 
@@ -25,6 +27,8 @@ internal sealed class UNetModel : IAsyncDisposable
         string sampleInput,
         string timestepInput,
         string encoderHiddenStatesInput,
+        string? timestepCondInput,
+        int timestepCondDim,
         string output,
         int latentChannels)
     {
@@ -32,6 +36,8 @@ internal sealed class UNetModel : IAsyncDisposable
         _sampleInput = sampleInput;
         _timestepInput = timestepInput;
         _encoderHiddenStatesInput = encoderHiddenStatesInput;
+        _timestepCondInput = timestepCondInput;
+        _timestepCondDim = timestepCondDim;
         _output = output;
         LatentChannels = latentChannels;
     }
@@ -61,11 +67,26 @@ internal sealed class UNetModel : IAsyncDisposable
         var encoderInput = FindInput(inputs, ["encoder_hidden_states", "context", "text_embeds"]);
         var outputName = outputs.Keys.First();
 
-        // Determine latent channels from sample input shape
-        var sampleShape = inputs[sampleInput].Dimensions;
-        var latentChannels = sampleShape.Length > 1 ? sampleShape[1] : 4;
+        // Check for optional timestep_cond input (used by LCM models)
+        string? timestepCondInput = null;
+        var timestepCondDim = 256; // Default dimension for LCM guidance embedding
+        if (inputs.TryGetValue("timestep_cond", out var condMeta))
+        {
+            timestepCondInput = "timestep_cond";
+            // Get the dimension from metadata if available
+            if (condMeta.Dimensions.Length > 1 && condMeta.Dimensions[1] > 0)
+            {
+                timestepCondDim = condMeta.Dimensions[1];
+            }
+        }
 
-        return new UNetModel(session, sampleInput, timestepInput, encoderInput, outputName, latentChannels);
+        // Determine latent channels from sample input shape
+        // Note: Dynamic dimensions are represented as -1, default to 4 (standard for SD/LCM)
+        var sampleShape = inputs[sampleInput].Dimensions;
+        var latentChannels = sampleShape.Length > 1 && sampleShape[1] > 0 ? sampleShape[1] : 4;
+
+        return new UNetModel(session, sampleInput, timestepInput, encoderInput,
+            timestepCondInput, timestepCondDim, outputName, latentChannels);
     }
 
     /// <summary>
@@ -84,12 +105,25 @@ internal sealed class UNetModel : IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        var batchSize = latents.Dimensions[0];
+
         var inputs = new List<NamedOnnxValue>
         {
             NamedOnnxValue.CreateFromTensor(_sampleInput, latents),
-            NamedOnnxValue.CreateFromTensor(_timestepInput, new DenseTensor<long>(new[] { timestep }, new[] { 1 })),
+            NamedOnnxValue.CreateFromTensor(_timestepInput, new DenseTensor<long>(new[] { timestep }, [1])),
             NamedOnnxValue.CreateFromTensor(_encoderHiddenStatesInput, textEmbeddings)
         };
+
+        // Add timestep_cond if required by this model (LCM guidance embedding)
+        if (_timestepCondInput != null)
+        {
+            // Create a conditioning tensor filled with guidance scale embedding
+            // For LCM, this is typically computed from the guidance scale
+            // Using zeros as a neutral embedding for basic operation
+            var condData = new float[batchSize * _timestepCondDim];
+            var condTensor = new DenseTensor<float>(condData, [batchSize, _timestepCondDim]);
+            inputs.Add(NamedOnnxValue.CreateFromTensor(_timestepCondInput, condTensor));
+        }
 
         var result = await Task.Run(() =>
         {

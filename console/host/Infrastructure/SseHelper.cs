@@ -23,7 +23,7 @@ public static class SseHelper
         IAsyncEnumerable<string> tokens,
         CancellationToken cancellationToken = default)
     {
-        SetSseHeaders(context);
+        await SetSseHeadersAsync(context);
 
         var id = $"chatcmpl-{Guid.NewGuid():N}";
         var created = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -95,7 +95,7 @@ public static class SseHelper
         IAsyncEnumerable<T> source,
         CancellationToken cancellationToken = default)
     {
-        SetSseHeaders(context);
+        await SetSseHeadersAsync(context);
 
         await foreach (var item in source.WithCancellation(cancellationToken))
         {
@@ -106,7 +106,7 @@ public static class SseHelper
         await context.Response.Body.FlushAsync(cancellationToken);
     }
 
-    private static void SetSseHeaders(HttpContext context)
+    private static async Task SetSseHeadersAsync(HttpContext context)
     {
         var origin = context.Request.Headers.Origin.ToString();
         if (!string.IsNullOrEmpty(origin))
@@ -118,6 +118,9 @@ public static class SseHelper
         context.Response.Headers.ContentType = "text/event-stream";
         context.Response.Headers.CacheControl = "no-cache";
         context.Response.Headers.Connection = "keep-alive";
+
+        // Start the response to prevent CORS middleware from trying to add headers later
+        await context.Response.StartAsync();
     }
 
     private static async Task WriteDataAsync<T>(HttpContext context, T data, CancellationToken ct)

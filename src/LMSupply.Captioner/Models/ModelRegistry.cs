@@ -30,8 +30,65 @@ public static class ModelRegistry
             Subfolder = "onnx"
         });
 
-        // Register default alias
+        // BLIP Base (quality model - 384x384 resolution)
+        RegisterModel(new ModelInfo(
+            RepoId: "Xenova/blip-image-captioning-base",
+            Alias: "blip-base",
+            DisplayName: "BLIP Image Captioning Base",
+            EncoderFile: "vision_model.onnx",
+            DecoderFile: "text_decoder_model_merged.onnx",
+            TokenizerType: TokenizerType.Bert,
+            PreprocessProfile: PreprocessProfile.Blip,
+            SupportsVqa: false,
+            VocabSize: 30524,
+            BosTokenId: 30522,
+            EosTokenId: 102,
+            PadTokenId: 0)
+        {
+            Subfolder = "onnx"
+        });
+
+        // BLIP Large (large model - higher quality)
+        RegisterModel(new ModelInfo(
+            RepoId: "Xenova/blip-image-captioning-large",
+            Alias: "blip-large",
+            DisplayName: "BLIP Image Captioning Large",
+            EncoderFile: "vision_model.onnx",
+            DecoderFile: "text_decoder_model_merged.onnx",
+            TokenizerType: TokenizerType.Bert,
+            PreprocessProfile: PreprocessProfile.Blip,
+            SupportsVqa: false,
+            VocabSize: 30524,
+            BosTokenId: 30522,
+            EosTokenId: 102,
+            PadTokenId: 0)
+        {
+            Subfolder = "onnx"
+        });
+
+        // GIT Base (fast model - efficient architecture)
+        RegisterModel(new ModelInfo(
+            RepoId: "Xenova/git-base-coco",
+            Alias: "git-base",
+            DisplayName: "GIT Base COCO",
+            EncoderFile: "encoder_model.onnx",
+            DecoderFile: "decoder_model_merged.onnx",
+            TokenizerType: TokenizerType.Bert,
+            PreprocessProfile: PreprocessProfile.ViTGpt2,
+            SupportsVqa: false,
+            VocabSize: 30522,
+            BosTokenId: 101,
+            EosTokenId: 102,
+            PadTokenId: 0)
+        {
+            Subfolder = "onnx"
+        });
+
+        // Register standard aliases
         RegisterAlias("default", "vit-gpt2");
+        RegisterAlias("fast", "git-base");
+        RegisterAlias("quality", "blip-base");
+        RegisterAlias("large", "blip-large");
     }
 
     /// <summary>

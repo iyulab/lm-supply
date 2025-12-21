@@ -81,12 +81,22 @@ internal sealed class LcmPipeline : IAsyncDisposable
         var steps = options.Steps > 0 ? options.Steps : 4;
         var guidanceScale = options.GuidanceScale;
         var seed = options.Seed ?? Random.Shared.Next();
+        var useCfg = guidanceScale > 1.0f;
 
         // Encode text prompt
-        var textEmbeddings = await _textEncoder.EncodeWithNegativeAsync(
-            prompt,
-            options.NegativePrompt,
-            cancellationToken);
+        // Use EncodeWithNegativeAsync for CFG (batch 2), EncodeAsync otherwise (batch 1)
+        DenseTensor<float> textEmbeddings;
+        if (useCfg)
+        {
+            textEmbeddings = await _textEncoder.EncodeWithNegativeAsync(
+                prompt,
+                options.NegativePrompt,
+                cancellationToken);
+        }
+        else
+        {
+            textEmbeddings = await _textEncoder.EncodeAsync(prompt, cancellationToken);
+        }
 
         // Generate initial noise
         var random = new Random(seed);
@@ -111,7 +121,7 @@ internal sealed class LcmPipeline : IAsyncDisposable
 
             // For classifier-free guidance, concatenate latents
             DenseTensor<float> modelInput;
-            if (guidanceScale > 1.0f)
+            if (useCfg)
             {
                 // Double the latent for CFG [negative, positive]
                 var doubleLatents = new float[scaledLatents.Length * 2];
@@ -129,7 +139,7 @@ internal sealed class LcmPipeline : IAsyncDisposable
 
             // Apply classifier-free guidance
             float[] guidedNoise;
-            if (guidanceScale > 1.0f)
+            if (useCfg)
             {
                 guidedNoise = ApplyGuidance(noisePred, guidanceScale);
             }
@@ -177,12 +187,22 @@ internal sealed class LcmPipeline : IAsyncDisposable
         var steps = options.Steps > 0 ? options.Steps : 4;
         var guidanceScale = options.GuidanceScale;
         var seed = options.Seed ?? Random.Shared.Next();
+        var useCfg = guidanceScale > 1.0f;
 
         // Encode text prompt
-        var textEmbeddings = await _textEncoder.EncodeWithNegativeAsync(
-            prompt,
-            options.NegativePrompt,
-            cancellationToken);
+        // Use EncodeWithNegativeAsync for CFG (batch 2), EncodeAsync otherwise (batch 1)
+        DenseTensor<float> textEmbeddings;
+        if (useCfg)
+        {
+            textEmbeddings = await _textEncoder.EncodeWithNegativeAsync(
+                prompt,
+                options.NegativePrompt,
+                cancellationToken);
+        }
+        else
+        {
+            textEmbeddings = await _textEncoder.EncodeAsync(prompt, cancellationToken);
+        }
 
         // Generate initial noise
         var random = new Random(seed);
@@ -209,7 +229,7 @@ internal sealed class LcmPipeline : IAsyncDisposable
 
             // For classifier-free guidance
             DenseTensor<float> modelInput;
-            if (guidanceScale > 1.0f)
+            if (useCfg)
             {
                 var doubleLatents = new float[scaledLatents.Length * 2];
                 Array.Copy(scaledLatents, 0, doubleLatents, 0, scaledLatents.Length);
@@ -226,7 +246,7 @@ internal sealed class LcmPipeline : IAsyncDisposable
 
             // Apply classifier-free guidance
             float[] guidedNoise;
-            if (guidanceScale > 1.0f)
+            if (useCfg)
             {
                 guidedNoise = ApplyGuidance(noisePred, guidanceScale);
             }

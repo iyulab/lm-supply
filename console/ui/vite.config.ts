@@ -15,7 +15,8 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      // API 엔드포인트 (system, cache, download)
+      // API 엔드포인트 (system, cache, registry)
+      // Note: /api/download SSE endpoints connect directly to backend to avoid proxy issues
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true

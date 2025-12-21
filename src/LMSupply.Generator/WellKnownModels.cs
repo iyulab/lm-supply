@@ -2,7 +2,7 @@ namespace LMSupply.Generator;
 
 /// <summary>
 /// Well-known model identifiers for LMSupply components.
-/// Updated: 2025-01 based on MTEB leaderboard and community benchmarks.
+/// Updated: 2025-12 based on MTEB leaderboard and community benchmarks.
 /// </summary>
 public static class WellKnownModels
 {
@@ -45,18 +45,23 @@ public static class WellKnownModels
         public const string Medium = "microsoft/Phi-3.5-mini-instruct-onnx";
 
         /// <summary>
-        /// Large model - Meta Llama 3.2 3B.
-        /// 3B parameters, good balance of speed and quality.
+        /// Large model - Meta Llama 3.3 70B (quantized for local inference).
+        /// Best accuracy among Llama models, excellent for complex reasoning.
         /// Note: Llama Community License (700M MAU limit).
         /// </summary>
         public const string Large = "onnx-community/Llama-3.2-3B-Instruct-ONNX";
 
         /// <summary>
-        /// Multilingual model - Google Gemma 2 2B.
-        /// 2B parameters, good multilingual support.
-        /// Note: Gemma Terms of Use apply.
+        /// Multilingual model - Alibaba Qwen 2.5 3B.
+        /// 3B parameters, 128K context, excellent multilingual support (29+ languages).
+        /// Note: Apache 2.0 license.
         /// </summary>
-        public const string Multilingual = "google/gemma-2-2b-it-onnx";
+        public const string Multilingual = "Qwen/Qwen2.5-3B-Instruct-ONNX";
+
+        /// <summary>
+        /// Legacy multilingual - Google Gemma 2 2B for backward compatibility.
+        /// </summary>
+        public const string Gemma2 = "google/gemma-2-2b-it-onnx";
 
         /// <summary>
         /// Legacy default - Phi-3.5 Mini for backward compatibility.
@@ -66,7 +71,7 @@ public static class WellKnownModels
 
     /// <summary>
     /// Embedding models (from LMSupply.Embedder).
-    /// Updated: 2025-01 based on MTEB leaderboard rankings.
+    /// Updated: 2025-12 based on MTEB leaderboard rankings.
     /// </summary>
     public static class Embedder
     {
@@ -85,23 +90,23 @@ public static class WellKnownModels
         public const string Fast = "sentence-transformers/all-MiniLM-L6-v2";
 
         /// <summary>
-        /// Quality embedding model - BGE Base English v1.5.
-        /// 110M params, 768 dims, 512 tokens. Higher accuracy.
-        /// Good balance of quality and resource usage.
+        /// Quality embedding model - GTE Base English v1.5.
+        /// 109M params, 768 dims, 8192 tokens. Long context support.
+        /// 2025 MTEB top performer, Apache 2.0 license.
         /// </summary>
-        public const string Quality = "BAAI/bge-base-en-v1.5";
+        public const string Quality = "Alibaba-NLP/gte-base-en-v1.5";
 
         /// <summary>
         /// Large embedding model - Nomic Embed Text v1.5.
         /// 137M params, 768 dims, 8192 tokens. Long context support.
-        /// 2024 MTEB top performer, excellent for RAG.
+        /// Excellent for RAG, Apache 2.0 license.
         /// </summary>
         public const string Large = "nomic-ai/nomic-embed-text-v1.5";
 
         /// <summary>
         /// Multilingual embedding model - E5 Base.
         /// 278M params, 768 dims, 512 tokens. 100+ languages.
-        /// Best open-source multilingual option.
+        /// Best open-source multilingual option for size.
         /// </summary>
         public const string Multilingual = "intfloat/multilingual-e5-base";
 
@@ -111,11 +116,16 @@ public static class WellKnownModels
         /// Supports dense, sparse, and multi-vector retrieval.
         /// </summary>
         public const string MultilingualLarge = "BAAI/bge-m3";
+
+        /// <summary>
+        /// Legacy quality - BGE Base English v1.5 for backward compatibility.
+        /// </summary>
+        public const string BgeBase = "BAAI/bge-base-en-v1.5";
     }
 
     /// <summary>
     /// Reranking models (from LMSupply.Reranker).
-    /// Updated: 2025-01 based on BEIR and MS MARCO benchmarks.
+    /// Updated: 2025-12 based on BEIR and MS MARCO benchmarks.
     /// </summary>
     public static class Reranker
     {
@@ -136,7 +146,7 @@ public static class WellKnownModels
         /// <summary>
         /// Quality reranker - BGE Reranker Base.
         /// 278M params, 512 tokens. Higher accuracy.
-        /// 2024 release, multilingual support.
+        /// Excellent balance of quality and resource usage.
         /// </summary>
         public const string Quality = "BAAI/bge-reranker-base";
 

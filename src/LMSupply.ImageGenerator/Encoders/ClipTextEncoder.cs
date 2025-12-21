@@ -93,7 +93,9 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
         var tokenIds = _tokenizer.EncodeForModel(prompt);
 
         // Create input tensor [1, maxLength]
-        var inputTensor = new DenseTensor<long>(tokenIds, [1, _tokenizer.MaxLength]);
+        // Note: Most CLIP models expect Int32 input, not Int64
+        var inputData = tokenIds.Select(id => (int)id).ToArray();
+        var inputTensor = new DenseTensor<int>(inputData, [1, _tokenizer.MaxLength]);
 
         // Run inference
         var inputs = new List<NamedOnnxValue>
@@ -139,11 +141,15 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
         var negativeIds = _tokenizer.EncodeForModel(negativePrompt);
 
         // Create batched input tensor [2, maxLength]
-        var inputData = new long[2 * _tokenizer.MaxLength];
-        Array.Copy(negativeIds, 0, inputData, 0, _tokenizer.MaxLength);
-        Array.Copy(positiveIds, 0, inputData, _tokenizer.MaxLength, _tokenizer.MaxLength);
+        // Note: Most CLIP models expect Int32 input, not Int64
+        var inputData = new int[2 * _tokenizer.MaxLength];
+        for (int i = 0; i < _tokenizer.MaxLength; i++)
+        {
+            inputData[i] = (int)negativeIds[i];
+            inputData[_tokenizer.MaxLength + i] = (int)positiveIds[i];
+        }
 
-        var inputTensor = new DenseTensor<long>(inputData, [2, _tokenizer.MaxLength]);
+        var inputTensor = new DenseTensor<int>(inputData, [2, _tokenizer.MaxLength]);
 
         // Run inference
         var inputs = new List<NamedOnnxValue>

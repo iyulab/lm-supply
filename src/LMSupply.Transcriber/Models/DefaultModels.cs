@@ -112,6 +112,51 @@ public static class DefaultModels
     };
 
     /// <summary>
+    /// Whisper Large V3 Turbo - Fast high-quality model.
+    /// MIT license, 809M params, ~3GB. 8x faster than Large V3.
+    /// Released 2024-10, best for production workloads.
+    /// </summary>
+    public static TranscriberModelInfo WhisperLargeV3Turbo { get; } = new()
+    {
+        Id = "onnx-community/whisper-large-v3-turbo",
+        Alias = "turbo",
+        DisplayName = "Whisper Large V3 Turbo",
+        Architecture = "Whisper",
+        ParametersM = 809f,
+        SizeBytes = 3_200_000_000,
+        WerLibriSpeech = 2.7f,
+        MaxDurationSeconds = 30,
+        SampleRate = 16000,
+        NumMelBins = 128,
+        IsMultilingual = true,
+        Description = "Whisper Large V3 Turbo - 8x faster than V3 with near-equal quality.",
+        License = "MIT"
+    };
+
+    /// <summary>
+    /// Distil-Whisper Large V3 - Distilled fast model.
+    /// MIT license, 756M params, ~3GB. 6x faster than Large V3.
+    /// Best balance of speed and quality for English.
+    /// </summary>
+    public static TranscriberModelInfo DistilWhisperLargeV3 { get; } = new()
+    {
+        Id = "distil-whisper/distil-large-v3",
+        Alias = "distil",
+        DisplayName = "Distil-Whisper Large V3",
+        Architecture = "Whisper",
+        ParametersM = 756f,
+        SizeBytes = 3_000_000_000,
+        WerLibriSpeech = 2.8f,
+        MaxDurationSeconds = 30,
+        SampleRate = 16000,
+        NumMelBins = 128,
+        IsMultilingual = false,
+        SupportedLanguages = ["en"],
+        Description = "Distil-Whisper Large V3 - 6x faster distilled model for English.",
+        License = "MIT"
+    };
+
+    /// <summary>
     /// Whisper Base English-only - Optimized for English.
     /// MIT license, 74M params, ~290MB.
     /// </summary>
@@ -143,6 +188,8 @@ public static class DefaultModels
         WhisperSmall,
         WhisperMedium,
         WhisperLargeV3,
+        WhisperLargeV3Turbo,
+        DistilWhisperLargeV3,
         WhisperBaseEn
     ];
 }

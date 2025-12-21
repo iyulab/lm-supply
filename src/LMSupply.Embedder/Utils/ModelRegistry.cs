@@ -2,7 +2,7 @@ namespace LMSupply.Embedder.Utils;
 
 /// <summary>
 /// Registry of pre-configured embedding models.
-/// Updated: 2025-01 based on MTEB leaderboard rankings.
+/// Updated: 2025-12 based on MTEB leaderboard rankings.
 /// </summary>
 internal static class ModelRegistry
 {
@@ -31,12 +31,12 @@ internal static class ModelRegistry
         },
         ["quality"] = new ModelInfo
         {
-            RepoId = "BAAI/bge-base-en-v1.5",
+            RepoId = "Alibaba-NLP/gte-base-en-v1.5",
             Dimensions = 768,
-            MaxSequenceLength = 512,
+            MaxSequenceLength = 8192,
             PoolingMode = PoolingMode.Cls,
-            DoLowerCase = true,
-            Description = "Quality: BGE Base English v1.5, 110M params, higher accuracy",
+            DoLowerCase = false,
+            Description = "Quality: GTE Base English v1.5, 109M params, 8K context, Apache 2.0",
             Subfolder = "onnx"
         },
         ["large"] = new ModelInfo
@@ -169,6 +169,27 @@ internal static class ModelRegistry
             PoolingMode = PoolingMode.Mean,
             DoLowerCase = false,
             Description = "560M params, 100+ languages, highest quality",
+            Subfolder = "onnx"
+        },
+        // GTE models (2024-2025 MTEB top performers)
+        ["gte-base-en-v1.5"] = new ModelInfo
+        {
+            RepoId = "Alibaba-NLP/gte-base-en-v1.5",
+            Dimensions = 768,
+            MaxSequenceLength = 8192,
+            PoolingMode = PoolingMode.Cls,
+            DoLowerCase = false,
+            Description = "109M params, 8K context, 2025 MTEB top performer",
+            Subfolder = "onnx"
+        },
+        ["gte-large-en-v1.5"] = new ModelInfo
+        {
+            RepoId = "Alibaba-NLP/gte-large-en-v1.5",
+            Dimensions = 1024,
+            MaxSequenceLength = 8192,
+            PoolingMode = PoolingMode.Cls,
+            DoLowerCase = false,
+            Description = "434M params, 8K context, highest accuracy GTE",
             Subfolder = "onnx"
         }
     };

@@ -2,21 +2,28 @@ namespace LMSupply.ImageGenerator.Models;
 
 /// <summary>
 /// Registry of well-known image generation models with pre-configured settings.
+/// Updated: 2025-12 based on HuggingFace ONNX availability.
 /// </summary>
 public static class WellKnownImageModels
 {
     /// <summary>
     /// Model alias to HuggingFace repository mapping.
+    /// All models use Latent Consistency Model (LCM) for fast inference (2-8 steps).
     /// </summary>
     private static readonly Dictionary<string, ModelDefinition> Aliases = new(StringComparer.OrdinalIgnoreCase)
     {
-        // LCM-based models (2-4 steps, optimized for edge)
+        // LCM-based models (2-4 steps, optimized for edge inference)
+        // LCM-Dreamshaper-V7: 512x512, ~1GB, best balance of speed and quality
         ["default"] = new("TheyCallMeHex/LCM-Dreamshaper-V7-ONNX", "LCM-Dreamshaper-V7", 4, 1.0f),
         ["fast"] = new("TheyCallMeHex/LCM-Dreamshaper-V7-ONNX", "LCM-Dreamshaper-V7", 2, 1.0f),
-        ["quality"] = new("TheyCallMeHex/LCM-Dreamshaper-V7-ONNX", "LCM-Dreamshaper-V7", 4, 1.5f),
+        ["quality"] = new("TheyCallMeHex/LCM-Dreamshaper-V7-ONNX", "LCM-Dreamshaper-V7", 8, 1.5f),
 
         // Direct model references
         ["lcm-dreamshaper-v7"] = new("TheyCallMeHex/LCM-Dreamshaper-V7-ONNX", "LCM-Dreamshaper-V7", 4, 1.0f),
+
+        // LCM-SSD-1B: Smaller, faster alternative (1B params)
+        // Note: Requires ONNX conversion from original model
+        ["lcm-ssd-1b"] = new("segmind/LCM-SSD-1B-onnx", "LCM-SSD-1B", 4, 1.0f),
     };
 
     /// <summary>

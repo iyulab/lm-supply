@@ -101,7 +101,7 @@ public static class ModelRegistryEndpoints
             new ModelAliasInfo { Alias = "quality", RepoId = WellKnownModels.Generator.Quality, Description = "Microsoft Phi-4 (14B, highest quality)", IsCached = cachedRepoIds.Contains(WellKnownModels.Generator.Quality) },
             new ModelAliasInfo { Alias = "medium", RepoId = WellKnownModels.Generator.Medium, Description = "Phi-3.5 Mini (3.8B, 128K context)", IsCached = cachedRepoIds.Contains(WellKnownModels.Generator.Medium) },
             new ModelAliasInfo { Alias = "large", RepoId = WellKnownModels.Generator.Large, Description = "Llama 3.2 3B", IsCached = cachedRepoIds.Contains(WellKnownModels.Generator.Large) },
-            new ModelAliasInfo { Alias = "multilingual", RepoId = WellKnownModels.Generator.Multilingual, Description = "Gemma 2 2B (100+ languages)", IsCached = cachedRepoIds.Contains(WellKnownModels.Generator.Multilingual) },
+            new ModelAliasInfo { Alias = "multilingual", RepoId = WellKnownModels.Generator.Multilingual, Description = "Qwen 2.5 3B (29+ languages, Apache 2.0)", IsCached = cachedRepoIds.Contains(WellKnownModels.Generator.Multilingual) },
         ]
     };
 
@@ -114,7 +114,7 @@ public static class ModelRegistryEndpoints
         [
             new ModelAliasInfo { Alias = "default", RepoId = WellKnownModels.Embedder.Default, Description = "BGE Small EN v1.5 (33M, 384 dims)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Default) },
             new ModelAliasInfo { Alias = "fast", RepoId = WellKnownModels.Embedder.Fast, Description = "MiniLM L6 v2 (22M, ultra-fast)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Fast) },
-            new ModelAliasInfo { Alias = "quality", RepoId = WellKnownModels.Embedder.Quality, Description = "BGE Base EN v1.5 (110M, 768 dims)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Quality) },
+            new ModelAliasInfo { Alias = "quality", RepoId = WellKnownModels.Embedder.Quality, Description = "GTE Base EN v1.5 (109M, 8K context)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Quality) },
             new ModelAliasInfo { Alias = "large", RepoId = WellKnownModels.Embedder.Large, Description = "Nomic Embed v1.5 (137M, 8K context)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Large) },
             new ModelAliasInfo { Alias = "multilingual", RepoId = WellKnownModels.Embedder.Multilingual, Description = "E5 Base (278M, 100+ languages)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Multilingual) },
             new ModelAliasInfo { Alias = "multilingual-large", RepoId = WellKnownModels.Embedder.MultilingualLarge, Description = "BGE M3 (568M, best multilingual)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.MultilingualLarge) },

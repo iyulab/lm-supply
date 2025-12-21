@@ -59,16 +59,17 @@ public sealed class DownloadService : IDisposable
     }
 
     /// <summary>
-    /// Downloads a model with progress reporting via callback.
+    /// Downloads a model with async progress reporting via callback.
     /// </summary>
     public async Task DownloadModelAsync(
         string repoId,
-        Action<DownloadProgress> onProgress,
+        Func<DownloadProgress, Task> onProgressAsync,
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Starting download: {RepoId}", repoId);
 
-        var progress = new Progress<DownloadProgress>(onProgress);
+        // Use AsyncProgress with cancellation token to properly handle async callbacks
+        var progress = new AsyncProgress<DownloadProgress>(onProgressAsync, cancellationToken);
 
         try
         {
@@ -94,6 +95,51 @@ public sealed class DownloadService : IDisposable
         _downloader.Dispose();
         _discoveryService.Dispose();
         _disposed = true;
+    }
+}
+
+/// <summary>
+/// Thread-safe async progress reporter that serializes async callbacks.
+/// </summary>
+internal sealed class AsyncProgress<T> : IProgress<T>
+{
+    private readonly Func<T, Task> _handler;
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private readonly CancellationToken _cancellationToken;
+
+    public AsyncProgress(Func<T, Task> handler, CancellationToken cancellationToken = default)
+    {
+        _handler = handler ?? throw new ArgumentNullException(nameof(handler));
+        _cancellationToken = cancellationToken;
+    }
+
+    public void Report(T value)
+    {
+        if (_cancellationToken.IsCancellationRequested)
+            return;
+
+        // Synchronously wait for lock then execute async handler
+        // This ensures writes are serialized and not interleaved
+        try
+        {
+            _writeLock.Wait(_cancellationToken);
+            try
+            {
+                _handler(value).GetAwaiter().GetResult();
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancelled - ignore
+        }
+        catch
+        {
+            // Swallow exceptions in progress reporting to avoid disrupting download
+        }
     }
 }
 
