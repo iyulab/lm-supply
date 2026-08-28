@@ -52,6 +52,6 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test --configuration Release --no-build --verbosity normal --filter "Category!=Integration&Category!=Functional&Category!=LocalOnly"
+        run: dotnet test --configuration Release --no-build --verbosity normal --filter "Category!=Integration&Category!=Functional&Category!=LocalOnly" --blame-hang --blame-hang-timeout 5m
         if: hashFiles('tests/**/*.csproj') != ''
 
