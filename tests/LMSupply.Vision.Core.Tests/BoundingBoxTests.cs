@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Vision;
 
 namespace LMSupply.Vision.Core.Tests;

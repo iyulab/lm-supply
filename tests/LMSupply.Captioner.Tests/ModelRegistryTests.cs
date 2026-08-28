@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Captioner.Models;
 using LMSupply.Exceptions;
 using LMSupply.Vision;

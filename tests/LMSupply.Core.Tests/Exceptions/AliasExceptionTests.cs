@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Exceptions;
 
 namespace LMSupply.Core.Tests.Exceptions;

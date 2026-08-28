@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing.Processing;

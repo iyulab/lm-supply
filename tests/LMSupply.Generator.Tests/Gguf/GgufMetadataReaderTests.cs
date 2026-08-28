@@ -1,5 +1,5 @@
 using System.Text;
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Generator.Internal.Llama;
 using Xunit;
 

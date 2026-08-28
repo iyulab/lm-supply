@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Exceptions;
 using LMSupply.ImageGenerator.Models;
 

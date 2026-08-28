@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Core.Download;
 
 namespace LMSupply.Core.Tests.Download;

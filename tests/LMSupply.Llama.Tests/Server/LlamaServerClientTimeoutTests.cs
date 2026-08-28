@@ -1,5 +1,5 @@
 using System.Reflection;
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Llama.Server;
 
 namespace LMSupply.Llama.Tests.Server;

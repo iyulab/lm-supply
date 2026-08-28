@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Hardware;
 using LMSupply.Runtime;
 using LMSupply.Generator.Internal.Llama;

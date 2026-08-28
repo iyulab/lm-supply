@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Ocr.Recognition;
 
 namespace LMSupply.Ocr.Tests.Recognition;

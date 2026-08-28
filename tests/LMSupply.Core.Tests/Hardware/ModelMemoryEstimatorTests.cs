@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Hardware;
 
 namespace LMSupply.Core.Tests.Hardware;

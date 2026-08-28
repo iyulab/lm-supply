@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Embedder.Utils;
 using LMSupply.Exceptions;
 

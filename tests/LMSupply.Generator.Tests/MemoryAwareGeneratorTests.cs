@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Generator.Abstractions;
 using LMSupply.Generator.Models;
 using NSubstitute;

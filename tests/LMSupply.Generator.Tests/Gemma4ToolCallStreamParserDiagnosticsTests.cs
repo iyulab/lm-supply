@@ -1,5 +1,5 @@
 using System.Diagnostics.Tracing;
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Generator.ChatFormatters;
 
 namespace LMSupply.Generator.Tests;

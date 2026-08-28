@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Generator.Abstractions;
 
 namespace LMSupply.Generator.Tests;

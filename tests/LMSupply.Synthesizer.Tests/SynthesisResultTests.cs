@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Synthesizer;
 
 namespace LMSupply.Synthesizer.Tests;

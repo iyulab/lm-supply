@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Embedder.Inference;
 using LMSupply.Inference;
 using Microsoft.ML.OnnxRuntime;

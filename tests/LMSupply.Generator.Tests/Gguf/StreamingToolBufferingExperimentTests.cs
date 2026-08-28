@@ -1,6 +1,6 @@
 using System.Text;
 using System.Text.Json;
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Generator.Abstractions;
 using LMSupply.Generator.Internal;
 using LMSupply.Generator.Models;

@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Inference;
 
 namespace LMSupply.Core.Tests.Inference;

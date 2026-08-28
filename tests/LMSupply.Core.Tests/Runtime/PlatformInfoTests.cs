@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Runtime;
 
 namespace LMSupply.Core.Tests.Runtime;

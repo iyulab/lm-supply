@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Transcriber.Models;
 
 namespace LMSupply.Transcriber.Tests;

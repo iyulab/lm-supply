@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Generator;
 using LMSupply.Generator.Models;
 using Xunit;

@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Reranker.Core;
 
 namespace LMSupply.Reranker.Tests;

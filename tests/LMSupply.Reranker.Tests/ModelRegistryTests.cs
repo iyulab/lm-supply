@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply;
 using LMSupply.Exceptions;
 using LMSupply.Reranker.Models;

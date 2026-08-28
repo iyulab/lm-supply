@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Segmenter.Interactive;
 using LMSupply.Segmenter.Models;
 using LMSupply.Vision;

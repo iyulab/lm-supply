@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Llama.Server;
 
 namespace LMSupply.Embedder.Tests;

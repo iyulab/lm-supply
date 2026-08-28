@@ -1,6 +1,6 @@
 using LMSupply.Core.Download;
 using Xunit;
-using FluentAssertions;
+using AwesomeAssertions;
 
 namespace LMSupply.Core.Tests.Download;
 

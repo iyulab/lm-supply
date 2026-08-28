@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Embedder.Inference;
 
 namespace LMSupply.Embedder.Tests;

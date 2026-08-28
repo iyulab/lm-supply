@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Transcriber;
 using LMSupply.Transcriber.Decoding;
 

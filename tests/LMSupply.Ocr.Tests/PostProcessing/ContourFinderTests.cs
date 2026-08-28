@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Ocr.PostProcessing;
 
 namespace LMSupply.Ocr.Tests.PostProcessing;

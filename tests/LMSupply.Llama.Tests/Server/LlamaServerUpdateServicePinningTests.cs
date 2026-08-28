@@ -2,7 +2,7 @@ using System.Formats.Tar;
 using System.IO.Compression;
 using System.Net;
 using System.Runtime.InteropServices;
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Llama.Server;
 using Xunit;
 

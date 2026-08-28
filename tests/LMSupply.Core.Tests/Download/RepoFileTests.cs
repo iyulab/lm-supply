@@ -1,5 +1,5 @@
 using System.Text.Json;
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Core.Download;
 
 namespace LMSupply.Core.Tests.Download;

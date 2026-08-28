@@ -1,5 +1,5 @@
 using System.Net;
-using FluentAssertions;
+using AwesomeAssertions;
 using LMSupply.Exceptions;
 using LMSupply.Llama.Server;
 
