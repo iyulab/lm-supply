@@ -12,7 +12,7 @@
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
     <PackageVersion Include="SixLabors.ImageSharp.Drawing" Version="2.1.7" />
     <!-- Audio Dependencies -->
-    <PackageVersion Include="NAudio" Version="2.3.0" />
+    <PackageVersion Include="NAudio" Version="3.0.1" />
     <PackageVersion Include="NAudio.Lame" Version="2.1.0" />
     <PackageVersion Include="MathNet.Numerics" Version="5.0.0" />
     <!-- ONNX Runtime GenAI for LLM Inference -->

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Numerics;
 using MathNet.Numerics.IntegralTransforms;
 using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 
 namespace LMSupply.Transcriber.Audio;
 
@@ -70,14 +71,16 @@ internal static class AudioProcessor
 
     private static float[] ProcessAudioReader(AudioFileReader reader)
     {
-        var sampleProvider = reader.ToMono();
+        ISampleProvider sampleProvider = reader.ToMono();
 
-        // Resample if necessary
+        // Resample if necessary. WdlResamplingSampleProvider (pure managed, cross-platform)
+        // replaces MediaFoundationResampler here: the latter wraps a Windows Media Foundation COM
+        // API and is unavailable on this project's cross-platform net10.0 TFM (NAudio 3.0 gates it
+        // behind a Windows-specific surface) — chasing it into a Windows-conditional build would
+        // reintroduce a platform dependency this library never actually needed.
         if (reader.WaveFormat.SampleRate != WhisperSampleRate)
         {
-            var resampler = new MediaFoundationResampler(reader, WhisperSampleRate);
-            resampler.ResamplerQuality = 60;
-            sampleProvider = resampler.ToSampleProvider().ToMono();
+            sampleProvider = new WdlResamplingSampleProvider(sampleProvider, WhisperSampleRate);
         }
 
         return ProcessSampleProvider(sampleProvider, reader.TotalTime);
@@ -87,7 +90,7 @@ internal static class AudioProcessor
     {
         var totalSamples = (int)(duration.TotalSeconds * WhisperSampleRate);
         var samples = new float[totalSamples];
-        var read = provider.Read(samples, 0, totalSamples);
+        var read = provider.Read(samples.AsSpan(0, totalSamples));
 
         if (read < totalSamples)
         {

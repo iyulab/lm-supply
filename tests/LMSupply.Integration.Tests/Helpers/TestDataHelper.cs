@@ -235,30 +235,24 @@ internal static class TestDataHelper
     }
 
     /// <summary>
-    /// Creates an MP3 file from a sine wave tone using Windows Media Foundation.
-    /// Returns null on platforms where Media Foundation is unavailable.
+    /// Creates an MP3 file from a sine wave tone using the cross-platform LAME encoder
+    /// (NAudio 3.0's plain net10.0 TFM no longer carries Windows Media Foundation types —
+    /// see LMSupply.Console.Host's AudioConverter for the same encoder pattern).
+    /// Returns null if encoding fails for any reason.
     /// </summary>
     public static byte[]? TryCreateToneMp3(int sampleRate = 44100, float durationSeconds = 1.0f, float frequency = 440f)
     {
         try
         {
             var wavBytes = CreateToneWav(sampleRate, durationSeconds, frequency);
-            var tempWav = Path.Combine(Path.GetTempPath(), $"lmsupply_test_{Guid.NewGuid()}.wav");
-            var tempMp3 = Path.ChangeExtension(tempWav, ".mp3");
-            try
+            using var wavStream = new MemoryStream(wavBytes);
+            using var reader = new WaveFileReader(wavStream);
+            using var mp3Stream = new MemoryStream();
+            using (var writer = new NAudio.Lame.LameMP3FileWriter(mp3Stream, reader.WaveFormat, NAudio.Lame.LAMEPreset.STANDARD))
             {
-                File.WriteAllBytes(tempWav, wavBytes);
-                using (var reader = new AudioFileReader(tempWav))
-                {
-                    MediaFoundationEncoder.EncodeToMp3(reader, tempMp3);
-                }
-                return File.ReadAllBytes(tempMp3);
+                reader.CopyTo(writer);
             }
-            finally
-            {
-                if (File.Exists(tempWav)) File.Delete(tempWav);
-                if (File.Exists(tempMp3)) File.Delete(tempMp3);
-            }
+            return mp3Stream.ToArray();
         }
         catch
         {

@@ -15,6 +15,7 @@
     <PackageReference Include="AwesomeAssertions" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="NAudio" />
+    <PackageReference Include="NAudio.Lame" />
   </ItemGroup>
 
   <ItemGroup>
