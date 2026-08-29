@@ -149,9 +149,7 @@ public class WhisperQuantizationSelectionTests
     {
         using var service = new ModelDiscoveryService();
 
-        var result = await service.DiscoverModelAsync(
-            "onnx-community/whisper-large-v3-ONNX",
-            new ModelPreferences { PreferredSubfolder = "onnx" });
+        var result = await service.DiscoverModelAsync("onnx-community/whisper-large-v3-ONNX", new ModelPreferences { PreferredSubfolder = "onnx" }, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Architecture.Should().Be(ModelArchitecture.EncoderDecoder);
 

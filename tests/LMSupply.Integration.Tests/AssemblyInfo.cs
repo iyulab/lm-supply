@@ -13,4 +13,4 @@ using Xunit;
 // Serial execution makes the local suite deterministic on a single-GPU box. These tests are
 // CI-excluded (LocalOnly), so the wall-clock cost is local only. Mirrors the same mitigation in
 // LMSupply.Generator.Tests/AssemblyInfo.cs.
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
+[assembly: Xunit.v3.Parallelization(Mode = Xunit.Sdk.ParallelMode.None)]

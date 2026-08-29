@@ -111,7 +111,7 @@ public class OnnxGeneratorModelFactoryTests
             using var factory = new OnnxGeneratorModelFactory(tempDir, ExecutionProvider.Auto);
 
             // Act - should not throw, as model is available
-            await factory.DownloadModelAsync("test/model");
+            await factory.DownloadModelAsync("test/model", cancellationToken: TestContext.Current.CancellationToken);
 
             // Assert - if we get here without exception, model was found
             factory.IsModelAvailable("test/model").Should().BeTrue();

@@ -48,7 +48,7 @@ public class GgufRegistryFreshnessTests
 
         var url = $"{HuggingFaceFileBase}/{model!.RepoId}/resolve/main/{model.DefaultFile}";
         using var request = new HttpRequestMessage(HttpMethod.Head, url);
-        using var response = await Client.SendAsync(request);
+        using var response = await Client.SendAsync(request, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeTrue(
             because: $"'{alias}' -> {model.RepoId}/{model.DefaultFile} must resolve to an existing " +

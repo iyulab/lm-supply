@@ -58,7 +58,7 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        var state = await manager.GetStateAsync("pkg|provider|rid");
+        var state = await manager.GetStateAsync("pkg|provider|rid", TestContext.Current.CancellationToken);
 
         state.Should().BeNull();
     }
@@ -71,7 +71,7 @@ public class RuntimeVersionStateManagerTests : IDisposable
         using var manager = CreateManager();
         var key = "llama-server|vulkan|win-x64";
 
-        var state = await manager.GetOrCreateStateAsync(key, "1.0.0");
+        var state = await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
 
         state.Should().NotBeNull();
         state.InstalledVersion.Should().Be("1.0.0");
@@ -84,11 +84,11 @@ public class RuntimeVersionStateManagerTests : IDisposable
         using var manager = CreateManager();
         var key = "llama-server|vulkan|win-x64";
 
-        var first = await manager.GetOrCreateStateAsync(key, "1.0.0");
+        var first = await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
         first.LatestKnownVersion = "2.0.0"; // Modify in-memory
-        await manager.UpdateStateAsync(key, first);
+        await manager.UpdateStateAsync(key, first, TestContext.Current.CancellationToken);
 
-        var second = await manager.GetOrCreateStateAsync(key, "9.9.9");
+        var second = await manager.GetOrCreateStateAsync(key, "9.9.9", TestContext.Current.CancellationToken);
 
         // Should return existing, NOT recreate with 9.9.9
         second.InstalledVersion.Should().Be("1.0.0");
@@ -104,9 +104,9 @@ public class RuntimeVersionStateManagerTests : IDisposable
         var key = "pkg|provider|rid";
 
         var state = new RuntimeVersionState { InstalledVersion = "1.0.0" };
-        await manager.UpdateStateAsync(key, state);
+        await manager.UpdateStateAsync(key, state, TestContext.Current.CancellationToken);
 
-        var loaded = await manager.GetStateAsync(key);
+        var loaded = await manager.GetStateAsync(key, TestContext.Current.CancellationToken);
         loaded.Should().NotBeNull();
         loaded!.InstalledVersion.Should().Be("1.0.0");
     }
@@ -118,12 +118,12 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
         var key = "pkg|provider|rid";
-        await manager.GetOrCreateStateAsync(key, "1.0.0");
+        await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
 
         var before = DateTimeOffset.UtcNow;
-        await manager.RecordVersionCheckAsync(key, "2.0.0");
+        await manager.RecordVersionCheckAsync(key, "2.0.0", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync(key);
+        var state = await manager.GetStateAsync(key, TestContext.Current.CancellationToken);
         state!.LatestKnownVersion.Should().Be("2.0.0");
         state.LastVersionCheck.Should().BeOnOrAfter(before);
     }
@@ -133,9 +133,9 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        await manager.RecordVersionCheckAsync("nonexistent", "2.0.0");
+        await manager.RecordVersionCheckAsync("nonexistent", "2.0.0", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync("nonexistent");
+        var state = await manager.GetStateAsync("nonexistent", TestContext.Current.CancellationToken);
         state.Should().BeNull();
     }
 
@@ -146,11 +146,11 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
         var key = "pkg|provider|rid";
-        await manager.GetOrCreateStateAsync(key, "1.0.0");
+        await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
 
-        await manager.MarkUpdateReadyAsync(key, "2.0.0", "/update/path");
+        await manager.MarkUpdateReadyAsync(key, "2.0.0", "/update/path", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync(key);
+        var state = await manager.GetStateAsync(key, TestContext.Current.CancellationToken);
         state!.UpdateReady.Should().BeTrue();
         state.UpdateReadyPath.Should().Be("/update/path");
         state.LatestKnownVersion.Should().Be("2.0.0");
@@ -163,9 +163,9 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        await manager.MarkUpdateReadyAsync("nonexistent", "2.0.0", "/path");
+        await manager.MarkUpdateReadyAsync("nonexistent", "2.0.0", "/path", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync("nonexistent");
+        var state = await manager.GetStateAsync("nonexistent", TestContext.Current.CancellationToken);
         state.Should().BeNull();
     }
 
@@ -176,7 +176,7 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        var result = await manager.ActivateUpdateAsync("nonexistent", 2);
+        var result = await manager.ActivateUpdateAsync("nonexistent", 2, TestContext.Current.CancellationToken);
 
         result.Should().BeNull();
     }
@@ -186,9 +186,9 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
         var key = "pkg|provider|rid";
-        await manager.GetOrCreateStateAsync(key, "1.0.0");
+        await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
 
-        var result = await manager.ActivateUpdateAsync(key, 2);
+        var result = await manager.ActivateUpdateAsync(key, 2, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result!.InstalledVersion.Should().Be("1.0.0");
@@ -200,10 +200,10 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
         var key = "pkg|provider|rid";
-        await manager.GetOrCreateStateAsync(key, "1.0.0");
-        await manager.MarkUpdateReadyAsync(key, "2.0.0", "/new");
+        await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
+        await manager.MarkUpdateReadyAsync(key, "2.0.0", "/new", TestContext.Current.CancellationToken);
 
-        var result = await manager.ActivateUpdateAsync(key, 2);
+        var result = await manager.ActivateUpdateAsync(key, 2, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result!.InstalledVersion.Should().Be("2.0.0");
@@ -218,17 +218,17 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
         var key = "pkg|provider|rid";
-        await manager.GetOrCreateStateAsync(key, "1.0.0");
+        await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
 
         // Activate: 1.0.0 -> 2.0.0 -> 3.0.0 -> 4.0.0
-        await manager.MarkUpdateReadyAsync(key, "2.0.0", "/v2");
-        await manager.ActivateUpdateAsync(key, 2);
+        await manager.MarkUpdateReadyAsync(key, "2.0.0", "/v2", TestContext.Current.CancellationToken);
+        await manager.ActivateUpdateAsync(key, 2, TestContext.Current.CancellationToken);
 
-        await manager.MarkUpdateReadyAsync(key, "3.0.0", "/v3");
-        await manager.ActivateUpdateAsync(key, 2);
+        await manager.MarkUpdateReadyAsync(key, "3.0.0", "/v3", TestContext.Current.CancellationToken);
+        await manager.ActivateUpdateAsync(key, 2, TestContext.Current.CancellationToken);
 
-        await manager.MarkUpdateReadyAsync(key, "4.0.0", "/v4");
-        var result = await manager.ActivateUpdateAsync(key, 2);
+        await manager.MarkUpdateReadyAsync(key, "4.0.0", "/v4", TestContext.Current.CancellationToken);
+        var result = await manager.ActivateUpdateAsync(key, 2, TestContext.Current.CancellationToken);
 
         result!.PreviousVersions.Should().HaveCount(2);
         result.PreviousVersions[0].Should().Be("3.0.0");
@@ -242,7 +242,7 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        var (previousVersion, path) = await manager.RollbackAsync("nonexistent", "2.0.0");
+        var (previousVersion, path) = await manager.RollbackAsync("nonexistent", "2.0.0", TestContext.Current.CancellationToken);
 
         previousVersion.Should().BeNull();
         path.Should().BeNull();
@@ -253,9 +253,9 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
         var key = "pkg|provider|rid";
-        await manager.GetOrCreateStateAsync(key, "1.0.0");
+        await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
 
-        var (previousVersion, path) = await manager.RollbackAsync(key, "1.0.0");
+        var (previousVersion, path) = await manager.RollbackAsync(key, "1.0.0", TestContext.Current.CancellationToken);
 
         previousVersion.Should().BeNull();
         path.Should().BeNull();
@@ -266,15 +266,15 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
         var key = "pkg|provider|rid";
-        await manager.GetOrCreateStateAsync(key, "1.0.0");
-        await manager.MarkUpdateReadyAsync(key, "2.0.0", "/v2");
-        await manager.ActivateUpdateAsync(key, 2);
+        await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
+        await manager.MarkUpdateReadyAsync(key, "2.0.0", "/v2", TestContext.Current.CancellationToken);
+        await manager.ActivateUpdateAsync(key, 2, TestContext.Current.CancellationToken);
 
-        var (previousVersion, _) = await manager.RollbackAsync(key, "2.0.0");
+        var (previousVersion, _) = await manager.RollbackAsync(key, "2.0.0", TestContext.Current.CancellationToken);
 
         previousVersion.Should().Be("1.0.0");
 
-        var state = await manager.GetStateAsync(key);
+        var state = await manager.GetStateAsync(key, TestContext.Current.CancellationToken);
         state!.InstalledVersion.Should().Be("1.0.0");
         state.FailedVersions.Should().Contain("2.0.0");
         state.UpdateReady.Should().BeFalse();
@@ -288,7 +288,7 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        var due = await manager.IsVersionCheckDueAsync("nonexistent", TimeSpan.FromHours(1));
+        var due = await manager.IsVersionCheckDueAsync("nonexistent", TimeSpan.FromHours(1), TestContext.Current.CancellationToken);
 
         due.Should().BeTrue();
     }
@@ -298,10 +298,10 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
         var key = "pkg|provider|rid";
-        await manager.GetOrCreateStateAsync(key, "1.0.0");
-        await manager.RecordVersionCheckAsync(key, "1.0.0");
+        await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
+        await manager.RecordVersionCheckAsync(key, "1.0.0", TestContext.Current.CancellationToken);
 
-        var due = await manager.IsVersionCheckDueAsync(key, TimeSpan.FromHours(1));
+        var due = await manager.IsVersionCheckDueAsync(key, TimeSpan.FromHours(1), TestContext.Current.CancellationToken);
 
         due.Should().BeFalse();
     }
@@ -313,10 +313,10 @@ public class RuntimeVersionStateManagerTests : IDisposable
         var key = "pkg|provider|rid";
 
         // Create with MinValue timestamp (never checked)
-        var state = await manager.GetOrCreateStateAsync(key, "1.0.0");
+        var state = await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
         // LastVersionCheck defaults to DateTimeOffset.MinValue, so any interval should be due
 
-        var due = await manager.IsVersionCheckDueAsync(key, TimeSpan.FromMilliseconds(1));
+        var due = await manager.IsVersionCheckDueAsync(key, TimeSpan.FromMilliseconds(1), TestContext.Current.CancellationToken);
 
         due.Should().BeTrue();
     }
@@ -328,11 +328,11 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
         var key = "pkg|provider|rid";
-        await manager.GetOrCreateStateAsync(key, "1.0.0");
+        await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
 
-        await manager.MarkPendingDownloadAsync(key, "2.0.0");
+        await manager.MarkPendingDownloadAsync(key, "2.0.0", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync(key);
+        var state = await manager.GetStateAsync(key, TestContext.Current.CancellationToken);
         state!.PendingVersion.Should().Be("2.0.0");
     }
 
@@ -341,9 +341,9 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        await manager.MarkPendingDownloadAsync("nonexistent", "2.0.0");
+        await manager.MarkPendingDownloadAsync("nonexistent", "2.0.0", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync("nonexistent");
+        var state = await manager.GetStateAsync("nonexistent", TestContext.Current.CancellationToken);
         state.Should().BeNull();
     }
 
@@ -354,12 +354,12 @@ public class RuntimeVersionStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
         var key = "pkg|provider|rid";
-        await manager.GetOrCreateStateAsync(key, "1.0.0");
-        await manager.MarkPendingDownloadAsync(key, "2.0.0");
+        await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
+        await manager.MarkPendingDownloadAsync(key, "2.0.0", TestContext.Current.CancellationToken);
 
-        await manager.ClearPendingDownloadAsync(key);
+        await manager.ClearPendingDownloadAsync(key, TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync(key);
+        var state = await manager.GetStateAsync(key, TestContext.Current.CancellationToken);
         state!.PendingVersion.Should().BeNull();
     }
 
@@ -435,11 +435,11 @@ public class RuntimeVersionStateManagerTests : IDisposable
 
         using (var manager1 = CreateManager())
         {
-            await manager1.GetOrCreateStateAsync(key, "1.0.0");
+            await manager1.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
         }
 
         using var manager2 = CreateManager();
-        var state = await manager2.GetStateAsync(key);
+        var state = await manager2.GetStateAsync(key, TestContext.Current.CancellationToken);
 
         state.Should().NotBeNull();
         state!.InstalledVersion.Should().Be("1.0.0");
@@ -449,10 +449,10 @@ public class RuntimeVersionStateManagerTests : IDisposable
     public async Task State_CorruptedFile_StartsFromFresh()
     {
         var stateFilePath = Path.Combine(_tempDir, "runtime-versions.json");
-        await File.WriteAllTextAsync(stateFilePath, "{ corrupted json!!! }");
+        await File.WriteAllTextAsync(stateFilePath, "{ corrupted json!!! }", TestContext.Current.CancellationToken);
 
         using var manager = CreateManager();
-        var state = await manager.GetStateAsync("pkg|provider|rid");
+        var state = await manager.GetStateAsync("pkg|provider|rid", TestContext.Current.CancellationToken);
 
         state.Should().BeNull();
     }
@@ -466,11 +466,11 @@ public class RuntimeVersionStateManagerTests : IDisposable
         var key1 = "llama-server|vulkan|win-x64";
         var key2 = "onnxruntime|cpu|win-x64";
 
-        await manager.GetOrCreateStateAsync(key1, "1.0.0");
-        await manager.GetOrCreateStateAsync(key2, "2.0.0");
+        await manager.GetOrCreateStateAsync(key1, "1.0.0", TestContext.Current.CancellationToken);
+        await manager.GetOrCreateStateAsync(key2, "2.0.0", TestContext.Current.CancellationToken);
 
-        var state1 = await manager.GetStateAsync(key1);
-        var state2 = await manager.GetStateAsync(key2);
+        var state1 = await manager.GetStateAsync(key1, TestContext.Current.CancellationToken);
+        var state2 = await manager.GetStateAsync(key2, TestContext.Current.CancellationToken);
 
         state1!.InstalledVersion.Should().Be("1.0.0");
         state2!.InstalledVersion.Should().Be("2.0.0");

@@ -20,7 +20,7 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_FastAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
     }
@@ -29,7 +29,7 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_GetModelInfo_ReturnsValidInfo()
     {
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var info = model.GetModelInfo();
         info.Should().NotBeNull();
@@ -41,10 +41,10 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_GradientImage_ProducesCaption()
     {
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(640, 480);
-        var result = await model.CaptionAsync(imageBytes);
+        var result = await model.CaptionAsync(imageBytes, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result.Caption.Should().NotBeNullOrEmpty("captioner should produce text for any image");
@@ -54,10 +54,10 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_CaptionResult_HasRequiredFields()
     {
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(640, 480);
-        var result = await model.CaptionAsync(imageBytes);
+        var result = await model.CaptionAsync(imageBytes, TestContext.Current.CancellationToken);
 
         result.Caption.Should().NotBeNullOrEmpty();
         result.Confidence.Should().BeGreaterThanOrEqualTo(0f);
@@ -69,12 +69,12 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_RepeatCaption_IsConsistent()
     {
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(640, 480);
 
-        var result1 = await model.CaptionAsync(imageBytes);
-        var result2 = await model.CaptionAsync(imageBytes);
+        var result1 = await model.CaptionAsync(imageBytes, TestContext.Current.CancellationToken);
+        var result2 = await model.CaptionAsync(imageBytes, TestContext.Current.CancellationToken);
 
         result1.Caption.Should().Be(result2.Caption,
             "same image should produce same caption (deterministic)");
@@ -84,10 +84,10 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_Caption_ContainsEnglishWords()
     {
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(640, 480);
-        var result = await model.CaptionAsync(imageBytes);
+        var result = await model.CaptionAsync(imageBytes, TestContext.Current.CancellationToken);
 
         // Caption should contain at least one recognizable English word
         result.Caption.Should().MatchRegex(@"\b[a-zA-Z]{2,}\b",
@@ -100,10 +100,10 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_SolidWhiteImage_ProducesCaption()
     {
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateSolidBmp(640, 480);
-        var result = await model.CaptionAsync(imageBytes);
+        var result = await model.CaptionAsync(imageBytes, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result.Caption.Should().NotBeNull();
@@ -113,12 +113,12 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_TinyImage_DoesNotCrash()
     {
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateTinyBmp();
         try
         {
-            var result = await model.CaptionAsync(imageBytes);
+            var result = await model.CaptionAsync(imageBytes, TestContext.Current.CancellationToken);
             result.Should().NotBeNull();
         }
         catch (Exception ex)
@@ -131,7 +131,7 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_InvalidImageData_ThrowsCleanError()
     {
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.CaptionAsync(new byte[] { 0x00, 0x01, 0x02 });
         await act.Should().ThrowAsync<Exception>("non-image data should throw, not crash");
@@ -143,7 +143,7 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_DefaultAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalCaptioner.LoadAsync("default");
+        await using var model = await LocalCaptioner.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
     }
@@ -174,7 +174,7 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_ModelProperties_ArePopulated()
     {
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ActiveProviders.Should().NotBeNull();
         model.RequestedProvider.Should().BeDefined();
@@ -184,11 +184,11 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_CaptionFromStream_Works()
     {
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
         using var stream = new MemoryStream(imageBytes);
-        var result = await model.CaptionAsync(stream);
+        var result = await model.CaptionAsync(stream, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result.Caption.Should().NotBeNullOrEmpty();
@@ -198,7 +198,7 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_LargeImage_DoesNotCrash()
     {
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(1920, 1080);
         var act = () => model.CaptionAsync(imageBytes);
@@ -284,13 +284,13 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_DifferentImages_ProduceDifferentCaptions()
     {
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var gradientImage = TestDataHelper.CreateGradientBmp(640, 480);
         var solidImage = TestDataHelper.CreateSolidBmp(640, 480, 0, 0, 255); // solid blue
 
-        var gradientCaption = await model.CaptionAsync(gradientImage);
-        var solidCaption = await model.CaptionAsync(solidImage);
+        var gradientCaption = await model.CaptionAsync(gradientImage, TestContext.Current.CancellationToken);
+        var solidCaption = await model.CaptionAsync(solidImage, TestContext.Current.CancellationToken);
 
         // Both should produce captions, but they may differ for different images
         gradientCaption.Caption.Should().NotBeNullOrEmpty();
@@ -318,10 +318,10 @@ public class CaptionerFunctionalTests
     public async Task Q_HighContrastScene_ProducesMeaningfulCaption()
     {
         // C-Q1 approximation: high-contrast scene should produce descriptive caption
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var sceneImage = TestDataHelper.CreateHighContrastBmp(640, 480);
-        var caption = await model.CaptionAsync(sceneImage);
+        var caption = await model.CaptionAsync(sceneImage, TestContext.Current.CancellationToken);
 
         caption.Caption.Should().NotBeNullOrEmpty(
             "high-contrast scene image should produce a caption");
@@ -334,13 +334,13 @@ public class CaptionerFunctionalTests
     public async Task Q_SceneVsBlank_ProduceDifferentCaptions()
     {
         // High-contrast scene should caption differently from solid blank
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var sceneImage = TestDataHelper.CreateHighContrastBmp(640, 480);
         var blankImage = TestDataHelper.CreateSolidBmp(640, 480, 255, 255, 255);
 
-        var sceneCaption = await model.CaptionAsync(sceneImage);
-        var blankCaption = await model.CaptionAsync(blankImage);
+        var sceneCaption = await model.CaptionAsync(sceneImage, TestContext.Current.CancellationToken);
+        var blankCaption = await model.CaptionAsync(blankImage, TestContext.Current.CancellationToken);
 
         sceneCaption.Caption.Should().NotBeNullOrEmpty();
         blankCaption.Caption.Should().NotBeNullOrEmpty();

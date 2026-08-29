@@ -68,7 +68,7 @@ public class LlamaServerLaunchGuardTests
 
         using var started = Process.Start(startInfo);
         started.Should().NotBeNull();
-        await started!.WaitForExitAsync();
+        await started!.WaitForExitAsync(TestContext.Current.CancellationToken);
 
         LlamaServerProcess.HasLaunched(started).Should().BeTrue();
     }

@@ -26,9 +26,9 @@ public class FastModelFunctionalTests : IAsyncLifetime
 {
     private readonly List<string> _testResults = [];
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
-    public Task DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         // Print summary
         if (_testResults.Count > 0)
@@ -39,7 +39,8 @@ public class FastModelFunctionalTests : IAsyncLifetime
                 System.Console.WriteLine(result);
             }
         }
-        return Task.CompletedTask;
+        GC.SuppressFinalize(this);
+        return ValueTask.CompletedTask;
     }
 
     [Fact]
@@ -47,12 +48,12 @@ public class FastModelFunctionalTests : IAsyncLifetime
     {
         var sw = Stopwatch.StartNew();
 
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
         var loadTime = sw.ElapsedMilliseconds;
 
         var texts = new[] { "Hello world", "Goodbye world" };
         sw.Restart();
-        var embeddings = await model.EmbedAsync(texts);
+        var embeddings = await model.EmbedAsync(texts, TestContext.Current.CancellationToken);
         var inferTime = sw.ElapsedMilliseconds;
 
         embeddings.Should().HaveCount(2);
@@ -69,7 +70,7 @@ public class FastModelFunctionalTests : IAsyncLifetime
     {
         var sw = Stopwatch.StartNew();
 
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
         var loadTime = sw.ElapsedMilliseconds;
 
         var query = "What is machine learning?";
@@ -81,7 +82,7 @@ public class FastModelFunctionalTests : IAsyncLifetime
         };
 
         sw.Restart();
-        var scores = await model.RerankAsync(query, documents);
+        var scores = await model.RerankAsync(query, documents, cancellationToken: TestContext.Current.CancellationToken);
         var inferTime = sw.ElapsedMilliseconds;
 
         scores.Should().HaveCount(3);
@@ -97,20 +98,18 @@ public class FastModelFunctionalTests : IAsyncLifetime
     {
         var sw = Stopwatch.StartNew();
 
-        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast");
+        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast", cancellationToken: TestContext.Current.CancellationToken);
         var loadTime = sw.ElapsedMilliseconds;
 
         // Warmup
-        await foreach (var _ in model.GenerateAsync("Hi", new GenerationOptions { MaxTokens = 5 })) { }
+        await foreach (var _ in model.GenerateAsync("Hi", new GenerationOptions { MaxTokens = 5 }, TestContext.Current.CancellationToken)) { }
 
         // Benchmark
         var tokenCount = 0;
         long ttft = 0;
         sw.Restart();
 
-        await foreach (var token in model.GenerateAsync(
-            "Hello, my name is",
-            new GenerationOptions { MaxTokens = 50 }))
+        await foreach (var token in model.GenerateAsync("Hello, my name is", new GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken))
         {
             if (tokenCount == 0) ttft = sw.ElapsedMilliseconds;
             tokenCount++;
@@ -134,12 +133,12 @@ public class FastModelFunctionalTests : IAsyncLifetime
     {
         var sw = Stopwatch.StartNew();
 
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
         var loadTime = sw.ElapsedMilliseconds;
 
         var koreanText = "안녕하세요, 만나서 반갑습니다.";
         sw.Restart();
-        var result = await model.TranslateAsync(koreanText);
+        var result = await model.TranslateAsync(koreanText, TestContext.Current.CancellationToken);
         var inferTime = sw.ElapsedMilliseconds;
 
         result.Should().NotBeNull();
@@ -154,7 +153,7 @@ public class FastModelFunctionalTests : IAsyncLifetime
     {
         var sw = Stopwatch.StartNew();
 
-        await using var model = await LocalTranscriber.LoadAsync("fast");
+        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
         var loadTime = sw.ElapsedMilliseconds;
 
         // Generate a simple WAV file with a tone
@@ -163,7 +162,7 @@ public class FastModelFunctionalTests : IAsyncLifetime
         var wavBytes = CreateTestWavFile(sampleRate, duration, 440); // 440Hz tone
 
         sw.Restart();
-        var result = await model.TranscribeAsync(wavBytes);
+        var result = await model.TranscribeAsync(wavBytes, cancellationToken: TestContext.Current.CancellationToken);
         var inferTime = sw.ElapsedMilliseconds;
 
         // Just verify it runs without error - tone won't produce meaningful text
@@ -177,11 +176,11 @@ public class FastModelFunctionalTests : IAsyncLifetime
     {
         var sw = Stopwatch.StartNew();
 
-        await using var model = await LocalSynthesizer.LoadAsync("fast");
+        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
         var loadTime = sw.ElapsedMilliseconds;
 
         sw.Restart();
-        var audio = await model.SynthesizeAsync("Hello world");
+        var audio = await model.SynthesizeAsync("Hello world", cancellationToken: TestContext.Current.CancellationToken);
         var inferTime = sw.ElapsedMilliseconds;
 
         audio.Should().NotBeNull();
@@ -197,7 +196,7 @@ public class FastModelFunctionalTests : IAsyncLifetime
     {
         var sw = Stopwatch.StartNew();
 
-        await using var model = await LocalCaptioner.LoadAsync("fast");
+        await using var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
         var loadTime = sw.ElapsedMilliseconds;
 
         // Create a simple test image (100x100 red square)
@@ -206,7 +205,7 @@ public class FastModelFunctionalTests : IAsyncLifetime
         var imageBytes = CreateSimpleTestImage(width, height);
 
         sw.Restart();
-        var result = await model.CaptionAsync(imageBytes);
+        var result = await model.CaptionAsync(imageBytes, TestContext.Current.CancellationToken);
         var inferTime = sw.ElapsedMilliseconds;
 
         result.Should().NotBeNull();
@@ -220,14 +219,14 @@ public class FastModelFunctionalTests : IAsyncLifetime
     {
         var sw = Stopwatch.StartNew();
 
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
         var loadTime = sw.ElapsedMilliseconds;
 
         // Create a simple test image
         var imageBytes = CreateSimpleTestImage(200, 50);
 
         sw.Restart();
-        var result = await model.RecognizeAsync(imageBytes);
+        var result = await model.RecognizeAsync(imageBytes, TestContext.Current.CancellationToken);
         var inferTime = sw.ElapsedMilliseconds;
 
         result.Should().NotBeNull();
@@ -241,14 +240,14 @@ public class FastModelFunctionalTests : IAsyncLifetime
     {
         var sw = Stopwatch.StartNew();
 
-        await using var model = await LocalDetector.LoadAsync("fast");
+        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
         var loadTime = sw.ElapsedMilliseconds;
 
         // Create a simple test image
         var imageBytes = CreateSimpleTestImage(640, 480);
 
         sw.Restart();
-        var detections = await model.DetectAsync(imageBytes);
+        var detections = await model.DetectAsync(imageBytes, TestContext.Current.CancellationToken);
         var inferTime = sw.ElapsedMilliseconds;
 
         detections.Should().NotBeNull();
@@ -262,14 +261,14 @@ public class FastModelFunctionalTests : IAsyncLifetime
     {
         var sw = Stopwatch.StartNew();
 
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
         var loadTime = sw.ElapsedMilliseconds;
 
         // Create a simple test image
         var imageBytes = CreateSimpleTestImage(256, 256);
 
         sw.Restart();
-        var mask = await model.SegmentAsync(imageBytes);
+        var mask = await model.SegmentAsync(imageBytes, TestContext.Current.CancellationToken);
         var inferTime = sw.ElapsedMilliseconds;
 
         mask.Should().NotBeNull();

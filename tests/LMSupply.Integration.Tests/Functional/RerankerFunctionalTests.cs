@@ -21,7 +21,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_DefaultAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalReranker.LoadAsync("default");
+        await using var model = await LocalReranker.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
     }
@@ -30,7 +30,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_FastAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
     }
@@ -39,7 +39,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_WarmupAsync_CompletesWithoutError()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.WarmupAsync();
         await act.Should().NotThrowAsync();
@@ -49,7 +49,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_GetModelInfo_ReturnsValidInfo()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var info = model.GetModelInfo();
         info.Should().NotBeNull();
@@ -78,7 +78,7 @@ public class RerankerFunctionalTests
     public async Task L_ExplicitCpuProvider_LoadsSuccessfully()
     {
         var options = new RerankerOptions { Provider = ExecutionProvider.Cpu };
-        await using var model = await LocalReranker.LoadAsync("fast", options);
+        await using var model = await LocalReranker.LoadAsync("fast", options, cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
     }
@@ -100,12 +100,12 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_BasicReranking_ReturnsCorrectCount()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "hello";
         string[] docs = ["hello", "world", "xyz"];
 
-        var results = await model.RerankAsync(query, docs);
+        var results = await model.RerankAsync(query, docs, cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(3);
     }
@@ -114,12 +114,12 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_BasicReranking_ExactMatchIsTop1()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "hello";
         string[] docs = ["hello", "world", "xyz"];
 
-        var results = await model.RerankAsync(query, docs);
+        var results = await model.RerankAsync(query, docs, cancellationToken: TestContext.Current.CancellationToken);
 
         results[0].Document.Should().Be("hello",
             "exact match should be ranked first");
@@ -129,12 +129,12 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_ScoreAsync_ReturnsScoresInOriginalOrder()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "machine learning";
         string[] docs = ["weather report", "deep learning neural networks", "cooking recipe"];
 
-        var scores = await model.ScoreAsync(query, docs);
+        var scores = await model.ScoreAsync(query, docs, TestContext.Current.CancellationToken);
 
         scores.Should().HaveCount(3);
         // ML-related doc should have highest score
@@ -146,12 +146,12 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_RerankBatchAsync_ReturnsCorrectBatchCount()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         string[] queries = ["query1", "query2"];
         string[][] docSets = [["doc1a", "doc1b"], ["doc2a", "doc2b"]];
 
-        var results = await model.RerankBatchAsync(queries, docSets);
+        var results = await model.RerankBatchAsync(queries, docSets, cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(2);
         results[0].Should().HaveCount(2);
@@ -164,7 +164,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ExactMatch_HasHighestScore()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "machine learning";
         string[] docs =
@@ -175,7 +175,7 @@ public class RerankerFunctionalTests
             "I like cooking pasta.",
         ];
 
-        var results = await model.RerankAsync(query, docs);
+        var results = await model.RerankAsync(query, docs, cancellationToken: TestContext.Current.CancellationToken);
 
         // ML-related docs should rank higher
         var topDoc = results[0].Document;
@@ -187,7 +187,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ScoresAreMeaningful_NotGarbage()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "What is artificial intelligence?";
         string[] docs =
@@ -196,7 +196,7 @@ public class RerankerFunctionalTests
             "The price of gold fluctuated today.",
         ];
 
-        var scores = await model.ScoreAsync(query, docs);
+        var scores = await model.ScoreAsync(query, docs, TestContext.Current.CancellationToken);
 
         // The relevant doc should have a significantly higher score
         scores[0].Should().BeGreaterThan(scores[1],
@@ -211,12 +211,12 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_TopN_ReturnsExactCount()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "test";
         string[] docs = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
 
-        var results = await model.RerankAsync(query, docs, topK: 3);
+        var results = await model.RerankAsync(query, docs, topK: 3, cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(3);
     }
@@ -225,13 +225,13 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_OrderConsistency_SameInputSameOutput()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "machine learning";
         string[] docs = ["ML paper", "cooking recipe", "deep learning", "weather"];
 
-        var results1 = await model.RerankAsync(query, docs);
-        var results2 = await model.RerankAsync(query, docs);
+        var results1 = await model.RerankAsync(query, docs, cancellationToken: TestContext.Current.CancellationToken);
+        var results2 = await model.RerankAsync(query, docs, cancellationToken: TestContext.Current.CancellationToken);
 
         // Same input should produce same ordering
         for (var i = 0; i < results1.Count; i++)
@@ -245,12 +245,12 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ResultsContainOriginalIndex()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "test query";
         string[] docs = ["alpha", "beta", "gamma"];
 
-        var results = await model.RerankAsync(query, docs);
+        var results = await model.RerankAsync(query, docs, cancellationToken: TestContext.Current.CancellationToken);
 
         // Every original index 0, 1, 2 should appear exactly once
         var indices = results.Select(r => r.OriginalIndex).OrderBy(i => i).ToList();
@@ -261,12 +261,12 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ResultsAreSortedByScoreDescending()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "machine learning";
         string[] docs = ["ML paper", "cooking recipe", "deep learning", "weather"];
 
-        var results = await model.RerankAsync(query, docs);
+        var results = await model.RerankAsync(query, docs, cancellationToken: TestContext.Current.CancellationToken);
 
         for (var i = 1; i < results.Count; i++)
         {
@@ -279,7 +279,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ConcurrentInference_ProducesConsistentResults()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "machine learning";
         string[] docs = ["ML paper", "cooking recipe", "deep learning"];
@@ -305,12 +305,12 @@ public class RerankerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_SingleDocument_ReturnsThatDocument()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "test";
         string[] docs = ["only document"];
 
-        var results = await model.RerankAsync(query, docs);
+        var results = await model.RerankAsync(query, docs, cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(1);
         results[0].Document.Should().Be("only document");
@@ -320,7 +320,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_EmptyDocuments_ThrowsArgumentException()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.RerankAsync("query", Array.Empty<string>());
         await act.Should().ThrowAsync<ArgumentException>();
@@ -330,7 +330,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_EmptyQuery_ThrowsArgumentException()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.RerankAsync("", ["doc1"]);
         await act.Should().ThrowAsync<ArgumentException>();
@@ -340,7 +340,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_WhitespaceQuery_ThrowsArgumentException()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.RerankAsync("   ", ["doc1"]);
         await act.Should().ThrowAsync<ArgumentException>();
@@ -350,7 +350,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_SpecialCharacters_DoNotCrash()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "🎉 emoji query";
         string[] docs = ["hello 🐱", "日本語テスト", "مرحبا"];
@@ -364,7 +364,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_LongDocuments_DoNotOOM()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "test";
         var longDoc = new string('a', 5000); // Exceed typical context window
@@ -378,9 +378,9 @@ public class RerankerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_NullOptions_UsesDefaults()
     {
-        await using var model = await LocalReranker.LoadAsync("fast", options: null);
+        await using var model = await LocalReranker.LoadAsync("fast", options: null, cancellationToken: TestContext.Current.CancellationToken);
 
-        var results = await model.RerankAsync("test", ["doc1"]);
+        var results = await model.RerankAsync("test", ["doc1"], cancellationToken: TestContext.Current.CancellationToken);
         results.Should().HaveCount(1);
     }
 
@@ -388,10 +388,10 @@ public class RerankerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_TopK_GreaterThanDocCount_ReturnsAll()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         string[] docs = ["a", "b", "c"];
-        var results = await model.RerankAsync("test", docs, topK: 10);
+        var results = await model.RerankAsync("test", docs, topK: 10, cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(3, "topK > doc count should return all docs");
     }
@@ -400,10 +400,10 @@ public class RerankerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_TopK_One_ReturnsSingleResult()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         string[] docs = ["a", "b", "c"];
-        var results = await model.RerankAsync("test", docs, topK: 1);
+        var results = await model.RerankAsync("test", docs, topK: 1, cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(1);
     }
@@ -421,7 +421,7 @@ public class RerankerFunctionalTests
     [Trait("Bug", "BUG-003")]
     public async Task Bug003_OnnxModel_ProducesNonZeroScores()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "What is machine learning?";
         string[] docs =
@@ -430,7 +430,7 @@ public class RerankerFunctionalTests
             "The sun rises in the east.",
         ];
 
-        var scores = await model.ScoreAsync(query, docs);
+        var scores = await model.ScoreAsync(query, docs, TestContext.Current.CancellationToken);
 
         // Compatible ONNX models should NOT produce all near-zero scores
         var maxScore = scores.Max(s => MathF.Abs(s));
@@ -462,7 +462,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_ModelProperties_ArePopulated()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ActiveProviders.Should().NotBeNull();
         model.RequestedProvider.Should().BeDefined();
@@ -472,7 +472,7 @@ public class RerankerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ManyDocuments_RanksCorrectly()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "What is machine learning?";
         string[] docs =
@@ -489,7 +489,7 @@ public class RerankerFunctionalTests
             "Reinforcement learning trains agents through rewards.",
         ];
 
-        var results = await model.RerankAsync(query, docs, topK: 3);
+        var results = await model.RerankAsync(query, docs, topK: 3, cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(3);
         // All top 3 should be ML-related
@@ -502,10 +502,10 @@ public class RerankerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_DuplicateDocuments_DoesNotCrash()
     {
-        await using var model = await LocalReranker.LoadAsync("fast");
+        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         string[] docs = ["same doc", "same doc", "same doc"];
-        var results = await model.RerankAsync("test", docs);
+        var results = await model.RerankAsync("test", docs, cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(3);
     }
@@ -590,7 +590,7 @@ public class RerankerFunctionalTests
     public async Task L_GgufModel_LoadsSuccessfully()
     {
         // R-Q5: Load a GGUF reranker via llama-server (cross-encoder only)
-        await using var model = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3-GGUF");
+        await using var model = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3-GGUF", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
     }
@@ -601,7 +601,7 @@ public class RerankerFunctionalTests
     public async Task Q_GgufReranker_ProducesValidScores()
     {
         // R-Q5: GGUF reranker should produce meaningful, non-zero scores
-        await using var model = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3-GGUF");
+        await using var model = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3-GGUF", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "What is machine learning?";
         string[] docs =
@@ -611,7 +611,7 @@ public class RerankerFunctionalTests
             "Deep learning uses neural networks with many layers."
         ];
 
-        var results = await model.RerankAsync(query, docs);
+        var results = await model.RerankAsync(query, docs, cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(3);
         // Verify scores are non-zero (BUG-003: near-zero means incompatible model)
@@ -625,7 +625,7 @@ public class RerankerFunctionalTests
     public async Task Q_GgufReranker_RanksRelevantHigher()
     {
         // R-Q6: GGUF reranker should rank relevant doc higher than irrelevant
-        await using var model = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3-GGUF");
+        await using var model = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3-GGUF", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "How does photosynthesis work?";
         string[] docs =
@@ -634,7 +634,7 @@ public class RerankerFunctionalTests
             "The stock market closed higher today.",
         ];
 
-        var results = await model.RerankAsync(query, docs, topK: 1);
+        var results = await model.RerankAsync(query, docs, topK: 1, cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(1);
         results[0].Document.Should().Contain("Photosynthesis",

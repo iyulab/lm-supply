@@ -30,7 +30,7 @@ public class InfrastructureFunctionalTests
     public async Task DL1_FirstDownload_CreatesCache()
     {
         // Use Embedder "fast" (smallest model) — likely already cached
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
 
@@ -45,12 +45,12 @@ public class InfrastructureFunctionalTests
     {
         // First load (ensure cached)
         var sw1 = Stopwatch.StartNew();
-        await using var model1 = await LocalEmbedder.LoadAsync("fast");
+        await using var model1 = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
         var firstLoadMs = sw1.ElapsedMilliseconds;
 
         // Second load should be faster (no download, no discovery)
         var sw2 = Stopwatch.StartNew();
-        await using var model2 = await LocalEmbedder.LoadAsync("fast");
+        await using var model2 = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
         var secondLoadMs = sw2.ElapsedMilliseconds;
 
         // Second load should be at least as fast (network-free)
@@ -68,7 +68,7 @@ public class InfrastructureFunctionalTests
 
         // LoadAsync with progress - using Embedder as proxy
         // Note: If already cached, progress may not report (no download needed)
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         // Just verify it doesn't throw — progress reporting depends on cache state
         model.Should().NotBeNull();
@@ -126,7 +126,7 @@ public class InfrastructureFunctionalTests
     public async Task CACHE1_CachedModelsList_ContainsLoadedModel()
     {
         // Ensure at least one model is cached
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var cacheDir = CacheManager.GetDefaultCacheDirectory();
         var cachedModels = CacheManager.GetCachedModels(cacheDir).ToList();
@@ -141,7 +141,7 @@ public class InfrastructureFunctionalTests
     public async Task CACHE2_CachedModelsWithInfo_HasValidFields()
     {
         // Ensure at least one model is cached
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var cacheDir = CacheManager.GetDefaultCacheDirectory();
         var cachedModels = CacheManager.GetCachedModelsWithInfo(cacheDir);
@@ -160,7 +160,7 @@ public class InfrastructureFunctionalTests
     public async Task CACHE3_TotalCacheSize_IsPositive()
     {
         // Ensure at least one model is cached
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var cacheDir = CacheManager.GetDefaultCacheDirectory();
         var totalSize = CacheManager.GetTotalCacheSize(cacheDir);
@@ -314,7 +314,7 @@ public class InfrastructureFunctionalTests
     {
         // GPU-2: Verify explicit provider override actually selects the requested provider
         var options = new EmbedderOptions { Provider = ExecutionProvider.Cpu };
-        await using var model = await LocalEmbedder.LoadAsync("fast", options);
+        await using var model = await LocalEmbedder.LoadAsync("fast", options, cancellationToken: TestContext.Current.CancellationToken);
 
         model.RequestedProvider.Should().Be(ExecutionProvider.Cpu,
             "requested provider should reflect the explicit override");
@@ -335,7 +335,7 @@ public class InfrastructureFunctionalTests
         // Should either fallback gracefully or throw a meaningful error
         try
         {
-            await using var model = await LocalEmbedder.LoadAsync("fast", options);
+            await using var model = await LocalEmbedder.LoadAsync("fast", options, cancellationToken: TestContext.Current.CancellationToken);
 
             // If it loads, it must have fallen back to a different provider
             model.ActiveProviders.Should().NotContain("CoreMLExecutionProvider",

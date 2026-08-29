@@ -20,7 +20,7 @@ public class OcrFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_DefaultAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalOcr.LoadAsync();
+        await using var model = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         model.DetectionModelId.Should().NotBeNullOrEmpty();
         model.RecognitionModelId.Should().NotBeNullOrEmpty();
@@ -30,7 +30,7 @@ public class OcrFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_FastAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         model.Should().NotBeNull();
     }
@@ -39,7 +39,7 @@ public class OcrFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_GetModelInfo_ReturnsValidInfo()
     {
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var info = model.GetModelInfo();
         info.Should().NotBeNull();
@@ -51,10 +51,10 @@ public class OcrFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_GradientImage_RunsWithoutError()
     {
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(200, 50);
-        var result = await model.RecognizeAsync(imageBytes);
+        var result = await model.RecognizeAsync(imageBytes, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         // Gradient image has no text, so regions may be empty — that's fine
@@ -64,10 +64,10 @@ public class OcrFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_OcrResult_HasFullText()
     {
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(200, 50);
-        var result = await model.RecognizeAsync(imageBytes);
+        var result = await model.RecognizeAsync(imageBytes, TestContext.Current.CancellationToken);
 
         result.FullText.Should().NotBeNull(); // May be empty, but not null
         result.ProcessingTimeMs.Should().BeGreaterThanOrEqualTo(0);
@@ -77,11 +77,11 @@ public class OcrFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_DetectOnly_RunsWithoutError()
     {
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(200, 50);
         using var stream = new MemoryStream(imageBytes);
-        var regions = await model.DetectAsync(stream);
+        var regions = await model.DetectAsync(stream, TestContext.Current.CancellationToken);
 
         regions.Should().NotBeNull();
     }
@@ -92,10 +92,10 @@ public class OcrFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_RegionBoundingBoxes_HaveValidCoordinates()
     {
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(640, 480);
-        var result = await model.RecognizeAsync(imageBytes);
+        var result = await model.RecognizeAsync(imageBytes, TestContext.Current.CancellationToken);
 
         foreach (var region in result.Regions)
         {
@@ -111,7 +111,7 @@ public class OcrFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_BlankWhiteImage_DoesNotCrash()
     {
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateSolidBmp(640, 480);
         var act = () => model.RecognizeAsync(imageBytes);
@@ -123,12 +123,12 @@ public class OcrFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_TinyImage_DoesNotCrash()
     {
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateTinyBmp();
         try
         {
-            var result = await model.RecognizeAsync(imageBytes);
+            var result = await model.RecognizeAsync(imageBytes, TestContext.Current.CancellationToken);
             result.Should().NotBeNull();
         }
         catch (Exception ex)
@@ -141,7 +141,7 @@ public class OcrFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_InvalidImageData_ThrowsCleanError()
     {
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.RecognizeAsync(new byte[] { 0x00, 0x01, 0x02 });
         await act.Should().ThrowAsync<Exception>("non-image data should throw, not crash");
@@ -153,7 +153,7 @@ public class OcrFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_LoadForLanguageAsync_English_Works()
     {
-        await using var model = await LocalOcr.LoadForLanguageAsync("en");
+        await using var model = await LocalOcr.LoadForLanguageAsync("en", cancellationToken: TestContext.Current.CancellationToken);
 
         model.Should().NotBeNull();
         model.DetectionModelId.Should().NotBeNullOrEmpty();
@@ -164,7 +164,7 @@ public class OcrFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_LoadForLanguageAsync_Korean_Works()
     {
-        await using var model = await LocalOcr.LoadForLanguageAsync("ko");
+        await using var model = await LocalOcr.LoadForLanguageAsync("ko", cancellationToken: TestContext.Current.CancellationToken);
 
         model.Should().NotBeNull();
         model.RecognitionModelId.Should().NotBeNullOrEmpty();
@@ -204,11 +204,11 @@ public class OcrFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_RecognizeFromStream_Works()
     {
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(200, 50);
         using var stream = new MemoryStream(imageBytes);
-        var result = await model.RecognizeAsync(stream);
+        var result = await model.RecognizeAsync(stream, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result.FullText.Should().NotBeNull();
@@ -218,10 +218,10 @@ public class OcrFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ProcessingTime_IsPositive()
     {
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(200, 50);
-        var result = await model.RecognizeAsync(imageBytes);
+        var result = await model.RecognizeAsync(imageBytes, TestContext.Current.CancellationToken);
 
         result.ProcessingTimeMs.Should().BeGreaterThanOrEqualTo(0);
     }
@@ -230,7 +230,7 @@ public class OcrFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_LargeImage_DoesNotCrash()
     {
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         // Large image (1920x1080)
         var imageBytes = TestDataHelper.CreateGradientBmp(1920, 1080);
@@ -242,7 +242,7 @@ public class OcrFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_NarrowImage_DoesNotCrash()
     {
-        await using var model = await LocalOcr.LoadAsync("fast");
+        await using var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         // Very narrow image (like a text line scan)
         var imageBytes = TestDataHelper.CreateGradientBmp(500, 20);

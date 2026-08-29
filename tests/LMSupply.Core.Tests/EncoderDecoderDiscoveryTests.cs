@@ -17,7 +17,7 @@ public class EncoderDecoderDiscoveryTests
         using var service = new ModelDiscoveryService();
         
         // Act - Discover onnx-community repo (the correct repo with ONNX files)
-        var result = await service.DiscoverModelAsync("onnx-community/opus-mt-ko-en");
+        var result = await service.DiscoverModelAsync("onnx-community/opus-mt-ko-en", cancellationToken: TestContext.Current.CancellationToken);
         
         // Assert
         result.Architecture.Should().Be(ModelArchitecture.EncoderDecoder,

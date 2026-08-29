@@ -241,7 +241,7 @@ public class RuntimeUpdateTests : IDisposable
         using var manager = new RuntimeVersionStateManager(_testCacheDir);
 
         // Act
-        var state = await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0");
+        var state = await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
 
         // Assert
         state.InstalledVersion.Should().Be("1.0.0");
@@ -253,10 +253,10 @@ public class RuntimeUpdateTests : IDisposable
     {
         // Arrange
         using var manager = new RuntimeVersionStateManager(_testCacheDir);
-        var initialState = await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0");
+        var initialState = await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
 
         // Act - try to create again with different version
-        var state = await manager.GetOrCreateStateAsync("test|cpu|win-x64", "2.0.0");
+        var state = await manager.GetOrCreateStateAsync("test|cpu|win-x64", "2.0.0", TestContext.Current.CancellationToken);
 
         // Assert - should return the original state
         state.InstalledVersion.Should().Be("1.0.0");
@@ -267,11 +267,11 @@ public class RuntimeUpdateTests : IDisposable
     {
         // Arrange
         using var manager = new RuntimeVersionStateManager(_testCacheDir);
-        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0");
+        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
 
         // Act
-        await manager.RecordVersionCheckAsync("test|cpu|win-x64", "1.1.0");
-        var state = await manager.GetStateAsync("test|cpu|win-x64");
+        await manager.RecordVersionCheckAsync("test|cpu|win-x64", "1.1.0", TestContext.Current.CancellationToken);
+        var state = await manager.GetStateAsync("test|cpu|win-x64", TestContext.Current.CancellationToken);
 
         // Assert
         state.Should().NotBeNull();
@@ -284,11 +284,11 @@ public class RuntimeUpdateTests : IDisposable
     {
         // Arrange
         using var manager = new RuntimeVersionStateManager(_testCacheDir);
-        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0");
+        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
 
         // Act
-        await manager.MarkUpdateReadyAsync("test|cpu|win-x64", "1.1.0", "/path/to/update");
-        var state = await manager.GetStateAsync("test|cpu|win-x64");
+        await manager.MarkUpdateReadyAsync("test|cpu|win-x64", "1.1.0", "/path/to/update", TestContext.Current.CancellationToken);
+        var state = await manager.GetStateAsync("test|cpu|win-x64", TestContext.Current.CancellationToken);
 
         // Assert
         state.Should().NotBeNull();
@@ -302,11 +302,11 @@ public class RuntimeUpdateTests : IDisposable
     {
         // Arrange
         using var manager = new RuntimeVersionStateManager(_testCacheDir);
-        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0");
-        await manager.MarkUpdateReadyAsync("test|cpu|win-x64", "1.1.0", "/path/to/update");
+        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
+        await manager.MarkUpdateReadyAsync("test|cpu|win-x64", "1.1.0", "/path/to/update", TestContext.Current.CancellationToken);
 
         // Act
-        var state = await manager.ActivateUpdateAsync("test|cpu|win-x64", maxVersionsToKeep: 2);
+        var state = await manager.ActivateUpdateAsync("test|cpu|win-x64", maxVersionsToKeep: 2, ct: TestContext.Current.CancellationToken);
 
         // Assert
         state.Should().NotBeNull();
@@ -320,17 +320,17 @@ public class RuntimeUpdateTests : IDisposable
     {
         // Arrange
         using var manager = new RuntimeVersionStateManager(_testCacheDir);
-        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0");
+        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
 
         // Simulate multiple updates
-        await manager.MarkUpdateReadyAsync("test|cpu|win-x64", "1.1.0", "/path/1.1.0");
-        await manager.ActivateUpdateAsync("test|cpu|win-x64", maxVersionsToKeep: 2);
+        await manager.MarkUpdateReadyAsync("test|cpu|win-x64", "1.1.0", "/path/1.1.0", TestContext.Current.CancellationToken);
+        await manager.ActivateUpdateAsync("test|cpu|win-x64", maxVersionsToKeep: 2, ct: TestContext.Current.CancellationToken);
 
-        await manager.MarkUpdateReadyAsync("test|cpu|win-x64", "1.2.0", "/path/1.2.0");
-        await manager.ActivateUpdateAsync("test|cpu|win-x64", maxVersionsToKeep: 2);
+        await manager.MarkUpdateReadyAsync("test|cpu|win-x64", "1.2.0", "/path/1.2.0", TestContext.Current.CancellationToken);
+        await manager.ActivateUpdateAsync("test|cpu|win-x64", maxVersionsToKeep: 2, ct: TestContext.Current.CancellationToken);
 
-        await manager.MarkUpdateReadyAsync("test|cpu|win-x64", "1.3.0", "/path/1.3.0");
-        var state = await manager.ActivateUpdateAsync("test|cpu|win-x64", maxVersionsToKeep: 2);
+        await manager.MarkUpdateReadyAsync("test|cpu|win-x64", "1.3.0", "/path/1.3.0", TestContext.Current.CancellationToken);
+        var state = await manager.ActivateUpdateAsync("test|cpu|win-x64", maxVersionsToKeep: 2, ct: TestContext.Current.CancellationToken);
 
         // Assert - only 2 previous versions should be kept
         state.Should().NotBeNull();
@@ -346,13 +346,13 @@ public class RuntimeUpdateTests : IDisposable
     {
         // Arrange
         using var manager = new RuntimeVersionStateManager(_testCacheDir);
-        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0");
-        await manager.MarkUpdateReadyAsync("test|cpu|win-x64", "1.1.0", "/path/1.1.0");
-        await manager.ActivateUpdateAsync("test|cpu|win-x64", maxVersionsToKeep: 2);
+        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
+        await manager.MarkUpdateReadyAsync("test|cpu|win-x64", "1.1.0", "/path/1.1.0", TestContext.Current.CancellationToken);
+        await manager.ActivateUpdateAsync("test|cpu|win-x64", maxVersionsToKeep: 2, ct: TestContext.Current.CancellationToken);
 
         // Act
-        var (previousVersion, _) = await manager.RollbackAsync("test|cpu|win-x64", "1.1.0");
-        var state = await manager.GetStateAsync("test|cpu|win-x64");
+        var (previousVersion, _) = await manager.RollbackAsync("test|cpu|win-x64", "1.1.0", TestContext.Current.CancellationToken);
+        var state = await manager.GetStateAsync("test|cpu|win-x64", TestContext.Current.CancellationToken);
 
         // Assert
         previousVersion.Should().Be("1.0.0");
@@ -366,10 +366,10 @@ public class RuntimeUpdateTests : IDisposable
     {
         // Arrange
         using var manager = new RuntimeVersionStateManager(_testCacheDir);
-        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0");
+        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
 
         // Act - check with 1 hour interval (state was just created with MinValue timestamp)
-        var isDue = await manager.IsVersionCheckDueAsync("test|cpu|win-x64", TimeSpan.FromHours(1));
+        var isDue = await manager.IsVersionCheckDueAsync("test|cpu|win-x64", TimeSpan.FromHours(1), TestContext.Current.CancellationToken);
 
         // Assert
         isDue.Should().BeTrue("LastVersionCheck was MinValue, so it should be due");
@@ -380,11 +380,11 @@ public class RuntimeUpdateTests : IDisposable
     {
         // Arrange
         using var manager = new RuntimeVersionStateManager(_testCacheDir);
-        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0");
-        await manager.RecordVersionCheckAsync("test|cpu|win-x64", "1.0.0");
+        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
+        await manager.RecordVersionCheckAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
 
         // Act - check with 1 hour interval (just recorded check)
-        var isDue = await manager.IsVersionCheckDueAsync("test|cpu|win-x64", TimeSpan.FromHours(1));
+        var isDue = await manager.IsVersionCheckDueAsync("test|cpu|win-x64", TimeSpan.FromHours(1), TestContext.Current.CancellationToken);
 
         // Assert
         isDue.Should().BeFalse("LastVersionCheck was just updated");
@@ -398,13 +398,13 @@ public class RuntimeUpdateTests : IDisposable
 
         using (var manager1 = new RuntimeVersionStateManager(_testCacheDir))
         {
-            await manager1.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0");
-            await manager1.RecordVersionCheckAsync("test|cpu|win-x64", "1.1.0");
+            await manager1.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
+            await manager1.RecordVersionCheckAsync("test|cpu|win-x64", "1.1.0", TestContext.Current.CancellationToken);
         }
 
         // Act - load with second manager
         using var manager2 = new RuntimeVersionStateManager(_testCacheDir);
-        var state = await manager2.GetStateAsync("test|cpu|win-x64");
+        var state = await manager2.GetStateAsync("test|cpu|win-x64", TestContext.Current.CancellationToken);
 
         // Assert
         File.Exists(stateFile).Should().BeTrue();

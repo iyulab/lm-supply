@@ -33,10 +33,10 @@ public sealed class LlamaServerCudartAtomicProvisionTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task FailedExtract_LeavesVersionDirClean()
     {
-        Skip.If(RuntimeInformation.IsOSPlatform(OSPlatform.OSX),
+        Assert.SkipWhen(RuntimeInformation.IsOSPlatform(OSPlatform.OSX),
             "macOS has no CUDA cudart companion; EnsureCudaRuntimeAsync is a no-op there");
 
         var (releaseJson, cudartUrl) = BuildRelease();
@@ -46,17 +46,17 @@ public sealed class LlamaServerCudartAtomicProvisionTests : IDisposable
         var downloader = new LlamaServerDownloader(_dir, http);
 
         // Best-effort: EnsureCudaRuntimeAsync swallows the extract failure (must not throw).
-        await downloader.EnsureCudaRuntimeAsync(_dir, LlamaServerBackend.Cuda12, "b9692");
+        await downloader.EnsureCudaRuntimeAsync(_dir, LlamaServerBackend.Cuda12, "b9692", cancellationToken: TestContext.Current.CancellationToken);
 
         Directory.EnumerateFileSystemEntries(_dir).Should().BeEmpty(
             "a failed extract must leave neither the archive nor partial DLLs in the versionDir");
         LlamaServerDownloader.CudaRuntimePresent(_dir).Should().BeFalse();
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task SuccessfulProvision_LeavesOnlyRuntime_NoStagingOrArchive()
     {
-        Skip.If(RuntimeInformation.IsOSPlatform(OSPlatform.OSX),
+        Assert.SkipWhen(RuntimeInformation.IsOSPlatform(OSPlatform.OSX),
             "macOS has no CUDA cudart companion; EnsureCudaRuntimeAsync is a no-op there");
 
         var (releaseJson, cudartUrl) = BuildRelease();
@@ -64,7 +64,7 @@ public sealed class LlamaServerCudartAtomicProvisionTests : IDisposable
         using var http = new HttpClient(handler);
         var downloader = new LlamaServerDownloader(_dir, http);
 
-        await downloader.EnsureCudaRuntimeAsync(_dir, LlamaServerBackend.Cuda12, "b9692");
+        await downloader.EnsureCudaRuntimeAsync(_dir, LlamaServerBackend.Cuda12, "b9692", cancellationToken: TestContext.Current.CancellationToken);
 
         LlamaServerDownloader.CudaRuntimePresent(_dir).Should().BeTrue(
             "the complete runtime must be extracted into the versionDir");

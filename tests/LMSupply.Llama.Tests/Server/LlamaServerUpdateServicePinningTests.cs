@@ -38,7 +38,7 @@ public sealed class LlamaServerUpdateServicePinningTests : IDisposable
         var options = new LlamaServerUpdateOptions { CacheDirectory = _dir, PinnedVersion = "b7898" };
         await using var service = new LlamaServerUpdateService(options, http);
 
-        var result = await service.GetServerPathAsync(LlamaServerBackend.Cpu);
+        var result = await service.GetServerPathAsync(LlamaServerBackend.Cpu, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Success.Should().BeTrue();
         result.NewVersion.Should().Be("b7898");
@@ -63,7 +63,7 @@ public sealed class LlamaServerUpdateServicePinningTests : IDisposable
         var options = new LlamaServerUpdateOptions { CacheDirectory = _dir, PinnedVersion = "b7898" };
         await using var service = new LlamaServerUpdateService(options, http);
 
-        var result = await service.GetServerPathAsync(LlamaServerBackend.Cpu);
+        var result = await service.GetServerPathAsync(LlamaServerBackend.Cpu, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Success.Should().BeTrue();
         result.NewVersion.Should().Be("b7898");
@@ -83,7 +83,7 @@ public sealed class LlamaServerUpdateServicePinningTests : IDisposable
         var options = new LlamaServerUpdateOptions { CacheDirectory = _dir, ServerBinaryPath = binaryPath };
         await using var service = new LlamaServerUpdateService(options, http);
 
-        var result = await service.GetServerPathAsync(LlamaServerBackend.Cpu);
+        var result = await service.GetServerPathAsync(LlamaServerBackend.Cpu, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Success.Should().BeTrue();
         result.ServerPath.Should().Be(binaryPath);
@@ -97,7 +97,7 @@ public sealed class LlamaServerUpdateServicePinningTests : IDisposable
         var options = new LlamaServerUpdateOptions { CacheDirectory = _dir, ServerBinaryPath = missingPath };
         await using var service = new LlamaServerUpdateService(options);
 
-        var result = await service.GetServerPathAsync(LlamaServerBackend.Cpu);
+        var result = await service.GetServerPathAsync(LlamaServerBackend.Cpu, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Success.Should().BeFalse();
         result.Error.Should().Contain(missingPath);
@@ -113,7 +113,7 @@ public sealed class LlamaServerUpdateServicePinningTests : IDisposable
         var options = new LlamaServerUpdateOptions { CacheDirectory = _dir, PinnedVersion = "b7898" };
         await using var service = new LlamaServerUpdateService(options, http);
 
-        var result = await service.CheckAndApplyUpdateAsync(LlamaServerBackend.Cpu);
+        var result = await service.CheckAndApplyUpdateAsync(LlamaServerBackend.Cpu, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Success.Should().BeTrue();
         result.Updated.Should().BeFalse("a pinned installation never auto-applies a newer version");

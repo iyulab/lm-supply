@@ -13,7 +13,7 @@ public class GgufMetadataReaderTests
     [Fact]
     public async Task IsGgufFileAsync_WithNonExistentFile_ReturnsFalse()
     {
-        var result = await GgufMetadataReader.IsGgufFileAsync("/non/existent/path.gguf");
+        var result = await GgufMetadataReader.IsGgufFileAsync("/non/existent/path.gguf", TestContext.Current.CancellationToken);
 
         result.Should().BeFalse();
     }
@@ -21,7 +21,7 @@ public class GgufMetadataReaderTests
     [Fact]
     public async Task ReadAsync_WithNonExistentFile_ReturnsNull()
     {
-        var result = await GgufMetadataReader.ReadAsync("/non/existent/path.gguf");
+        var result = await GgufMetadataReader.ReadAsync("/non/existent/path.gguf", cancellationToken: TestContext.Current.CancellationToken);
 
         result.Should().BeNull();
     }
@@ -33,9 +33,9 @@ public class GgufMetadataReaderTests
         var tempPath = Path.GetTempFileName();
         try
         {
-            await File.WriteAllBytesAsync(tempPath, "NOTGGUF"u8.ToArray());
+            await File.WriteAllBytesAsync(tempPath, "NOTGGUF"u8.ToArray(), TestContext.Current.CancellationToken);
 
-            var result = await GgufMetadataReader.IsGgufFileAsync(tempPath);
+            var result = await GgufMetadataReader.IsGgufFileAsync(tempPath, TestContext.Current.CancellationToken);
 
             result.Should().BeFalse();
         }
@@ -54,9 +54,9 @@ public class GgufMetadataReaderTests
         {
             // GGUF magic: 0x46554747 (little-endian: "GGUF")
             var magic = new byte[] { 0x47, 0x47, 0x55, 0x46 };
-            await File.WriteAllBytesAsync(tempPath, magic);
+            await File.WriteAllBytesAsync(tempPath, magic, TestContext.Current.CancellationToken);
 
-            var result = await GgufMetadataReader.IsGgufFileAsync(tempPath);
+            var result = await GgufMetadataReader.IsGgufFileAsync(tempPath, TestContext.Current.CancellationToken);
 
             result.Should().BeTrue();
         }
@@ -83,7 +83,7 @@ public class GgufMetadataReaderTests
 
             stream.Close();
 
-            var result = await GgufMetadataReader.ReadAsync(tempPath);
+            var result = await GgufMetadataReader.ReadAsync(tempPath, cancellationToken: TestContext.Current.CancellationToken);
 
             result.Should().BeNull();
         }
@@ -102,7 +102,7 @@ public class GgufMetadataReaderTests
         {
             await CreateMinimalGgufFileAsync(tempPath, version: 3);
 
-            var result = await GgufMetadataReader.ReadAsync(tempPath);
+            var result = await GgufMetadataReader.ReadAsync(tempPath, cancellationToken: TestContext.Current.CancellationToken);
 
             result.Should().NotBeNull();
             result!.Version.Should().Be(3);
@@ -123,7 +123,7 @@ public class GgufMetadataReaderTests
         {
             await CreateMinimalGgufFileAsync(tempPath, version: 2);
 
-            var result = await GgufMetadataReader.ReadAsync(tempPath);
+            var result = await GgufMetadataReader.ReadAsync(tempPath, cancellationToken: TestContext.Current.CancellationToken);
 
             result.Should().NotBeNull();
             result!.Version.Should().Be(2);
@@ -146,7 +146,7 @@ public class GgufMetadataReaderTests
             };
             await CreateGgufFileWithMetadataAsync(tempPath, metadata);
 
-            var result = await GgufMetadataReader.ReadAsync(tempPath);
+            var result = await GgufMetadataReader.ReadAsync(tempPath, cancellationToken: TestContext.Current.CancellationToken);
 
             result.Should().NotBeNull();
             result!.Architecture.Should().Be("llama");
@@ -177,7 +177,7 @@ public class GgufMetadataReaderTests
             };
             await CreateGgufFileWithMetadataAsync(tempPath, metadata);
 
-            var result = await GgufMetadataReader.ReadAsync(tempPath);
+            var result = await GgufMetadataReader.ReadAsync(tempPath, cancellationToken: TestContext.Current.CancellationToken);
 
             result.Should().NotBeNull();
             result!.Architecture.Should().Be("gemma");
@@ -297,7 +297,7 @@ public class GgufMetadataReaderTests
             };
             await CreateGgufFileWithMetadataAsync(tempPath, metadata);
 
-            var result = await GgufMetadataReader.ReadAsync(tempPath);
+            var result = await GgufMetadataReader.ReadAsync(tempPath, cancellationToken: TestContext.Current.CancellationToken);
 
             result.Should().NotBeNull();
             result!.QuantizationType.Should().Be(expectedQuantization);

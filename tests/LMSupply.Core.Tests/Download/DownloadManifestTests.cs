@@ -13,8 +13,8 @@ public class DownloadManifestTests
 
         try
         {
-            await File.WriteAllTextAsync(Path.Combine(dir, "model.onnx"), new string('x', 1000));
-            await File.WriteAllTextAsync(Path.Combine(dir, "config.json"), "{}");
+            await File.WriteAllTextAsync(Path.Combine(dir, "model.onnx"), new string('x', 1000), TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(dir, "config.json"), "{}", TestContext.Current.CancellationToken);
 
             var manifest = new DownloadManifest
             {
@@ -66,8 +66,7 @@ public class DownloadManifestTests
 
         try
         {
-            await File.WriteAllTextAsync(
-                Path.Combine(dir, ".lmsupply-manifest.json"), "not json{{{");
+            await File.WriteAllTextAsync(Path.Combine(dir, ".lmsupply-manifest.json"), "not json{{{", TestContext.Current.CancellationToken);
 
             var result = await DownloadManifest.ReadAsync(dir);
             result.Should().BeNull();

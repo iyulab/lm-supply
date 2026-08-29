@@ -21,7 +21,7 @@ public class GeneratorBenchmarkTests
 
         // Load model
         var loadSw = Stopwatch.StartNew();
-        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast");
+        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast", cancellationToken: TestContext.Current.CancellationToken);
         loadSw.Stop();
 
         var info = model.GetModelInfo();
@@ -42,7 +42,7 @@ public class GeneratorBenchmarkTests
         System.Console.WriteLine("Warming up...");
         for (int i = 0; i < 2; i++)
         {
-            await foreach (var _ in model.GenerateAsync("Hello", new GenerationOptions { MaxTokens = 20 })) { }
+            await foreach (var _ in model.GenerateAsync("Hello", new GenerationOptions { MaxTokens = 20 }, TestContext.Current.CancellationToken)) { }
         }
 
         // Benchmark
@@ -69,7 +69,7 @@ public class GeneratorBenchmarkTests
                 var tokenCount = 0;
                 long firstTokenTime = 0;
 
-                await foreach (var token in model.GenerateAsync(prompt, new GenerationOptions { MaxTokens = maxTokens }))
+                await foreach (var token in model.GenerateAsync(prompt, new GenerationOptions { MaxTokens = maxTokens }, TestContext.Current.CancellationToken))
                 {
                     if (tokenCount == 0)
                         firstTokenTime = sw.ElapsedMilliseconds;
@@ -104,11 +104,11 @@ public class GeneratorBenchmarkTests
     {
         System.Console.WriteLine("=== Chat Completion Benchmark ===\n");
 
-        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast");
+        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast", cancellationToken: TestContext.Current.CancellationToken);
 
         // Warmup
         var warmupMessages = new[] { ChatMessage.User("Hi") };
-        await foreach (var _ in model.GenerateChatAsync(warmupMessages, new GenerationOptions { MaxTokens = 10 })) { }
+        await foreach (var _ in model.GenerateChatAsync(warmupMessages, new GenerationOptions { MaxTokens = 10 }, TestContext.Current.CancellationToken)) { }
 
         // Test different conversation lengths
         var tests = new (string Name, ChatMessage[] Messages)[]
@@ -145,7 +145,7 @@ public class GeneratorBenchmarkTests
                 var tokenCount = 0;
                 long firstTokenTime = 0;
 
-                await foreach (var token in model.GenerateChatAsync(messages, new GenerationOptions { MaxTokens = 150 }))
+                await foreach (var token in model.GenerateChatAsync(messages, new GenerationOptions { MaxTokens = 150 }, TestContext.Current.CancellationToken))
                 {
                     if (tokenCount == 0)
                         firstTokenTime = sw.ElapsedMilliseconds;

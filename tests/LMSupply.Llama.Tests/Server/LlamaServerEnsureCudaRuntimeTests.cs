@@ -33,10 +33,10 @@ public sealed class LlamaServerEnsureCudaRuntimeTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task ConcurrentEnsure_SameVersionDir_FetchesAndExtractsOnce()
     {
-        Skip.If(RuntimeInformation.IsOSPlatform(OSPlatform.OSX),
+        Assert.SkipWhen(RuntimeInformation.IsOSPlatform(OSPlatform.OSX),
             "macOS has no CUDA cudart companion; EnsureCudaRuntimeAsync is a no-op there");
 
         var os = OperatingSystem.IsWindows() ? "win" : "ubuntu";

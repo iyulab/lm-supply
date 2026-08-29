@@ -52,6 +52,24 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test --configuration Release --no-build --verbosity normal --filter "Category!=Integration&Category!=Functional&Category!=LocalOnly" --blame-hang --blame-hang-timeout 5m
         if: hashFiles('tests/**/*.csproj') != ''
+        # MTP exits non-zero (observed: 8) when a filter matches zero tests in one assembly of a
+        # solution-wide run, where VSTest exited 0 (xunit/xunit#3077, confirmed in this ecosystem's
+        # rollout via FluxIndex's Cache.Redis.Tests/Storage.Neo4j.Tests, cycle-371).
+        # LMSupply.Integration.Tests is entirely Category=Integration/Functional/LocalOnly, so it
+        # always filters to zero here — treat that as success by checking the aggregate "failed:"
+        # count rather than trusting dotnet test's own exit code for this specific shape
+        # (BD-20260829-xunit-v3-pilot, cycle-372).
+        run: |
+          set +e
+          output=$(dotnet test --configuration Release --no-build --verbosity normal --filter-not-trait "Category=Integration" --filter-not-trait "Category=Functional" --filter-not-trait "Category=LocalOnly" --hangdump --hangdump-timeout 5m 2>&1)
+          code=$?
+          echo "$output"
+          if [ "$code" -eq 0 ]; then exit 0; fi
+          failed=$(echo "$output" | grep -oP '(?<=^\s{2}failed:\s)\d+' | tail -1)
+          if [ -n "$failed" ] && [ "$failed" -eq 0 ]; then
+            echo "::notice::dotnet test exited $code but the aggregate failed count is 0 -- MTP's zero-tests-matched-a-filter quirk, not a real failure."
+            exit 0
+          fi
+          exit $code
 

@@ -98,7 +98,7 @@ public sealed class LlamaServerDownloadExtractionTests : IDisposable
             Architecture = LlamaServerArchitecture.X64
         };
 
-        var serverPath = await downloader.DownloadAsync(asset);
+        var serverPath = await downloader.DownloadAsync(asset, cancellationToken: TestContext.Current.CancellationToken);
 
         File.Exists(serverPath).Should().BeTrue(
             "DownloadAsync must return a path that actually exists after extraction, not the archive's nested location");

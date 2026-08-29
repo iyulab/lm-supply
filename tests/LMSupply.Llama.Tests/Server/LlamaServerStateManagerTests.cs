@@ -40,7 +40,7 @@ public class LlamaServerStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        var state = await manager.GetStateAsync("vulkan", "win-x64");
+        var state = await manager.GetStateAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
 
         state.Should().BeNull();
     }
@@ -50,9 +50,9 @@ public class LlamaServerStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path/to/server");
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path/to/server", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync("vulkan", "win-x64");
+        var state = await manager.GetStateAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
 
         state.Should().NotBeNull();
         state!.InstalledVersion.Should().Be("b7898");
@@ -65,9 +65,9 @@ public class LlamaServerStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path");
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync("cuda12", "win-x64");
+        var state = await manager.GetStateAsync("cuda12", "win-x64", TestContext.Current.CancellationToken);
 
         state.Should().BeNull();
     }
@@ -77,9 +77,9 @@ public class LlamaServerStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        await manager.CreateInitialStateAsync("Vulkan", "Win-X64", "b7898", "/path");
+        await manager.CreateInitialStateAsync("Vulkan", "Win-X64", "b7898", "/path", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync("vulkan", "win-x64");
+        var state = await manager.GetStateAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
 
         state.Should().NotBeNull();
         state!.InstalledVersion.Should().Be("b7898");
@@ -92,7 +92,7 @@ public class LlamaServerStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/old");
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/old", TestContext.Current.CancellationToken);
 
         var newState = new LlamaServerVersionState
         {
@@ -100,9 +100,9 @@ public class LlamaServerStateManagerTests : IDisposable
             InstalledPath = "/new",
             Backend = "vulkan"
         };
-        await manager.UpdateStateAsync("vulkan", "win-x64", newState);
+        await manager.UpdateStateAsync("vulkan", "win-x64", newState, TestContext.Current.CancellationToken);
 
-        var loaded = await manager.GetStateAsync("vulkan", "win-x64");
+        var loaded = await manager.GetStateAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
         loaded.Should().NotBeNull();
         loaded!.InstalledVersion.Should().Be("b7900");
         loaded.InstalledPath.Should().Be("/new");
@@ -114,12 +114,12 @@ public class LlamaServerStateManagerTests : IDisposable
     public async Task RecordVersionCheckAsync_UpdatesVersionAndTimestamp()
     {
         using var manager = CreateManager();
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path");
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path", TestContext.Current.CancellationToken);
 
         var before = DateTimeOffset.UtcNow;
-        await manager.RecordVersionCheckAsync("vulkan", "win-x64", "b7900");
+        await manager.RecordVersionCheckAsync("vulkan", "win-x64", "b7900", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync("vulkan", "win-x64");
+        var state = await manager.GetStateAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
         state!.LatestKnownVersion.Should().Be("b7900");
         state.LastVersionCheck.Should().BeOnOrAfter(before);
     }
@@ -130,9 +130,9 @@ public class LlamaServerStateManagerTests : IDisposable
         using var manager = CreateManager();
 
         // Should not throw
-        await manager.RecordVersionCheckAsync("vulkan", "win-x64", "b7900");
+        await manager.RecordVersionCheckAsync("vulkan", "win-x64", "b7900", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync("vulkan", "win-x64");
+        var state = await manager.GetStateAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
         state.Should().BeNull();
     }
 
@@ -142,11 +142,11 @@ public class LlamaServerStateManagerTests : IDisposable
     public async Task MarkUpdateReadyAsync_SetsUpdateFields()
     {
         using var manager = CreateManager();
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/old");
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/old", TestContext.Current.CancellationToken);
 
-        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7900", "/new");
+        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7900", "/new", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync("vulkan", "win-x64");
+        var state = await manager.GetStateAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
         state!.PendingVersion.Should().Be("b7900");
         state.PendingPath.Should().Be("/new");
         state.UpdateReady.Should().BeTrue();
@@ -157,9 +157,9 @@ public class LlamaServerStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7900", "/path");
+        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7900", "/path", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync("vulkan", "win-x64");
+        var state = await manager.GetStateAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
         state.Should().BeNull();
     }
 
@@ -170,7 +170,7 @@ public class LlamaServerStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        var result = await manager.ActivateUpdateAsync("vulkan", "win-x64");
+        var result = await manager.ActivateUpdateAsync("vulkan", "win-x64", cancellationToken: TestContext.Current.CancellationToken);
 
         result.Should().BeNull();
     }
@@ -179,9 +179,9 @@ public class LlamaServerStateManagerTests : IDisposable
     public async Task ActivateUpdateAsync_NoUpdateReady_ReturnsNull()
     {
         using var manager = CreateManager();
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path");
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path", TestContext.Current.CancellationToken);
 
-        var result = await manager.ActivateUpdateAsync("vulkan", "win-x64");
+        var result = await manager.ActivateUpdateAsync("vulkan", "win-x64", cancellationToken: TestContext.Current.CancellationToken);
 
         result.Should().BeNull();
     }
@@ -190,10 +190,10 @@ public class LlamaServerStateManagerTests : IDisposable
     public async Task ActivateUpdateAsync_MovesCurrentToPrevious()
     {
         using var manager = CreateManager();
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/old");
-        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7900", "/new");
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/old", TestContext.Current.CancellationToken);
+        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7900", "/new", TestContext.Current.CancellationToken);
 
-        var result = await manager.ActivateUpdateAsync("vulkan", "win-x64");
+        var result = await manager.ActivateUpdateAsync("vulkan", "win-x64", cancellationToken: TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result!.InstalledVersion.Should().Be("b7900");
@@ -210,17 +210,17 @@ public class LlamaServerStateManagerTests : IDisposable
     public async Task ActivateUpdateAsync_TrimsOldVersions()
     {
         using var manager = CreateManager();
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7896", "/v1");
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7896", "/v1", TestContext.Current.CancellationToken);
 
         // Activate updates: b7896 -> b7897 -> b7898 -> b7899
-        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7897", "/v2");
-        await manager.ActivateUpdateAsync("vulkan", "win-x64", maxVersionsToKeep: 2);
+        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7897", "/v2", TestContext.Current.CancellationToken);
+        await manager.ActivateUpdateAsync("vulkan", "win-x64", maxVersionsToKeep: 2, cancellationToken: TestContext.Current.CancellationToken);
 
-        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7898", "/v3");
-        await manager.ActivateUpdateAsync("vulkan", "win-x64", maxVersionsToKeep: 2);
+        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7898", "/v3", TestContext.Current.CancellationToken);
+        await manager.ActivateUpdateAsync("vulkan", "win-x64", maxVersionsToKeep: 2, cancellationToken: TestContext.Current.CancellationToken);
 
-        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7899", "/v4");
-        var result = await manager.ActivateUpdateAsync("vulkan", "win-x64", maxVersionsToKeep: 2);
+        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7899", "/v4", TestContext.Current.CancellationToken);
+        var result = await manager.ActivateUpdateAsync("vulkan", "win-x64", maxVersionsToKeep: 2, cancellationToken: TestContext.Current.CancellationToken);
 
         result!.PreviousVersions.Should().HaveCount(2);
         result.PreviousVersions[0].Version.Should().Be("b7898"); // most recent previous
@@ -234,7 +234,7 @@ public class LlamaServerStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        var result = await manager.RollbackAsync("vulkan", "win-x64");
+        var result = await manager.RollbackAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
 
         result.Should().BeNull();
     }
@@ -243,9 +243,9 @@ public class LlamaServerStateManagerTests : IDisposable
     public async Task RollbackAsync_NoPreviousVersions_ReturnsNull()
     {
         using var manager = CreateManager();
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path");
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path", TestContext.Current.CancellationToken);
 
-        var result = await manager.RollbackAsync("vulkan", "win-x64");
+        var result = await manager.RollbackAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
 
         result.Should().BeNull();
     }
@@ -254,11 +254,11 @@ public class LlamaServerStateManagerTests : IDisposable
     public async Task RollbackAsync_RestoresPreviousAndMarksCurrentFailed()
     {
         using var manager = CreateManager();
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/old");
-        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7900", "/new");
-        await manager.ActivateUpdateAsync("vulkan", "win-x64");
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/old", TestContext.Current.CancellationToken);
+        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b7900", "/new", TestContext.Current.CancellationToken);
+        await manager.ActivateUpdateAsync("vulkan", "win-x64", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await manager.RollbackAsync("vulkan", "win-x64");
+        var result = await manager.RollbackAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result!.InstalledVersion.Should().Be("b7898");
@@ -276,12 +276,12 @@ public class LlamaServerStateManagerTests : IDisposable
     public async Task MarkVersionFailedAsync_AddsToFailedSet()
     {
         using var manager = CreateManager();
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path");
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path", TestContext.Current.CancellationToken);
 
-        await manager.MarkVersionFailedAsync("vulkan", "win-x64", "b7900");
-        await manager.MarkVersionFailedAsync("vulkan", "win-x64", "b7901");
+        await manager.MarkVersionFailedAsync("vulkan", "win-x64", "b7900", TestContext.Current.CancellationToken);
+        await manager.MarkVersionFailedAsync("vulkan", "win-x64", "b7901", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync("vulkan", "win-x64");
+        var state = await manager.GetStateAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
         state!.FailedVersions.Should().HaveCount(2);
         state.FailedVersions.Should().Contain("b7900");
         state.FailedVersions.Should().Contain("b7901");
@@ -292,9 +292,9 @@ public class LlamaServerStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        await manager.MarkVersionFailedAsync("vulkan", "win-x64", "b7900");
+        await manager.MarkVersionFailedAsync("vulkan", "win-x64", "b7900", TestContext.Current.CancellationToken);
 
-        var state = await manager.GetStateAsync("vulkan", "win-x64");
+        var state = await manager.GetStateAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
         state.Should().BeNull();
     }
 
@@ -306,7 +306,7 @@ public class LlamaServerStateManagerTests : IDisposable
         using var manager = CreateManager();
 
         var before = DateTimeOffset.UtcNow;
-        var state = await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path");
+        var state = await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path", TestContext.Current.CancellationToken);
 
         state.InstalledVersion.Should().Be("b7898");
         state.InstalledPath.Should().Be("/path");
@@ -325,11 +325,11 @@ public class LlamaServerStateManagerTests : IDisposable
     {
         using (var manager1 = CreateManager())
         {
-            await manager1.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path");
+            await manager1.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/path", TestContext.Current.CancellationToken);
         }
 
         using var manager2 = CreateManager();
-        var state = await manager2.GetStateAsync("vulkan", "win-x64");
+        var state = await manager2.GetStateAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
 
         state.Should().NotBeNull();
         state!.InstalledVersion.Should().Be("b7898");
@@ -340,10 +340,10 @@ public class LlamaServerStateManagerTests : IDisposable
     {
         // Create a corrupted state file
         var stateFilePath = Path.Combine(_tempDir, "llama-server-state.json");
-        await File.WriteAllTextAsync(stateFilePath, "{ corrupted json data !@#$");
+        await File.WriteAllTextAsync(stateFilePath, "{ corrupted json data !@#$", TestContext.Current.CancellationToken);
 
         using var manager = CreateManager();
-        var state = await manager.GetStateAsync("vulkan", "win-x64");
+        var state = await manager.GetStateAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
 
         state.Should().BeNull(); // Fresh state has no entries
     }
@@ -355,11 +355,11 @@ public class LlamaServerStateManagerTests : IDisposable
     {
         using var manager = CreateManager();
 
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/vulkan");
-        await manager.CreateInitialStateAsync("cuda12", "win-x64", "b7899", "/cuda");
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b7898", "/vulkan", TestContext.Current.CancellationToken);
+        await manager.CreateInitialStateAsync("cuda12", "win-x64", "b7899", "/cuda", TestContext.Current.CancellationToken);
 
-        var vulkan = await manager.GetStateAsync("vulkan", "win-x64");
-        var cuda = await manager.GetStateAsync("cuda12", "win-x64");
+        var vulkan = await manager.GetStateAsync("vulkan", "win-x64", TestContext.Current.CancellationToken);
+        var cuda = await manager.GetStateAsync("cuda12", "win-x64", TestContext.Current.CancellationToken);
 
         vulkan!.InstalledVersion.Should().Be("b7898");
         cuda!.InstalledVersion.Should().Be("b7899");

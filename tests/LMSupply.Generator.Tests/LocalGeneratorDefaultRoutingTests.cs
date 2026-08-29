@@ -118,7 +118,7 @@ public class LocalGeneratorDefaultRoutingTests
         // then DownloadAsync("gguf") called HF API with repoId="gguf" and got 401.
         // After the fix: ArgumentException with a helpful message listing known aliases.
         var ex = await Assert.ThrowsAsync<ArgumentException>(
-            () => LocalGenerator.LoadAsync("gguf:unknown-model"));
+            () => LocalGenerator.LoadAsync("gguf:unknown-model", cancellationToken: TestContext.Current.CancellationToken));
 
         ex.Message.Should().Contain("gguf:unknown-model");
         ex.Message.Should().Contain("not a registered GGUF alias");
@@ -162,8 +162,7 @@ public class LocalGeneratorDefaultRoutingTests
     {
         // All candidates are unregistered gguf:* aliases → ArgumentException from LoadGgufAsync
         var ex = await Assert.ThrowsAsync<AggregateException>(
-            () => LocalGenerator.LoadWithFallbackChainAsync(
-                ["gguf:no-such-model-a", "gguf:no-such-model-b"]));
+            () => LocalGenerator.LoadWithFallbackChainAsync(["gguf:no-such-model-a", "gguf:no-such-model-b"], cancellationToken: TestContext.Current.CancellationToken));
 
         ex.InnerExceptions.Should().HaveCount(2);
         ex.Message.Should().Contain("2 candidate model(s) failed");
@@ -176,9 +175,7 @@ public class LocalGeneratorDefaultRoutingTests
 
         try
         {
-            await LocalGenerator.LoadWithFallbackChainAsync(
-                ["gguf:no-such-model-x", "gguf:no-such-model-y"],
-                onFailure: (id, _) => failedIds.Add(id));
+            await LocalGenerator.LoadWithFallbackChainAsync(["gguf:no-such-model-x", "gguf:no-such-model-y"], onFailure: (id, _) => failedIds.Add(id), cancellationToken: TestContext.Current.CancellationToken);
         }
         catch (AggregateException) { /* expected */ }
 
@@ -189,7 +186,7 @@ public class LocalGeneratorDefaultRoutingTests
     public async Task LoadWithFallbackChainAsync_EmptyCandidates_ThrowsArgumentException()
     {
         await Assert.ThrowsAsync<ArgumentException>(
-            () => LocalGenerator.LoadWithFallbackChainAsync([]));
+            () => LocalGenerator.LoadWithFallbackChainAsync([], cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]

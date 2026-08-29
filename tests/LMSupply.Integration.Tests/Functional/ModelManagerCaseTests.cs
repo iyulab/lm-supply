@@ -21,7 +21,7 @@ public class ModelManagerCaseTests : IClassFixture<WebApplicationFactory<Program
     [InlineData("EMBEDDER")]
     public async Task GET_RegistryByType_CaseInsensitive_Returns200(string type)
     {
-        var response = await _client.GetAsync($"/api/registry/models/{type}");
+        var response = await _client.GetAsync($"/api/registry/models/{type}", TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
@@ -31,7 +31,7 @@ public class ModelManagerCaseTests : IClassFixture<WebApplicationFactory<Program
     [InlineData("EMBEDDER")]
     public async Task GET_CacheModelsByType_CaseInsensitive_Returns200(string type)
     {
-        var response = await _client.GetAsync($"/api/cache/models/type/{type}");
+        var response = await _client.GetAsync($"/api/cache/models/type/{type}", TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 }

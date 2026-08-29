@@ -14,7 +14,7 @@ public class RuntimeManagerTests
     {
         // Arrange
         var manager = new RuntimeManager();
-        await manager.InitializeAsync();
+        await manager.InitializeAsync(TestContext.Current.CancellationToken);
 
         // Act
         var chain = manager.GetProviderFallbackChain();
@@ -29,7 +29,7 @@ public class RuntimeManagerTests
     {
         // Arrange
         var manager = new RuntimeManager();
-        await manager.InitializeAsync();
+        await manager.InitializeAsync(TestContext.Current.CancellationToken);
 
         // Act
         var chain = manager.GetProviderFallbackChain();
@@ -49,7 +49,7 @@ public class RuntimeManagerTests
 
         // Arrange
         var manager = new RuntimeManager();
-        await manager.InitializeAsync();
+        await manager.InitializeAsync(TestContext.Current.CancellationToken);
 
         // Act
         var chain = manager.GetProviderFallbackChain();
@@ -67,7 +67,7 @@ public class RuntimeManagerTests
     {
         // Arrange
         var manager = new RuntimeManager();
-        await manager.InitializeAsync();
+        await manager.InitializeAsync(TestContext.Current.CancellationToken);
 
         // Act
         var chain = manager.GetProviderFallbackChain();
@@ -93,7 +93,7 @@ public class RuntimeManagerTests
     {
         // Arrange
         var manager = new RuntimeManager();
-        await manager.InitializeAsync();
+        await manager.InitializeAsync(TestContext.Current.CancellationToken);
 
         // Act
         var chain = manager.GetProviderFallbackChain().ToList();
@@ -131,7 +131,7 @@ public class RuntimeManagerTests
     {
         // Arrange
         var manager = new RuntimeManager();
-        await manager.InitializeAsync();
+        await manager.InitializeAsync(TestContext.Current.CancellationToken);
 
         // Act
         var defaultProvider = manager.GetDefaultProvider();
@@ -149,7 +149,7 @@ public class RuntimeManagerTests
     {
         // Arrange
         var manager = new RuntimeManager();
-        await manager.InitializeAsync();
+        await manager.InitializeAsync(TestContext.Current.CancellationToken);
 
         // Act
         var summary = manager.GetEnvironmentSummary();
@@ -166,7 +166,7 @@ public class RuntimeManagerTests
     {
         // Arrange
         var manager = new RuntimeManager();
-        await manager.InitializeAsync();
+        await manager.InitializeAsync(TestContext.Current.CancellationToken);
 
         // Act
         var gpuProviders = manager.Gpu.GetFallbackProviders();

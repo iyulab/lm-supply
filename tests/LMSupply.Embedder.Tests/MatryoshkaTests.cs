@@ -16,14 +16,14 @@ public class MatryoshkaTests : IAsyncDisposable
     [Fact]
     public async Task EmbedAsync_WithDimensions_TruncatesToRequestedSize()
     {
-        var result = await _model.EmbedAsync("hello", 256);
+        var result = await _model.EmbedAsync("hello", 256, TestContext.Current.CancellationToken);
         result.Should().HaveCount(256);
     }
 
     [Fact]
     public async Task EmbedAsync_WithDimensions_ResultIsL2Normalized()
     {
-        var result = await _model.EmbedAsync("hello", 256);
+        var result = await _model.EmbedAsync("hello", 256, TestContext.Current.CancellationToken);
         var norm = MathF.Sqrt(result.Sum(v => v * v));
         norm.Should().BeApproximately(1f, 0.001f);
     }
@@ -31,8 +31,8 @@ public class MatryoshkaTests : IAsyncDisposable
     [Fact]
     public async Task EmbedAsync_WithFullDimensions_ReturnsSameAsBaseOverload()
     {
-        var full = await _model.EmbedAsync("hello");
-        var withDim = await _model.EmbedAsync("hello", 768);
+        var full = await _model.EmbedAsync("hello", TestContext.Current.CancellationToken);
+        var withDim = await _model.EmbedAsync("hello", 768, TestContext.Current.CancellationToken);
         withDim.Should().BeEquivalentTo(full);
     }
 
@@ -46,14 +46,14 @@ public class MatryoshkaTests : IAsyncDisposable
     [Fact]
     public async Task EmbedAsync_Batch_WithDimensions_TruncatesAll()
     {
-        var results = await _model.EmbedAsync(["a", "b", "c"], 128);
+        var results = await _model.EmbedAsync(["a", "b", "c"], 128, TestContext.Current.CancellationToken);
         results.Should().AllSatisfy(r => r.Should().HaveCount(128));
     }
 
     [Fact]
     public async Task EmbedAsync_Batch_WithDimensions_AllL2Normalized()
     {
-        var results = await _model.EmbedAsync(["a", "b"], 128);
+        var results = await _model.EmbedAsync(["a", "b"], 128, TestContext.Current.CancellationToken);
         foreach (var r in results)
         {
             var norm = MathF.Sqrt(r.Sum(v => v * v));

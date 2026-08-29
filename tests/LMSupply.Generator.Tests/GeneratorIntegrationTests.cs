@@ -34,7 +34,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act
-        await using var model = await LocalGenerator.LoadAsync(Phi35Model, options);
+        await using var model = await LocalGenerator.LoadAsync(Phi35Model, options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - Load
         model.Should().NotBeNull();
@@ -44,9 +44,7 @@ public class GeneratorIntegrationTests
         info.ExecutionProvider.Should().Be("DirectML");
 
         // Act - Generate
-        var result = await model.GenerateCompleteAsync(
-            TestPrompt,
-            new Models.GenerationOptions { MaxTokens = 50 });
+        var result = await model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
 
         // Assert - Generate (verify inference works, not model accuracy)
         result.Should().NotBeNullOrWhiteSpace();
@@ -63,7 +61,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act
-        await using var model = await LocalGenerator.LoadAsync(Phi35Model, options);
+        await using var model = await LocalGenerator.LoadAsync(Phi35Model, options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - Load
         model.Should().NotBeNull();
@@ -73,9 +71,7 @@ public class GeneratorIntegrationTests
         info.ExecutionProvider.ToUpperInvariant().Should().Contain("CPU");
 
         // Act - Generate
-        var result = await model.GenerateCompleteAsync(
-            TestPrompt,
-            new Models.GenerationOptions { MaxTokens = 50 });
+        var result = await model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
 
         // Assert - Generate (verify inference works, not model accuracy)
         result.Should().NotBeNullOrWhiteSpace();
@@ -92,7 +88,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act
-        await using var model = await LocalGenerator.LoadAsync(Phi35Model, options);
+        await using var model = await LocalGenerator.LoadAsync(Phi35Model, options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         var warmupAction = () => model.WarmupAsync();
@@ -114,7 +110,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act
-        await using var model = await LocalGenerator.LoadAsync(Phi4Model, options);
+        await using var model = await LocalGenerator.LoadAsync(Phi4Model, options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - Load
         model.Should().NotBeNull();
@@ -124,9 +120,7 @@ public class GeneratorIntegrationTests
         info.ExecutionProvider.Should().Be("DirectML");
 
         // Act - Generate
-        var result = await model.GenerateCompleteAsync(
-            TestPrompt,
-            new Models.GenerationOptions { MaxTokens = 50 });
+        var result = await model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
 
         // Assert - Generate (verify inference works, not model accuracy)
         result.Should().NotBeNullOrWhiteSpace();
@@ -143,7 +137,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act
-        await using var model = await LocalGenerator.LoadAsync(Phi4Model, options);
+        await using var model = await LocalGenerator.LoadAsync(Phi4Model, options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - Load
         model.Should().NotBeNull();
@@ -153,9 +147,7 @@ public class GeneratorIntegrationTests
         info.ExecutionProvider.ToUpperInvariant().Should().Contain("CPU");
 
         // Act - Generate
-        var result = await model.GenerateCompleteAsync(
-            TestPrompt,
-            new Models.GenerationOptions { MaxTokens = 50 });
+        var result = await model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
 
         // Assert - Generate (verify inference works, not model accuracy)
         result.Should().NotBeNullOrWhiteSpace();
@@ -172,7 +164,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act
-        await using var model = await LocalGenerator.LoadAsync(Phi4Model, options);
+        await using var model = await LocalGenerator.LoadAsync(Phi4Model, options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         var warmupAction = () => model.WarmupAsync();
@@ -188,17 +180,13 @@ public class GeneratorIntegrationTests
     {
         // Phi-3.5
         var phi35Options = new GeneratorOptions { Provider = ExecutionProvider.DirectML };
-        await using var phi35Model = await LocalGenerator.LoadAsync(Phi35Model, phi35Options);
-        var phi35Result = await phi35Model.GenerateCompleteAsync(
-            TestPrompt,
-            new Models.GenerationOptions { MaxTokens = 50 });
+        await using var phi35Model = await LocalGenerator.LoadAsync(Phi35Model, phi35Options, cancellationToken: TestContext.Current.CancellationToken);
+        var phi35Result = await phi35Model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
 
         // Phi-4
         var phi4Options = new GeneratorOptions { Provider = ExecutionProvider.DirectML };
-        await using var phi4Model = await LocalGenerator.LoadAsync(Phi4Model, phi4Options);
-        var phi4Result = await phi4Model.GenerateCompleteAsync(
-            TestPrompt,
-            new Models.GenerationOptions { MaxTokens = 50 });
+        await using var phi4Model = await LocalGenerator.LoadAsync(Phi4Model, phi4Options, cancellationToken: TestContext.Current.CancellationToken);
+        var phi4Result = await phi4Model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
 
         // Assert - both should produce valid responses
         // Note: We only verify that models generate non-empty responses.
@@ -226,7 +214,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act
-        await using var model = await LocalGenerator.LoadAsync(Phi35Model, options);
+        await using var model = await LocalGenerator.LoadAsync(Phi35Model, options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - Model should load successfully
         model.Should().NotBeNull();
@@ -239,9 +227,7 @@ public class GeneratorIntegrationTests
         info.ExecutionProvider.Should().NotBeNullOrWhiteSpace();
 
         // Generate should work
-        var result = await model.GenerateCompleteAsync(
-            TestPrompt,
-            new Models.GenerationOptions { MaxTokens = 50 });
+        var result = await model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNullOrWhiteSpace("Auto mode should generate valid response");
     }
@@ -263,7 +249,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act
-        await using var model = await LocalGenerator.LoadAsync(Phi35Model, options);
+        await using var model = await LocalGenerator.LoadAsync(Phi35Model, options, cancellationToken: TestContext.Current.CancellationToken);
         var info = model.GetModelInfo();
 
         // Assert - On Windows with GPU, should select CUDA or DirectML, not CPU
@@ -298,11 +284,11 @@ public class GeneratorIntegrationTests
             Provider = ExecutionProvider.DirectML
         };
 
-        await using var model = await LocalGenerator.LoadAsync(Phi35Model, options);
+        await using var model = await LocalGenerator.LoadAsync(Phi35Model, options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
         var tokens = new List<string>();
-        await foreach (var token in model.GenerateAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }))
+        await foreach (var token in model.GenerateAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken))
         {
             tokens.Add(token);
         }
@@ -321,11 +307,11 @@ public class GeneratorIntegrationTests
             Provider = ExecutionProvider.DirectML
         };
 
-        await using var model = await LocalGenerator.LoadAsync(Phi4Model, options);
+        await using var model = await LocalGenerator.LoadAsync(Phi4Model, options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
         var tokens = new List<string>();
-        await foreach (var token in model.GenerateAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }))
+        await foreach (var token in model.GenerateAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken))
         {
             tokens.Add(token);
         }
@@ -363,9 +349,7 @@ public class GeneratorIntegrationTests
         info.ExecutionProvider.Should().NotBe("Cpu", "Should be using DirectML, not CPU");
 
         // Act - Generate
-        var result = await model.GenerateCompleteAsync(
-            TestPrompt,
-            new Models.GenerationOptions { MaxTokens = 50 });
+        var result = await model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
 
         // Assert - Generate (verify inference works, not model accuracy)
         result.Should().NotBeNullOrWhiteSpace();
@@ -394,9 +378,7 @@ public class GeneratorIntegrationTests
         info.ExecutionProvider.ToUpperInvariant().Should().Contain("CPU");
 
         // Act - Generate
-        var result = await model.GenerateCompleteAsync(
-            TestPrompt,
-            new Models.GenerationOptions { MaxTokens = 50 });
+        var result = await model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
 
         // Assert - Generate (verify inference works, not model accuracy)
         result.Should().NotBeNullOrWhiteSpace();

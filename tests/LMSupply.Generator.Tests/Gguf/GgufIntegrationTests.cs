@@ -29,9 +29,7 @@ public class GgufIntegrationTests
         };
 
         // Act
-        await using var model = await LocalGenerator.LoadAsync(
-            "gguf:qwen3-fast", // Uses the smallest/fastest Qwen3 model
-            options);
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         model.Should().NotBeNull();
@@ -46,13 +44,11 @@ public class GgufIntegrationTests
     public async Task GenerateAsync_WithGgufModel_GeneratesText()
     {
         // Arrange
-        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast");
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
         var result = new StringBuilder();
-        await foreach (var token in model.GenerateAsync(
-            "Hello, my name is",
-            new GenerationOptions { MaxTokens = 20 }))
+        await foreach (var token in model.GenerateAsync("Hello, my name is", new GenerationOptions { MaxTokens = 20 }, TestContext.Current.CancellationToken))
         {
             result.Append(token);
         }
@@ -69,7 +65,7 @@ public class GgufIntegrationTests
     public async Task GenerateChatAsync_WithGgufModel_GeneratesResponse()
     {
         // Arrange
-        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast");
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var messages = new[]
         {
@@ -79,9 +75,7 @@ public class GgufIntegrationTests
 
         // Act
         var result = new StringBuilder();
-        await foreach (var token in model.GenerateChatAsync(
-            messages,
-            new GenerationOptions { MaxTokens = 512 }))
+        await foreach (var token in model.GenerateChatAsync(messages, new GenerationOptions { MaxTokens = 512 }, TestContext.Current.CancellationToken))
         {
             result.Append(token);
         }
@@ -100,8 +94,7 @@ public class GgufIntegrationTests
         using var downloader = new GgufModelDownloader();
 
         // Act
-        var files = await downloader.ListGgufFilesAsync(
-            "bartowski/Llama-3.2-1B-Instruct-GGUF");
+        var files = await downloader.ListGgufFilesAsync("bartowski/Llama-3.2-1B-Instruct-GGUF", TestContext.Current.CancellationToken);
 
         // Assert
         files.Should().NotBeEmpty();
@@ -119,10 +112,10 @@ public class GgufIntegrationTests
     public async Task WarmupAsync_WithGgufModel_CompletesSuccessfully()
     {
         // Arrange
-        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast");
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
-        var warmupTask = model.WarmupAsync();
+        var warmupTask = model.WarmupAsync(TestContext.Current.CancellationToken);
 
         // Assert
         await warmupTask.Invoking(t => t).Should().NotThrowAsync();
@@ -135,7 +128,7 @@ public class GgufIntegrationTests
     public async Task GetModelInfo_WithGgufModel_ReturnsCorrectInfo()
     {
         // Arrange
-        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast");
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
         var info = model.GetModelInfo();

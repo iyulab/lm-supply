@@ -33,10 +33,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Health_Returns200WithHealthyStatus()
     {
-        var response = await _client.GetAsync("/health");
+        var response = await _client.GetAsync("/health", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("status").GetString().Should().Be("healthy");
         json.TryGetProperty("timestamp", out _).Should().BeTrue();
     }
@@ -45,10 +45,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Models_ReturnsOpenAICompatibleList()
     {
-        var response = await _client.GetAsync("/v1/models");
+        var response = await _client.GetAsync("/v1/models", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var data = json.GetProperty("data");
         data.GetArrayLength().Should().BeGreaterThan(0, "should include well-known model aliases");
     }
@@ -57,8 +57,8 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Models_ContainsExpectedAliases()
     {
-        var response = await _client.GetAsync("/v1/models");
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var response = await _client.GetAsync("/v1/models", TestContext.Current.CancellationToken);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var ids = json.GetProperty("data")
             .EnumerateArray()
             .Select(item => item.GetProperty("id").GetString()!)
@@ -73,10 +73,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_ModelById_ReturnsModelInfo()
     {
-        var response = await _client.GetAsync("/v1/models/embedder:default");
+        var response = await _client.GetAsync("/v1/models/embedder:default", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("id").GetString().Should().Be("embedder:default");
     }
 
@@ -84,7 +84,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_SystemStatus_Returns200()
     {
-        var response = await _client.GetAsync("/api/system/status");
+        var response = await _client.GetAsync("/api/system/status", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -93,7 +93,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_GpuInfo_Returns200()
     {
-        var response = await _client.GetAsync("/api/system/gpu");
+        var response = await _client.GetAsync("/api/system/gpu", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -102,7 +102,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_MemoryMetrics_Returns200()
     {
-        var response = await _client.GetAsync("/api/system/memory");
+        var response = await _client.GetAsync("/api/system/memory", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -111,10 +111,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_DetectLabels_ReturnsCOCOLabels()
     {
-        var response = await _client.GetAsync("/v1/images/detect/labels");
+        var response = await _client.GetAsync("/v1/images/detect/labels", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var labels = json.GetProperty("labels");
         labels.GetArrayLength().Should().Be(80, "COCO dataset has 80 class labels");
 
@@ -128,10 +128,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_SegmentLabels_ReturnsADE20KLabels()
     {
-        var response = await _client.GetAsync("/v1/images/segment/labels");
+        var response = await _client.GetAsync("/v1/images/segment/labels", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var labels = json.GetProperty("labels");
         labels.GetArrayLength().Should().Be(150, "ADE20K dataset has 150 class labels");
 
@@ -145,10 +145,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_TranslateLanguages_ReturnsLanguagePairs()
     {
-        var response = await _client.GetAsync("/v1/translate/languages");
+        var response = await _client.GetAsync("/v1/translate/languages", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var languages = json.GetProperty("languages");
         languages.GetArrayLength().Should().BeGreaterThan(0, "should have translation language pairs");
     }
@@ -157,10 +157,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_OcrLanguages_ReturnsSupportedLanguages()
     {
-        var response = await _client.GetAsync("/v1/images/ocr/languages");
+        var response = await _client.GetAsync("/v1/images/ocr/languages", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var languages = json.GetProperty("languages");
         languages.GetArrayLength().Should().BeGreaterThan(0, "should have supported OCR languages");
 
@@ -173,10 +173,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_ImageModels_ReturnsAvailableModels()
     {
-        var response = await _client.GetAsync("/v1/images/models");
+        var response = await _client.GetAsync("/v1/images/models", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var models = json.GetProperty("models");
         models.GetArrayLength().Should().BeGreaterThan(0, "should have image generation models");
 
@@ -190,10 +190,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Registry_ReturnsAllModelTypes()
     {
-        var response = await _client.GetAsync("/api/registry/models");
+        var response = await _client.GetAsync("/api/registry/models", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var types = json.GetProperty("modelTypes");
         types.GetArrayLength().Should().BeGreaterThanOrEqualTo(10,
             "should have at least 10 model type categories");
@@ -203,10 +203,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_RegistryByType_ReturnsEmbedderModels()
     {
-        var response = await _client.GetAsync("/api/registry/models/embedder");
+        var response = await _client.GetAsync("/api/registry/models/embedder", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("type").GetString().Should().Be("embedder");
         json.GetProperty("models").GetArrayLength().Should().BeGreaterThan(0);
     }
@@ -215,8 +215,8 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Registry_ContainsAll11Types()
     {
-        var response = await _client.GetAsync("/api/registry/models");
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var response = await _client.GetAsync("/api/registry/models", TestContext.Current.CancellationToken);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var types = json.GetProperty("modelTypes")
             .EnumerateArray()
             .Select(t => t.GetProperty("type").GetString()!)
@@ -239,8 +239,8 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Registry_EachTypeHasModels()
     {
-        var response = await _client.GetAsync("/api/registry/models");
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var response = await _client.GetAsync("/api/registry/models", TestContext.Current.CancellationToken);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var types = json.GetProperty("modelTypes").EnumerateArray();
 
         foreach (var modelType in types)
@@ -259,8 +259,8 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Registry_EmbedderHasExpectedAliases()
     {
-        var response = await _client.GetAsync("/api/registry/models/embedder");
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var response = await _client.GetAsync("/api/registry/models/embedder", TestContext.Current.CancellationToken);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var aliases = json.GetProperty("models")
             .EnumerateArray()
             .Select(m => m.GetProperty("aliasName").GetString()!)
@@ -276,8 +276,8 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Registry_ModelAliasHasRepoId()
     {
-        var response = await _client.GetAsync("/api/registry/models/embedder");
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var response = await _client.GetAsync("/api/registry/models/embedder", TestContext.Current.CancellationToken);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var models = json.GetProperty("models").EnumerateArray();
 
         foreach (var model in models)
@@ -294,7 +294,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_DownloadCheck_EmptyRepoId_Returns400()
     {
         var content = JsonContent.Create(new { repoId = "" });
-        var response = await _client.PostAsync("/api/download/check", content);
+        var response = await _client.PostAsync("/api/download/check", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -303,7 +303,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_RegistryByType_UnknownType_Returns404()
     {
-        var response = await _client.GetAsync("/api/registry/models/nonexistent");
+        var response = await _client.GetAsync("/api/registry/models/nonexistent", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -312,10 +312,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_CacheStats_ReturnsStatistics()
     {
-        var response = await _client.GetAsync("/api/cache/stats");
+        var response = await _client.GetAsync("/api/cache/stats", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("totalModels", out _).Should().BeTrue();
         json.TryGetProperty("cacheDirectory", out _).Should().BeTrue();
     }
@@ -324,10 +324,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_CachedModels_ReturnsModelList()
     {
-        var response = await _client.GetAsync("/api/cache/models");
+        var response = await _client.GetAsync("/api/cache/models", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("models", out _).Should().BeTrue();
         json.TryGetProperty("totalCount", out _).Should().BeTrue();
     }
@@ -336,10 +336,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_LoadedModels_ReturnsEmptyListInitially()
     {
-        var response = await _client.GetAsync("/api/cache/loaded");
+        var response = await _client.GetAsync("/api/cache/loaded", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.ValueKind.Should().Be(JsonValueKind.Array);
     }
 
@@ -347,10 +347,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Swagger_Returns200()
     {
-        var response = await _client.GetAsync("/swagger/v1/swagger.json");
+        var response = await _client.GetAsync("/swagger/v1/swagger.json", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("info").GetProperty("title").GetString()
             .Should().Be("LMSupply Console API");
     }
@@ -359,10 +359,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_SystemStatus_ReturnsExpectedShape()
     {
-        var response = await _client.GetAsync("/api/system/status");
+        var response = await _client.GetAsync("/api/system/status", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
 
         var status = json.GetProperty("status");
         status.TryGetProperty("engineReady", out _).Should().BeTrue();
@@ -379,10 +379,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_GpuInfo_ReturnsExpectedShape()
     {
-        var response = await _client.GetAsync("/api/system/gpu");
+        var response = await _client.GetAsync("/api/system/gpu", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("isAvailable", out _).Should().BeTrue();
         json.TryGetProperty("name", out _).Should().BeTrue();
         json.TryGetProperty("provider", out _).Should().BeTrue();
@@ -392,10 +392,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_MemoryMetrics_ReturnsExpectedShape()
     {
-        var response = await _client.GetAsync("/api/system/memory");
+        var response = await _client.GetAsync("/api/system/memory", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("totalMB", out _).Should().BeTrue();
         json.TryGetProperty("usedMB", out _).Should().BeTrue();
         json.TryGetProperty("usagePercent", out _).Should().BeTrue();
@@ -405,10 +405,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Version_ReturnsVersionAndRid()
     {
-        var response = await _client.GetAsync("/api/system/version");
+        var response = await _client.GetAsync("/api/system/version", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("version").GetString().Should().NotBeNullOrEmpty();
         json.GetProperty("rid").GetString().Should().NotBeNullOrEmpty();
     }
@@ -417,10 +417,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Update_ReturnsUpdateCheckResult()
     {
-        var response = await _client.GetAsync("/api/system/update");
+        var response = await _client.GetAsync("/api/system/update", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("currentVersion", out _).Should().BeTrue();
         // updateAvailable, latestVersion, releaseUrl may be null if check fails
     }
@@ -452,10 +452,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_CacheStats_ReturnsExpectedShape()
     {
-        var response = await _client.GetAsync("/api/cache/stats");
+        var response = await _client.GetAsync("/api/cache/stats", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("totalModels", out _).Should().BeTrue();
         json.TryGetProperty("totalSizeMB", out _).Should().BeTrue();
         json.TryGetProperty("cacheDirectory", out _).Should().BeTrue();
@@ -466,10 +466,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_CachedModels_ReturnsExpectedShape()
     {
-        var response = await _client.GetAsync("/api/cache/models");
+        var response = await _client.GetAsync("/api/cache/models", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("models", out _).Should().BeTrue();
         json.TryGetProperty("totalCount", out _).Should().BeTrue();
         json.TryGetProperty("totalSizeMB", out _).Should().BeTrue();
@@ -479,7 +479,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task DELETE_CachedModel_NonExistent_Returns404()
     {
-        var response = await _client.DeleteAsync("/api/cache/models/nonexistent%2Fmodel-xyz");
+        var response = await _client.DeleteAsync("/api/cache/models/nonexistent%2Fmodel-xyz", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -488,7 +488,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task DELETE_LoadedModel_NonExistent_Returns404()
     {
-        var response = await _client.DeleteAsync("/api/cache/loaded/generator:nonexistent-xyz");
+        var response = await _client.DeleteAsync("/api/cache/loaded/generator:nonexistent-xyz", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -498,7 +498,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_LoadModel_InvalidType_Returns400Or500()
     {
         var content = JsonContent.Create(new { type = "invalid_type", modelId = "default" });
-        var response = await _client.PostAsync("/api/cache/load", content);
+        var response = await _client.PostAsync("/api/cache/load", content, TestContext.Current.CancellationToken);
 
         // Should fail with an error (ArgumentException → 400 or type error → 500)
         response.IsSuccessStatusCode.Should().BeFalse(
@@ -509,7 +509,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_CacheModelsByType_InvalidType_Returns400()
     {
-        var response = await _client.GetAsync("/api/cache/models/type/nonexistent");
+        var response = await _client.GetAsync("/api/cache/models/type/nonexistent", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -522,10 +522,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         string[] docs = ["doc1"];
         var content = JsonContent.Create(new { query = "", documents = docs });
-        var response = await _client.PostAsync("/v1/rerank", content);
+        var response = await _client.PostAsync("/v1/rerank", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("error").GetProperty("message").GetString()
             .Should().Contain("query", "error should mention the missing field");
     }
@@ -539,7 +539,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             query = "test",
             documents = Array.Empty<string>()
         });
-        var response = await _client.PostAsync("/v1/rerank", content);
+        var response = await _client.PostAsync("/v1/rerank", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -549,7 +549,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_Speech_MissingInput_Returns400()
     {
         var content = JsonContent.Create(new { input = "", model = "fast" });
-        var response = await _client.PostAsync("/v1/audio/speech", content);
+        var response = await _client.PostAsync("/v1/audio/speech", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -561,7 +561,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         // Endpoint has .Accepts("multipart/form-data") constraint,
         // so JSON requests don't match the route → 404 from SPA fallback
         var content = new StringContent("{}", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/images/caption", content);
+        var response = await _client.PostAsync("/v1/images/caption", content, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse();
     }
@@ -571,7 +571,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_Vqa_NotFormData_IsRejected()
     {
         var content = new StringContent("{}", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/images/vqa", content);
+        var response = await _client.PostAsync("/v1/images/vqa", content, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse();
     }
@@ -583,7 +583,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         // Endpoint has .Accepts("multipart/form-data") constraint,
         // so JSON requests don't match the route → 404 from SPA fallback
         var content = new StringContent("{}", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/images/detect", content);
+        var response = await _client.PostAsync("/v1/images/detect", content, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse();
     }
@@ -594,7 +594,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new StringContent("default"), "model");
-        var response = await _client.PostAsync("/v1/images/detect", formContent);
+        var response = await _client.PostAsync("/v1/images/detect", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -606,7 +606,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         // Endpoint has .Accepts("multipart/form-data") constraint,
         // so JSON requests don't match the route → 404 from SPA fallback
         var content = new StringContent("{}", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/images/ocr", content);
+        var response = await _client.PostAsync("/v1/images/ocr", content, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse();
     }
@@ -618,7 +618,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         // Endpoint has .Accepts("multipart/form-data") constraint,
         // so JSON requests don't match the route → 404 from SPA fallback
         var content = new StringContent("{}", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/images/segment", content);
+        var response = await _client.PostAsync("/v1/images/segment", content, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse();
     }
@@ -629,7 +629,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new StringContent("default"), "model");
-        var response = await _client.PostAsync("/v1/images/segment", formContent);
+        var response = await _client.PostAsync("/v1/images/segment", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -639,7 +639,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_ImageGeneration_MissingPrompt_Returns400()
     {
         var content = JsonContent.Create(new { prompt = "" });
-        var response = await _client.PostAsync("/v1/images/generations", content);
+        var response = await _client.PostAsync("/v1/images/generations", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -649,7 +649,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_ImageGenerate_Extended_MissingPrompt_Returns400()
     {
         var content = JsonContent.Create(new { prompt = "" });
-        var response = await _client.PostAsync("/v1/images/generate", content);
+        var response = await _client.PostAsync("/v1/images/generate", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -660,7 +660,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new StringContent("fast"), "model");
-        var response = await _client.PostAsync("/v1/images/caption", formContent);
+        var response = await _client.PostAsync("/v1/images/caption", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -671,7 +671,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new StringContent("What is this?"), "question");
-        var response = await _client.PostAsync("/v1/images/vqa", formContent);
+        var response = await _client.PostAsync("/v1/images/vqa", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -682,7 +682,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new ByteArrayContent([0xFF, 0xD8, 0xFF]), "file", "test.jpg");
-        var response = await _client.PostAsync("/v1/images/vqa", formContent);
+        var response = await _client.PostAsync("/v1/images/vqa", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -693,7 +693,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new StringContent("en"), "language");
-        var response = await _client.PostAsync("/v1/images/ocr", formContent);
+        var response = await _client.PostAsync("/v1/images/ocr", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -704,7 +704,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new StringContent("fast"), "model");
-        var response = await _client.PostAsync("/v1/audio/transcriptions", formContent);
+        var response = await _client.PostAsync("/v1/audio/transcriptions", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -716,10 +716,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_Embeddings_ReturnsOpenAICompatibleResponse()
     {
         var content = JsonContent.Create(new { input = "Hello, world!", model = "fast" });
-        var response = await _client.PostAsync("/v1/embeddings", content);
+        var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
 
         json.GetProperty("data").GetArrayLength().Should().Be(1);
         json.GetProperty("data")[0].GetProperty("embedding").GetArrayLength()
@@ -738,10 +738,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             input = inputs,
             model = "fast"
         });
-        var response = await _client.PostAsync("/v1/embeddings", content);
+        var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("data").GetArrayLength().Should().Be(2);
     }
 
@@ -757,10 +757,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             model = "fast",
             return_documents = true
         });
-        var response = await _client.PostAsync("/v1/rerank", content);
+        var response = await _client.PostAsync("/v1/rerank", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("results").GetArrayLength().Should().Be(2);
         json.GetProperty("model").GetString().Should().NotBeNullOrEmpty();
     }
@@ -770,10 +770,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_Translate_ReturnsTranslatedText()
     {
         var content = JsonContent.Create(new { input = "안녕하세요", model = "ko-en" });
-        var response = await _client.PostAsync("/v1/translate", content);
+        var response = await _client.PostAsync("/v1/translate", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("translations").GetArrayLength().Should().Be(1);
         json.GetProperty("translations")[0].GetProperty("translated_text").GetString()
             .Should().NotBeNullOrEmpty();
@@ -789,11 +789,11 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             input = "Hello, this is a test.",
             model = "fast"
         });
-        var response = await _client.PostAsync("/v1/audio/speech", content);
+        var response = await _client.PostAsync("/v1/audio/speech", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Content.Headers.ContentType?.MediaType.Should().Be("audio/wav");
-        var bytes = await response.Content.ReadAsByteArrayAsync();
+        var bytes = await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
         bytes.Length.Should().BeGreaterThan(44, "WAV should have header + audio data");
     }
 
@@ -806,10 +806,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         formContent.Add(new ByteArrayContent(wavBytes), "file", "test.wav");
         formContent.Add(new StringContent("fast"), "model");
 
-        var response = await _client.PostAsync("/v1/audio/transcriptions", formContent);
+        var response = await _client.PostAsync("/v1/audio/transcriptions", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("text", out _).Should().BeTrue();
     }
 
@@ -823,10 +823,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         formContent.Add(new ByteArrayContent(imageBytes), "file", "test.bmp");
         formContent.Add(new StringContent("fast"), "model");
 
-        var response = await _client.PostAsync("/v1/images/caption", formContent);
+        var response = await _client.PostAsync("/v1/images/caption", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("caption").GetString().Should().NotBeNullOrEmpty();
     }
 
@@ -840,10 +840,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         formContent.Add(new ByteArrayContent(imageBytes), "file", "test.bmp");
         formContent.Add(new StringContent("fast"), "model");
 
-        var response = await _client.PostAsync("/v1/images/detect", formContent);
+        var response = await _client.PostAsync("/v1/images/detect", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("objects", out _).Should().BeTrue();
     }
 
@@ -856,10 +856,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         formContent.Add(new ByteArrayContent(imageBytes), "file", "test.bmp");
         formContent.Add(new StringContent("fast"), "model");
 
-        var response = await _client.PostAsync("/v1/images/segment", formContent);
+        var response = await _client.PostAsync("/v1/images/segment", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("segments", out _).Should().BeTrue();
     }
 
@@ -871,10 +871,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new ByteArrayContent(imageBytes), "file", "test.bmp");
 
-        var response = await _client.PostAsync("/v1/images/ocr", formContent);
+        var response = await _client.PostAsync("/v1/images/ocr", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("text", out _).Should().BeTrue();
     }
 
@@ -885,7 +885,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_Embeddings_EmptyInput_ReturnsError()
     {
         var content = JsonContent.Create(new { input = "", model = "fast" });
-        var response = await _client.PostAsync("/v1/embeddings", content);
+        var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         // Empty input should either succeed with empty embedding or return 400
         // Either outcome is acceptable as long as no 500
@@ -905,10 +905,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             model = "fast",
             top_n = 2
         });
-        var response = await _client.PostAsync("/v1/rerank", content);
+        var response = await _client.PostAsync("/v1/rerank", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("results").GetArrayLength().Should().Be(2,
             "top_n=2 should return exactly 2 results");
     }
@@ -925,10 +925,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             model = "fast",
             return_documents = true
         });
-        var response = await _client.PostAsync("/v1/rerank", content);
+        var response = await _client.PostAsync("/v1/rerank", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var result = json.GetProperty("results")[0];
         result.GetProperty("document").GetProperty("text").GetString()
             .Should().Be("Machine learning intro");
@@ -940,11 +940,11 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // API-2: Wrong model name should return a clear error, not 500
         var content = JsonContent.Create(new { input = "test", model = "nonexistent-model-xyz" });
-        var response = await _client.PostAsync("/v1/embeddings", content);
+        var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         // Should be 4xx or at worst 500 with a meaningful error body
         response.IsSuccessStatusCode.Should().BeFalse("unknown model should fail");
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("error", out _).Should().BeTrue("error response should have error field");
     }
 
@@ -959,7 +959,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             documents = docs,
             model = "nonexistent-model-xyz"
         });
-        var response = await _client.PostAsync("/v1/rerank", content);
+        var response = await _client.PostAsync("/v1/rerank", content, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse("unknown model should fail");
     }
@@ -991,7 +991,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         // API-4: Large request should not crash the server
         var largeText = string.Join(" ", Enumerable.Repeat("hello world test", 500));
         var content = JsonContent.Create(new { input = largeText, model = "fast" });
-        var response = await _client.PostAsync("/v1/embeddings", content);
+        var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         // Should either succeed (with truncation) or fail with a clear error
         (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.BadRequest
@@ -1003,7 +1003,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_CacheModelsByType_ReturnsTypeModels()
     {
-        var response = await _client.GetAsync("/api/cache/models/type/embedder");
+        var response = await _client.GetAsync("/api/cache/models/type/embedder", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -1013,7 +1013,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_ChatCompletions_MissingMessages_Returns400()
     {
         var content = JsonContent.Create(new { model = "gguf:gemma4-fast" });
-        var response = await _client.PostAsync("/v1/chat/completions", content);
+        var response = await _client.PostAsync("/v1/chat/completions", content, TestContext.Current.CancellationToken);
 
         // Missing required 'messages' field should return 400
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -1028,7 +1028,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             model = "default",
             messages = Array.Empty<object>()
         });
-        var response = await _client.PostAsync("/v1/chat/completions", content);
+        var response = await _client.PostAsync("/v1/chat/completions", content, TestContext.Current.CancellationToken);
 
         // Empty messages should be rejected or cause an error
         response.IsSuccessStatusCode.Should().BeFalse(
@@ -1044,7 +1044,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             model = "default",
             messages = new[] { new { role = "invalid_role", content = "Hello" } }
         });
-        var response = await _client.PostAsync("/v1/chat/completions", content);
+        var response = await _client.PostAsync("/v1/chat/completions", content, TestContext.Current.CancellationToken);
 
         // Invalid role should cause an error (enum parse failure)
         response.IsSuccessStatusCode.Should().BeFalse(
@@ -1056,7 +1056,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_Translate_EmptyInput_Returns400()
     {
         var content = JsonContent.Create(new { input = "", model = "ko-en" });
-        var response = await _client.PostAsync("/v1/translate", content);
+        var response = await _client.PostAsync("/v1/translate", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -1065,10 +1065,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_TranslateLanguages_HasExpectedShape()
     {
-        var response = await _client.GetAsync("/v1/translate/languages");
+        var response = await _client.GetAsync("/v1/translate/languages", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var languages = json.GetProperty("languages").EnumerateArray().ToList();
         languages.Count.Should().BeGreaterThan(0);
 
@@ -1083,7 +1083,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_Transcribe_NonFormData_Returns400()
     {
         var content = JsonContent.Create(new { file = "test", model = "default" });
-        var response = await _client.PostAsync("/v1/audio/transcriptions", content);
+        var response = await _client.PostAsync("/v1/audio/transcriptions", content, TestContext.Current.CancellationToken);
 
         // JSON content-type doesn't match multipart/form-data expectation
         response.IsSuccessStatusCode.Should().BeFalse(
@@ -1095,7 +1095,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_Translate_NonJsonContent_IsRejected()
     {
         var content = new StringContent("plain text", Encoding.UTF8, "text/plain");
-        var response = await _client.PostAsync("/v1/translate", content);
+        var response = await _client.PostAsync("/v1/translate", content, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse(
             "translate endpoint should reject non-JSON content");
@@ -1111,7 +1111,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             prompt = "test image",
             size = "3x3"
         });
-        var response = await _client.PostAsync("/v1/images/generations", content);
+        var response = await _client.PostAsync("/v1/images/generations", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -1125,7 +1125,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             prompt = "test image",
             size = "13x13"
         });
-        var response = await _client.PostAsync("/v1/images/generate", content);
+        var response = await _client.PostAsync("/v1/images/generate", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -1135,7 +1135,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GET_NonExistentEndpoint_SpaFallback_Returns200()
     {
         // SPA fallback serves index.html for unknown GET routes (client-side routing)
-        var response = await _client.GetAsync("/v1/nonexistent");
+        var response = await _client.GetAsync("/v1/nonexistent", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Content.Headers.ContentType?.MediaType.Should().Be("text/html");
@@ -1147,7 +1147,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Non-GET requests to unknown routes should return 404, not SPA fallback
         var content = new StringContent("{}", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/nonexistent", content);
+        var response = await _client.PostAsync("/v1/nonexistent", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -1159,7 +1159,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_Embeddings_EmptyBody_IsRejected()
     {
         var content = new StringContent("", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/embeddings", content);
+        var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse(
             "empty JSON body should not be accepted");
@@ -1170,7 +1170,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_ChatCompletions_EmptyBody_IsRejected()
     {
         var content = new StringContent("", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/chat/completions", content);
+        var response = await _client.PostAsync("/v1/chat/completions", content, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse(
             "empty JSON body should not be accepted");
@@ -1181,7 +1181,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_Translate_EmptyBody_IsRejected()
     {
         var content = new StringContent("", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/translate", content);
+        var response = await _client.PostAsync("/v1/translate", content, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse(
             "empty JSON body should not be accepted");
@@ -1192,7 +1192,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_Speech_EmptyBody_IsRejected()
     {
         var content = new StringContent("", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/audio/speech", content);
+        var response = await _client.PostAsync("/v1/audio/speech", content, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse(
             "empty JSON body should not be accepted");
@@ -1206,7 +1206,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Input validation should happen BEFORE model loading
         var content = JsonContent.Create(new { input = Array.Empty<string>(), model = "nonexistent-model-xyz" });
-        var response = await _client.PostAsync("/v1/embeddings", content);
+        var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         // Should get 400 (validation error) not 500 (model not found)
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
@@ -1222,7 +1222,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             model = "nonexistent-model-xyz",
             messages = Array.Empty<object>()
         });
-        var response = await _client.PostAsync("/v1/chat/completions", content);
+        var response = await _client.PostAsync("/v1/chat/completions", content, TestContext.Current.CancellationToken);
 
         // Should get 400 (validation error) not 500 (model not found)
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
@@ -1234,7 +1234,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_CacheLoad_EmptyType_Returns400()
     {
         var content = JsonContent.Create(new { type = "", modelId = "default" });
-        var response = await _client.PostAsync("/api/cache/load", content);
+        var response = await _client.PostAsync("/api/cache/load", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest,
             "empty type should be rejected before attempting model loading");
@@ -1269,13 +1269,13 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         // Verify server handles concurrent requests to different endpoints
         var tasks = new[]
         {
-            _client.GetAsync("/health"),
-            _client.GetAsync("/api/system/status"),
-            _client.GetAsync("/api/system/version"),
-            _client.GetAsync("/v1/images/detect/labels"),
-            _client.GetAsync("/v1/images/segment/labels"),
-            _client.GetAsync("/v1/images/ocr/languages"),
-            _client.GetAsync("/v1/models"),
+            _client.GetAsync("/health", TestContext.Current.CancellationToken),
+            _client.GetAsync("/api/system/status", TestContext.Current.CancellationToken),
+            _client.GetAsync("/api/system/version", TestContext.Current.CancellationToken),
+            _client.GetAsync("/v1/images/detect/labels", TestContext.Current.CancellationToken),
+            _client.GetAsync("/v1/images/segment/labels", TestContext.Current.CancellationToken),
+            _client.GetAsync("/v1/images/ocr/languages", TestContext.Current.CancellationToken),
+            _client.GetAsync("/v1/models", TestContext.Current.CancellationToken),
         };
 
         var responses = await Task.WhenAll(tasks);
@@ -1294,7 +1294,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // API-3: JSON endpoint should reject non-JSON Content-Type
         var content = new StringContent("hello", Encoding.UTF8, "text/plain");
-        var response = await _client.PostAsync("/v1/embeddings", content);
+        var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse(
             "JSON endpoint should not accept text/plain Content-Type");
@@ -1307,7 +1307,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         // API-3: JSON endpoint should reject multipart/form-data
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new StringContent("test"), "query");
-        var response = await _client.PostAsync("/v1/rerank", formContent);
+        var response = await _client.PostAsync("/v1/rerank", formContent, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse(
             "JSON endpoint should not accept multipart/form-data");
@@ -1325,7 +1325,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         var request = new HttpRequestMessage(HttpMethod.Get, "/health");
         request.Headers.Add("Origin", origin);
 
-        var response = await _client.SendAsync(request);
+        var response = await _client.SendAsync(request, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Headers.TryGetValues("Access-Control-Allow-Origin", out var values)
@@ -1341,7 +1341,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         var request = new HttpRequestMessage(HttpMethod.Get, "/health");
         request.Headers.Add("Origin", "http://evil.example.com");
 
-        var response = await _client.SendAsync(request);
+        var response = await _client.SendAsync(request, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Headers.TryGetValues("Access-Control-Allow-Origin", out _)
@@ -1358,7 +1358,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         request.Headers.Add("Access-Control-Request-Method", "POST");
         request.Headers.Add("Access-Control-Request-Headers", "Content-Type");
 
-        var response = await _client.SendAsync(request);
+        var response = await _client.SendAsync(request, TestContext.Current.CancellationToken);
 
         // Preflight should succeed (2xx)
         ((int)response.StatusCode).Should().BeInRange(200, 299,
@@ -1380,7 +1380,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         var request = new HttpRequestMessage(HttpMethod.Get, "/health");
         request.Headers.Add("Origin", "http://localhost:5173");
 
-        var response = await _client.SendAsync(request);
+        var response = await _client.SendAsync(request, TestContext.Current.CancellationToken);
 
         response.Headers.TryGetValues("Access-Control-Allow-Credentials", out var values)
             .Should().BeTrue("response should include Allow-Credentials for credentialed CORS");
@@ -1394,10 +1394,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GET_Health_ReturnsExpectedShape()
     {
         // Test plan 1.1.1: health endpoint returns status + timestamp
-        var response = await _client.GetAsync("/health");
+        var response = await _client.GetAsync("/health", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("status").GetString().Should().Be("healthy");
         json.TryGetProperty("timestamp", out _).Should().BeTrue();
     }
@@ -1407,10 +1407,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GET_SystemStatus_ReturnsExpectedFields()
     {
         // Test plan 1.3.1: system status has engine, GPU, CPU/RAM fields
-        var response = await _client.GetAsync("/api/system/status");
+        var response = await _client.GetAsync("/api/system/status", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var status = json.GetProperty("status");
         status.TryGetProperty("engineReady", out _).Should().BeTrue();
         status.TryGetProperty("gpuAvailable", out _).Should().BeTrue();
@@ -1423,10 +1423,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GET_CacheStats_HasTypeBreakdown()
     {
         // Test plan 2.3.3: cache stats include type-level breakdown
-        var response = await _client.GetAsync("/api/cache/stats");
+        var response = await _client.GetAsync("/api/cache/stats", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("totalModels", out _).Should().BeTrue();
         json.TryGetProperty("totalSizeMB", out _).Should().BeTrue();
         json.TryGetProperty("cacheDirectory", out _).Should().BeTrue();
@@ -1439,7 +1439,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Test plan 2.4.1: preload without required 'type' field
         var content = JsonContent.Create(new { modelId = "default" });
-        var response = await _client.PostAsync("/api/cache/load", content);
+        var response = await _client.PostAsync("/api/cache/load", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -1449,7 +1449,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task DELETE_LoadedModel_NonExistentKey_Returns404()
     {
         // Test plan 2.4.3: unload nonexistent model
-        var response = await _client.DeleteAsync("/api/cache/loaded/nonexistent%3Anonexistent");
+        var response = await _client.DeleteAsync("/api/cache/loaded/nonexistent%3Anonexistent", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -1460,7 +1460,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Test plan 3.4.5: translate with empty text
         var content = JsonContent.Create(new { text = "Hello" });
-        var response = await _client.PostAsync("/v1/translate", content);
+        var response = await _client.PostAsync("/v1/translate", content, TestContext.Current.CancellationToken);
 
         // Missing model field should trigger validation error
         var statusCode = (int)response.StatusCode;
@@ -1473,7 +1473,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Test plan 7.2: malformed JSON body
         var content = new StringContent("{ invalid json }", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/chat/completions", content);
+        var response = await _client.PostAsync("/v1/chat/completions", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -1484,7 +1484,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Test plan 7.2: malformed JSON for embeddings
         var content = new StringContent("not json at all", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/embeddings", content);
+        var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -1497,7 +1497,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Test plan 7.2: malformed JSON for translate
         var content = new StringContent("{ broken }", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/translate", content);
+        var response = await _client.PostAsync("/v1/translate", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -1508,7 +1508,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Test plan 7.2: malformed JSON for rerank
         var content = new StringContent("not valid json", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/rerank", content);
+        var response = await _client.PostAsync("/v1/rerank", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -1519,10 +1519,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Test plan 7.1: error responses follow OpenAI error format
         var content = JsonContent.Create(new { input = "", model = "nonexistent-model-xyz" });
-        var response = await _client.PostAsync("/v1/embeddings", content);
+        var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         response.IsSuccessStatusCode.Should().BeFalse();
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.TryGetProperty("error", out var errorObj).Should().BeTrue("error response should have 'error' field");
         errorObj.TryGetProperty("message", out _).Should().BeTrue("error should have 'message' field");
         errorObj.TryGetProperty("type", out _).Should().BeTrue("error should have 'type' field");
@@ -1534,7 +1534,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // Test plan 7.2: malformed JSON for speech
         var content = new StringContent("{ broken json", Encoding.UTF8, "application/json");
-        var response = await _client.PostAsync("/v1/audio/speech", content);
+        var response = await _client.PostAsync("/v1/audio/speech", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -1546,7 +1546,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         // Test plan 7.3: empty file content should be rejected
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new ByteArrayContent([]), "file", "empty.wav");
-        var response = await _client.PostAsync("/v1/audio/transcriptions", formContent);
+        var response = await _client.PostAsync("/v1/audio/transcriptions", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -1556,7 +1556,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task DELETE_CacheModel_NonExistentRepo_Returns404()
     {
         // Test plan 7.1: deleting non-existent cached model
-        var response = await _client.DeleteAsync("/api/cache/models/nonexistent-org%2Fnonexistent-model");
+        var response = await _client.DeleteAsync("/api/cache/models/nonexistent-org%2Fnonexistent-model", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -1567,10 +1567,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Swagger_ContainsAllMajorEndpoints()
     {
-        var response = await _client.GetAsync("/swagger/v1/swagger.json");
+        var response = await _client.GetAsync("/swagger/v1/swagger.json", TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var paths = json.GetProperty("paths");
         var pathKeys = new List<string>();
         foreach (var prop in paths.EnumerateObject())
@@ -1607,10 +1607,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Swagger_HasVersionInfo()
     {
-        var response = await _client.GetAsync("/swagger/v1/swagger.json");
+        var response = await _client.GetAsync("/swagger/v1/swagger.json", TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var info = json.GetProperty("info");
         info.GetProperty("title").GetString().Should().NotBeNullOrEmpty();
         info.GetProperty("version").GetString().Should().NotBeNullOrEmpty();
@@ -1620,10 +1620,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Swagger_EndpointsHaveTags()
     {
-        var response = await _client.GetAsync("/swagger/v1/swagger.json");
+        var response = await _client.GetAsync("/swagger/v1/swagger.json", TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var paths = json.GetProperty("paths");
 
         // Verify at least some endpoints have tags (for Swagger UI grouping)
@@ -1650,9 +1650,9 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GET_Models_OpenAI_HasObjectField()
     {
         // §2.1.3: OpenAI-compatible list includes "object" field
-        var response = await _client.GetAsync("/v1/models");
+        var response = await _client.GetAsync("/v1/models", TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("object").GetString().Should().Be("list");
     }
 
@@ -1661,8 +1661,8 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GET_Models_OpenAI_ItemsHaveRequiredFields()
     {
         // §2.1.3/2.1.4: Each model item has required OpenAI fields
-        var response = await _client.GetAsync("/v1/models");
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var response = await _client.GetAsync("/v1/models", TestContext.Current.CancellationToken);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var first = json.GetProperty("data")[0];
 
         first.TryGetProperty("id", out _).Should().BeTrue();
@@ -1675,10 +1675,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GET_ModelById_AnyId_Returns200()
     {
         // §2.1.4: OpenAI-compatible — returns model info for any ID
-        var response = await _client.GetAsync("/v1/models/nonexistent:unknown");
+        var response = await _client.GetAsync("/v1/models/nonexistent:unknown", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.GetProperty("id").GetString().Should().Be("nonexistent:unknown");
     }
 
@@ -1687,8 +1687,8 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GET_Registry_TypeHasAliasKindInfo()
     {
         // §2.1.2: Each model alias has kind (system/user) information
-        var response = await _client.GetAsync("/api/registry/models/embedder");
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var response = await _client.GetAsync("/api/registry/models/embedder", TestContext.Current.CancellationToken);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var first = json.GetProperty("models")[0];
 
         first.TryGetProperty("aliasName", out _).Should().BeTrue();
@@ -1700,9 +1700,9 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GET_CacheModelsByType_ReturnsArrayShape()
     {
         // §2.3.2: Cache models filtered by valid type returns array
-        var response = await _client.GetAsync("/api/cache/models/type/embedder");
+        var response = await _client.GetAsync("/api/cache/models/type/embedder", TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         json.ValueKind.Should().Be(JsonValueKind.Array);
     }
 
@@ -1712,7 +1712,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // §2.2.2: Checking nonexistent model returns error, not crash
         var content = JsonContent.Create(new { repoId = "nonexistent-org/fake-model-xyz" });
-        var response = await _client.PostAsync("/api/download/check", content);
+        var response = await _client.PostAsync("/api/download/check", content, TestContext.Current.CancellationToken);
 
         // Should either be error (404) or OK with not-found indication
         ((int)response.StatusCode).Should().BeGreaterThanOrEqualTo(200);
@@ -1724,9 +1724,9 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_SystemStatus_IncludesMemoryMetrics()
     {
-        var response = await _client.GetAsync("/api/system/status");
+        var response = await _client.GetAsync("/api/system/status", TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var status = json.GetProperty("status");
 
         status.TryGetProperty("ramUsageMB", out _).Should().BeTrue();
@@ -1738,8 +1738,8 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_SystemStatus_IncludesProcessMemory()
     {
-        var response = await _client.GetAsync("/api/system/status");
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var response = await _client.GetAsync("/api/system/status", TestContext.Current.CancellationToken);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var status = json.GetProperty("status");
 
         status.TryGetProperty("processMemoryMB", out var procMem).Should().BeTrue();

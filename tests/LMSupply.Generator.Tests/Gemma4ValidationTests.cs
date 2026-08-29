@@ -7,7 +7,6 @@ using LMSupply.Generator.Internal.Llama;
 using LMSupply.Generator.Models;
 using LMSupply.Llama.Server;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace LMSupply.Generator.Tests;
 
@@ -289,7 +288,7 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
     [Fact(Timeout = 120_000)]
     public async Task GgufFast_Chat_ReturnsCoherentResponse()
     {
-        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast");
+        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var messages = new[]
         {
@@ -298,7 +297,7 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
         };
 
         var result = new StringBuilder();
-        await foreach (var token in model.GenerateChatAsync(messages, MakeGemma4Options()))
+        await foreach (var token in model.GenerateChatAsync(messages, MakeGemma4Options(), TestContext.Current.CancellationToken))
         {
             result.Append(token);
         }
@@ -314,7 +313,7 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
     [Fact(Timeout = 120_000)]
     public async Task GgufFast_ToolCall_InvokesGetWeather()
     {
-        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast");
+        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var messages = new[]
         {
@@ -324,7 +323,7 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
         var options = MakeGemma4Options(512);
         options.Tools = [WeatherTool];
 
-        var result = await model.GenerateChatWithToolsAsync(messages, options);
+        var result = await model.GenerateChatWithToolsAsync(messages, options, TestContext.Current.CancellationToken);
 
         output.WriteLine($"[gguf:gemma4-fast tool] finish={result.FinishReason} " +
                          $"hasTools={result.HasToolCalls} content={result.Content}");
@@ -351,7 +350,7 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
         // structured tool call. E2B at Q4_K_M is known to be less reliable;
         // ≥60% success is the acceptance threshold for this tier.
         // Adjust if empirically too tight or loose.
-        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast");
+        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var options = MakeGemma4Options(512);
         options.Tools = [WeatherTool];
@@ -365,7 +364,7 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
             {
                 ChatMessage.User("What is the weather in Tokyo right now?")
             };
-            var result = await model.GenerateChatWithToolsAsync(messages, options);
+            var result = await model.GenerateChatWithToolsAsync(messages, options, TestContext.Current.CancellationToken);
             var ok = result.HasToolCalls && result.ToolCalls![0].FunctionName == "get_weather";
             if (ok) successes++;
             output.WriteLine($"  run {i + 1}/{runs}: {(ok ? "✓ tool call" : "✗ no/wrong tool call")} " +
@@ -385,7 +384,7 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
     public async Task GgufDefault_Chat_ReturnsCoherentResponse()
     {
         // E4B requires CPU offload on 4 GB VRAM; inference is slower.
-        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-default");
+        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-default", cancellationToken: TestContext.Current.CancellationToken);
 
         var messages = new[]
         {
@@ -394,7 +393,7 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
         };
 
         var result = new StringBuilder();
-        await foreach (var token in model.GenerateChatAsync(messages, MakeGemma4Options()))
+        await foreach (var token in model.GenerateChatAsync(messages, MakeGemma4Options(), TestContext.Current.CancellationToken))
         {
             result.Append(token);
         }
@@ -409,7 +408,7 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
     [Fact(Timeout = 300_000)]
     public async Task GgufDefault_ToolCall_InvokesGetWeather()
     {
-        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-default");
+        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-default", cancellationToken: TestContext.Current.CancellationToken);
 
         var messages = new[]
         {
@@ -419,7 +418,7 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
         var options = MakeGemma4Options(512);
         options.Tools = [WeatherTool];
 
-        var result = await model.GenerateChatWithToolsAsync(messages, options);
+        var result = await model.GenerateChatWithToolsAsync(messages, options, TestContext.Current.CancellationToken);
 
         output.WriteLine($"[gguf:gemma4-default tool] finish={result.FinishReason} " +
                          $"hasTools={result.HasToolCalls} content={result.Content}");

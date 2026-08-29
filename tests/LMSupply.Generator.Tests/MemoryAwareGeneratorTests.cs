@@ -98,7 +98,7 @@ public class MemoryAwareGeneratorTests
         var wrapper = new MemoryAwareGenerator(inner, options);
 
         // Act
-        var result = await wrapper.GenerateCompleteAsync("prompt");
+        var result = await wrapper.GenerateCompleteAsync("prompt", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         result.Should().Be("test response");
@@ -114,7 +114,7 @@ public class MemoryAwareGeneratorTests
         var wrapper = new MemoryAwareGenerator(inner, options);
 
         // Act
-        await wrapper.WarmupAsync();
+        await wrapper.WarmupAsync(TestContext.Current.CancellationToken);
 
         // Assert
         await inner.Received(1).WarmupAsync(Arg.Any<CancellationToken>());

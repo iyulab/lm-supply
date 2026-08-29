@@ -19,7 +19,7 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_FastAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
         model.ClassLabels.Should().NotBeEmpty("ADE20K labels should be loaded");
@@ -29,7 +29,7 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_GetModelInfo_ReturnsValidInfo()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var info = model.GetModelInfo();
         info.Should().NotBeNull();
@@ -41,10 +41,10 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_BasicSegmentation_ReturnsMask()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
-        var result = await model.SegmentAsync(imageBytes);
+        var result = await model.SegmentAsync(imageBytes, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result.Width.Should().BeGreaterThan(0);
@@ -58,10 +58,10 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ClassMap_CoversAllPixels()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
-        var result = await model.SegmentAsync(imageBytes);
+        var result = await model.SegmentAsync(imageBytes, TestContext.Current.CancellationToken);
 
         result.ClassMap.Length.Should().Be(result.Width * result.Height,
             "class map should have one entry per pixel");
@@ -71,10 +71,10 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ClassMap_HasAtLeastOneClass()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
-        var result = await model.SegmentAsync(imageBytes);
+        var result = await model.SegmentAsync(imageBytes, TestContext.Current.CancellationToken);
 
         result.UniqueClassCount.Should().BeGreaterThanOrEqualTo(1,
             "segmentation should assign at least one class");
@@ -84,10 +84,10 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ConfidenceMap_HasValidValues()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
-        var result = await model.SegmentAsync(imageBytes);
+        var result = await model.SegmentAsync(imageBytes, TestContext.Current.CancellationToken);
 
         if (result.ConfidenceMap.Length > 0)
         {
@@ -100,10 +100,10 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_GetTopSegments_ReturnsValidSummaries()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
-        var result = await model.SegmentAsync(imageBytes);
+        var result = await model.SegmentAsync(imageBytes, TestContext.Current.CancellationToken);
 
         var topSegments = result.GetTopSegments(5, model.ClassLabels);
 
@@ -120,7 +120,7 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ClassLabels_ContainADE20KLabels()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         // SegFormer uses ADE20K labels
         model.ClassLabels.Should().Contain("wall");
@@ -132,7 +132,7 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_SolidWhiteImage_ProducesSingleClass()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateSolidBmp(256, 256);
         var act = () => model.SegmentAsync(imageBytes);
@@ -144,12 +144,12 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_TinyImage_DoesNotCrash()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateTinyBmp();
         try
         {
-            var result = await model.SegmentAsync(imageBytes);
+            var result = await model.SegmentAsync(imageBytes, TestContext.Current.CancellationToken);
             result.Should().NotBeNull();
         }
         catch (Exception ex)
@@ -164,7 +164,7 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_DefaultAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalSegmenter.LoadAsync("default");
+        await using var model = await LocalSegmenter.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
     }
@@ -193,7 +193,7 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_ModelProperties_ArePopulated()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ActiveProviders.Should().NotBeNull();
         model.RequestedProvider.Should().BeDefined();
@@ -203,11 +203,11 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_SegmentFromStream_Works()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
         using var stream = new MemoryStream(imageBytes);
-        var result = await model.SegmentAsync(stream);
+        var result = await model.SegmentAsync(stream, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result.ClassMap.Should().NotBeEmpty();
@@ -217,7 +217,7 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_LargeImage_DoesNotCrash()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(1920, 1080);
         var act = () => model.SegmentAsync(imageBytes);
@@ -280,12 +280,12 @@ public class SegmenterFunctionalTests
     public async Task Q_MaskResolution_MatchesInputWhenResizeToOriginal()
     {
         var opts = new SegmenterOptions { ResizeToOriginal = true };
-        await using var model = await LocalSegmenter.LoadAsync("fast", opts);
+        await using var model = await LocalSegmenter.LoadAsync("fast", opts, cancellationToken: TestContext.Current.CancellationToken);
 
         const int width = 400;
         const int height = 300;
         var imageBytes = TestDataHelper.CreateGradientBmp(width, height);
-        var result = await model.SegmentAsync(imageBytes);
+        var result = await model.SegmentAsync(imageBytes, TestContext.Current.CancellationToken);
 
         result.Width.Should().Be(width, "mask width should match input when ResizeToOriginal=true");
         result.Height.Should().Be(height, "mask height should match input when ResizeToOriginal=true");
@@ -295,7 +295,7 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_PanoramaImage_DoesNotCrash()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast");
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         // Very wide panorama: 2000x200
         var imageBytes = TestDataHelper.CreateGradientBmp(2000, 200);

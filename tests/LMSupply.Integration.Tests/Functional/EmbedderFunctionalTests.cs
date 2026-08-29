@@ -23,7 +23,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_DefaultAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalEmbedder.LoadAsync("default");
+        await using var model = await LocalEmbedder.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
         model.Dimensions.Should().Be(384, "default model (BGE-small) has 384 dimensions");
@@ -35,7 +35,7 @@ public class EmbedderFunctionalTests
     [InlineData("default", 384)]
     public async Task L_KnownAliases_LoadWithExpectedDimensions(string alias, int expectedDims)
     {
-        await using var model = await LocalEmbedder.LoadAsync(alias);
+        await using var model = await LocalEmbedder.LoadAsync(alias, cancellationToken: TestContext.Current.CancellationToken);
 
         model.Dimensions.Should().Be(expectedDims);
         model.ModelId.Should().NotBeNullOrEmpty();
@@ -45,7 +45,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_WarmupAsync_CompletesWithoutError()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.WarmupAsync();
         await act.Should().NotThrowAsync();
@@ -55,7 +55,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_GetModelInfo_ReturnsValidInfo()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var info = model.GetModelInfo();
         info.Should().NotBeNull();
@@ -85,7 +85,7 @@ public class EmbedderFunctionalTests
     public async Task L_ExplicitCpuProvider_LoadsSuccessfully()
     {
         var options = new EmbedderOptions { Provider = ExecutionProvider.Cpu };
-        await using var model = await LocalEmbedder.LoadAsync("fast", options);
+        await using var model = await LocalEmbedder.LoadAsync("fast", options, cancellationToken: TestContext.Current.CancellationToken);
 
         model.Dimensions.Should().BeGreaterThan(0);
     }
@@ -106,9 +106,9 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_SingleText_ReturnsCorrectDimensionVector()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var embedding = await model.EmbedAsync("hello world");
+        var embedding = await model.EmbedAsync("hello world", TestContext.Current.CancellationToken);
 
         embedding.Should().NotBeNull();
         embedding.Length.Should().Be(model.Dimensions);
@@ -119,10 +119,10 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_BatchTexts_ReturnsCorrectCountAndOrder()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var texts = new[] { "cat", "dog", "airplane" };
-        var embeddings = await model.EmbedAsync(texts);
+        var embeddings = await model.EmbedAsync(texts, TestContext.Current.CancellationToken);
 
         embeddings.Should().HaveCount(3);
         foreach (var emb in embeddings)
@@ -135,15 +135,15 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_BatchEmbeddings_PreserveOrder()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var texts = new[] { "alpha", "beta", "gamma" };
-        var batchResult = await model.EmbedAsync(texts);
+        var batchResult = await model.EmbedAsync(texts, TestContext.Current.CancellationToken);
 
         // Each individual embed should match the batch
         for (var i = 0; i < texts.Length; i++)
         {
-            var singleResult = await model.EmbedAsync(texts[i]);
+            var singleResult = await model.EmbedAsync(texts[i], TestContext.Current.CancellationToken);
             var similarity = LocalEmbedder.CosineSimilarity(batchResult[i], singleResult);
             similarity.Should().BeGreaterThan(0.99f,
                 $"batch[{i}] should match single embed for '{texts[i]}'");
@@ -154,9 +154,9 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_EmbeddingsAreNormalized_ByDefault()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var embedding = await model.EmbedAsync("test normalization");
+        var embedding = await model.EmbedAsync("test normalization", TestContext.Current.CancellationToken);
 
         // L2 norm should be approximately 1.0 for normalized vectors
         var l2Norm = MathF.Sqrt(embedding.Sum(v => v * v));
@@ -169,11 +169,11 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_SimilarTexts_HaveHigherSimilarity()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var catEmb = await model.EmbedAsync("cat");
-        var kittenEmb = await model.EmbedAsync("kitten");
-        var airplaneEmb = await model.EmbedAsync("airplane");
+        var catEmb = await model.EmbedAsync("cat", TestContext.Current.CancellationToken);
+        var kittenEmb = await model.EmbedAsync("kitten", TestContext.Current.CancellationToken);
+        var airplaneEmb = await model.EmbedAsync("airplane", TestContext.Current.CancellationToken);
 
         var simCatKitten = LocalEmbedder.CosineSimilarity(catEmb, kittenEmb);
         var simCatAirplane = LocalEmbedder.CosineSimilarity(catEmb, airplaneEmb);
@@ -186,10 +186,10 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_IdenticalTexts_HaveMaxSimilarity()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var emb1 = await model.EmbedAsync("The quick brown fox");
-        var emb2 = await model.EmbedAsync("The quick brown fox");
+        var emb1 = await model.EmbedAsync("The quick brown fox", TestContext.Current.CancellationToken);
+        var emb2 = await model.EmbedAsync("The quick brown fox", TestContext.Current.CancellationToken);
 
         var similarity = LocalEmbedder.CosineSimilarity(emb1, emb2);
         similarity.Should().BeApproximately(1.0f, 0.001f,
@@ -201,9 +201,9 @@ public class EmbedderFunctionalTests
     public async Task Q_DimensionMatchesModelSpec()
     {
         // BGE-small: 384, MiniLM-L6: 384
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var embedding = await model.EmbedAsync("dimension check");
+        var embedding = await model.EmbedAsync("dimension check", TestContext.Current.CancellationToken);
         embedding.Length.Should().Be(384, "all-MiniLM-L6-v2 should produce 384-dim vectors");
     }
 
@@ -211,10 +211,10 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_RepeatInference_IsDeterministic()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var emb1 = await model.EmbedAsync("determinism check");
-        var emb2 = await model.EmbedAsync("determinism check");
+        var emb1 = await model.EmbedAsync("determinism check", TestContext.Current.CancellationToken);
+        var emb2 = await model.EmbedAsync("determinism check", TestContext.Current.CancellationToken);
 
         var similarity = LocalEmbedder.CosineSimilarity(emb1, emb2);
         similarity.Should().BeApproximately(1.0f, 0.0001f,
@@ -225,15 +225,15 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_SemanticClusters_AreDistinguishable()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         // Cluster 1: Animals
-        var dog = await model.EmbedAsync("dog");
-        var puppy = await model.EmbedAsync("puppy");
+        var dog = await model.EmbedAsync("dog", TestContext.Current.CancellationToken);
+        var puppy = await model.EmbedAsync("puppy", TestContext.Current.CancellationToken);
 
         // Cluster 2: Technology
-        var computer = await model.EmbedAsync("computer");
-        var laptop = await model.EmbedAsync("laptop");
+        var computer = await model.EmbedAsync("computer", TestContext.Current.CancellationToken);
+        var laptop = await model.EmbedAsync("laptop", TestContext.Current.CancellationToken);
 
         var withinAnimals = LocalEmbedder.CosineSimilarity(dog, puppy);
         var withinTech = LocalEmbedder.CosineSimilarity(computer, laptop);
@@ -247,7 +247,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ConcurrentInference_ProducesConsistentResults()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         const string text = "concurrent test";
         var tasks = Enumerable.Range(0, 5)
@@ -271,7 +271,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_EmojiText_DoesNotCrash()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = async () => await model.EmbedAsync(TestDataHelper.EmojiText);
         var result = await act.Should().NotThrowAsync();
@@ -284,7 +284,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_SpecialCharacters_DoesNotCrash()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var specialTexts = new[]
         {
@@ -297,7 +297,7 @@ public class EmbedderFunctionalTests
 
         foreach (var text in specialTexts)
         {
-            var embedding = await model.EmbedAsync(text);
+            var embedding = await model.EmbedAsync(text, TestContext.Current.CancellationToken);
             embedding.Length.Should().Be(model.Dimensions,
                 $"special text '{text}' should produce valid embedding");
         }
@@ -307,12 +307,12 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_VeryLongText_DoesNotOOM()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         // ~10000 tokens worth of text — should truncate, not OOM
         var longText = TestDataHelper.GenerateLongText(10_000);
 
-        var embedding = await model.EmbedAsync(longText);
+        var embedding = await model.EmbedAsync(longText, TestContext.Current.CancellationToken);
         embedding.Length.Should().Be(model.Dimensions);
         embedding.Should().Contain(v => v != 0f, "long text embedding should not be all zeros");
     }
@@ -321,12 +321,12 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_EmptyString_HandlesGracefully()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         // Empty string should either produce a valid embedding or throw ArgumentException — never crash
         try
         {
-            var embedding = await model.EmbedAsync("");
+            var embedding = await model.EmbedAsync("", TestContext.Current.CancellationToken);
             embedding.Length.Should().Be(model.Dimensions,
                 "if empty string is accepted, it should produce a valid-dimension vector");
         }
@@ -340,9 +340,9 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_EmptyBatch_ReturnsEmptyArray()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var embeddings = await model.EmbedAsync(Array.Empty<string>());
+        var embeddings = await model.EmbedAsync(Array.Empty<string>(), TestContext.Current.CancellationToken);
 
         embeddings.Should().BeEmpty("empty batch should return empty result, not throw");
     }
@@ -351,9 +351,9 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_SingleCharacter_ProducesValidEmbedding()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var embedding = await model.EmbedAsync("a");
+        var embedding = await model.EmbedAsync("a", TestContext.Current.CancellationToken);
         embedding.Length.Should().Be(model.Dimensions);
     }
 
@@ -362,9 +362,9 @@ public class EmbedderFunctionalTests
     public async Task E_NullOptions_UsesDefaults()
     {
         // options=null should not cause NullReferenceException
-        await using var model = await LocalEmbedder.LoadAsync("fast", options: null);
+        await using var model = await LocalEmbedder.LoadAsync("fast", options: null, cancellationToken: TestContext.Current.CancellationToken);
 
-        var embedding = await model.EmbedAsync("null options test");
+        var embedding = await model.EmbedAsync("null options test", TestContext.Current.CancellationToken);
         embedding.Length.Should().BeGreaterThan(0);
     }
 
@@ -372,10 +372,10 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_BatchWithSingleItem_Works()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         string[] singleBatch = ["single item batch"];
-        var embeddings = await model.EmbedAsync(singleBatch);
+        var embeddings = await model.EmbedAsync(singleBatch, TestContext.Current.CancellationToken);
         embeddings.Should().HaveCount(1);
         embeddings[0].Length.Should().Be(model.Dimensions);
     }
@@ -384,7 +384,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_MixedLengthBatch_Works()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var texts = new[]
         {
@@ -393,7 +393,7 @@ public class EmbedderFunctionalTests
             TestDataHelper.GenerateLongText(500),
         };
 
-        var embeddings = await model.EmbedAsync(texts);
+        var embeddings = await model.EmbedAsync(texts, TestContext.Current.CancellationToken);
         embeddings.Should().HaveCount(3);
         foreach (var emb in embeddings)
         {
@@ -417,7 +417,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_ModelProperties_ArePopulated()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ActiveProviders.Should().NotBeNull();
         model.RequestedProvider.Should().BeDefined();
@@ -427,7 +427,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_QualityAlias_LoadsWithHigherDimensions()
     {
-        await using var model = await LocalEmbedder.LoadAsync("quality");
+        await using var model = await LocalEmbedder.LoadAsync("quality", cancellationToken: TestContext.Current.CancellationToken);
 
         model.Dimensions.Should().BeGreaterThanOrEqualTo(384,
             "quality model should have >= 384 dimensions");
@@ -438,10 +438,10 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_CosineSimilarity_IsSymmetric()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast");
+        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var emb1 = await model.EmbedAsync("hello world");
-        var emb2 = await model.EmbedAsync("goodbye world");
+        var emb1 = await model.EmbedAsync("hello world", TestContext.Current.CancellationToken);
+        var emb2 = await model.EmbedAsync("goodbye world", TestContext.Current.CancellationToken);
 
         var sim12 = LocalEmbedder.CosineSimilarity(emb1, emb2);
         var sim21 = LocalEmbedder.CosineSimilarity(emb2, emb1);
@@ -586,7 +586,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_LargeAlias_LoadsWithExpectedDimensions()
     {
-        await using var model = await LocalEmbedder.LoadAsync("large");
+        await using var model = await LocalEmbedder.LoadAsync("large", cancellationToken: TestContext.Current.CancellationToken);
 
         model.Dimensions.Should().Be(768,
             "large alias (nomic-embed-text-v1.5) should have 768 dimensions");
@@ -596,7 +596,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_MultilingualAlias_LoadsWithHighDimensions()
     {
-        await using var model = await LocalEmbedder.LoadAsync("multilingual");
+        await using var model = await LocalEmbedder.LoadAsync("multilingual", cancellationToken: TestContext.Current.CancellationToken);
 
         model.Dimensions.Should().Be(1024,
             "multilingual alias (bge-m3) should have 1024 dimensions");
@@ -606,7 +606,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_AutoAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalEmbedder.LoadAsync("auto");
+        await using var model = await LocalEmbedder.LoadAsync("auto", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
         model.Dimensions.Should().BeOneOf([384, 768, 1024],
@@ -619,10 +619,10 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_MultilingualModel_CrossLanguageSimilarity()
     {
-        await using var model = await LocalEmbedder.LoadAsync("multilingual");
+        await using var model = await LocalEmbedder.LoadAsync("multilingual", cancellationToken: TestContext.Current.CancellationToken);
 
-        var engEmb = await model.EmbedAsync("hello");
-        var korEmb = await model.EmbedAsync("안녕하세요");
+        var engEmb = await model.EmbedAsync("hello", TestContext.Current.CancellationToken);
+        var korEmb = await model.EmbedAsync("안녕하세요", TestContext.Current.CancellationToken);
 
         var similarity = LocalEmbedder.CosineSimilarity(engEmb, korEmb);
 
@@ -785,7 +785,7 @@ public class EmbedderFunctionalTests
     {
         // E-Q4: Load a GGUF embedding model via llama-server
         // Requires llama-server binary (auto-downloaded by LlamaServerUpdateService)
-        await using var model = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF");
+        await using var model = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
         model.Dimensions.Should().BeGreaterThan(0, "GGUF embedder should report dimensions");
@@ -797,13 +797,13 @@ public class EmbedderFunctionalTests
     public async Task Q_GgufVsOnnx_BothProduceMeaningfulEmbeddings()
     {
         // E-Q4: Both GGUF and ONNX should produce valid embeddings for the same text
-        await using var onnxModel = await LocalEmbedder.LoadAsync("default");
-        await using var ggufModel = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF");
+        await using var onnxModel = await LocalEmbedder.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
+        await using var ggufModel = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF", cancellationToken: TestContext.Current.CancellationToken);
 
         var text = "Machine learning is a subset of artificial intelligence.";
 
-        var onnxEmb = await onnxModel.EmbedAsync(text);
-        var ggufEmb = await ggufModel.EmbedAsync(text);
+        var onnxEmb = await onnxModel.EmbedAsync(text, TestContext.Current.CancellationToken);
+        var ggufEmb = await ggufModel.EmbedAsync(text, TestContext.Current.CancellationToken);
 
         onnxEmb.Length.Should().BeGreaterThan(0, "ONNX embedding should have dimensions");
         ggufEmb.Length.Should().BeGreaterThan(0, "GGUF embedding should have dimensions");
@@ -821,11 +821,11 @@ public class EmbedderFunctionalTests
     public async Task Q_GgufModel_SemanticSimilarity_IsCoherent()
     {
         // E-Q4: GGUF embeddings should preserve semantic similarity
-        await using var model = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF");
+        await using var model = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF", cancellationToken: TestContext.Current.CancellationToken);
 
-        var embCat = await model.EmbedAsync("The cat sat on the mat.");
-        var embKitten = await model.EmbedAsync("A kitten rested on the rug.");
-        var embCar = await model.EmbedAsync("The car drove down the highway.");
+        var embCat = await model.EmbedAsync("The cat sat on the mat.", TestContext.Current.CancellationToken);
+        var embKitten = await model.EmbedAsync("A kitten rested on the rug.", TestContext.Current.CancellationToken);
+        var embCar = await model.EmbedAsync("The car drove down the highway.", TestContext.Current.CancellationToken);
 
         var simRelated = LocalEmbedder.CosineSimilarity(embCat, embKitten);
         var simUnrelated = LocalEmbedder.CosineSimilarity(embCat, embCar);
@@ -841,13 +841,13 @@ public class EmbedderFunctionalTests
     {
         // E-Q4: Same model family (nomic-embed-text-v1.5) in GGUF and ONNX
         // should produce very similar embeddings (cosine similarity > 0.8)
-        await using var onnxModel = await LocalEmbedder.LoadAsync("large"); // nomic-embed-text-v1.5 ONNX
-        await using var ggufModel = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF");
+        await using var onnxModel = await LocalEmbedder.LoadAsync("large", cancellationToken: TestContext.Current.CancellationToken); // nomic-embed-text-v1.5 ONNX
+        await using var ggufModel = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF", cancellationToken: TestContext.Current.CancellationToken);
 
         var text = "Machine learning is a subset of artificial intelligence.";
 
-        var onnxEmb = await onnxModel.EmbedAsync(text);
-        var ggufEmb = await ggufModel.EmbedAsync(text);
+        var onnxEmb = await onnxModel.EmbedAsync(text, TestContext.Current.CancellationToken);
+        var ggufEmb = await ggufModel.EmbedAsync(text, TestContext.Current.CancellationToken);
 
         // Same model family should produce same-dimension embeddings
         onnxEmb.Length.Should().Be(ggufEmb.Length,

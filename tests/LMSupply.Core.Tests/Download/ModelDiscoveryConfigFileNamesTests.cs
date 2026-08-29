@@ -18,7 +18,7 @@ public class ModelDiscoveryConfigFileNamesTests
         using var service = new ModelDiscoveryService();
 
         // Act - Discover onnx-community repo
-        var result = await service.DiscoverModelAsync("onnx-community/opus-mt-ko-en");
+        var result = await service.DiscoverModelAsync("onnx-community/opus-mt-ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - ConfigFiles should include SentencePiece tokenizer files
         result.ConfigFiles.Should().Contain(
@@ -35,7 +35,7 @@ public class ModelDiscoveryConfigFileNamesTests
         using var service = new ModelDiscoveryService();
 
         // Act
-        var result = await service.DiscoverModelAsync("onnx-community/opus-mt-ko-en");
+        var result = await service.DiscoverModelAsync("onnx-community/opus-mt-ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - Primary files should have subfolder path preserved
         result.PrimaryEncoderFile.Should().Contain("onnx/",
@@ -53,7 +53,7 @@ public class ModelDiscoveryConfigFileNamesTests
         using var service = new ModelDiscoveryService();
 
         // Act
-        var result = await service.DiscoverModelAsync("onnx-community/opus-mt-ko-en");
+        var result = await service.DiscoverModelAsync("onnx-community/opus-mt-ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - Config files from root should be included
         result.ConfigFiles.Should().Contain(

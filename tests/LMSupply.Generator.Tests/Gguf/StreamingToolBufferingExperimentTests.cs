@@ -5,7 +5,6 @@ using LMSupply.Generator.Abstractions;
 using LMSupply.Generator.Internal;
 using LMSupply.Generator.Models;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace LMSupply.Generator.Tests.Gguf;
 
@@ -36,9 +35,7 @@ public class StreamingToolBufferingExperimentTests
     [Fact]
     public async Task GenerateChatStreamAsync_ToolsOn_vs_ToolsOff_TextChunkCount()
     {
-        await using var model = await LocalGenerator.LoadAsync(
-            "gguf:qwen3-fast",
-            new GeneratorOptions { MaxContextLength = 4096 });
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", new GeneratorOptions { MaxContextLength = 4096 }, cancellationToken: TestContext.Current.CancellationToken);
 
         // A prompt that elicits a multi-sentence plain-text answer (no tool actually needed),
         // mirroring Filer's "final answer" turn (finishReason=stop, multi-sentence).
@@ -100,9 +97,7 @@ public class StreamingToolBufferingExperimentTests
     [Fact]
     public async Task GenerateChatStreamAsync_MultiTurnToolHistory_FinalAnswerChunkCount()
     {
-        await using var model = await LocalGenerator.LoadAsync(
-            "gguf:qwen3-fast",
-            new GeneratorOptions { MaxContextLength = 4096 });
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", new GeneratorOptions { MaxContextLength = 4096 }, cancellationToken: TestContext.Current.CancellationToken);
 
         var weatherSchema = JsonSerializer.Deserialize<JsonElement>(
             """{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}""");
@@ -161,9 +156,7 @@ public class StreamingToolBufferingExperimentTests
     [Fact]
     public async Task ChatThinking_Probe_Qwen3_EnableThinkingToggle_and_NoThinkInjection()
     {
-        await using var model = await LocalGenerator.LoadAsync(
-            "gguf:qwen3-fast",
-            new GeneratorOptions { MaxContextLength = 4096 });
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", new GeneratorOptions { MaxContextLength = 4096 }, cancellationToken: TestContext.Current.CancellationToken);
 
         string sys = "You are a helpful assistant.";
         string ask = "What is 2+2? Answer in one short sentence.";

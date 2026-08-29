@@ -41,7 +41,7 @@ public class Gemma4EmptyChatProbeTests
     [Fact]
     public async Task ThinkingOff_TightBudget_ReturnsNonEmptyAnswer()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         // Temperature=0 (greedy) makes the Contain("Alice") assertion deterministic; the
         // NotBeNullOrEmpty guard is the actual regression check (the bug was an empty string).
@@ -52,7 +52,7 @@ public class Gemma4EmptyChatProbeTests
             Temperature = 0f,
             DoSample = false,
         };
-        var result = await model.GenerateChatCompleteAsync(MultiTurn(), options);
+        var result = await model.GenerateChatCompleteAsync(MultiTurn(), options, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNullOrEmpty(
             "Thinking.Off skips the reasoning block so a 30-token budget yields answer text");
@@ -62,10 +62,10 @@ public class Gemma4EmptyChatProbeTests
     [Fact]
     public async Task ThinkingAuto_ReasonableBudget_ReturnsNonEmptyAnswer()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         var options = new GenerationOptions { MaxTokens = 256, Thinking = ThinkingMode.Auto };
-        var result = await model.GenerateChatCompleteAsync(MultiTurn(), options);
+        var result = await model.GenerateChatCompleteAsync(MultiTurn(), options, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNullOrEmpty(
             "a reasonable budget leaves room for both reasoning and a final answer");

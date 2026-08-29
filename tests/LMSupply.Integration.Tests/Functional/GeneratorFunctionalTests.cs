@@ -24,7 +24,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_GgufFast_LoadsSuccessfully()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
     }
@@ -33,17 +33,17 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_WarmupAsync_CompletesWithoutError()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         // Warmup with short generation
-        await foreach (var _ in model.GenerateAsync("Hi", new GenerationOptions { MaxTokens = 5 })) { }
+        await foreach (var _ in model.GenerateAsync("Hi", new GenerationOptions { MaxTokens = 5 }, TestContext.Current.CancellationToken)) { }
     }
 
     [Fact]
     [Trait("Axis", "Loading")]
     public async Task L_GetModelInfo_ReturnsValidInfo()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         var info = model.GetModelInfo();
         info.Should().NotBeNull();
@@ -63,10 +63,10 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_StreamingGeneration_ProducesTokens()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         var tokens = new List<string>();
-        await foreach (var token in model.GenerateAsync("Hello, my name is", ShortOutput))
+        await foreach (var token in model.GenerateAsync("Hello, my name is", ShortOutput, TestContext.Current.CancellationToken))
         {
             tokens.Add(token);
         }
@@ -79,9 +79,9 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_CompleteGeneration_ReturnsFullResponse()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.GenerateCompleteAsync("Say hello", ShortOutput);
+        var result = await model.GenerateCompleteAsync("Say hello", ShortOutput, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNullOrEmpty("complete generation should return text");
     }
@@ -90,10 +90,10 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_ChatGeneration_ReturnsResponse()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         ChatMessage[] messages = [ChatMessage.User("Say hello")];
-        var result = await model.GenerateChatCompleteAsync(messages, ShortOutput);
+        var result = await model.GenerateChatCompleteAsync(messages, ShortOutput, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNullOrEmpty("chat generation should return text");
     }
@@ -102,11 +102,11 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_StreamingChat_ProducesTokens()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         ChatMessage[] messages = [ChatMessage.User("Say hello")];
         var tokens = new List<string>();
-        await foreach (var token in model.GenerateChatAsync(messages, ShortOutput))
+        await foreach (var token in model.GenerateChatAsync(messages, ShortOutput, TestContext.Current.CancellationToken))
         {
             tokens.Add(token);
         }
@@ -120,11 +120,11 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_MaxTokens_IsRespected()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         var options = new GenerationOptions { MaxTokens = 10 };
         var tokenCount = 0;
-        await foreach (var _ in model.GenerateAsync("Tell me a story", options))
+        await foreach (var _ in model.GenerateAsync("Tell me a story", options, TestContext.Current.CancellationToken))
         {
             tokenCount++;
         }
@@ -137,7 +137,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ChatFormat_SystemMessageInfluencesOutput()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         ChatMessage[] messages =
         [
@@ -145,7 +145,7 @@ public class GeneratorFunctionalTests
             ChatMessage.User("How are you?")
         ];
 
-        var result = await model.GenerateChatCompleteAsync(messages, new GenerationOptions { MaxTokens = 50 });
+        var result = await model.GenerateChatCompleteAsync(messages, new GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNullOrEmpty("chat with system message should generate response");
     }
@@ -154,7 +154,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_StreamingVsComplete_ProduceSameContent()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         var options = new GenerationOptions
         {
@@ -166,7 +166,7 @@ public class GeneratorFunctionalTests
 
         // Streaming
         var streamedTokens = new List<string>();
-        await foreach (var token in model.GenerateAsync("The capital of France is", options))
+        await foreach (var token in model.GenerateAsync("The capital of France is", options, TestContext.Current.CancellationToken))
         {
             streamedTokens.Add(token);
         }
@@ -180,7 +180,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_Temperature0_IsMoreDeterministic()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         var options = new GenerationOptions
         {
@@ -190,8 +190,8 @@ public class GeneratorFunctionalTests
             Seed = 42
         };
 
-        var result1 = await model.GenerateCompleteAsync("2 + 2 =", options);
-        var result2 = await model.GenerateCompleteAsync("2 + 2 =", options);
+        var result1 = await model.GenerateCompleteAsync("2 + 2 =", options, TestContext.Current.CancellationToken);
+        var result2 = await model.GenerateCompleteAsync("2 + 2 =", options, TestContext.Current.CancellationToken);
 
         // With temperature=0 and same seed, results should be identical or near-identical
         result1.Should().NotBeNullOrEmpty();
@@ -205,12 +205,12 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_EmptyPrompt_HandlesGracefully()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         // Empty prompt should either produce output or throw a clear error
         try
         {
-            var result = await model.GenerateCompleteAsync("", ShortOutput);
+            var result = await model.GenerateCompleteAsync("", ShortOutput, TestContext.Current.CancellationToken);
             // If it succeeds, that's fine
             result.Should().NotBeNull();
         }
@@ -225,9 +225,9 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_SpecialCharacters_DoNotCrash()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.GenerateCompleteAsync("🎉 Hello! 日本語テスト", ShortOutput);
+        var result = await model.GenerateCompleteAsync("🎉 Hello! 日本語テスト", ShortOutput, TestContext.Current.CancellationToken);
         result.Should().NotBeNull();
     }
 
@@ -235,11 +235,11 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_VeryShortMaxTokens_StopsQuickly()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         var options = new GenerationOptions { MaxTokens = 1 };
         var tokenCount = 0;
-        await foreach (var _ in model.GenerateAsync("Hello", options))
+        await foreach (var _ in model.GenerateAsync("Hello", options, TestContext.Current.CancellationToken))
         {
             tokenCount++;
         }
@@ -252,7 +252,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_MultiTurnChat_Works()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         ChatMessage[] messages =
         [
@@ -267,7 +267,7 @@ public class GeneratorFunctionalTests
         // context retention, not thinking behavior, so request a direct answer with Thinking.Off.
         // See: gemma4-e2b-empty-chat-response-small-token-budget probe (Gemma4EmptyChatProbeTests).
         var options = new GenerationOptions { MaxTokens = 30, Thinking = ThinkingMode.Off };
-        var result = await model.GenerateChatCompleteAsync(messages, options);
+        var result = await model.GenerateChatCompleteAsync(messages, options, TestContext.Current.CancellationToken);
         result.Should().NotBeNullOrEmpty("multi-turn chat should produce response");
     }
 
@@ -275,7 +275,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_StopSequences_StopGeneration()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         var options = new GenerationOptions
         {
@@ -283,9 +283,7 @@ public class GeneratorFunctionalTests
             StopSequences = ["\n\n"],
         };
 
-        var result = await model.GenerateCompleteAsync(
-            "List three colors:\n1. Red\n2. Blue\n3.",
-            options);
+        var result = await model.GenerateCompleteAsync("List three colors:\n1. Red\n2. Blue\n3.", options, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         // The result may or may not contain the stop sequence itself,
@@ -298,7 +296,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_DefaultAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalGenerator.LoadAsync("default");
+        await using var model = await LocalGenerator.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
     }
@@ -307,7 +305,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_ModelProperties_ArePopulated()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         model.ActiveProviders.Should().NotBeNull();
         model.RequestedProvider.Should().BeDefined();
@@ -317,9 +315,9 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_NullOptions_UsesDefaults()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.GenerateCompleteAsync("Hello", options: null);
+        var result = await model.GenerateCompleteAsync("Hello", options: null, cancellationToken: TestContext.Current.CancellationToken);
 
         // Should work with null options (uses defaults), but limit output
         result.Should().NotBeNull();
@@ -329,7 +327,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_CancellationDuringGeneration_Throws()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         using var cts = new CancellationTokenSource();
         var options = new GenerationOptions { MaxTokens = 500 };
@@ -362,7 +360,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_ChatWithMultipleSystemMessages_Works()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         ChatMessage[] messages =
         [
@@ -370,7 +368,7 @@ public class GeneratorFunctionalTests
             ChatMessage.User("Hello")
         ];
 
-        var result = await model.GenerateChatCompleteAsync(messages, ShortOutput);
+        var result = await model.GenerateChatCompleteAsync(messages, ShortOutput, TestContext.Current.CancellationToken);
         result.Should().NotBeNullOrEmpty();
     }
 
@@ -378,7 +376,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_Seed_ProducesDeterministicOutput()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         var options = new GenerationOptions
         {
@@ -388,8 +386,8 @@ public class GeneratorFunctionalTests
             Seed = 12345
         };
 
-        var result1 = await model.GenerateCompleteAsync("The meaning of life is", options);
-        var result2 = await model.GenerateCompleteAsync("The meaning of life is", options);
+        var result1 = await model.GenerateCompleteAsync("The meaning of life is", options, TestContext.Current.CancellationToken);
+        var result2 = await model.GenerateCompleteAsync("The meaning of life is", options, TestContext.Current.CancellationToken);
 
         result1.Should().NotBeNullOrEmpty();
         result2.Should().NotBeNullOrEmpty();
@@ -533,7 +531,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_AutoAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalGenerator.LoadAsync("auto");
+        await using var model = await LocalGenerator.LoadAsync("auto", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
         model.MaxContextLength.Should().BeGreaterThan(0);
@@ -543,7 +541,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_EmptyMessagesArray_HandlesGracefully()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         ChatMessage[] emptyMessages = [];
         var act = () => model.GenerateChatCompleteAsync(emptyMessages, ShortOutput);
@@ -566,7 +564,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_CreativePreset_ProducesDifferentOutputThanPrecise()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         // Just verify both presets work — actual output difference is non-deterministic
         var creativeOpts = new GenerationOptions
@@ -581,8 +579,8 @@ public class GeneratorFunctionalTests
             Temperature = GenerationOptions.Precise.Temperature,
             TopP = GenerationOptions.Precise.TopP,
         };
-        var creative = await model.GenerateCompleteAsync("The sky is", creativeOpts);
-        var precise = await model.GenerateCompleteAsync("The sky is", preciseOpts);
+        var creative = await model.GenerateCompleteAsync("The sky is", creativeOpts, TestContext.Current.CancellationToken);
+        var precise = await model.GenerateCompleteAsync("The sky is", preciseOpts, TestContext.Current.CancellationToken);
 
         creative.Should().NotBeNullOrEmpty("creative preset should produce output");
         precise.Should().NotBeNullOrEmpty("precise preset should produce output");
@@ -670,7 +668,7 @@ public class GeneratorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_VeryLongPrompt_HandlesGracefully()
     {
-        await using var model = await LocalGenerator.LoadAsync(FastModel);
+        await using var model = await LocalGenerator.LoadAsync(FastModel, cancellationToken: TestContext.Current.CancellationToken);
 
         // Build a prompt exceeding typical context window
         var longPrompt = string.Join(" ", Enumerable.Repeat("This is a very long test prompt.", 500));
@@ -678,7 +676,7 @@ public class GeneratorFunctionalTests
         // Should either truncate and generate, or throw a clear error — never crash
         try
         {
-            var result = await model.GenerateCompleteAsync(longPrompt, ShortOutput);
+            var result = await model.GenerateCompleteAsync(longPrompt, ShortOutput, TestContext.Current.CancellationToken);
             result.Should().NotBeNull();
         }
         catch (Exception ex)

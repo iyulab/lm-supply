@@ -74,7 +74,7 @@ public class LocalEmbedderApiTests
         try
         {
             var modelPath = Path.Combine(tempDir, "model.onnx");
-            await File.WriteAllBytesAsync(modelPath, [0x00]); // placeholder so File.Exists is true
+            await File.WriteAllBytesAsync(modelPath, [0x00], TestContext.Current.CancellationToken); // placeholder so File.Exists is true
 
             var act = () => LocalEmbedder.LoadAsync(modelPath);
 

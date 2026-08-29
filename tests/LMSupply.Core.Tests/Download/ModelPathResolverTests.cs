@@ -28,12 +28,12 @@ public class ModelPathResolverTests : IDisposable
     {
         // Arrange
         var modelFile = Path.Combine(_tempDir, "model.onnx");
-        await File.WriteAllTextAsync(modelFile, "dummy onnx content");
+        await File.WriteAllTextAsync(modelFile, "dummy onnx content", TestContext.Current.CancellationToken);
 
         using var resolver = new ModelPathResolver(_tempDir);
 
         // Act
-        var result = await resolver.ResolveModelAsync(modelFile);
+        var result = await resolver.ResolveModelAsync(modelFile, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         result.ModelPath.Should().Be(modelFile);
@@ -49,12 +49,12 @@ public class ModelPathResolverTests : IDisposable
         var modelDir = Path.Combine(_tempDir, "my-model");
         Directory.CreateDirectory(modelDir);
         var modelFile = Path.Combine(modelDir, "model.onnx");
-        await File.WriteAllTextAsync(modelFile, "dummy onnx content");
+        await File.WriteAllTextAsync(modelFile, "dummy onnx content", TestContext.Current.CancellationToken);
 
         using var resolver = new ModelPathResolver(_tempDir);
 
         // Act
-        var result = await resolver.ResolveModelAsync(modelDir, "model.onnx");
+        var result = await resolver.ResolveModelAsync(modelDir, "model.onnx", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         result.ModelPath.Should().Be(modelFile);
@@ -72,10 +72,10 @@ public class ModelPathResolverTests : IDisposable
         Directory.CreateDirectory(onnxSubfolder);
 
         var modelFile = Path.Combine(onnxSubfolder, "model.onnx");
-        await File.WriteAllTextAsync(modelFile, "dummy onnx content");
+        await File.WriteAllTextAsync(modelFile, "dummy onnx content", TestContext.Current.CancellationToken);
 
         // Also create config in root
-        await File.WriteAllTextAsync(Path.Combine(modelDir, "config.json"), "{}");
+        await File.WriteAllTextAsync(Path.Combine(modelDir, "config.json"), "{}", TestContext.Current.CancellationToken);
 
         // Write a manifest so directory validation passes (subfolder ONNX files are not visible at root)
         var manifest = new DownloadManifest
@@ -91,7 +91,7 @@ public class ModelPathResolverTests : IDisposable
         using var resolver = new ModelPathResolver(_tempDir);
 
         // Act - when specified file not in root, should search subdirectories
-        var result = await resolver.ResolveModelAsync(modelDir, "model.onnx");
+        var result = await resolver.ResolveModelAsync(modelDir, "model.onnx", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         result.ModelPath.Should().Be(modelFile);
@@ -137,13 +137,13 @@ public class ModelPathResolverTests : IDisposable
 
         var encoderFile = Path.Combine(modelDir, "encoder_model.onnx");
         var decoderFile = Path.Combine(modelDir, "decoder_model_merged.onnx");
-        await File.WriteAllTextAsync(encoderFile, "encoder content");
-        await File.WriteAllTextAsync(decoderFile, "decoder content");
+        await File.WriteAllTextAsync(encoderFile, "encoder content", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(decoderFile, "decoder content", TestContext.Current.CancellationToken);
 
         using var resolver = new ModelPathResolver(_tempDir);
 
         // Act
-        var result = await resolver.ResolveEncoderDecoderAsync(modelDir);
+        var result = await resolver.ResolveEncoderDecoderAsync(modelDir, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         result.EncoderPath.Should().Be(encoderFile);
@@ -161,7 +161,7 @@ public class ModelPathResolverTests : IDisposable
         Directory.CreateDirectory(modelDir);
 
         var decoderFile = Path.Combine(modelDir, "decoder_model_merged.onnx");
-        await File.WriteAllTextAsync(decoderFile, "decoder content");
+        await File.WriteAllTextAsync(decoderFile, "decoder content", TestContext.Current.CancellationToken);
 
         using var resolver = new ModelPathResolver(_tempDir);
 

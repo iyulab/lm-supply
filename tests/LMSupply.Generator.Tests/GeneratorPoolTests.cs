@@ -47,7 +47,7 @@ public class GeneratorPoolTests : IAsyncDisposable
             .Returns(Task.FromResult(mockModel));
 
         // Act
-        var model = await _pool.GetOrLoadAsync(modelId);
+        var model = await _pool.GetOrLoadAsync(modelId, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         model.Should().NotBeNull();
@@ -66,8 +66,8 @@ public class GeneratorPoolTests : IAsyncDisposable
             .Returns(Task.FromResult(mockModel));
 
         // Act
-        var model1 = await _pool.GetOrLoadAsync(modelId);
-        var model2 = await _pool.GetOrLoadAsync(modelId);
+        var model1 = await _pool.GetOrLoadAsync(modelId, cancellationToken: TestContext.Current.CancellationToken);
+        var model2 = await _pool.GetOrLoadAsync(modelId, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         model1.Should().BeSameAs(model2);
@@ -84,10 +84,10 @@ public class GeneratorPoolTests : IAsyncDisposable
         _mockFactory.LoadAsync(modelId, Arg.Any<GeneratorOptions?>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(mockModel));
 
-        await _pool.GetOrLoadAsync(modelId);
+        await _pool.GetOrLoadAsync(modelId, cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
-        await _pool.UnloadAsync(modelId);
+        await _pool.UnloadAsync(modelId, TestContext.Current.CancellationToken);
 
         // Assert
         _pool.IsLoaded(modelId).Should().BeFalse();
@@ -116,11 +116,11 @@ public class GeneratorPoolTests : IAsyncDisposable
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(mockModel2));
 
-        await _pool.GetOrLoadAsync(model1Id);
-        await _pool.GetOrLoadAsync(model2Id);
+        await _pool.GetOrLoadAsync(model1Id, cancellationToken: TestContext.Current.CancellationToken);
+        await _pool.GetOrLoadAsync(model2Id, cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
-        await _pool.UnloadAllAsync();
+        await _pool.UnloadAllAsync(TestContext.Current.CancellationToken);
 
         // Assert
         _pool.LoadedModelCount.Should().Be(0);
@@ -136,7 +136,7 @@ public class GeneratorPoolTests : IAsyncDisposable
         _mockFactory.LoadAsync(modelId, Arg.Any<GeneratorOptions?>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(mockModel));
 
-        await _pool.GetOrLoadAsync(modelId);
+        await _pool.GetOrLoadAsync(modelId, cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
         var loaded = _pool.GetLoadedModels();

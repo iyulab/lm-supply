@@ -21,7 +21,7 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_DefaultAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalTranslator.LoadAsync("default");
+        await using var model = await LocalTranslator.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
         model.SourceLanguage.Should().NotBeNullOrEmpty();
@@ -32,7 +32,7 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_KoEnAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         model.SourceLanguage.Should().Be("ko");
         model.TargetLanguage.Should().Be("en");
@@ -42,7 +42,7 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_WarmupAsync_CompletesWithoutError()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.WarmupAsync();
         await act.Should().NotThrowAsync();
@@ -52,7 +52,7 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_GetModelInfo_ReturnsValidInfo()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         var info = model.GetModelInfo();
         info.Should().NotBeNull();
@@ -81,9 +81,9 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_KoreanToEnglish_BasicTranslation()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.TranslateAsync("안녕하세요, 만나서 반갑습니다.");
+        var result = await model.TranslateAsync("안녕하세요, 만나서 반갑습니다.", TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result.TranslatedText.Should().NotBeNullOrEmpty();
@@ -94,10 +94,10 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_BatchTranslation_ReturnsCorrectCount()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         string[] texts = ["안녕하세요", "감사합니다", "좋은 아침입니다"];
-        var results = await model.TranslateBatchAsync(texts);
+        var results = await model.TranslateBatchAsync(texts, TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(3);
         foreach (var result in results)
@@ -112,9 +112,9 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_KoreanGreeting_ContainsEnglishGreeting()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.TranslateAsync("안녕하세요, 만나서 반갑습니다.");
+        var result = await model.TranslateAsync("안녕하세요, 만나서 반갑습니다.", TestContext.Current.CancellationToken);
 
         result.TranslatedText.ToLowerInvariant()
             .Should().ContainAny("hello", "hi", "nice", "meet", "glad", "pleased",
@@ -125,10 +125,10 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_BatchTranslation_PreservesOrder()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         string[] texts = ["고양이", "강아지", "비행기"];
-        var results = await model.TranslateBatchAsync(texts);
+        var results = await model.TranslateBatchAsync(texts, TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(3);
         results[0].SourceText.Should().Be("고양이");
@@ -140,9 +140,9 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ShortText_ProducesNonEmptyResult()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.TranslateAsync("네");
+        var result = await model.TranslateAsync("네", TestContext.Current.CancellationToken);
 
         result.TranslatedText.Should().NotBeNullOrEmpty(
             "even single-word input should produce translation");
@@ -152,10 +152,10 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_TranslationIsDeterministic()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result1 = await model.TranslateAsync("오늘 날씨가 좋습니다.");
-        var result2 = await model.TranslateAsync("오늘 날씨가 좋습니다.");
+        var result1 = await model.TranslateAsync("오늘 날씨가 좋습니다.", TestContext.Current.CancellationToken);
+        var result2 = await model.TranslateAsync("오늘 날씨가 좋습니다.", TestContext.Current.CancellationToken);
 
         result1.TranslatedText.Should().Be(result2.TranslatedText,
             "same input should produce same translation");
@@ -167,9 +167,9 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_SpecialCharacters_DoNotCrash()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.TranslateAsync("🎉 테스트! #$%");
+        var result = await model.TranslateAsync("🎉 테스트! #$%", TestContext.Current.CancellationToken);
         result.Should().NotBeNull();
         result.TranslatedText.Should().NotBeNull();
     }
@@ -178,9 +178,9 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_HtmlTags_HandleGracefully()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.TranslateAsync("<b>안녕하세요</b>");
+        var result = await model.TranslateAsync("<b>안녕하세요</b>", TestContext.Current.CancellationToken);
         result.Should().NotBeNull();
         result.TranslatedText.Should().NotBeNullOrEmpty();
     }
@@ -189,7 +189,7 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_LongText_DoesNotOOM()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         // Repeat a Korean sentence many times to create long input
         var longText = string.Join(" ", Enumerable.Repeat("오늘은 좋은 날입니다.", 100));
@@ -202,9 +202,9 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_NullOptions_UsesDefaults()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en", options: null);
+        await using var model = await LocalTranslator.LoadAsync("ko-en", options: null, cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.TranslateAsync("테스트");
+        var result = await model.TranslateAsync("테스트", TestContext.Current.CancellationToken);
         result.TranslatedText.Should().NotBeNullOrEmpty();
     }
 
@@ -212,10 +212,10 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_EnglishInputToKoEnModel_StillProcesses()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         // English input to a ko→en model: should still process without crash
-        var result = await model.TranslateAsync("Hello world");
+        var result = await model.TranslateAsync("Hello world", TestContext.Current.CancellationToken);
         result.Should().NotBeNull();
     }
 
@@ -225,7 +225,7 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_EnKoAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalTranslator.LoadAsync("en-ko");
+        await using var model = await LocalTranslator.LoadAsync("en-ko", cancellationToken: TestContext.Current.CancellationToken);
 
         model.SourceLanguage.Should().Be("en");
         model.TargetLanguage.Should().Be("ko");
@@ -245,7 +245,7 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_ModelProperties_ArePopulated()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ActiveProviders.Should().NotBeNull();
         model.RequestedProvider.Should().BeDefined();
@@ -255,9 +255,9 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_EnglishToKorean_BasicTranslation()
     {
-        await using var model = await LocalTranslator.LoadAsync("en-ko");
+        await using var model = await LocalTranslator.LoadAsync("en-ko", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.TranslateAsync("Hello, nice to meet you.");
+        var result = await model.TranslateAsync("Hello, nice to meet you.", TestContext.Current.CancellationToken);
 
         result.TranslatedText.Should().NotBeNullOrEmpty();
     }
@@ -266,12 +266,12 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_RoundTrip_PreservesSemanticMeaning()
     {
-        await using var koEn = await LocalTranslator.LoadAsync("ko-en");
-        await using var enKo = await LocalTranslator.LoadAsync("en-ko");
+        await using var koEn = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
+        await using var enKo = await LocalTranslator.LoadAsync("en-ko", cancellationToken: TestContext.Current.CancellationToken);
 
         var original = "오늘 날씨가 좋습니다.";
-        var english = await koEn.TranslateAsync(original);
-        var backToKorean = await enKo.TranslateAsync(english.TranslatedText);
+        var english = await koEn.TranslateAsync(original, TestContext.Current.CancellationToken);
+        var backToKorean = await enKo.TranslateAsync(english.TranslatedText, TestContext.Current.CancellationToken);
 
         // Round-trip may not be identical but should produce non-empty result
         backToKorean.TranslatedText.Should().NotBeNullOrEmpty(
@@ -339,9 +339,9 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_HtmlTags_DoNotCrash()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.TranslateAsync("<b>안녕하세요</b>");
+        var result = await model.TranslateAsync("<b>안녕하세요</b>", TestContext.Current.CancellationToken);
         result.Should().NotBeNull();
         result.TranslatedText.Should().NotBeNullOrEmpty(
             "HTML-tagged input should produce translation without crashing");
@@ -397,7 +397,7 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_EmptyText_ThrowsArgumentException()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.TranslateAsync("");
         await act.Should().ThrowAsync<ArgumentException>(
@@ -408,7 +408,7 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_WhitespaceOnlyText_ThrowsArgumentException()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.TranslateAsync("   \t\n  ");
         await act.Should().ThrowAsync<ArgumentException>(
@@ -429,9 +429,9 @@ public class TranslatorFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_BatchTranslation_EmptyArray_ThrowsOrReturnsEmpty()
     {
-        await using var model = await LocalTranslator.LoadAsync("ko-en");
+        await using var model = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
-        var results = await model.TranslateBatchAsync(Array.Empty<string>());
+        var results = await model.TranslateBatchAsync(Array.Empty<string>(), TestContext.Current.CancellationToken);
         results.Should().BeEmpty("empty batch should return empty result");
     }
 

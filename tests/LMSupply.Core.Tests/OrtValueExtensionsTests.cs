@@ -95,11 +95,11 @@ public class OrtValueExtensionsTests
 
     #region Float Array Tests - ORT Required
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateTensorFromArray_Float_ShouldCreateValidTensor()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         var data = new float[] { 1, 2, 3, 4, 5, 6 };
         var shape = new long[] { 2, 3 };
@@ -110,11 +110,11 @@ public class OrtValueExtensionsTests
         tensor.GetShape().Should().Equal([2, 3]);
     }
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateTensorFromArray_Float_DataShouldBeAccessible()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         var data = new float[] { 1.5f, 2.5f, 3.5f };
         var shape = new long[] { 1, 3 };
@@ -129,11 +129,11 @@ public class OrtValueExtensionsTests
 
     #region Long Array Tests - ORT Required
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateTensorFromArray_Long_ShouldCreateValidTensor()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         var data = new long[] { 1, 2, 3, 4 };
         var shape = new long[] { 2, 2 };
@@ -144,11 +144,11 @@ public class OrtValueExtensionsTests
         tensor.GetShape().Should().Equal([2, 2]);
     }
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateTensorFromArray_Long_DataShouldBeAccessible()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         var data = new long[] { 100, 200, 300 };
         var shape = new long[] { 3 };
@@ -163,11 +163,11 @@ public class OrtValueExtensionsTests
 
     #region Int Array Tests - ORT Required
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateTensorFromArray_Int_ShouldConvertToLong()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         var data = new int[] { 1, 2, 3 };
         var shape = new long[] { 1, 3 };
@@ -182,11 +182,11 @@ public class OrtValueExtensionsTests
 
     #region Image Tensor Tests - ORT Required
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateImageTensor_ShouldHaveCorrectShape()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         var imageData = new float[1 * 3 * 224 * 224];
 
@@ -195,11 +195,11 @@ public class OrtValueExtensionsTests
         tensor.GetShape().Should().Equal([1, 3, 224, 224]);
     }
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateImageTensor_WithBatch_ShouldHaveCorrectShape()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         var imageData = new float[4 * 3 * 128 * 128];
 
@@ -212,11 +212,11 @@ public class OrtValueExtensionsTests
 
     #region Token Tensor Tests - ORT Required
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateTokenTensor_ShouldHaveCorrectShape()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         var tokenIds = new long[] { 1, 2, 3, 4, 5 };
 
@@ -225,11 +225,11 @@ public class OrtValueExtensionsTests
         tensor.GetShape().Should().Equal([1, 5]);
     }
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateTokenTensor_WithBatch_ShouldHaveCorrectShape()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         var tokenIds = new long[] { 1, 2, 3, 4, 5, 6 };
 
@@ -242,11 +242,11 @@ public class OrtValueExtensionsTests
 
     #region Attention Mask Tests - ORT Required
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateAttentionMask_ShouldCreateAllOnes()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         using var tensor = OrtValueExtensions.CreateAttentionMask(5, 1);
 
@@ -254,11 +254,11 @@ public class OrtValueExtensionsTests
         mask.Should().Equal([1, 1, 1, 1, 1]);
     }
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateAttentionMask_WithBatch_ShouldHaveCorrectShape()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         using var tensor = OrtValueExtensions.CreateAttentionMask(3, 2);
 
@@ -271,11 +271,11 @@ public class OrtValueExtensionsTests
 
     #region Position IDs Tests - ORT Required
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreatePositionIds_ShouldCreateSequentialIds()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         using var tensor = OrtValueExtensions.CreatePositionIds(5, 1);
 
@@ -283,11 +283,11 @@ public class OrtValueExtensionsTests
         posIds.Should().Equal([0, 1, 2, 3, 4]);
     }
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreatePositionIds_WithBatch_ShouldRepeatSequence()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         using var tensor = OrtValueExtensions.CreatePositionIds(3, 2);
 
@@ -299,11 +299,11 @@ public class OrtValueExtensionsTests
 
     #region Memory Tests - ORT Required
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateTensorFromMemory_Float_ShouldWork()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         var data = new float[] { 1, 2, 3, 4 };
         var memory = data.AsMemory();
@@ -313,11 +313,11 @@ public class OrtValueExtensionsTests
         tensor.GetShape().Should().Equal([2, 2]);
     }
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateTensorFromMemory_Long_ShouldWork()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         var data = new long[] { 100, 200 };
         var memory = data.AsMemory();
@@ -417,11 +417,11 @@ public class InferenceBufferPoolTests
 
     #region Tensor Creation Tests - ORT Required
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateImageTensor_ShouldCreateValidTensor()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         using var pool = new InferenceBufferPool();
         using var tensor = pool.CreateImageTensor(1, 3, 64, 64);
@@ -429,11 +429,11 @@ public class InferenceBufferPoolTests
         tensor.GetShape().Should().Equal([1, 3, 64, 64]);
     }
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateTokenTensor_ShouldCreateValidTensor()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         using var pool = new InferenceBufferPool();
         using var tensor = pool.CreateTokenTensor(2, 10);
@@ -464,11 +464,11 @@ public class OrtValueInputTests
 
     #region OrtValueInput Tests - ORT Required
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateFloat_ShouldCreateValidInput()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         using var input = OrtValueInput.CreateFloat("test", [1, 2, 3], [1, 3]);
 
@@ -476,11 +476,11 @@ public class OrtValueInputTests
         input.Value.Should().NotBeNull();
     }
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateLong_ShouldCreateValidInput()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         using var input = OrtValueInput.CreateLong("input_ids", new long[] { 101, 102 }, [1, 2]);
 
@@ -488,11 +488,11 @@ public class OrtValueInputTests
         input.Value.GetShape().Should().Equal([1, 2]);
     }
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateImage_ShouldCreateValidInput()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         var data = new float[1 * 3 * 32 * 32];
         using var input = OrtValueInput.CreateImage("pixel_values", data, 1, 3, 32, 32);
@@ -501,11 +501,11 @@ public class OrtValueInputTests
         input.Value.GetShape().Should().Equal([1, 3, 32, 32]);
     }
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateTokenIds_ShouldCreateValidInput()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         using var input = OrtValueInput.CreateTokenIds("input_ids", new long[] { 1, 2, 3, 4 }, 1);
 
@@ -513,11 +513,11 @@ public class OrtValueInputTests
         input.Value.GetShape().Should().Equal([1, 4]);
     }
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void CreateAttentionMask_ShouldCreateValidInput()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         using var input = OrtValueInput.CreateAttentionMask("attention_mask", 5, 1);
 
@@ -525,11 +525,11 @@ public class OrtValueInputTests
         input.Value.GetShape().Should().Equal([1, 5]);
     }
 
-    [SkippableFact]
+    [Fact]
     [Trait("Category", "Integration")]
     public void Dispose_ShouldDisposeOrtValue()
     {
-        Skip.IfNot(IsOrtAvailable(), "ONNX Runtime native library not available");
+        Assert.SkipUnless(IsOrtAvailable(), "ONNX Runtime native library not available");
 
         var input = OrtValueInput.CreateFloat("test", [1, 2], [1, 2]);
 

@@ -43,8 +43,8 @@ public class OcrIntegrationTests : IDisposable
         CreateTestImage(testImagePath, "Hello World", 600, 150);
 
         // Act
-        await using var ocr = await LocalOcr.LoadAsync();
-        var result = await ocr.RecognizeAsync(testImagePath);
+        await using var ocr = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
+        var result = await ocr.RecognizeAsync(testImagePath, TestContext.Current.CancellationToken);
 
         // Assert - Model should load and process image
         ocr.Should().NotBeNull();
@@ -71,11 +71,11 @@ public class OcrIntegrationTests : IDisposable
         var testImagePath = Path.Combine(_testImagesDir, "stream_test.png");
         CreateTestImage(testImagePath, "Stream Test", 600, 150);
 
-        await using var ocr = await LocalOcr.LoadAsync();
+        await using var ocr = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
         using var stream = File.OpenRead(testImagePath);
-        var result = await ocr.RecognizeAsync(stream);
+        var result = await ocr.RecognizeAsync(stream, TestContext.Current.CancellationToken);
 
         // Assert
         result.Should().NotBeNull();
@@ -89,11 +89,11 @@ public class OcrIntegrationTests : IDisposable
         var testImagePath = Path.Combine(_testImagesDir, "bytes_test.png");
         CreateTestImage(testImagePath, "Byte Array", 600, 150);
 
-        await using var ocr = await LocalOcr.LoadAsync();
+        await using var ocr = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
-        var imageData = await File.ReadAllBytesAsync(testImagePath);
-        var result = await ocr.RecognizeAsync(imageData);
+        var imageData = await File.ReadAllBytesAsync(testImagePath, TestContext.Current.CancellationToken);
+        var result = await ocr.RecognizeAsync(imageData, TestContext.Current.CancellationToken);
 
         // Assert
         result.Should().NotBeNull();
@@ -107,10 +107,10 @@ public class OcrIntegrationTests : IDisposable
         var testImagePath = Path.Combine(_testImagesDir, "detect_test.png");
         CreateTestImage(testImagePath, "Detection Test", 400, 100);
 
-        await using var ocr = await LocalOcr.LoadAsync();
+        await using var ocr = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
-        var detections = await ocr.DetectAsync(testImagePath);
+        var detections = await ocr.DetectAsync(testImagePath, TestContext.Current.CancellationToken);
 
         // Assert
         detections.Should().NotBeEmpty();
@@ -122,7 +122,7 @@ public class OcrIntegrationTests : IDisposable
     public async Task DefaultModel_WarmupAsync_ShouldNotThrow()
     {
         // Arrange
-        await using var ocr = await LocalOcr.LoadAsync();
+        await using var ocr = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
         var warmupAction = () => ocr.WarmupAsync();
@@ -135,7 +135,7 @@ public class OcrIntegrationTests : IDisposable
     public async Task DefaultModel_GetModelInfo_ShouldReturnValidInfo()
     {
         // Arrange
-        await using var ocr = await LocalOcr.LoadAsync();
+        await using var ocr = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
         var info = ocr.GetModelInfo();
@@ -157,7 +157,7 @@ public class OcrIntegrationTests : IDisposable
     public async Task LoadForLanguage_Korean_ShouldLoadKoreanModel()
     {
         // Arrange & Act
-        await using var ocr = await LocalOcr.LoadForLanguageAsync("ko");
+        await using var ocr = await LocalOcr.LoadForLanguageAsync("ko", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         ocr.Should().NotBeNull();
@@ -173,7 +173,7 @@ public class OcrIntegrationTests : IDisposable
         // To use Japanese, load from deepghs/paddleocr with language hint
 
         // Arrange & Act
-        await using var ocr = await LocalOcr.LoadForLanguageAsync("ja");
+        await using var ocr = await LocalOcr.LoadForLanguageAsync("ja", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - Falls back to English since Japanese model not available
         ocr.Should().NotBeNull();
@@ -186,7 +186,7 @@ public class OcrIntegrationTests : IDisposable
     public async Task LoadForLanguage_Chinese_ShouldLoadChineseModel()
     {
         // Arrange & Act
-        await using var ocr = await LocalOcr.LoadForLanguageAsync("zh");
+        await using var ocr = await LocalOcr.LoadForLanguageAsync("zh", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         ocr.Should().NotBeNull();
@@ -205,10 +205,10 @@ public class OcrIntegrationTests : IDisposable
         var testImagePath = Path.Combine(_testImagesDir, "multiline_test.png");
         CreateMultiLineTestImage(testImagePath, ["Line One", "Line Two", "Line Three"], 400, 200);
 
-        await using var ocr = await LocalOcr.LoadAsync();
+        await using var ocr = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
-        var result = await ocr.RecognizeAsync(testImagePath);
+        var result = await ocr.RecognizeAsync(testImagePath, TestContext.Current.CancellationToken);
 
         // Assert - Verify basic functionality (OCR accuracy may vary with generated images)
         result.Should().NotBeNull();
@@ -229,10 +229,10 @@ public class OcrIntegrationTests : IDisposable
         var testImagePath = Path.Combine(_testImagesDir, "layout_test.png");
         CreateMultiLineTestImage(testImagePath, ["First Line", "Second Line"], 400, 150);
 
-        await using var ocr = await LocalOcr.LoadAsync();
+        await using var ocr = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
-        var result = await ocr.RecognizeAsync(testImagePath);
+        var result = await ocr.RecognizeAsync(testImagePath, TestContext.Current.CancellationToken);
         var layoutText = result.GetTextWithLayout();
 
         // Assert
@@ -248,9 +248,7 @@ public class OcrIntegrationTests : IDisposable
     {
         // Arrange & Act
         // Using the default monkt/paddleocr-onnx repo
-        await using var ocr = await LocalOcr.LoadAsync(
-            detectionModel: "default",
-            recognitionModel: "default");
+        await using var ocr = await LocalOcr.LoadAsync(detectionModel: "default", recognitionModel: "default", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         ocr.Should().NotBeNull();
@@ -262,9 +260,7 @@ public class OcrIntegrationTests : IDisposable
     public async Task ExplicitModelAlias_ShouldLoadCorrectModel()
     {
         // Arrange & Act
-        await using var ocr = await LocalOcr.LoadAsync(
-            detectionModel: "dbnet-v3",
-            recognitionModel: "crnn-en-v3");
+        await using var ocr = await LocalOcr.LoadAsync(detectionModel: "dbnet-v3", recognitionModel: "crnn-en-v3", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         ocr.Should().NotBeNull();
@@ -290,8 +286,8 @@ public class OcrIntegrationTests : IDisposable
         CreateTestImage(testImagePath, "High Confidence", 400, 100);
 
         // Act
-        await using var ocr = await LocalOcr.LoadAsync(options: options);
-        var result = await ocr.RecognizeAsync(testImagePath);
+        await using var ocr = await LocalOcr.LoadAsync(options: options, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await ocr.RecognizeAsync(testImagePath, TestContext.Current.CancellationToken);
 
         // Assert
         ocr.Should().NotBeNull();
@@ -311,8 +307,8 @@ public class OcrIntegrationTests : IDisposable
         CreateTestImage(testImagePath, "CPU Test", 400, 100);
 
         // Act
-        await using var ocr = await LocalOcr.LoadAsync(options: options);
-        var result = await ocr.RecognizeAsync(testImagePath);
+        await using var ocr = await LocalOcr.LoadAsync(options: options, cancellationToken: TestContext.Current.CancellationToken);
+        var result = await ocr.RecognizeAsync(testImagePath, TestContext.Current.CancellationToken);
 
         // Assert
         ocr.Should().NotBeNull();
@@ -324,19 +320,19 @@ public class OcrIntegrationTests : IDisposable
 
     #region Real Image Tests
 
-    [SkippableFact]
+    [Fact]
     public async Task DefaultModel_RecognizeRealImage_ShouldDetectText()
     {
         // Arrange - Use a real screenshot image if available
         var sourceImagePath = @"C:\Users\achunja\Downloads\1.png";
 
         // Skip test if the test image doesn't exist
-        Skip.If(!File.Exists(sourceImagePath), "Test image not available at: " + sourceImagePath);
+        Assert.SkipWhen(!File.Exists(sourceImagePath), "Test image not available at: " + sourceImagePath);
 
-        await using var ocr = await LocalOcr.LoadAsync();
+        await using var ocr = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
-        var result = await ocr.RecognizeAsync(sourceImagePath);
+        var result = await ocr.RecognizeAsync(sourceImagePath, TestContext.Current.CancellationToken);
 
         // Assert - Real image should have detectable text
         result.Should().NotBeNull();
@@ -354,19 +350,19 @@ public class OcrIntegrationTests : IDisposable
         Console.WriteLine(result.FullText);
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task DefaultModel_DetectRealImage_ShouldReturnBoundingBoxes()
     {
         // Arrange
         var sourceImagePath = @"C:\Users\achunja\Downloads\1.png";
 
         // Skip test if the test image doesn't exist
-        Skip.If(!File.Exists(sourceImagePath), "Test image not available at: " + sourceImagePath);
+        Assert.SkipWhen(!File.Exists(sourceImagePath), "Test image not available at: " + sourceImagePath);
 
-        await using var ocr = await LocalOcr.LoadAsync();
+        await using var ocr = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
-        var detections = await ocr.DetectAsync(sourceImagePath);
+        var detections = await ocr.DetectAsync(sourceImagePath, TestContext.Current.CancellationToken);
 
         // Assert
         detections.Should().NotBeEmpty("Real image should have detectable text regions");

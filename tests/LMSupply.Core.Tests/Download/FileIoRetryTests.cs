@@ -21,7 +21,7 @@ public class FileIoRetryTests
         {
             calls++;
             return 42;
-        });
+        }, TestContext.Current.CancellationToken);
 
         result.Should().Be(42);
         calls.Should().Be(1);
@@ -38,7 +38,7 @@ public class FileIoRetryTests
             if (calls < 3)
                 throw new IOException("simulated transient lock");
             return "recovered";
-        });
+        }, TestContext.Current.CancellationToken);
 
         result.Should().Be("recovered");
         calls.Should().Be(3);
@@ -86,7 +86,7 @@ public class FileIoRetryTests
             if (calls < 2)
                 throw new IOException("simulated transient lock");
             return "ok";
-        });
+        }, TestContext.Current.CancellationToken);
 
         result.Should().Be("ok");
         calls.Should().Be(2);
@@ -101,15 +101,14 @@ public class FileIoRetryTests
     public async Task ExecuteAsync_RecoversFromRealExclusiveFileLock()
     {
         var path = Path.Combine(Path.GetTempPath(), $"file-io-retry-{Guid.NewGuid():N}.tmp");
-        await File.WriteAllTextAsync(path, "locked");
+        await File.WriteAllTextAsync(path, "locked", TestContext.Current.CancellationToken);
 
         try
         {
             var locker = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
-            var releaseAfter = Task.Delay(300).ContinueWith(_ => locker.Dispose());
+            var releaseAfter = Task.Delay(300, TestContext.Current.CancellationToken).ContinueWith(_ => locker.Dispose(), TestContext.Current.CancellationToken);
 
-            using var opened = await FileIoRetry.ExecuteAsync(
-                () => new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read));
+            using var opened = await FileIoRetry.ExecuteAsync(() => new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read), TestContext.Current.CancellationToken);
 
             opened.Should().NotBeNull();
             await releaseAfter;

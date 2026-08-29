@@ -16,7 +16,7 @@ public class OnnxSessionFactoryTests
     public async Task Auto_ShouldUseFallbackChainFromGpuInfo()
     {
         // Arrange
-        await RuntimeManager.Instance.InitializeAsync();
+        await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
 
         // Act
@@ -31,7 +31,7 @@ public class OnnxSessionFactoryTests
     public async Task GetFallbackProviders_OnNvidiaGpu_ShouldHaveCudaFirst()
     {
         // Arrange
-        await RuntimeManager.Instance.InitializeAsync();
+        await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
 
         // Skip if not NVIDIA GPU
@@ -53,7 +53,7 @@ public class OnnxSessionFactoryTests
     public async Task GetFallbackProviders_OnWindows_ShouldIncludeDirectML()
     {
         // Arrange
-        await RuntimeManager.Instance.InitializeAsync();
+        await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
 
         // Skip if not Windows or no DirectML support
@@ -73,7 +73,7 @@ public class OnnxSessionFactoryTests
     public async Task GetFallbackProviders_CpuShouldAlwaysBeLast()
     {
         // Arrange
-        await RuntimeManager.Instance.InitializeAsync();
+        await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
 
         // Act
@@ -87,7 +87,7 @@ public class OnnxSessionFactoryTests
     public async Task RuntimeManagerChain_ShouldMatchGpuInfoChain()
     {
         // Arrange
-        await RuntimeManager.Instance.InitializeAsync();
+        await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
 
         // Act
@@ -117,7 +117,7 @@ public class OnnxSessionFactoryTests
     public async Task Auto_OnNvidiaWithDirectML_ShouldHaveBothInChain()
     {
         // Arrange
-        await RuntimeManager.Instance.InitializeAsync();
+        await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
 
         // Skip if not NVIDIA on Windows
@@ -144,7 +144,7 @@ public class OnnxSessionFactoryTests
     public async Task FallbackChain_ShouldBeOrdered_GpuBeforeCpu()
     {
         // Arrange
-        await RuntimeManager.Instance.InitializeAsync();
+        await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
 
         if (gpu is null)
@@ -230,13 +230,13 @@ public class OnnxSessionFactoryTests
         await action.Should().ThrowAsync<Exception>();
     }
 
-    [SkippableFact]
+    [Fact]
     public void ConfigureExecutionProvider_Cpu_ReturnsFalse_NoGpuEpAppended()
     {
         // D6: ConfigureExecutionProvider now reports whether a GPU EP was appended, so callers can
         // build accurate ActiveProviders instead of a loadability heuristic. CPU appends no GPU EP.
         var (available, _) = OnnxSessionFactory.CheckOnnxRuntimeAvailability();
-        Skip.IfNot(available, "ONNX Runtime not available in this environment");
+        Assert.SkipUnless(available, "ONNX Runtime not available in this environment");
 
         using var options = new Microsoft.ML.OnnxRuntime.SessionOptions();
         OnnxSessionFactory.ConfigureExecutionProvider(options, ExecutionProvider.Cpu)
@@ -268,7 +268,7 @@ public class OnnxSessionFactoryTests
         wrapped.ModelId.Should().Be("model.onnx");
     }
 
-    [SkippableFact]
+    [Fact]
     public async Task CreateWithInfoAsync_ExplicitGpuProvider_WhenSessionCreateThrows_FallsBackToCpu()
     {
         // This test simulates a *session-construction*-time GPU failure (e.g. a DX12 device
@@ -284,9 +284,9 @@ public class OnnxSessionFactoryTests
         // WrapProvisioningFailure_ProducesActionableMessage_NamingProviderAndPlatform above) rather
         // than falling back to CPU, since a caller who explicitly asked for DirectML should learn
         // the platform can't provide it instead of silently running on CPU.
-        await RuntimeManager.Instance.InitializeAsync();
+        await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
-        Skip.IfNot(OperatingSystem.IsWindows() && gpu?.DirectMLSupported == true,
+        Assert.SkipUnless(OperatingSystem.IsWindows() && gpu?.DirectMLSupported == true,
             "DirectML is only ever provisionable on Windows with DirectML support");
 
         // Simulate a session-creation failure on the first attempt (DML) by injecting a

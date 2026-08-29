@@ -54,9 +54,9 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
         CreateVersionDir("b100"); // orphan — never referenced by state
 
         using var manager = new LlamaServerStateManager(_root);
-        await manager.UpdateStateAsync("vulkan", "win-x64", State("b200", referenced));
+        await manager.UpdateStateAsync("vulkan", "win-x64", State("b200", referenced), TestContext.Current.CancellationToken);
 
-        var deleted = await manager.CleanupUnreferencedVersionsAsync();
+        var deleted = await manager.CleanupUnreferencedVersionsAsync(TestContext.Current.CancellationToken);
 
         deleted.Should().Be(1, "exactly the orphaned b100 must be swept");
         Directory.Exists(Path.Combine(_root, "b100")).Should().BeFalse("orphan is unreferenced");
@@ -83,9 +83,9 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
         });
 
         using var manager = new LlamaServerStateManager(_root);
-        await manager.UpdateStateAsync("vulkan", "win-x64", state);
+        await manager.UpdateStateAsync("vulkan", "win-x64", state, TestContext.Current.CancellationToken);
 
-        var deleted = await manager.CleanupUnreferencedVersionsAsync();
+        var deleted = await manager.CleanupUnreferencedVersionsAsync(TestContext.Current.CancellationToken);
 
         deleted.Should().Be(1);
         Directory.Exists(Path.Combine(_root, "b300")).Should().BeTrue("installed is referenced");
@@ -102,9 +102,9 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_root, "backup")); // no b\d+ shape
 
         using var manager = new LlamaServerStateManager(_root);
-        await manager.UpdateStateAsync("vulkan", "win-x64", State("b200", referenced));
+        await manager.UpdateStateAsync("vulkan", "win-x64", State("b200", referenced), TestContext.Current.CancellationToken);
 
-        var deleted = await manager.CleanupUnreferencedVersionsAsync();
+        var deleted = await manager.CleanupUnreferencedVersionsAsync(TestContext.Current.CancellationToken);
 
         deleted.Should().Be(0);
         Directory.Exists(Path.Combine(_root, "not-a-version")).Should().BeTrue();
@@ -122,9 +122,9 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
         CreateVersionDir("b900"); // orphan despite sharing the b90 prefix
 
         using var manager = new LlamaServerStateManager(_root);
-        await manager.UpdateStateAsync("vulkan", "win-x64", State("b90", referenced));
+        await manager.UpdateStateAsync("vulkan", "win-x64", State("b90", referenced), TestContext.Current.CancellationToken);
 
-        var deleted = await manager.CleanupUnreferencedVersionsAsync();
+        var deleted = await manager.CleanupUnreferencedVersionsAsync(TestContext.Current.CancellationToken);
 
         deleted.Should().Be(1);
         Directory.Exists(Path.Combine(_root, "b90")).Should().BeTrue("referenced version stays");
@@ -141,7 +141,7 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
 
         using var manager = new LlamaServerStateManager(_root);
 
-        var deleted = await manager.CleanupUnreferencedVersionsAsync();
+        var deleted = await manager.CleanupUnreferencedVersionsAsync(TestContext.Current.CancellationToken);
 
         deleted.Should().Be(0, "an empty state must never be interpreted as everything-is-orphaned");
         Directory.Exists(Path.Combine(_root, "b100")).Should().BeTrue();
@@ -159,7 +159,7 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
         var adopted = CreateVersionDir("b300"); // referenced only by the "other process" write
 
         using var manager = new LlamaServerStateManager(_root);
-        await manager.UpdateStateAsync("vulkan", "win-x64", State("b200", installed)); // populates cache
+        await manager.UpdateStateAsync("vulkan", "win-x64", State("b200", installed), TestContext.Current.CancellationToken); // populates cache
 
         // Simulate another process updating the shared state file on disk.
         using (var external = new LlamaServerStateManager(_root))
@@ -168,10 +168,10 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
             state.PendingVersion = "b300";
             state.PendingPath = adopted;
             state.UpdateReady = true;
-            await external.UpdateStateAsync("vulkan", "win-x64", state);
+            await external.UpdateStateAsync("vulkan", "win-x64", state, TestContext.Current.CancellationToken);
         }
 
-        var deleted = await manager.CleanupUnreferencedVersionsAsync();
+        var deleted = await manager.CleanupUnreferencedVersionsAsync(TestContext.Current.CancellationToken);
 
         deleted.Should().Be(0, "the on-disk state references b300 as pending");
         Directory.Exists(Path.Combine(_root, "b300")).Should().BeTrue(
@@ -189,15 +189,15 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
         var dir3 = CreateVersionDir("b3");
 
         using var manager = new LlamaServerStateManager(_root);
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b1", dir1);
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b1", dir1, TestContext.Current.CancellationToken);
 
-        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b2", dir2);
-        (await manager.ActivateUpdateAsync("vulkan", "win-x64", maxVersionsToKeep: 1)).Should().NotBeNull();
+        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b2", dir2, TestContext.Current.CancellationToken);
+        (await manager.ActivateUpdateAsync("vulkan", "win-x64", maxVersionsToKeep: 1, cancellationToken: TestContext.Current.CancellationToken)).Should().NotBeNull();
 
-        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b3", dir3);
-        (await manager.ActivateUpdateAsync("vulkan", "win-x64", maxVersionsToKeep: 1)).Should().NotBeNull();
+        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b3", dir3, TestContext.Current.CancellationToken);
+        (await manager.ActivateUpdateAsync("vulkan", "win-x64", maxVersionsToKeep: 1, cancellationToken: TestContext.Current.CancellationToken)).Should().NotBeNull();
 
-        var deleted = await manager.CleanupUnreferencedVersionsAsync();
+        var deleted = await manager.CleanupUnreferencedVersionsAsync(TestContext.Current.CancellationToken);
 
         deleted.Should().Be(1, "b1 was trimmed out of the rollback window");
         Directory.Exists(Path.Combine(_root, "b1")).Should().BeFalse("superseded build is reclaimed");

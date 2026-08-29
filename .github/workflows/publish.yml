@@ -69,7 +69,21 @@ jobs:
 
       - name: Test
         if: steps.check.outputs.SKIP != 'true' && hashFiles('tests/**/*.csproj') != ''
-        run: dotnet test --configuration Release --no-build --verbosity normal --filter "Category!=Integration&Category!=Functional&Category!=LocalOnly" --blame-hang --blame-hang-timeout 5m
+        # See ci.yml's Test step for why this isn't a plain `dotnet test` invocation: MTP exits
+        # non-zero when a filter matches zero tests in one assembly of a solution-wide run
+        # (LMSupply.Integration.Tests here), where VSTest exited 0 (xunit/xunit#3077).
+        run: |
+          set +e
+          output=$(dotnet test --configuration Release --no-build --verbosity normal --filter-not-trait "Category=Integration" --filter-not-trait "Category=Functional" --filter-not-trait "Category=LocalOnly" --hangdump --hangdump-timeout 5m 2>&1)
+          code=$?
+          echo "$output"
+          if [ "$code" -eq 0 ]; then exit 0; fi
+          failed=$(echo "$output" | grep -oP '(?<=^\s{2}failed:\s)\d+' | tail -1)
+          if [ -n "$failed" ] && [ "$failed" -eq 0 ]; then
+            echo "::notice::dotnet test exited $code but the aggregate failed count is 0 -- MTP's zero-tests-matched-a-filter quirk, not a real failure."
+            exit 0
+          fi
+          exit $code
 
       - name: Pack
         if: steps.check.outputs.SKIP != 'true'

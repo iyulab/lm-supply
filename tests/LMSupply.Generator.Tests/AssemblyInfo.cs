@@ -11,4 +11,4 @@ using Xunit;
 // The suite runs in ~1s, so serial execution is a negligible cost for full determinism.
 // This is a blunt CI-risk mitigation; a surgical correlation-token isolation + regression test
 // remains an open follow-up (trace-listener parallel pollution flake).
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
+[assembly: Xunit.v3.Parallelization(Mode = Xunit.Sdk.ParallelMode.None)]

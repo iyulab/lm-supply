@@ -133,7 +133,7 @@ public class SpeculativeDecoderTests
         using var decoder = new SpeculativeDecoder(draftModel, targetModel);
 
         // Act
-        var result = await decoder.GenerateCompleteAsync("Test", new GenerationOptions { MaxTokens = 3 });
+        var result = await decoder.GenerateCompleteAsync("Test", new GenerationOptions { MaxTokens = 3 }, TestContext.Current.CancellationToken);
 
         // Assert
         result.Should().NotBeNull();
