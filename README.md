@@ -471,6 +471,20 @@ requested *after* something else already loaded that library can silently not ta
 differs from `RuntimeManager.Instance.ActiveProvider`/`CurrentVersion`, which report what was
 last *requested*, not necessarily what is actually resident.
 
+To fail loudly on that conflict instead of silently keeping the resident binary, set
+`RuntimeManagerOptions.FailOnRuntimeConflict = true`: `EnsureRuntimeAsync`/
+`CheckAndApplyUpdateAsync` then throw `NativeLibraryConflictException` for the specific call that
+would have conflicted, naming the requested and resident paths. This is opt-in and off by default
+— it never unloads or replaces the already-loaded binary (native libraries are never unloaded
+mid-process), it only decides whether the conflicting request fails instead of no-op'ing.
+
+```csharp
+var manager = new RuntimeManager(new RuntimeManagerOptions { FailOnRuntimeConflict = true });
+// Throws NativeLibraryConflictException if a prior EnsureRuntimeAsync call (in this process)
+// already loaded a different binary under the same native library name.
+await manager.EnsureRuntimeAsync("onnxruntime", provider: "cuda12");
+```
+
 ---
 
 ## Logging & Diagnostics

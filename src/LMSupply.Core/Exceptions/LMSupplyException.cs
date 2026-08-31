@@ -287,3 +287,42 @@ public class AliasChainException : LMSupplyException
         TargetAlias = targetAlias;
     }
 }
+
+/// <summary>
+/// Exception thrown when a native library load request would conflict with a different binary
+/// already resident under the same library name and the caller opted into strict conflict
+/// detection (see <c>RuntimeManagerOptions.FailOnRuntimeConflict</c>). The already-loaded binary
+/// is left untouched -- this only fails the requesting call, since forcibly replacing a native
+/// binary that other code may already hold handles into is not attempted (see docket
+/// iyulab/lm-supply#151).
+/// </summary>
+public class NativeLibraryConflictException : LMSupplyException
+{
+    /// <summary>
+    /// Gets the normalized library name that conflicted.
+    /// </summary>
+    public string LibraryName { get; }
+
+    /// <summary>
+    /// Gets the path this request tried to load.
+    /// </summary>
+    public string RequestedPath { get; }
+
+    /// <summary>
+    /// Gets the path of the binary that is actually resident for this library name.
+    /// </summary>
+    public string LoadedPath { get; }
+
+    public NativeLibraryConflictException(string libraryName, string requestedPath, string loadedPath)
+        : base(
+            $"Cannot load '{libraryName}' from '{requestedPath}': a different binary for the same " +
+            $"library name is already resident from '{loadedPath}'. The already-loaded binary was " +
+            "left in place -- native libraries are never unloaded mid-process. Set " +
+            "RuntimeManagerOptions.FailOnRuntimeConflict = false (the default) to silently keep " +
+            "using the resident binary instead of throwing.")
+    {
+        LibraryName = libraryName;
+        RequestedPath = requestedPath;
+        LoadedPath = loadedPath;
+    }
+}

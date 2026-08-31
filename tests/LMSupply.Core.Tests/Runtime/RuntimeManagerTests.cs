@@ -176,6 +176,15 @@ public class RuntimeManagerTests
     }
 
     [Fact]
+    public void RuntimeManagerOptions_FailOnRuntimeConflict_DefaultsFalse()
+    {
+        // HD-45 (Option A): strict conflict detection must be opt-in so existing consumers'
+        // current (lenient) behavior does not change unless they explicitly ask for it.
+        var options = new RuntimeManagerOptions();
+        options.FailOnRuntimeConflict.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task GpuInfo_GetFallbackProviders_ShouldMatchRuntimeManagerChain()
     {
         // Arrange

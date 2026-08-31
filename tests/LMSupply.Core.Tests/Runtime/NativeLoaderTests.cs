@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using LMSupply.Exceptions;
 using LMSupply.Runtime;
 
 namespace LMSupply.Core.Tests.Runtime;
@@ -63,6 +64,53 @@ public class NativeLoaderTests
             // (NativeLoader.Instance is a process-wide singleton with no unload path for
             // individual libraries), so Windows keeps the file locked for the rest of the
             // process's lifetime -- best-effort cleanup only, same as production behavior.
+            try { Directory.Delete(dirA, recursive: true); } catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            Directory.Delete(dirB, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void RegisterDirectory_SameLibraryNameDifferentPath_ThrowOnConflictTrue_ThrowsWithoutDisturbingResidentBinary()
+    {
+        // HD-45 (Option A): an opted-in caller should fail loudly on *its own* request when it
+        // would conflict with a binary already resident under the same library name -- while the
+        // already-loaded binary (and any other code already holding a handle into it) stays
+        // completely untouched. This is the narrower half of docket iyulab/lm-supply#151 that
+        // cycle-387 (ADAPT #151(B)) deliberately left open pending an owner decision (HD-45).
+        if (!OperatingSystem.IsWindows())
+            return; // Native DLL used for the real load is Windows-only.
+
+        var libraryName = $"nativeloader_test_{Guid.NewGuid():N}";
+        var dirA = Directory.CreateTempSubdirectory().FullName;
+        var dirB = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            var systemDll = Path.Combine(Environment.SystemDirectory, "kernel32.dll");
+            var pathA = Path.Combine(dirA, $"{libraryName}.dll");
+            var pathB = Path.Combine(dirB, $"{libraryName}.dll");
+            File.Copy(systemDll, pathA);
+            File.Copy(systemDll, pathB);
+
+            // First registration succeeds and becomes resident (default, lenient).
+            NativeLoader.Instance.RegisterDirectory(dirA, preload: true, primaryLibrary: libraryName);
+
+            // Second registration, opted into strict conflict detection, must throw for *this*
+            // call -- and the exception must identify exactly what conflicted.
+            var act = () => NativeLoader.Instance.RegisterDirectory(
+                dirB, preload: true, primaryLibrary: libraryName, throwOnConflict: true);
+
+            act.Should().Throw<NativeLibraryConflictException>()
+                .Which.Should().Match<NativeLibraryConflictException>(ex =>
+                    ex.RequestedPath == pathB && ex.LoadedPath == pathA);
+
+            // The resident binary must be exactly what it was before the throwing call -- the
+            // conflicting request fails, it does not unload or replace anything.
+            NativeLoader.Instance.GetLoadedPath(libraryName).Should().Be(pathA,
+                "a request that throws on conflict must still leave the already-resident binary untouched");
+        }
+        finally
+        {
             try { Directory.Delete(dirA, recursive: true); } catch (IOException) { }
             catch (UnauthorizedAccessException) { }
             Directory.Delete(dirB, recursive: true);

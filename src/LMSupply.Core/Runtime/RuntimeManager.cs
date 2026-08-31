@@ -270,7 +270,9 @@ public sealed class RuntimeManager : IAsyncDisposable
         // Register with NativeLoader for DLL resolution
         var primaryLibrary = config.NativeLibraryName ?? "onnxruntime";
         _primaryLibraryName = primaryLibrary;
-        NativeLoader.Instance.RegisterDirectory(binaryPath, preload: true, primaryLibrary: primaryLibrary);
+        NativeLoader.Instance.RegisterDirectory(
+            binaryPath, preload: true, primaryLibrary: primaryLibrary,
+            throwOnConflict: _options.FailOnRuntimeConflict);
 
         return binaryPath;
     }
@@ -477,7 +479,9 @@ public sealed class RuntimeManager : IAsyncDisposable
             // Re-register with NativeLoader
             var primaryLibrary = config.NativeLibraryName ?? "onnxruntime";
             _primaryLibraryName = primaryLibrary;
-            NativeLoader.Instance.RegisterDirectory(result.RuntimePath, preload: true, primaryLibrary: primaryLibrary);
+            NativeLoader.Instance.RegisterDirectory(
+                result.RuntimePath, preload: true, primaryLibrary: primaryLibrary,
+                throwOnConflict: _options.FailOnRuntimeConflict);
             _currentVersion = result.NewVersion;
         }
 
@@ -557,4 +561,18 @@ public sealed class RuntimeManagerOptions
     /// Gets or sets the maximum retry attempts for downloads.
     /// </summary>
     public int MaxRetries { get; set; } = 3;
+
+    /// <summary>
+    /// Gets or sets whether <see cref="RuntimeManager.EnsureRuntimeAsync"/>/
+    /// <see cref="RuntimeManager.CheckAndApplyUpdateAsync"/> throw
+    /// <see cref="LMSupply.Exceptions.NativeLibraryConflictException"/> when the runtime
+    /// they resolved would bind to a native library name that is already resident from a
+    /// different binary (e.g. an earlier provider/version preloaded the same library name in this
+    /// process). Default false preserves the historical behavior: the request silently keeps
+    /// using the resident binary and <see cref="RuntimeManager.ActuallyLoadedRuntimePath"/> is the
+    /// only way to notice. This never unloads or replaces the resident binary either way -- it
+    /// only decides whether the conflicting request fails instead of silently no-op'ing. See
+    /// docket iyulab/lm-supply#151.
+    /// </summary>
+    public bool FailOnRuntimeConflict { get; set; }
 }

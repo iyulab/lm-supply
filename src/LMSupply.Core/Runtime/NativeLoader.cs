@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Loader;
+using LMSupply.Exceptions;
 
 namespace LMSupply.Runtime;
 
@@ -104,7 +105,14 @@ public sealed class NativeLoader : IDisposable
     /// <param name="directory">The directory containing native libraries.</param>
     /// <param name="preload">If true, immediately loads all native libraries into memory.</param>
     /// <param name="primaryLibrary">Optional name of the primary library to load first (e.g., "onnxruntime").</param>
-    public void RegisterDirectory(string directory, bool preload, string? primaryLibrary = null)
+    /// <param name="throwOnConflict">
+    /// If true, throws <see cref="NativeLibraryConflictException"/> when a library in this
+    /// directory would bind to a name that is already resident from a different path, instead of
+    /// silently keeping the first-loaded binary. The already-loaded binary is never touched
+    /// either way -- this only decides whether *this* call fails loudly. Default false preserves
+    /// prior behavior (see docket iyulab/lm-supply#151).
+    /// </param>
+    public void RegisterDirectory(string directory, bool preload, string? primaryLibrary = null, bool throwOnConflict = false)
     {
         ArgumentException.ThrowIfNullOrEmpty(directory);
 
@@ -140,14 +148,14 @@ public sealed class NativeLoader : IDisposable
 
                     if (primary.path is not null)
                     {
-                        PreloadLibrary(primary.name, primary.path);
+                        PreloadLibrary(primary.name, primary.path, throwOnConflict);
                     }
                 }
 
                 // Load all other libraries
                 foreach (var (name, path) in libraries)
                 {
-                    PreloadLibrary(name, path);
+                    PreloadLibrary(name, path, throwOnConflict);
                 }
             }
         }
@@ -213,7 +221,14 @@ public sealed class NativeLoader : IDisposable
     /// <summary>
     /// Pre-loads a native library into memory.
     /// </summary>
-    private void PreloadLibrary(string libraryName, string libraryPath)
+    /// <param name="libraryName">The library name.</param>
+    /// <param name="libraryPath">The path to load.</param>
+    /// <param name="throwOnConflict">
+    /// If true, throws <see cref="NativeLibraryConflictException"/> instead of silently no-op'ing
+    /// when a different binary is already resident under this name. The resident binary is left
+    /// untouched in both cases -- only this request's outcome differs.
+    /// </param>
+    private void PreloadLibrary(string libraryName, string libraryPath, bool throwOnConflict = false)
     {
         var normalizedName = NormalizeLibraryName(libraryName);
 
@@ -222,12 +237,18 @@ public sealed class NativeLoader : IDisposable
         // different path (e.g. a different provider's "onnxruntime") silently keeps the
         // first one resident. That silence is exactly what left RuntimeManager.ActiveProvider
         // able to disagree with what was actually loaded with no signal (docket
-        // iyulab/lm-supply#151) -- at minimum, make the conflict observable.
+        // iyulab/lm-supply#151) -- at minimum, make the conflict observable, and let an opted-in
+        // caller fail loudly on the request that discovered it.
         if (_loadedLibraries.ContainsKey(normalizedName))
         {
             if (_loadedLibraryPaths.TryGetValue(normalizedName, out var existingPath) &&
                 !string.Equals(existingPath, libraryPath, StringComparison.OrdinalIgnoreCase))
             {
+                if (throwOnConflict)
+                {
+                    throw new NativeLibraryConflictException(normalizedName, libraryPath, existingPath);
+                }
+
                 Trace.TraceInformation(
                     $"[NativeLoader] '{normalizedName}' is already loaded from '{existingPath}'; " +
                     $"ignoring a later request to load a different binary from '{libraryPath}'. " +
