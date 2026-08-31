@@ -226,47 +226,8 @@ internal sealed class WhisperDecoder
                     throw new InvalidOperationException($"Unexpected logits shape: [{string.Join(", ", logits.Dimensions.ToArray())}]");
                 }
 
-                // Apply repetition penalty to discourage repeating tokens
-                const float repetitionPenalty = 1.2f;
-                var recentTokens = tokens.Skip(Math.Max(0, tokens.Count - 10)).ToHashSet();
-                for (int i = 0; i < lastLogits.Length; i++)
-                {
-                    if (recentTokens.Contains(i))
-                    {
-                        // Penalize recently used tokens
-                        if (lastLogits[i] > 0)
-                            lastLogits[i] /= repetitionPenalty;
-                        else
-                            lastLogits[i] *= repetitionPenalty;
-                    }
-                }
-
-                // Apply temperature if specified
-                if (options is { Temperature: > 0 and < 1 })
-                {
-                    for (int i = 0; i < lastLogits.Length; i++)
-                    {
-                        lastLogits[i] /= options.Temperature;
-                    }
-                }
-
-                // Suppress specific tokens that cause hallucination loops
-                if (tokens.Count > initialTokens.Length + 3)
-                {
-                    var last3 = tokens.Skip(tokens.Count - 3).ToArray();
-                    if (last3[0] == last3[1] && last3[1] == last3[2])
-                    {
-                        // Three consecutive same tokens - heavily suppress this token
-                        var repeatedToken = last3[0];
-                        if (repeatedToken < lastLogits.Length)
-                        {
-                            lastLogits[repeatedToken] = float.NegativeInfinity;
-                        }
-                    }
-                }
-
-                // Greedy selection: argmax
-                var nextToken = ArgMax(lastLogits);
+                // Greedy selection: argmax, after repetition-penalty/temperature/hallucination-guard
+                var nextToken = SelectNextToken(lastLogits, tokens, initialTokens, options);
 
                 // Compute log probability of selected token for AvgLogProb metric
                 if (!_tokenizer.IsSpecialToken(nextToken))
@@ -363,6 +324,74 @@ internal sealed class WhisperDecoder
                 TokenCount = tokens.Count - initialTokens.Length
             };
         }, cancellationToken);
+    }
+
+    /// <summary>
+    /// Applies repetition penalty, temperature scaling, and the hallucination-suppression guard to
+    /// one decode step's raw logits, then selects the next token via greedy argmax. Mutates
+    /// <paramref name="logits"/> in place. Extracted from the decode loop (same reasoning as
+    /// <see cref="FinalizeSegments"/>) so a captured decode-step logit vector can exercise this
+    /// exact selection logic directly, without a real ONNX session.
+    /// </summary>
+    internal int SelectNextToken(float[] logits, List<int> tokens, int[] initialTokens, TranscribeOptions? options)
+    {
+        // Apply repetition penalty to discourage repeating tokens
+        const float repetitionPenalty = 1.2f;
+        var recentTokens = tokens.Skip(Math.Max(0, tokens.Count - 10)).ToHashSet();
+        for (int i = 0; i < logits.Length; i++)
+        {
+            if (recentTokens.Contains(i))
+            {
+                // Penalize recently used tokens
+                if (logits[i] > 0)
+                    logits[i] /= repetitionPenalty;
+                else
+                    logits[i] *= repetitionPenalty;
+            }
+        }
+
+        // Apply temperature if specified
+        if (options is { Temperature: > 0 and < 1 })
+        {
+            for (int i = 0; i < logits.Length; i++)
+            {
+                logits[i] /= options.Temperature;
+            }
+        }
+
+        // Suppress specific tokens that cause hallucination loops
+        if (tokens.Count > initialTokens.Length + 3)
+        {
+            var last3 = tokens.Skip(tokens.Count - 3).ToArray();
+            if (last3[0] == last3[1] && last3[1] == last3[2])
+            {
+                // Three consecutive same tokens - heavily suppress this token
+                var repeatedToken = last3[0];
+                if (repeatedToken < logits.Length)
+                {
+                    logits[repeatedToken] = float.NegativeInfinity;
+                }
+
+                // A hard-suppression event means the model was mid-hallucination; end-of-text is
+                // the other easy way out at exactly this point, and it was previously untouched
+                // by any penalty (it is never a "recently used" token). See docket
+                // iyulab/lm-supply#59: a captured decode trace showed EOT beating the real
+                // continuation token by a margin as small as 0.165 immediately after this guard
+                // fired. Give EOT the same soft penalty a recently-used token already gets here,
+                // so it has to clearly beat a real continuation rather than merely edge it out
+                // right when the decoder was caught repeating itself.
+                var eot = _tokenizer.EndOfTextToken;
+                if (eot < logits.Length)
+                {
+                    if (logits[eot] > 0)
+                        logits[eot] /= repetitionPenalty;
+                    else
+                        logits[eot] *= repetitionPenalty;
+                }
+            }
+        }
+
+        return ArgMax(logits);
     }
 
     /// <summary>
