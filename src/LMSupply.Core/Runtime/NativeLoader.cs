@@ -17,6 +17,7 @@ public sealed class NativeLoader : IDisposable
 
     private readonly Dictionary<string, string> _libraryPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IntPtr> _loadedLibraries = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _loadedLibraryPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<Assembly> _registeredAssemblies = new();
     private readonly HashSet<string> _addedDllDirectories = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<IntPtr> _dllDirectoryCookies = new();
@@ -216,13 +217,29 @@ public sealed class NativeLoader : IDisposable
     {
         var normalizedName = NormalizeLibraryName(libraryName);
 
-        // Skip if already loaded
+        // Skip if already loaded. A library name is only ever bound to the first binary
+        // that successfully loads under it -- a later registration for the same name but a
+        // different path (e.g. a different provider's "onnxruntime") silently keeps the
+        // first one resident. That silence is exactly what left RuntimeManager.ActiveProvider
+        // able to disagree with what was actually loaded with no signal (docket
+        // iyulab/lm-supply#151) -- at minimum, make the conflict observable.
         if (_loadedLibraries.ContainsKey(normalizedName))
+        {
+            if (_loadedLibraryPaths.TryGetValue(normalizedName, out var existingPath) &&
+                !string.Equals(existingPath, libraryPath, StringComparison.OrdinalIgnoreCase))
+            {
+                Trace.TraceInformation(
+                    $"[NativeLoader] '{normalizedName}' is already loaded from '{existingPath}'; " +
+                    $"ignoring a later request to load a different binary from '{libraryPath}'. " +
+                    "The first-loaded binary remains resident for the lifetime of the process.");
+            }
             return;
+        }
 
         if (NativeLibrary.TryLoad(libraryPath, out var handle))
         {
             _loadedLibraries[normalizedName] = handle;
+            _loadedLibraryPaths[normalizedName] = libraryPath;
         }
     }
 
@@ -333,6 +350,23 @@ public sealed class NativeLoader : IDisposable
         {
             var normalizedName = NormalizeLibraryName(libraryName);
             return _loadedLibraries.ContainsKey(normalizedName);
+        }
+    }
+
+    /// <summary>
+    /// Gets the filesystem path of the native binary actually resident in this process for
+    /// <paramref name="libraryName"/>, or null if none has been loaded. Unlike
+    /// <see cref="IsLoaded"/>, this reveals exactly which binary won when more than one
+    /// directory registered a library under the same name -- only the first-loaded binary
+    /// for a given name is ever resident; later registrations silently no-op (see
+    /// docket iyulab/lm-supply#151).
+    /// </summary>
+    public string? GetLoadedPath(string libraryName)
+    {
+        lock (_lock)
+        {
+            var normalizedName = NormalizeLibraryName(libraryName);
+            return _loadedLibraryPaths.TryGetValue(normalizedName, out var path) ? path : null;
         }
     }
 
@@ -527,6 +561,7 @@ public sealed class NativeLoader : IDisposable
             }
 
             _loadedLibraries.Clear();
+            _loadedLibraryPaths.Clear();
             _libraryPaths.Clear();
             _registeredAssemblies.Clear();
         }

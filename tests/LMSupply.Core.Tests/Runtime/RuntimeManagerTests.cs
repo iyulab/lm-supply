@@ -159,6 +159,20 @@ public class RuntimeManagerTests
         summary.Should().Contain("GPU:");
         summary.Should().Contain("Recommended Provider:");
         summary.Should().Contain("Default Provider String:");
+        summary.Should().Contain("Actually Loaded Runtime Path:");
+    }
+
+    [Fact]
+    public async Task ActuallyLoadedRuntimePath_BeforeEnsureRuntimeCalled_ReturnsNull()
+    {
+        // ActuallyLoadedRuntimePath (docket iyulab/lm-supply#151) surfaces what NativeLoader
+        // actually has resident, distinct from ActiveProvider/CurrentVersion (what was last
+        // requested). Before any EnsureRuntimeAsync call this manager has requested nothing,
+        // so there is nothing to report yet.
+        var manager = new RuntimeManager();
+        await manager.InitializeAsync(TestContext.Current.CancellationToken);
+
+        manager.ActuallyLoadedRuntimePath.Should().BeNull();
     }
 
     [Fact]

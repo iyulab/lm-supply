@@ -23,6 +23,7 @@ public sealed class RuntimeManager : IAsyncDisposable
     private GpuInfo? _gpu;
     private string? _currentVersion;
     private string? _activeProvider;
+    private string? _primaryLibraryName;
 
     /// <summary>
     /// Gets the singleton instance of the runtime manager.
@@ -70,6 +71,22 @@ public sealed class RuntimeManager : IAsyncDisposable
     /// Gets the active provider string.
     /// </summary>
     public string? ActiveProvider => _activeProvider;
+
+    /// <summary>
+    /// Gets the filesystem path of the native runtime binary actually resident in this
+    /// process, or null if none has loaded yet. This can disagree with what
+    /// <see cref="ActiveProvider"/>/<see cref="CurrentVersion"/> last requested: those two
+    /// track what this manager most recently resolved and asked <see cref="NativeLoader"/>
+    /// to load, but a native library name only ever binds to the first binary that
+    /// successfully loads under it in this process -- if something else already preloaded
+    /// the same library name (e.g. an earlier provider/version), a later
+    /// <see cref="EnsureRuntimeAsync"/> call can update <see cref="ActiveProvider"/> while the
+    /// actual resident binary silently stays the old one. Compare this path's directory
+    /// against the path <see cref="EnsureRuntimeAsync"/> returned to detect that mismatch.
+    /// See docket iyulab/lm-supply#151.
+    /// </summary>
+    public string? ActuallyLoadedRuntimePath =>
+        _primaryLibraryName is null ? null : NativeLoader.Instance.GetLoadedPath(_primaryLibraryName);
 
     /// <summary>
     /// Initializes the runtime manager by detecting hardware.
@@ -252,6 +269,7 @@ public sealed class RuntimeManager : IAsyncDisposable
 
         // Register with NativeLoader for DLL resolution
         var primaryLibrary = config.NativeLibraryName ?? "onnxruntime";
+        _primaryLibraryName = primaryLibrary;
         NativeLoader.Instance.RegisterDirectory(binaryPath, preload: true, primaryLibrary: primaryLibrary);
 
         return binaryPath;
@@ -414,6 +432,7 @@ public sealed class RuntimeManager : IAsyncDisposable
             Default Provider String: {GetDefaultProvider()}
             Active Provider: {_activeProvider ?? "none"}
             Current Version: {_currentVersion ?? "unknown"}
+            Actually Loaded Runtime Path: {ActuallyLoadedRuntimePath ?? "none"}
             Cache Directory: {CacheDirectory}
             """;
     }
@@ -457,6 +476,7 @@ public sealed class RuntimeManager : IAsyncDisposable
         {
             // Re-register with NativeLoader
             var primaryLibrary = config.NativeLibraryName ?? "onnxruntime";
+            _primaryLibraryName = primaryLibrary;
             NativeLoader.Instance.RegisterDirectory(result.RuntimePath, preload: true, primaryLibrary: primaryLibrary);
             _currentVersion = result.NewVersion;
         }
