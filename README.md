@@ -464,6 +464,13 @@ For NVIDIA CUDA support, ensure you have:
 - NVIDIA GPU drivers installed
 - CUDA 11.x or 12.x runtime (LMSupply auto-selects the appropriate version)
 
+If inference behaves as though a different provider/version is active than the one you last
+requested, check `RuntimeManager.Instance.ActuallyLoadedRuntimePath` — a native runtime binary
+only ever loads once per process for a given library name, so a provider/version switch
+requested *after* something else already loaded that library can silently not take effect. This
+differs from `RuntimeManager.Instance.ActiveProvider`/`CurrentVersion`, which report what was
+last *requested*, not necessarily what is actually resident.
+
 ---
 
 ## Logging & Diagnostics
