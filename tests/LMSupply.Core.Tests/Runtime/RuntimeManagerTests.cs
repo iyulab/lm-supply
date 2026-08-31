@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using LMSupply.Exceptions;
 using LMSupply.Runtime;
 
 namespace LMSupply.Core.Tests.Runtime;
@@ -182,6 +183,35 @@ public class RuntimeManagerTests
         // current (lenient) behavior does not change unless they explicitly ask for it.
         var options = new RuntimeManagerOptions();
         options.FailOnRuntimeConflict.Should().BeFalse();
+    }
+
+    [Fact]
+    public void StopsProviderFallbackChain_NativeLibraryConflictException_ReturnsTrue()
+    {
+        // cycle-389: without this, EnsureRuntimeAsync's Auto-mode fallback loop would catch a
+        // NativeLibraryConflictException like any other per-provider failure and silently try
+        // the next provider -- defeating FailOnRuntimeConflict for the common zero-config Auto
+        // mode path, since every provider in the chain conflicts identically (same native
+        // library name) and the exception a caller opted in to see would either recur pointlessly
+        // or, worse, be swallowed entirely if a later provider's attempt happened not to conflict.
+        var ex = new NativeLibraryConflictException("onnxruntime", "requested/path", "resident/path");
+
+        RuntimeManager.StopsProviderFallbackChain(ex).Should().BeTrue();
+    }
+
+    [Fact]
+    public void StopsProviderFallbackChain_OperationCanceledException_ReturnsTrue()
+    {
+        RuntimeManager.StopsProviderFallbackChain(new OperationCanceledException()).Should().BeTrue();
+    }
+
+    [Fact]
+    public void StopsProviderFallbackChain_OrdinaryFailure_ReturnsFalse()
+    {
+        // An ordinary per-provider failure (e.g. this provider's package isn't available) must
+        // still fall through to the next provider in the chain -- only cancellation and a native
+        // library conflict are chain-terminating.
+        RuntimeManager.StopsProviderFallbackChain(new InvalidOperationException("no config")).Should().BeFalse();
     }
 
     [Fact]

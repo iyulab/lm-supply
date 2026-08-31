@@ -204,9 +204,9 @@ public sealed class RuntimeManager : IAsyncDisposable
             {
                 return await DownloadRuntimeForProviderAsync(providerToTry, packageType, version, progress, cancellationToken);
             }
-            catch (OperationCanceledException)
+            catch (Exception ex) when (StopsProviderFallbackChain(ex))
             {
-                throw; // Don't catch cancellation
+                throw; // Cancellation, or a conflict every remaining provider would hit identically
             }
             catch (Exception ex) when (providerToTry != "cpu")
             {
@@ -220,6 +220,26 @@ public sealed class RuntimeManager : IAsyncDisposable
         // Should not reach here since CPU is always in chain
         throw lastException ?? new InvalidOperationException($"No provider available for {packageType}");
     }
+
+    /// <summary>
+    /// Determines whether an exception from a single provider attempt in
+    /// <see cref="EnsureRuntimeAsync"/>'s Auto-mode fallback chain should propagate immediately,
+    /// stopping the chain, rather than being logged so the next provider can be tried.
+    /// <see cref="OperationCanceledException"/> always stops it (cancellation is not a
+    /// per-provider failure). A <see cref="NativeLibraryConflictException"/> also always stops
+    /// it: every provider in the chain registers its native binary under the same normalized
+    /// library name (typically "onnxruntime"), so once one request conflicts with the resident
+    /// binary, every remaining provider would conflict identically -- catching it here would
+    /// just re-trigger the same exception on the next iteration, and if a later provider's
+    /// attempt happened not to conflict (or CPU's fallback-of-last-resort masked it), the
+    /// original conflict a caller opted into <see cref="RuntimeManagerOptions.
+    /// FailOnRuntimeConflict"/> to see would be silently lost instead of reported.
+    /// Internal (not private) so it can be unit-tested directly -- exercising this through
+    /// <see cref="EnsureRuntimeAsync"/> end-to-end requires network access this test suite does
+    /// not use.
+    /// </summary>
+    internal static bool StopsProviderFallbackChain(Exception ex) =>
+        ex is OperationCanceledException or NativeLibraryConflictException;
 
     /// <summary>
     /// Downloads runtime for a specific provider from NuGet with auto-update support.

@@ -485,6 +485,12 @@ var manager = new RuntimeManager(new RuntimeManagerOptions { FailOnRuntimeConfli
 await manager.EnsureRuntimeAsync("onnxruntime", provider: "cuda12");
 ```
 
+In Auto mode (`provider: null`, the zero-config default), a conflict stops the provider
+fallback chain immediately instead of being treated as "this provider failed, try the next
+one" — every provider in the chain shares the same native library name, so it would conflict
+identically on each attempt, and silently falling through could otherwise mask the very
+conflict `FailOnRuntimeConflict` exists to surface.
+
 ---
 
 ## Logging & Diagnostics
