@@ -162,6 +162,29 @@ public class TranscriberFunctionalTests
 
     [Fact]
     [Trait("Axis", "Loading")]
+    public async Task L_DefaultAlias_CpuProvider_LoadsAndTranscribesWithoutCrashing()
+    {
+        // Regression gate for docket iyulab/lm-supply#151: the package's own zero-config
+        // registry default (onnx-community/whisper-base, "default" alias) + CPU EP is the
+        // combination that crashed InferenceSession construction under
+        // Microsoft.ML.OnnxRuntime 1.25.1/1.26.0 ("Missing required scale:
+        // ...embed_tokens.weight_merged_0_scale"). CPU EP is forced explicitly here (unlike
+        // the other Loading/Inference tests above, which use the default Auto provider and so
+        // exercise a separate, already-known DirectML LayerNormalization crash instead — see
+        // docket iyulab/lm-supply#59 — not this regression). Do not bump
+        // Microsoft.ML.OnnxRuntime past the version pinned in Directory.Packages.props without
+        // this test passing first.
+        var options = new TranscriberOptions { Provider = ExecutionProvider.Cpu };
+        await using var model = await LocalTranscriber.LoadAsync("default", options, cancellationToken: TestContext.Current.CancellationToken);
+
+        var wavBytes = TestDataHelper.CreateToneWav(16000, 2.0f, 440);
+        var result = await model.TranscribeAsync(wavBytes, cancellationToken: TestContext.Current.CancellationToken);
+
+        result.Should().NotBeNull();
+    }
+
+    [Fact]
+    [Trait("Axis", "Loading")]
     public async Task L_GetAvailableModels_ReturnsAliases()
     {
         var models = LocalTranscriber.GetAvailableModels().ToList();

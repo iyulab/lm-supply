@@ -5,7 +5,20 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Core Dependencies -->
-    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.26.0" />
+    <!--
+      Pinned below the latest (1.26.0): 1.25.1 and 1.26.0 both crash
+      InferenceSession construction for this package's own zero-config registry default
+      (onnx-community/whisper-base, decoder_model_merged_int8.onnx, CPU EP) with
+      "Missing required scale: ...embed_tokens.weight_merged_0_scale" — an onnxruntime
+      native regression somewhere in the 1.24.4->1.25.x range, bisected directly against
+      the native onnxruntime.dll with the same managed code and cached model file
+      unchanged. 1.24.1 through 1.24.4 all load and transcribe cleanly; 1.24.4 is also
+      what RuntimeManager's own provisioning cache already carries. Do not bump past
+      1.24.4 without first running the registry-default model through
+      LMSupply.Integration.Tests' Functional/LocalOnly Transcriber suite (network+GPU
+      required, not part of CI) — see docket iyulab/lm-supply#151.
+    -->
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.24.4" />
     <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
     <PackageVersion Include="System.Numerics.Tensors" Version="10.0.8" />
     <!-- Vision Dependencies -->
