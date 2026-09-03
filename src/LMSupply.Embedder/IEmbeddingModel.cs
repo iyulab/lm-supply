@@ -76,4 +76,65 @@ public interface IEmbeddingModel : IAsyncDisposable
     /// </summary>
     /// <returns>Model information, or null if not available.</returns>
     ModelInfo? GetModelInfo();
+
+    /// <summary>
+    /// Generates a query embedding, applying the model's <see cref="ModelInfo.QueryPrefix"/>
+    /// automatically when it has one (e.g. the E5 family's "query: " convention). A no-op
+    /// passthrough to <see cref="EmbedAsync(string, CancellationToken)"/> when the model has no
+    /// query prefix or no <see cref="ModelInfo"/> at all.
+    /// </summary>
+    ValueTask<float[]> EmbedQueryAsync(string text, CancellationToken cancellationToken = default) =>
+        EmbedAsync(WithPrefix(text, GetModelInfo()?.QueryPrefix), cancellationToken);
+
+    /// <summary>
+    /// Batch form of <see cref="EmbedQueryAsync(string, CancellationToken)"/>.
+    /// </summary>
+    ValueTask<float[][]> EmbedQueryAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default) =>
+        EmbedAsync(WithPrefix(texts, GetModelInfo()?.QueryPrefix), cancellationToken);
+
+    /// <summary>
+    /// Matryoshka-truncated form of <see cref="EmbedQueryAsync(string, CancellationToken)"/>.
+    /// </summary>
+    ValueTask<float[]> EmbedQueryAsync(string text, int dimensions, CancellationToken cancellationToken = default) =>
+        EmbedAsync(WithPrefix(text, GetModelInfo()?.QueryPrefix), dimensions, cancellationToken);
+
+    /// <summary>
+    /// Batch, Matryoshka-truncated form of <see cref="EmbedQueryAsync(string, CancellationToken)"/>.
+    /// </summary>
+    ValueTask<float[][]> EmbedQueryAsync(IReadOnlyList<string> texts, int dimensions, CancellationToken cancellationToken = default) =>
+        EmbedAsync(WithPrefix(texts, GetModelInfo()?.QueryPrefix), dimensions, cancellationToken);
+
+    /// <summary>
+    /// Generates a passage/document embedding, applying the model's
+    /// <see cref="ModelInfo.PassagePrefix"/> automatically when it has one (e.g. the E5 family's
+    /// "passage: " convention). A no-op passthrough to
+    /// <see cref="EmbedAsync(string, CancellationToken)"/> when the model has no passage prefix
+    /// or no <see cref="ModelInfo"/> at all.
+    /// </summary>
+    ValueTask<float[]> EmbedPassageAsync(string text, CancellationToken cancellationToken = default) =>
+        EmbedAsync(WithPrefix(text, GetModelInfo()?.PassagePrefix), cancellationToken);
+
+    /// <summary>
+    /// Batch form of <see cref="EmbedPassageAsync(string, CancellationToken)"/>.
+    /// </summary>
+    ValueTask<float[][]> EmbedPassageAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default) =>
+        EmbedAsync(WithPrefix(texts, GetModelInfo()?.PassagePrefix), cancellationToken);
+
+    /// <summary>
+    /// Matryoshka-truncated form of <see cref="EmbedPassageAsync(string, CancellationToken)"/>.
+    /// </summary>
+    ValueTask<float[]> EmbedPassageAsync(string text, int dimensions, CancellationToken cancellationToken = default) =>
+        EmbedAsync(WithPrefix(text, GetModelInfo()?.PassagePrefix), dimensions, cancellationToken);
+
+    /// <summary>
+    /// Batch, Matryoshka-truncated form of <see cref="EmbedPassageAsync(string, CancellationToken)"/>.
+    /// </summary>
+    ValueTask<float[][]> EmbedPassageAsync(IReadOnlyList<string> texts, int dimensions, CancellationToken cancellationToken = default) =>
+        EmbedAsync(WithPrefix(texts, GetModelInfo()?.PassagePrefix), dimensions, cancellationToken);
+
+    private static string WithPrefix(string text, string? prefix) =>
+        string.IsNullOrEmpty(prefix) ? text : prefix + text;
+
+    private static IReadOnlyList<string> WithPrefix(IReadOnlyList<string> texts, string? prefix) =>
+        string.IsNullOrEmpty(prefix) ? texts : [.. texts.Select(t => prefix + t)];
 }

@@ -44,6 +44,20 @@ public sealed record ModelInfo : IModelInfoBase, IModelMemoryInfo
     public string? Description { get; init; }
 
     /// <summary>
+    /// Gets the text prefix this model's fine-tuning requires for search-query embeddings
+    /// (e.g. "query: " for the E5 family, "search_query: " for Nomic). Null when the model
+    /// needs no prefix convention. Applied automatically by <see cref="IEmbeddingModel.EmbedQueryAsync(string, System.Threading.CancellationToken)"/>.
+    /// </summary>
+    public string? QueryPrefix { get; init; }
+
+    /// <summary>
+    /// Gets the text prefix this model's fine-tuning requires for document/passage embeddings
+    /// (e.g. "passage: " for the E5 family, "search_document: " for Nomic). Null when the model
+    /// needs no prefix convention. Applied automatically by <see cref="IEmbeddingModel.EmbedPassageAsync(string, System.Threading.CancellationToken)"/>.
+    /// </summary>
+    public string? PassagePrefix { get; init; }
+
+    /// <summary>
     /// Gets the subfolder within the HuggingFace repository.
     /// </summary>
     public string? Subfolder { get; init; }

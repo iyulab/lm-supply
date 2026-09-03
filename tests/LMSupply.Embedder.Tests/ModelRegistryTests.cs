@@ -167,4 +167,40 @@ public class ModelRegistryTests
 
         registry.RemoveAlias("default").Should().BeFalse();
     }
+
+    // --- Query/passage prefix convention (docket iyulab/lm-supply#171) ---
+
+    [Theory]
+    [InlineData("fast", "query: ", "passage: ")]
+    [InlineData("large", "query: ", "passage: ")]
+    [InlineData("e5-small-v2", "query: ", "passage: ")]
+    [InlineData("e5-base-v2", "query: ", "passage: ")]
+    [InlineData("multilingual-e5-small", "query: ", "passage: ")]
+    [InlineData("multilingual-e5-base", "query: ", "passage: ")]
+    [InlineData("multilingual-e5-large", "query: ", "passage: ")]
+    [InlineData("nomic-embed-text-v1.5", "search_query: ", "search_document: ")]
+    public void E5AndNomicPresets_HaveQueryPassagePrefixes(string modelId, string queryPrefix, string passagePrefix)
+    {
+        _registry.TryResolve(modelId, out var info);
+
+        info.Should().NotBeNull();
+        info!.QueryPrefix.Should().Be(queryPrefix);
+        info.PassagePrefix.Should().Be(passagePrefix);
+    }
+
+    [Theory]
+    [InlineData("default")] // BGE-M3
+    [InlineData("quality")] // BGE-M3
+    [InlineData("all-mpnet-base-v2")]
+    [InlineData("bge-base-en-v1.5")]
+    [InlineData("bge-large-en-v1.5")]
+    [InlineData("gte-large-en-v1.5")]
+    public void NonPrefixModels_HaveNullQueryPassagePrefixes(string modelId)
+    {
+        _registry.TryResolve(modelId, out var info);
+
+        info.Should().NotBeNull();
+        info!.QueryPrefix.Should().BeNull();
+        info.PassagePrefix.Should().BeNull();
+    }
 }

@@ -22,6 +22,22 @@ float[] embedding = await model.EmbedAsync("Hello, world!");
 Console.WriteLine($"Dimensions: {embedding.Length}");
 ```
 
+## Query/Passage Embeddings
+
+Some models (the E5 family, Nomic) are fine-tuned with an asymmetric text-prefix convention —
+query embeddings and document/passage embeddings need different prefixes for accurate retrieval.
+`EmbedQueryAsync`/`EmbedPassageAsync` apply the right prefix automatically from the model's
+`ModelInfo` (a no-op passthrough for models that don't need one):
+
+```csharp
+await using var model = await LocalEmbedder.LoadAsync("multilingual-e5-base");
+
+float[] queryEmbedding = await model.EmbedQueryAsync("what is the capital of France?");
+float[] passageEmbedding = await model.EmbedPassageAsync("Paris is the capital of France.");
+```
+
+Batch and Matryoshka-truncated (`dimensions:`) overloads exist for both, mirroring `EmbedAsync`.
+
 ## Available Models
 
 | Alias | Model | Dimensions | Description |

@@ -40,7 +40,9 @@ internal static class DefaultModels
         PoolingMode = PoolingMode.Mean,
         DoLowerCase = false,
         Description = "Fast: multilingual-e5-small, 118M params, 100+ languages, lightweight",
-        Subfolder = "onnx"
+        Subfolder = "onnx",
+        QueryPrefix = "query: ",
+        PassagePrefix = "passage: "
     };
 
     /// <summary>
@@ -72,15 +74,17 @@ internal static class DefaultModels
         PoolingMode = PoolingMode.Mean,
         DoLowerCase = false,
         Description = "Large: multilingual-e5-large, 560M params, 100+ languages, highest dense quality",
-        Subfolder = "onnx"
+        Subfolder = "onnx",
+        QueryPrefix = "query: ",
+        PassagePrefix = "passage: "
     };
 
     // ===== Explicit models (non-alias, registered by short name) =====
 
     /// <summary>
     /// nomic-embed-text-v1.5, 137M params, English-first, Matryoshka 64–768d, 8K context.
-    /// Recommended for English-only RAG pipelines; use instruction prefixes for best retrieval:
-    ///   Documents: "search_document: {text}", Queries: "search_query: {text}".
+    /// Recommended for English-only RAG pipelines; instruction prefixes applied automatically
+    /// via <see cref="ModelInfo.QueryPrefix"/>/<see cref="ModelInfo.PassagePrefix"/>.
     /// </summary>
     public static ModelInfo NomicEmbedTextV15 { get; } = new()
     {
@@ -91,7 +95,9 @@ internal static class DefaultModels
         PoolingMode = PoolingMode.Mean,
         DoLowerCase = false,
         Description = "137M params, English-first, Matryoshka 64–768d, 8K context",
-        Subfolder = "onnx"
+        Subfolder = "onnx",
+        QueryPrefix = "search_query: ",
+        PassagePrefix = "search_document: "
     };
 
     /// <summary>
@@ -140,7 +146,9 @@ internal static class DefaultModels
     };
 
     /// <summary>
-    /// e5-small-v2, 33M params, no prefix needed, English.
+    /// e5-small-v2, 33M params, English. Requires the query/passage prefix convention like the
+    /// rest of the E5 family (see intfloat/e5-small-v2's model card) — applied automatically via
+    /// <see cref="ModelInfo.QueryPrefix"/>/<see cref="ModelInfo.PassagePrefix"/>.
     /// </summary>
     public static ModelInfo E5SmallV2 { get; } = new()
     {
@@ -150,8 +158,10 @@ internal static class DefaultModels
         MaxSequenceLength = 512,
         PoolingMode = PoolingMode.Mean,
         DoLowerCase = false,
-        Description = "33M params, no prefix needed, English",
-        Subfolder = "onnx"
+        Description = "33M params, English",
+        Subfolder = "onnx",
+        QueryPrefix = "query: ",
+        PassagePrefix = "passage: "
     };
 
     /// <summary>
@@ -166,7 +176,9 @@ internal static class DefaultModels
         PoolingMode = PoolingMode.Mean,
         DoLowerCase = false,
         Description = "110M params, excellent retrieval, English",
-        Subfolder = "onnx"
+        Subfolder = "onnx",
+        QueryPrefix = "query: ",
+        PassagePrefix = "passage: "
     };
 
     /// <summary>
@@ -181,7 +193,9 @@ internal static class DefaultModels
         PoolingMode = PoolingMode.Mean,
         DoLowerCase = false,
         Description = "118M params, 100+ languages, compact",
-        Subfolder = "onnx"
+        Subfolder = "onnx",
+        QueryPrefix = "query: ",
+        PassagePrefix = "passage: "
     };
 
     /// <summary>
@@ -196,7 +210,9 @@ internal static class DefaultModels
         PoolingMode = PoolingMode.Mean,
         DoLowerCase = false,
         Description = "278M params, 100+ languages, quality",
-        Subfolder = "onnx"
+        Subfolder = "onnx",
+        QueryPrefix = "query: ",
+        PassagePrefix = "passage: "
     };
 
     /// <summary>
@@ -211,7 +227,9 @@ internal static class DefaultModels
         PoolingMode = PoolingMode.Mean,
         DoLowerCase = false,
         Description = "560M params, 100+ languages, highest quality",
-        Subfolder = "onnx"
+        Subfolder = "onnx",
+        QueryPrefix = "query: ",
+        PassagePrefix = "passage: "
     };
 
     /// <summary>
