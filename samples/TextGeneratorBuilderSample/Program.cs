@@ -8,6 +8,10 @@ using LMSupply;
 using LMSupply.Generator;
 using LMSupply.Generator.Models;
 
+// Registers the ONNX Runtime GenAI backend so the "Default" preset can route to it on a discrete
+// non-NVIDIA Windows GPU (LMSupply.Generator itself has no compile-time ONNX dependency).
+LMSupply.Generator.Onnx.OnnxGeneratorBackend.Register();
+
 Console.WriteLine("=== TextGeneratorBuilder Sample ===");
 Console.WriteLine("Testing automatic runtime download and loading...\n");
 

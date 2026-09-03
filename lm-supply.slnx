@@ -24,6 +24,7 @@
     <Project Path="src/LMSupply.Detector/LMSupply.Detector.csproj" />
     <Project Path="src/LMSupply.Embedder/LMSupply.Embedder.csproj" />
     <Project Path="src/LMSupply.Generator/LMSupply.Generator.csproj" />
+    <Project Path="src/LMSupply.Generator.Onnx/LMSupply.Generator.Onnx.csproj" />
     <Project Path="src/LMSupply.ImageGenerator/LMSupply.ImageGenerator.csproj" />
     <Project Path="src/LMSupply.Llama/LMSupply.Llama.csproj" />
     <Project Path="src/LMSupply.Ocr/LMSupply.Ocr.csproj" />
@@ -40,6 +41,7 @@
     <Project Path="tests/LMSupply.Core.Tests/LMSupply.Core.Tests.csproj" />
     <Project Path="tests/LMSupply.Detector.Tests/LMSupply.Detector.Tests.csproj" />
     <Project Path="tests/LMSupply.Embedder.Tests/LMSupply.Embedder.Tests.csproj" />
+    <Project Path="tests/LMSupply.Generator.Onnx.Tests/LMSupply.Generator.Onnx.Tests.csproj" />
     <Project Path="tests/LMSupply.Generator.Tests/LMSupply.Generator.Tests.csproj" />
     <Project Path="tests/LMSupply.ImageGenerator.Tests/LMSupply.ImageGenerator.Tests.csproj" />
     <Project Path="tests/LMSupply.Integration.Tests/LMSupply.Integration.Tests.csproj" />

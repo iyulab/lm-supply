@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Package Metadata -->
+    <PackageId>LMSupply.Generator.Onnx</PackageId>
+    <Description>ONNX Runtime GenAI backend for LMSupply.Generator. Adds local text generation on ONNX models (Phi, etc.) with CUDA/DirectML GPU acceleration. Optional — LMSupply.Generator works with GGUF/llama-server alone without this package.</Description>
+    <PackageTags>llm;ai;ml;onnx;text-generation;chatbot;phi;gpu;cuda;directml;streaming</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- Build Settings -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LMSupply.Generator.Onnx.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LMSupply.Generator\LMSupply.Generator.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ONNX Runtime GenAI - CPU only by default, GPU packages installed separately -->
+    <!-- ExcludeAssets="native" ensures native binaries are downloaded on-demand via RuntimeManager -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" ExcludeAssets="native" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <!-- Exclude native runtimes from NuGet package - they will be lazy-loaded -->
+  <ItemGroup>
+    <None Remove="runtimes\**\*" />
+  </ItemGroup>
+
+  <Target Name="ExcludeNativeAssets" BeforeTargets="GenerateNuspec">
+    <ItemGroup>
+      <_PackageFiles Remove="@(_PackageFiles)" Condition="$([System.String]::Copy('%(Identity)').Contains('runtimes'))" />
+    </ItemGroup>
+  </Target>
+
+</Project>

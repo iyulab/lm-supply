@@ -2,7 +2,7 @@ using System.Reflection;
 using AwesomeAssertions;
 using Xunit;
 
-namespace LMSupply.Generator.Tests;
+namespace LMSupply.Generator.Onnx.Tests;
 
 /// <summary>
 /// Convention teeth for the single-resolver rule (Forge upstream-019): LMSupply.Generator

@@ -9,7 +9,7 @@ namespace LMSupply.Generator;
 /// <summary>
 /// Factory for creating ONNX-based generator models.
 /// </summary>
-public sealed class OnnxGeneratorModelFactory : IGeneratorModelFactory, IDisposable
+public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
 {
     private readonly string _cacheDirectory;
     private readonly ExecutionProvider _defaultProvider;

@@ -4,7 +4,6 @@ using LMSupply.Generator.Abstractions;
 using LMSupply.Generator.ChatFormatters;
 using LMSupply.Generator.Internal.Llama;
 using LMSupply.Generator.Models;
-using LMSupply.Runtime;
 
 namespace LMSupply.Generator.Internal;
 
@@ -42,7 +41,7 @@ internal static class GeneratorModelLoader
         CancellationToken cancellationToken)
     {
         // Ensure GenAI runtime binaries are available before loading the model
-        await EnsureGenAiRuntimeAsync(options.Provider, progress, cancellationToken);
+        await OnnxGeneratorBackendRegistry.Require().EnsureRuntimeAsync(options.Provider, progress, cancellationToken);
 
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         using var downloader = new HuggingFaceDownloader(cacheDir);
@@ -187,7 +186,7 @@ internal static class GeneratorModelLoader
         string? configBasePath = null)
     {
         // Ensure GenAI runtime binaries are available before loading the model
-        await EnsureGenAiRuntimeAsync(options.Provider, progress: null, CancellationToken.None);
+        await OnnxGeneratorBackendRegistry.Require().EnsureRuntimeAsync(options.Provider, progress: null, CancellationToken.None);
 
         modelId ??= Path.GetFileName(modelPath);
 
@@ -197,14 +196,12 @@ internal static class GeneratorModelLoader
             : ChatFormatterFactory.Create(modelId);
 
         // Create and return the model
-        var model = new OnnxGeneratorModel(
+        return OnnxGeneratorBackendRegistry.Require().CreateModel(
             modelId,
             modelPath,
             chatFormatter,
             options,
             configBasePath);
-
-        return model;
     }
 
     /// <summary>
@@ -228,47 +225,5 @@ internal static class GeneratorModelLoader
             options,
             progress: null,
             CancellationToken.None);
-    }
-
-    /// <summary>
-    /// Ensures GenAI runtime binaries (onnxruntime-genai) are downloaded for the specified provider.
-    /// Also ensures the base onnxruntime binaries are available since genai depends on them.
-    /// This method is internal to allow TextGeneratorBuilder to call it.
-    /// </summary>
-    internal static async Task EnsureGenAiRuntimeAsync(
-        ExecutionProvider provider,
-        IProgress<DownloadProgress>? progress,
-        CancellationToken cancellationToken)
-    {
-        // Initialize RuntimeManager to detect hardware
-        await RuntimeManager.Instance.InitializeAsync(cancellationToken);
-
-        // Resolve Auto to actual provider
-        var actualProvider = provider == ExecutionProvider.Auto
-            ? RuntimeManager.Instance.RecommendedProvider
-            : provider;
-
-        // Map provider to string for manifest lookup
-        var providerString = actualProvider switch
-        {
-            ExecutionProvider.Cuda => RuntimeManager.Instance.GetDefaultProvider(), // cuda11 or cuda12
-            ExecutionProvider.DirectML => "directml",
-            ExecutionProvider.CoreML => "cpu", // CoreML uses CPU binaries
-            _ => "cpu"
-        };
-
-        // Download base onnxruntime binaries first (genai depends on these)
-        await RuntimeManager.Instance.EnsureRuntimeAsync(
-            "onnxruntime",
-            provider: providerString,
-            progress: progress,
-            cancellationToken: cancellationToken);
-
-        // Download GenAI runtime binaries
-        await RuntimeManager.Instance.EnsureRuntimeAsync(
-            "onnxruntime-genai",
-            provider: providerString,
-            progress: progress,
-            cancellationToken: cancellationToken);
     }
 }

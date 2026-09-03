@@ -2,7 +2,7 @@ using AwesomeAssertions;
 using LMSupply.Download;
 using Xunit;
 
-namespace LMSupply.Generator.Tests;
+namespace LMSupply.Generator.Onnx.Tests;
 
 /// <summary>
 /// Guards the single-resolver contract for the model cache (Forge upstream-019 P2): every

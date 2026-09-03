@@ -17,8 +17,15 @@ internal static class GeneratorRoutingPolicy
     /// <c>LlamaBackendSelector</c> / <c>GgufModelDownloader</c>). NVIDIA and Apple use GGUF
     /// (CUDA / Metal); CPU-only uses GGUF CPU.
     /// </summary>
+    /// <remarks>
+    /// Also requires <see cref="OnnxGeneratorBackendRegistry.IsRegistered"/>: a consumer that only
+    /// referenced LMSupply.Generator (GGUF/llama-server only, no LMSupply.Generator.Onnx package)
+    /// must never have the zero-config "auto" path silently pick a backend it cannot load — it
+    /// falls through to GGUF instead, same as any other hardware profile GGUF already covers.
+    /// </remarks>
     public static bool ShouldUseOnnx(GpuInfo gpu, ExecutionProvider recommendedProvider)
-        => recommendedProvider == ExecutionProvider.DirectML
+        => OnnxGeneratorBackendRegistry.IsRegistered
+           && recommendedProvider == ExecutionProvider.DirectML
            && gpu.Vendor != GpuVendor.Nvidia
            && !gpu.IsIntegrated;
 }

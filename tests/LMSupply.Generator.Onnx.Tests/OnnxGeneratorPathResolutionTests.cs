@@ -1,6 +1,6 @@
 using AwesomeAssertions;
 
-namespace LMSupply.Generator.Tests;
+namespace LMSupply.Generator.Onnx.Tests;
 
 /// <summary>
 /// Regression tests for OnnxGeneratorModelFactory path resolution,

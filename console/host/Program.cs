@@ -8,6 +8,10 @@ using LMSupply.Console.Host.Infrastructure;
 using LMSupply.Console.Host.Services;
 using Microsoft.EntityFrameworkCore;
 
+// This host lets users load an arbitrary model id via LocalGenerator.LoadAsync, including
+// explicit ONNX Runtime GenAI repos — register the backend so that path keeps working.
+LMSupply.Generator.Onnx.OnnxGeneratorBackend.Register();
+
 // CLI mode: lm-supply.exe update
 if (args.Length > 0 && args[0].Equals("update", StringComparison.OrdinalIgnoreCase))
 {

@@ -9,6 +9,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\LMSupply.Generator\LMSupply.Generator.csproj" />
+    <!-- The "Default" preset routes to ONNX on a discrete non-NVIDIA Windows GPU; this sample
+         exists specifically to exercise ONNX runtime download, so it needs the backend. -->
+    <ProjectReference Include="..\..\src\LMSupply.Generator.Onnx\LMSupply.Generator.Onnx.csproj" />
   </ItemGroup>
 
   <!--

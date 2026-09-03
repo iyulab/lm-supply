@@ -1,6 +1,6 @@
 using AwesomeAssertions;
 
-namespace LMSupply.Generator.Tests;
+namespace LMSupply.Generator.Onnx.Tests;
 
 public class OnnxGeneratorModelFactoryTests
 {

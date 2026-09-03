@@ -256,7 +256,7 @@ public sealed class TextGeneratorBuilder
 
         // Ensure GenAI runtime binaries are available before loading the model
         // This downloads onnxruntime and onnxruntime-genai native binaries on first use
-        await Internal.GeneratorModelLoader.EnsureGenAiRuntimeAsync(
+        await OnnxGeneratorBackendRegistry.Require().EnsureRuntimeAsync(
             _modelOptions.Provider,
             progress: null,
             cancellationToken);
@@ -265,7 +265,7 @@ public sealed class TextGeneratorBuilder
         var modelId = _modelId ?? Path.GetFileName(modelPath);
         var chatFormatter = ResolveChatFormatter(modelId);
 
-        IGeneratorModel generator = new Internal.OnnxGeneratorModel(modelId, modelPath, chatFormatter, _modelOptions);
+        IGeneratorModel generator = OnnxGeneratorBackendRegistry.Require().CreateModel(modelId, modelPath, chatFormatter, _modelOptions);
 
         // Wrap with memory management if configured
         if (_memoryOptions != null)
@@ -327,7 +327,7 @@ public sealed class TextGeneratorBuilder
         {
             // Use factory to resolve/download model
             var cacheDir = _modelOptions.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-            using var factory = new OnnxGeneratorModelFactory(cacheDir, _modelOptions.Provider);
+            using var factory = OnnxGeneratorBackendRegistry.Require().CreateFactory(cacheDir, _modelOptions.Provider);
 
             // Download if not available
             if (!factory.IsModelAvailable(_modelId))

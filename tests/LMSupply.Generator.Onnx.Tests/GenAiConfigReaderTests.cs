@@ -1,7 +1,7 @@
 using AwesomeAssertions;
 using LMSupply.Generator.Internal;
 
-namespace LMSupply.Generator.Tests;
+namespace LMSupply.Generator.Onnx.Tests;
 
 public class GenAiConfigReaderTests
 {

@@ -3,8 +3,8 @@
   <PropertyGroup>
     <!-- Package Metadata -->
     <PackageId>LMSupply.Generator</PackageId>
-    <Description>A .NET library for local LLM text generation using ONNX Runtime GenAI. Supports streaming, chat templates, and automatic hardware detection with CUDA/DirectML GPU acceleration.</Description>
-    <PackageTags>llm;ai;ml;onnx;text-generation;chatbot;phi;llama;gpu;cuda;directml;streaming</PackageTags>
+    <Description>A .NET library for local LLM text generation via GGUF/llama-server, with streaming, chat templates, and automatic hardware-aware backend selection. Add LMSupply.Generator.Onnx for ONNX Runtime GenAI models (Phi, etc.).</Description>
+    <PackageTags>llm;ai;ml;gguf;llama;text-generation;chatbot;phi;gpu;cuda;directml;streaming</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!-- Build Settings -->
@@ -16,6 +16,10 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="LMSupply.Generator.Tests" />
+    <!-- The optional ONNX Runtime GenAI backend needs IDiagnosticsSink / ToolCallTextParser,
+         which stay internal here rather than becoming public surface. -->
+    <InternalsVisibleTo Include="LMSupply.Generator.Onnx" />
+    <InternalsVisibleTo Include="LMSupply.Generator.Onnx.Tests" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,24 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- ONNX Runtime GenAI - CPU only by default, GPU packages installed separately -->
-    <!-- ExcludeAssets="native" ensures native binaries are downloaded on-demand via RuntimeManager -->
-    <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" ExcludeAssets="native" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
-
-  <!-- Exclude native runtimes from NuGet package - they will be lazy-loaded -->
-  <ItemGroup>
-    <None Remove="runtimes\**\*" />
-  </ItemGroup>
-
-  <Target Name="ExcludeNativeAssets" BeforeTargets="GenerateNuspec">
-    <ItemGroup>
-      <_PackageFiles Remove="@(_PackageFiles)" Condition="$([System.String]::Copy('%(Identity)').Contains('runtimes'))" />
-    </ItemGroup>
-  </Target>
 
 </Project>

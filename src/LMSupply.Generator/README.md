@@ -1,6 +1,6 @@
 # LMSupply.Generator
 
-Local text generation and chat with ONNX Runtime GenAI and GGUF (llama-server).
+Local text generation and chat via GGUF (llama-server), with an optional ONNX Runtime GenAI backend.
 
 ## Features
 
@@ -10,6 +10,26 @@ Local text generation and chat with ONNX Runtime GenAI and GGUF (llama-server).
 - **Server Pooling**: Reuses llama-server instances for fast model switching
 - **MIT Models**: Phi-4 and Phi-3.5 models with no usage restrictions
 - **Chat Support**: Built-in chat formatters for various models
+
+## ONNX Runtime GenAI models
+
+This package alone covers GGUF/llama-server. Loading an ONNX Runtime GenAI model (a
+HuggingFace repo whose name or path indicates ONNX, or a local `genai_config.json` +
+`model.onnx` directory) requires the separate `LMSupply.Generator.Onnx` package, registered
+once at startup:
+
+```csharp
+dotnet add package LMSupply.Generator.Onnx
+```
+
+```csharp
+LMSupply.Generator.Onnx.OnnxGeneratorBackend.Register();
+```
+
+Without it, loading an ONNX model throws a `NotSupportedException` naming the package. The
+hardware-aware `WithDefaultModel()`/`"auto"` path is unaffected either way — it only ever
+selects ONNX on a discrete non-NVIDIA Windows GPU, and only when this backend is registered;
+otherwise it falls back to its GGUF selection, same as on any other hardware profile.
 
 ## Quick Start
 
@@ -52,13 +72,9 @@ string response = await generator.GenerateChatCompleteAsync(messages);
 
 ## GPU Acceleration
 
-```bash
-# NVIDIA GPU
-dotnet add package Microsoft.ML.OnnxRuntime.Gpu
-
-# Windows (AMD/Intel/NVIDIA)
-dotnet add package Microsoft.ML.OnnxRuntime.DirectML
-```
+The GGUF/llama-server path auto-downloads the right `llama-server` binary for the detected GPU
+(CUDA, Vulkan, Metal) — no extra NuGet package needed. GPU acceleration for ONNX Runtime GenAI
+models is a `LMSupply.Generator.Onnx` concern; see that package's README.
 
 ## Advanced GGUF Tuning
 
