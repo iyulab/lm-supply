@@ -475,11 +475,13 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_Mp3File_TranscribesSuccessfully()
     {
-        // TR-Q1: Verify MP3 input is handled via AudioFileReader path
+        // TR-Q1: Verify MP3 input decodes via the Mp3FileReaderBase + NLayer path (docket
+        // iyulab/lm-supply#169 — AudioFileReader itself no longer supports .mp3 on this
+        // project's cross-platform NAudio 3.0 build).
         var mp3Bytes = TestDataHelper.TryCreateToneMp3(44100, 2.0f, 440);
         if (mp3Bytes is null)
         {
-            // MP3 encoding requires Windows Media Foundation — skip if unavailable
+            // LAME encoding failed for some environment-specific reason — skip if unavailable
             return;
         }
 

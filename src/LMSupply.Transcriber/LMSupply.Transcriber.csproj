@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <PackageReference Include="NAudio" />
+    <PackageReference Include="NLayer.NAudioSupport" />
     <PackageReference Include="MathNet.Numerics" />
   </ItemGroup>
 

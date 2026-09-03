@@ -3,6 +3,7 @@ using System.Numerics;
 using MathNet.Numerics.IntegralTransforms;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
+using NLayer.NAudioSupport;
 
 namespace LMSupply.Transcriber.Audio;
 
@@ -58,7 +59,14 @@ internal static class AudioProcessor
 
     private static float[] LoadAudio(string audioPath)
     {
-        using var reader = new AudioFileReader(audioPath);
+        // NAudio 3.0's cross-platform build dropped its bundled MP3 decoder (docket
+        // iyulab/lm-supply#169) — AudioFileReader throws for .mp3 input on this project's plain
+        // net10.0 TFM. NLayer.NAudioSupport plugs a pure-managed MP3 decoder into NAudio's own
+        // Mp3FileReader, keeping this fully cross-platform (no Windows-only reader reintroduced,
+        // same reasoning as the WdlResamplingSampleProvider choice below).
+        using WaveStream reader = string.Equals(Path.GetExtension(audioPath), ".mp3", StringComparison.OrdinalIgnoreCase)
+            ? new Mp3FileReaderBase(audioPath, wf => new Mp3FrameDecompressor(wf))
+            : new AudioFileReader(audioPath);
         return ProcessAudioReader(reader);
     }
 
@@ -69,16 +77,18 @@ internal static class AudioProcessor
         return ProcessSampleProvider(waveProvider, reader.TotalTime);
     }
 
-    private static float[] ProcessAudioReader(AudioFileReader reader)
+    private static float[] ProcessAudioReader(WaveStream reader)
     {
-        ISampleProvider sampleProvider = reader.ToMono();
+        // AudioFileReader already implements ISampleProvider directly (with volume control);
+        // Mp3FileReader does not, so it needs the ToSampleProvider() wrap ToMono() requires.
+        ISampleProvider sampleProvider = (reader as ISampleProvider ?? reader.ToSampleProvider()).ToMono();
 
         // Resample if necessary. WdlResamplingSampleProvider (pure managed, cross-platform)
         // replaces MediaFoundationResampler here: the latter wraps a Windows Media Foundation COM
         // API and is unavailable on this project's cross-platform net10.0 TFM (NAudio 3.0 gates it
         // behind a Windows-specific surface) — chasing it into a Windows-conditional build would
         // reintroduce a platform dependency this library never actually needed.
-        if (reader.WaveFormat.SampleRate != WhisperSampleRate)
+        if (sampleProvider.WaveFormat.SampleRate != WhisperSampleRate)
         {
             sampleProvider = new WdlResamplingSampleProvider(sampleProvider, WhisperSampleRate);
         }

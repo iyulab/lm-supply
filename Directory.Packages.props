@@ -27,6 +27,10 @@
     <!-- Audio Dependencies -->
     <PackageVersion Include="NAudio" Version="3.0.1" />
     <PackageVersion Include="NAudio.Lame" Version="2.1.0" />
+    <!-- Pure-managed MP3 decoder for NAudio 3.0's cross-platform build, which no longer bundles
+         one (docket iyulab/lm-supply#169) — version-locked to NAudio.Core 3.0.1 per its own
+         release notes. -->
+    <PackageVersion Include="NLayer.NAudioSupport" Version="3.0.0" />
     <PackageVersion Include="MathNet.Numerics" Version="5.0.0" />
     <!-- ONNX Runtime GenAI for LLM Inference -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.13.2" />

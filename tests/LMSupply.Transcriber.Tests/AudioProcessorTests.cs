@@ -1,11 +1,13 @@
 using AwesomeAssertions;
 using LMSupply.Transcriber.Audio;
+using NAudio.Lame;
+using NAudio.Wave;
 
 namespace LMSupply.Transcriber.Tests;
 
 /// <summary>
-/// Tests for AudioProcessor static helper methods (pure math functions).
-/// LoadAudioAsync tests are excluded as they require NAudio file I/O.
+/// Tests for AudioProcessor static helper methods, mostly pure math functions plus one
+/// LoadAudioAsync file-decode regression test (see docket iyulab/lm-supply#169).
 /// </summary>
 public class AudioProcessorTests
 {
@@ -236,5 +238,60 @@ public class AudioProcessorTests
         // After normalization: (logMel + 4.0) / 4.0
         // Values should be finite and within a reasonable range
         result.Should().OnlyContain(x => float.IsFinite(x));
+    }
+
+    // --- LoadAudioAsync (docket iyulab/lm-supply#169) ---
+
+    [Fact]
+    public async Task LoadAudioAsync_RealMp3File_DecodesViaNLayer()
+    {
+        // Regression test for docket iyulab/lm-supply#169: NAudio 3.0's cross-platform net10.0
+        // asset dropped its bundled MP3 decoder entirely, so AudioFileReader threw "MP3 is not
+        // supported by the cross-platform build of NAudio" for any .mp3 input. Encodes a real
+        // MP3 via the LAME encoder (not a WAV renamed to .mp3) so this exercises the actual
+        // Mp3FileReaderBase + NLayer decode path added to fix it.
+        const int sourceSampleRate = 44100;
+        const double durationSeconds = 1.0;
+        var mp3Path = Path.Combine(Path.GetTempPath(), $"lmsupply_mp3_test_{Guid.NewGuid()}.mp3");
+
+        try
+        {
+            WriteToneMp3(mp3Path, sourceSampleRate, durationSeconds, frequency: 440);
+
+            var samples = await AudioProcessor.LoadAudioAsync(mp3Path, TestContext.Current.CancellationToken);
+
+            // Resampled to Whisper's 16kHz; tolerant range accounts for LAME encoder priming
+            // and decoder frame alignment rather than asserting an exact sample count.
+            var expectedSamples = (int)(durationSeconds * WhisperSampleRate);
+            samples.Should().NotBeEmpty();
+            samples.Length.Should().BeInRange((int)(expectedSamples * 0.9), (int)(expectedSamples * 1.3));
+            samples.Should().Contain(s => s != 0f, "a decoded 440Hz tone should not be silent");
+        }
+        finally
+        {
+            if (File.Exists(mp3Path))
+            {
+                File.Delete(mp3Path);
+            }
+        }
+    }
+
+    private static void WriteToneMp3(string path, int sampleRate, double durationSeconds, double frequency)
+    {
+        var waveFormat = new WaveFormat(sampleRate, 16, 1);
+        var numSamples = (int)(sampleRate * durationSeconds);
+        var pcm = new byte[numSamples * 2];
+        for (var i = 0; i < numSamples; i++)
+        {
+            var sample = (short)(0.25 * short.MaxValue * Math.Sin(2 * Math.PI * frequency * i / sampleRate));
+            pcm[i * 2] = (byte)(sample & 0xFF);
+            pcm[i * 2 + 1] = (byte)((sample >> 8) & 0xFF);
+        }
+
+        using var pcmStream = new MemoryStream(pcm);
+        using var rawReader = new RawSourceWaveStream(pcmStream, waveFormat);
+        using var fileStream = File.Create(path);
+        using var mp3Writer = new LameMP3FileWriter(fileStream, waveFormat, LAMEPreset.STANDARD);
+        rawReader.CopyTo(mp3Writer);
     }
 }
