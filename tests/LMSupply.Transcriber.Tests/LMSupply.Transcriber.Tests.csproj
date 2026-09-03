@@ -14,13 +14,18 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
     <PackageReference Include="AwesomeAssertions" />
-    <!-- Test-only: encodes a real MP3 fixture in-memory for the docket #169 regression test
-         below, instead of checking in a binary asset or renaming a WAV. -->
-    <PackageReference Include="NAudio.Lame" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\LMSupply.Transcriber\LMSupply.Transcriber.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Real MP3 fixture for the docket #169 regression test (LoadAudioAsync_RealMp3File_DecodesViaNLayer)
+         — checked in rather than encoded at test time, so the test doesn't depend on the LAME
+         encoder's Windows-only native library (libmp3lame.64.dll) and actually runs on the
+         cross-platform CI runners the underlying NLayer decode fix targets. -->
+    <None Include="Fixtures\*.mp3" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
