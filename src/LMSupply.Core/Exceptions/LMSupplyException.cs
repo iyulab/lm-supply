@@ -200,6 +200,35 @@ public class ContextLengthExceededException : InferenceException
 }
 
 /// <summary>
+/// Exception thrown when inference does not complete within the allotted time. A cold DirectML (or
+/// other GPU provider) kernel initialization is the most common cause -- ONNX Runtime's
+/// <c>RunOptions.Terminate</c> is only checked between operators, so it cannot preempt a hang
+/// inside a single kernel, and the underlying native call keeps running on its own thread even
+/// after this exception reaches the caller.
+/// </summary>
+public class InferenceTimeoutException : InferenceException
+{
+    /// <summary>
+    /// Gets the timeout that was exceeded.
+    /// </summary>
+    public TimeSpan Timeout { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="InferenceTimeoutException"/> class.
+    /// </summary>
+    /// <param name="timeout">The timeout that was exceeded.</param>
+    public InferenceTimeoutException(TimeSpan timeout)
+        : base(
+            $"Inference did not complete within {timeout.TotalSeconds:F0}s. This is often caused by " +
+            "a cold GPU execution provider (e.g. DirectML) kernel initialization hang, which cannot " +
+            "be cancelled cooperatively -- try ExecutionProvider.Cpu, or retry (a warmed-up GPU " +
+            "session usually does not reproduce the hang).")
+    {
+        Timeout = timeout;
+    }
+}
+
+/// <summary>
 /// Exception thrown when an inference backend (e.g. llama-server) returns a non-success HTTP
 /// response that no more specific exception type recognizes. Carries the raw status code and
 /// response body so callers can see what the backend itself reported instead of a generic

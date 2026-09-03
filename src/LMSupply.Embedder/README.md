@@ -40,13 +40,36 @@ Batch and Matryoshka-truncated (`dimensions:`) overloads exist for both, mirrori
 
 ## Available Models
 
-| Alias | Model | Dimensions | Description |
-|-------|-------|------------|-------------|
-| `default` | BGE-Small-EN-v1.5 | 384 | Best balance of speed and quality |
-| `fast` | all-MiniLM-L6-v2 | 384 | Ultra-lightweight, fastest |
-| `quality` | BGE-Base-EN-v1.5 | 768 | Higher accuracy |
-| `large` | Nomic-Embed-v1.5 | 768 | 8K context, top performer |
-| `multilingual` | E5-Base | 768 | 100+ languages |
+Four standard aliases (`LocalEmbedder.LoadAsync("default")`, etc.) plus a longer list of models
+loadable by their explicit short name (`LocalEmbedder.LoadAsync("multilingual-e5-base")`).
+
+### Aliases
+
+| Alias | Model | Dimensions | Prefix | Description |
+|-------|-------|------------|--------|-------------|
+| `default` | BAAI/bge-m3 | 1024 | — | 568M params, 100+ languages, 8K context, SOTA multilingual |
+| `fast` | intfloat/multilingual-e5-small | 384 | query/passage | 118M params, 100+ languages, lightweight |
+| `quality` | BAAI/bge-m3 | 1024 | — | Same model as `default`; exposed separately for pipelines that explicitly request the quality tier |
+| `large` | intfloat/multilingual-e5-large | 1024 | query/passage | 560M params, 100+ languages, highest dense quality (512-token context limit — use `default` for long documents) |
+
+### Explicit models (by short name)
+
+| Model | Dimensions | Prefix | Description |
+|-------|------------|--------|-------------|
+| `nomic-embed-text-v1.5` | 768 (Matryoshka 64–768) | search_query/search_document | 137M params, English-first, 8K context |
+| `all-mpnet-base-v2` | 768 | — | 110M params, legacy quality model, English |
+| `bge-base-en-v1.5` | 768 | — | 110M params, excellent quality, English |
+| `bge-large-en-v1.5` | 1024 | — | 335M params, highest accuracy BGE, English |
+| `e5-small-v2` | 384 | query/passage | 33M params, English |
+| `e5-base-v2` | 768 | query/passage | 110M params, excellent retrieval, English |
+| `multilingual-e5-small` | 384 | query/passage | 118M params, 100+ languages, compact |
+| `multilingual-e5-base` | 768 | query/passage | 278M params, 100+ languages, quality |
+| `multilingual-e5-large` | 1024 | query/passage | 560M params, 100+ languages, highest quality |
+| `gte-large-en-v1.5` | 1024 | — | 434M params, 8K context, highest accuracy GTE |
+
+"Prefix" marks models fine-tuned with the query/passage convention (see
+[Query/Passage Embeddings](#querypassage-embeddings) above) — `—` means the model needs no prefix
+and `EmbedQueryAsync`/`EmbedPassageAsync` behave as a plain passthrough for it.
 
 ## GPU Acceleration
 
