@@ -1,5 +1,6 @@
 using LMSupply.Core;
 using LMSupply.ImageGenerator.Tokenizers;
+using LMSupply.Inference;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
@@ -104,7 +105,10 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
             NamedOnnxValue.CreateFromTensor(_inputName, inputTensor)
         };
 
-        var result = await Task.Run(() =>
+        // CancellableInference guarantees control returns to the caller if the token is
+        // cancelled, or after a bounded default timeout, even when the native ONNX call (e.g. a
+        // cold DirectML kernel init) ignores cancellation and blocks indefinitely.
+        var result = await CancellableInference.RunAsync(() =>
         {
             _sessionLock.Wait(cancellationToken);
             try
@@ -166,7 +170,10 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
             NamedOnnxValue.CreateFromTensor(_inputName, inputTensor)
         };
 
-        var result = await Task.Run(() =>
+        // CancellableInference guarantees control returns to the caller if the token is
+        // cancelled, or after a bounded default timeout, even when the native ONNX call (e.g. a
+        // cold DirectML kernel init) ignores cancellation and blocks indefinitely.
+        var result = await CancellableInference.RunAsync(() =>
         {
             _sessionLock.Wait(cancellationToken);
             try

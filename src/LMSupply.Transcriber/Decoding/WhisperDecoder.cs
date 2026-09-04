@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
+using LMSupply.Inference;
 using LMSupply.Transcriber.Internal;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
@@ -123,7 +124,10 @@ internal sealed class WhisperDecoder
         TranscribeOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        return await Task.Run(() =>
+        // CancellableInference guarantees control returns to the caller if the token is
+        // cancelled, or after a bounded default timeout, even when a single decoder step (e.g. a
+        // cold DirectML kernel init) ignores cancellation and blocks indefinitely.
+        return await CancellableInference.RunAsync(() =>
         {
             // Initialize tokens with SOT sequence
             var useTimestamps = options?.WordTimestamps ?? false;

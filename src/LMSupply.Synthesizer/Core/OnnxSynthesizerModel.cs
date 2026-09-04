@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using LMSupply.Inference;
 using LMSupply.Synthesizer.Models;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
@@ -148,35 +149,42 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
         await _lock.WaitAsync(cancellationToken);
         try
         {
-            // Convert text to phoneme IDs
-            var phonemeIds = TextToPhonemeIds(text);
-
-            // Prepare inputs
-            var inputIds = new DenseTensor<long>(phonemeIds, new[] { 1, phonemeIds.Length });
-            var inputLengths = new DenseTensor<long>(new long[] { phonemeIds.Length }, new[] { 1 });
-            var scales = new DenseTensor<float>(
-                new[] { options?.NoiseScale ?? 0.667f, options?.Speed ?? 1.0f, options?.NoiseWidth ?? 0.8f },
-                new[] { 3 });
-
-            var inputs = new List<NamedOnnxValue>
+            // CancellableInference guarantees control returns to the caller if the token is
+            // cancelled, or after a bounded default timeout, even when the native ONNX call
+            // (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
+            // Previously this ran inline on the calling thread with no bound at all.
+            return await CancellableInference.RunAsync(() =>
             {
-                NamedOnnxValue.CreateFromTensor("input", inputIds),
-                NamedOnnxValue.CreateFromTensor("input_lengths", inputLengths),
-                NamedOnnxValue.CreateFromTensor("scales", scales)
-            };
+                // Convert text to phoneme IDs
+                var phonemeIds = TextToPhonemeIds(text);
 
-            // Add speaker ID for multi-speaker models
-            if (_modelInfo?.NumSpeakers > 1)
-            {
-                var speakerId = new DenseTensor<long>(new long[] { options?.SpeakerId ?? 0 }, new[] { 1 });
-                inputs.Add(NamedOnnxValue.CreateFromTensor("sid", speakerId));
-            }
+                // Prepare inputs
+                var inputIds = new DenseTensor<long>(phonemeIds, new[] { 1, phonemeIds.Length });
+                var inputLengths = new DenseTensor<long>(new long[] { phonemeIds.Length }, new[] { 1 });
+                var scales = new DenseTensor<float>(
+                    new[] { options?.NoiseScale ?? 0.667f, options?.Speed ?? 1.0f, options?.NoiseWidth ?? 0.8f },
+                    new[] { 3 });
 
-            // Run inference
-            using var results = _session!.Run(inputs);
-            var output = results[0].AsTensor<float>();
+                var inputs = new List<NamedOnnxValue>
+                {
+                    NamedOnnxValue.CreateFromTensor("input", inputIds),
+                    NamedOnnxValue.CreateFromTensor("input_lengths", inputLengths),
+                    NamedOnnxValue.CreateFromTensor("scales", scales)
+                };
 
-            return output.ToArray();
+                // Add speaker ID for multi-speaker models
+                if (_modelInfo?.NumSpeakers > 1)
+                {
+                    var speakerId = new DenseTensor<long>(new long[] { options?.SpeakerId ?? 0 }, new[] { 1 });
+                    inputs.Add(NamedOnnxValue.CreateFromTensor("sid", speakerId));
+                }
+
+                // Run inference
+                using var results = _session!.Run(inputs);
+                var output = results[0].AsTensor<float>();
+
+                return output.ToArray();
+            }, cancellationToken);
         }
         finally
         {

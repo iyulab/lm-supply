@@ -298,7 +298,10 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
 
     private Task<float[]> RunEncoderAsync(float[] melSpec, int numMelBins, CancellationToken cancellationToken)
     {
-        return Task.Run(() =>
+        // CancellableInference guarantees control returns to the caller if the token is
+        // cancelled, or after a bounded default timeout, even when the native ONNX call (e.g. a
+        // cold DirectML kernel init) ignores cancellation and blocks indefinitely.
+        return CancellableInference.RunAsync(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
 

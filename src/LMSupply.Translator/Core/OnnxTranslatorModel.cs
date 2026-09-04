@@ -157,33 +157,40 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
         await _sessionLock.WaitAsync(cancellationToken);
         try
         {
-            var seqLen = inputIds.Length;
-
-            // Create input tensors
-            var inputIdsTensor = new DenseTensor<long>(inputIds, [1, seqLen]);
-            var attentionMaskTensor = new DenseTensor<long>(attentionMask, [1, seqLen]);
-
-            var inputs = new List<NamedOnnxValue>
+            // CancellableInference guarantees control returns to the caller if the token is
+            // cancelled, or after a bounded default timeout, even when the native ONNX call
+            // (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
+            // Previously this ran inline on the calling thread with no bound at all.
+            return await CancellableInference.RunAsync(() =>
             {
-                NamedOnnxValue.CreateFromTensor("input_ids", inputIdsTensor),
-                NamedOnnxValue.CreateFromTensor("attention_mask", attentionMaskTensor)
-            };
+                var seqLen = inputIds.Length;
 
-            using var outputs = _encoderSession!.Run(inputs);
-            var lastHiddenState = outputs[0].AsTensor<float>();
+                // Create input tensors
+                var inputIdsTensor = new DenseTensor<long>(inputIds, [1, seqLen]);
+                var attentionMaskTensor = new DenseTensor<long>(attentionMask, [1, seqLen]);
 
-            // Clone the tensor since we're disposing the outputs
-            var dims = lastHiddenState.Dimensions.ToArray();
-            var result = new DenseTensor<float>(dims);
+                var inputs = new List<NamedOnnxValue>
+                {
+                    NamedOnnxValue.CreateFromTensor("input_ids", inputIdsTensor),
+                    NamedOnnxValue.CreateFromTensor("attention_mask", attentionMaskTensor)
+                };
 
-            // Copy data element by element
-            var totalElements = dims.Aggregate(1, (a, b) => a * b);
-            for (int i = 0; i < totalElements; i++)
-            {
-                result.SetValue(i, lastHiddenState.GetValue(i));
-            }
+                using var outputs = _encoderSession!.Run(inputs);
+                var lastHiddenState = outputs[0].AsTensor<float>();
 
-            return result;
+                // Clone the tensor since we're disposing the outputs
+                var dims = lastHiddenState.Dimensions.ToArray();
+                var result = new DenseTensor<float>(dims);
+
+                // Copy data element by element
+                var totalElements = dims.Aggregate(1, (a, b) => a * b);
+                for (int i = 0; i < totalElements; i++)
+                {
+                    result.SetValue(i, lastHiddenState.GetValue(i));
+                }
+
+                return result;
+            }, cancellationToken);
         }
         finally
         {
@@ -204,56 +211,65 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
         await _sessionLock.WaitAsync(cancellationToken);
         try
         {
-            for (int step = 0; step < maxLength; step++)
+            // CancellableInference guarantees control returns to the caller if the token is
+            // cancelled, or after a bounded default timeout, even when a single decoder step
+            // (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
+            // Previously this loop ran inline on the calling thread with no bound at all.
+            await CancellableInference.RunAsync(() =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var decoderInputIds = new DenseTensor<long>(outputIds.ToArray(), [1, outputIds.Count]);
-                var encoderAttention = new DenseTensor<long>(encoderAttentionMask, [1, encoderAttentionMask.Length]);
-
-                var inputs = new List<NamedOnnxValue>
+                for (int step = 0; step < maxLength; step++)
                 {
-                    NamedOnnxValue.CreateFromTensor("input_ids", decoderInputIds),
-                    NamedOnnxValue.CreateFromTensor("encoder_attention_mask", encoderAttention),
-                    NamedOnnxValue.CreateFromTensor("encoder_hidden_states", encoderOutput)
-                };
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                // Add use_cache_branch input if the model requires it (merged decoder models)
-                // Set to false since we're not using KV-caching
-                var inputNames = _decoderSession!.InputMetadata.Keys;
-                if (inputNames.Contains("use_cache_branch"))
-                {
-                    var useCacheBranch = new DenseTensor<bool>(s_falseArray, s_oneDimension);
-                    inputs.Add(NamedOnnxValue.CreateFromTensor("use_cache_branch", useCacheBranch));
-                }
+                    var decoderInputIds = new DenseTensor<long>(outputIds.ToArray(), [1, outputIds.Count]);
+                    var encoderAttention = new DenseTensor<long>(encoderAttentionMask, [1, encoderAttentionMask.Length]);
 
-                using var outputs = _decoderSession.Run(inputs);
-                var logits = outputs[0].AsTensor<float>();
-
-                // Get the last token's logits
-                var lastPosition = outputIds.Count - 1;
-                var vocabSize = (int)logits.Dimensions[2];
-
-                // Greedy decoding: select token with highest probability
-                float maxLogit = float.MinValue;
-                long bestToken = eosTokenId;
-
-                for (int v = 0; v < vocabSize; v++)
-                {
-                    var logit = logits[0, lastPosition, v];
-                    if (logit > maxLogit)
+                    var inputs = new List<NamedOnnxValue>
                     {
-                        maxLogit = logit;
-                        bestToken = v;
+                        NamedOnnxValue.CreateFromTensor("input_ids", decoderInputIds),
+                        NamedOnnxValue.CreateFromTensor("encoder_attention_mask", encoderAttention),
+                        NamedOnnxValue.CreateFromTensor("encoder_hidden_states", encoderOutput)
+                    };
+
+                    // Add use_cache_branch input if the model requires it (merged decoder models)
+                    // Set to false since we're not using KV-caching
+                    var inputNames = _decoderSession!.InputMetadata.Keys;
+                    if (inputNames.Contains("use_cache_branch"))
+                    {
+                        var useCacheBranch = new DenseTensor<bool>(s_falseArray, s_oneDimension);
+                        inputs.Add(NamedOnnxValue.CreateFromTensor("use_cache_branch", useCacheBranch));
                     }
+
+                    using var outputs = _decoderSession.Run(inputs);
+                    var logits = outputs[0].AsTensor<float>();
+
+                    // Get the last token's logits
+                    var lastPosition = outputIds.Count - 1;
+                    var vocabSize = (int)logits.Dimensions[2];
+
+                    // Greedy decoding: select token with highest probability
+                    float maxLogit = float.MinValue;
+                    long bestToken = eosTokenId;
+
+                    for (int v = 0; v < vocabSize; v++)
+                    {
+                        var logit = logits[0, lastPosition, v];
+                        if (logit > maxLogit)
+                        {
+                            maxLogit = logit;
+                            bestToken = v;
+                        }
+                    }
+
+                    outputIds.Add(bestToken);
+
+                    // Stop if EOS token generated
+                    if (bestToken == eosTokenId)
+                        break;
                 }
 
-                outputIds.Add(bestToken);
-
-                // Stop if EOS token generated
-                if (bestToken == eosTokenId)
-                    break;
-            }
+                return true;
+            }, cancellationToken);
         }
         finally
         {

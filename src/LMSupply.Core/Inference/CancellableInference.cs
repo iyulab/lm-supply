@@ -1,6 +1,6 @@
 using LMSupply.Exceptions;
 
-namespace LMSupply.Embedder.Inference;
+namespace LMSupply.Inference;
 
 /// <summary>
 /// Runs synchronous, potentially non-cancellable native inference work on the thread pool while
@@ -13,7 +13,7 @@ namespace LMSupply.Embedder.Inference;
 /// resulting task in <c>WaitAsync(token)</c> re-projects the same token onto the await, so the
 /// caller is unblocked the moment cancellation is requested — even when the underlying thread
 /// remains blocked in native code. Best-effort native termination (freeing that thread) is handled
-/// separately via ONNX <c>RunOptions.Terminate</c>.
+/// separately via ONNX <c>RunOptions.Terminate</c>, where a caller wires it up.
 ///
 /// A caller that passes <see cref="CancellationToken.None"/> (or any token that is never
 /// cancelled) previously had no bound at all: a cold DirectML kernel-init hang would block
@@ -21,8 +21,13 @@ namespace LMSupply.Embedder.Inference;
 /// closes that gap by always applying a bound, derived from the caller's own token when it can
 /// time out and falling back to the default otherwise (see docket iyulab/lm-supply, the "DirectML
 /// 콜드 커널 행이 임베딩 경로에서 무기한" issue, 2026-09-03).
+///
+/// Originally introduced in <c>LMSupply.Embedder</c> and promoted here so every ONNX-backed
+/// module (Transcriber, Translator, Synthesizer, Segmenter, Ocr, Reranker, ImageGenerator,
+/// Detector, Captioner) can share the same bound instead of re-deriving it per module (see docket
+/// iyulab/lm-supply, "콜드 GPU 커널 행 방어가 Embedder 하나에만 있음", 2026-09-03).
 /// </remarks>
-internal static class CancellableInference
+public static class CancellableInference
 {
     /// <summary>
     /// Upper bound applied when the caller's own <see cref="CancellationToken"/> cannot time out

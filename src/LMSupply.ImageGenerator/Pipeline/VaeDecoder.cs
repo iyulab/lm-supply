@@ -1,3 +1,4 @@
+using LMSupply.Inference;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using SixLabors.ImageSharp;
@@ -71,7 +72,10 @@ internal sealed class VaeDecoder : IAsyncDisposable
             NamedOnnxValue.CreateFromTensor(_inputName, scaledLatents)
         };
 
-        var imageBytes = await Task.Run(() =>
+        // CancellableInference guarantees control returns to the caller if the token is
+        // cancelled, or after a bounded default timeout, even when the native ONNX call (e.g. a
+        // cold DirectML kernel init) ignores cancellation and blocks indefinitely.
+        var imageBytes = await CancellableInference.RunAsync(() =>
         {
             _sessionLock.Wait(cancellationToken);
             try

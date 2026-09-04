@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using AwesomeAssertions;
-using LMSupply.Embedder.Inference;
 using LMSupply.Exceptions;
+using LMSupply.Inference;
 
-namespace LMSupply.Embedder.Tests;
+namespace LMSupply.Core.Tests;
 
 /// <summary>
 /// Tests for <see cref="CancellableInference"/> control-return guarantee.
@@ -14,6 +14,10 @@ namespace LMSupply.Embedder.Tests;
 /// ISSUE: claudedocs/lm-supply/issues/ISSUE-lm-supply-20260903-122754-directml-embed-hang-no-default-timeout.md
 /// AC#3: a caller that supplies no cancellable token (CancellationToken.None) must still fail
 /// within a bounded default timeout rather than hang forever.
+///
+/// Originally lived in LMSupply.Embedder.Tests; moved here when the primitive itself moved to
+/// LMSupply.Core so every ONNX-backed module shares one bound instead of re-deriving it (see
+/// docket iyulab/lm-supply, "콜드 GPU 커널 행 방어가 Embedder 하나에만 있음", 2026-09-03).
 /// </summary>
 public class CancellableInferenceTests
 {

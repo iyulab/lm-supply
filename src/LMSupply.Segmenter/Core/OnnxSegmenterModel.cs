@@ -181,13 +181,20 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
         await _sessionLock.WaitAsync(cancellationToken);
         try
         {
-            var inputName = _session!.InputNames[0];
-            var inputs = new List<NamedOnnxValue>
+            // CancellableInference guarantees control returns to the caller if the token is
+            // cancelled, or after a bounded default timeout, even when the native ONNX call
+            // (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
+            // Previously this ran inline on the calling thread with no bound at all.
+            return await CancellableInference.RunAsync(() =>
             {
-                NamedOnnxValue.CreateFromTensor(inputName, inputTensor)
-            };
+                var inputName = _session!.InputNames[0];
+                var inputs = new List<NamedOnnxValue>
+                {
+                    NamedOnnxValue.CreateFromTensor(inputName, inputTensor)
+                };
 
-            return _session.Run(inputs);
+                return _session.Run(inputs);
+            }, cancellationToken);
         }
         finally
         {

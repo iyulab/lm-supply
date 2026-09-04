@@ -1,3 +1,4 @@
+using LMSupply.Inference;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
@@ -68,73 +69,82 @@ internal sealed class BeamSearchDecoder
 
         var finishedBeams = new List<BeamHypothesis>();
 
-        for (int step = 0; step < _maxLength && beams.Count > 0; step++)
+        // CancellableInference guarantees control returns to the caller if the token is
+        // cancelled, or after a bounded default timeout, even when a single decoder step (e.g.
+        // a cold DirectML kernel init) ignores cancellation and blocks indefinitely. Previously
+        // this loop ran inline on the calling thread with no bound at all.
+        await CancellableInference.RunAsync(() =>
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var allCandidates = new List<BeamHypothesis>();
-
-            foreach (var beam in beams)
+            for (int step = 0; step < _maxLength && beams.Count > 0; step++)
             {
-                if (beam.IsFinished)
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var allCandidates = new List<BeamHypothesis>();
+
+                foreach (var beam in beams)
                 {
-                    finishedBeams.Add(beam);
-                    continue;
+                    if (beam.IsFinished)
+                    {
+                        finishedBeams.Add(beam);
+                        continue;
+                    }
+
+                    // Run decoder for this beam
+                    var logits = RunDecoderStep(
+                        beam.TokenIds,
+                        encoderOutput,
+                        encoderAttentionMask,
+                        decoderSession);
+
+                    // Apply repetition penalty
+                    ApplyRepetitionPenalty(logits, beam.TokenIds);
+
+                    // Get top-k candidates for this beam
+                    var topK = GetTopK(logits, _beamSize * 2);
+
+                    foreach (var (tokenId, logProb) in topK)
+                    {
+                        var newTokenIds = new List<long>(beam.TokenIds) { tokenId };
+                        var newScore = beam.Score + logProb;
+
+                        var isFinished = tokenId == _eosTokenId;
+                        if (isFinished)
+                        {
+                            // Apply length penalty for finished sequences
+                            var normalizedScore = ApplyLengthPenalty(newScore, newTokenIds.Count);
+                            finishedBeams.Add(new BeamHypothesis(newTokenIds, normalizedScore, isFinished: true));
+                        }
+                        else
+                        {
+                            allCandidates.Add(new BeamHypothesis(newTokenIds, newScore, isFinished: false));
+                        }
+                    }
                 }
 
-                // Run decoder for this beam
-                var logits = RunDecoderStep(
-                    beam.TokenIds,
-                    encoderOutput,
-                    encoderAttentionMask,
-                    decoderSession);
-
-                // Apply repetition penalty
-                ApplyRepetitionPenalty(logits, beam.TokenIds);
-
-                // Get top-k candidates for this beam
-                var topK = GetTopK(logits, _beamSize * 2);
-
-                foreach (var (tokenId, logProb) in topK)
-                {
-                    var newTokenIds = new List<long>(beam.TokenIds) { tokenId };
-                    var newScore = beam.Score + logProb;
-
-                    var isFinished = tokenId == _eosTokenId;
-                    if (isFinished)
-                    {
-                        // Apply length penalty for finished sequences
-                        var normalizedScore = ApplyLengthPenalty(newScore, newTokenIds.Count);
-                        finishedBeams.Add(new BeamHypothesis(newTokenIds, normalizedScore, isFinished: true));
-                    }
-                    else
-                    {
-                        allCandidates.Add(new BeamHypothesis(newTokenIds, newScore, isFinished: false));
-                    }
-                }
-            }
-
-            // Select top beams for next step
-            beams = allCandidates
-                .OrderByDescending(b => b.Score)
-                .Take(_beamSize)
-                .ToList();
-
-            // Early stopping if we have enough finished beams
-            if (finishedBeams.Count >= _beamSize)
-            {
-                var minFinishedScore = finishedBeams
+                // Select top beams for next step
+                beams = allCandidates
                     .OrderByDescending(b => b.Score)
                     .Take(_beamSize)
-                    .Min(b => b.Score);
+                    .ToList();
 
-                // If best active beam can't beat worst finished beam, stop
-                if (beams.Count == 0 || beams[0].Score < minFinishedScore)
+                // Early stopping if we have enough finished beams
+                if (finishedBeams.Count >= _beamSize)
                 {
-                    break;
+                    var minFinishedScore = finishedBeams
+                        .OrderByDescending(b => b.Score)
+                        .Take(_beamSize)
+                        .Min(b => b.Score);
+
+                    // If best active beam can't beat worst finished beam, stop
+                    if (beams.Count == 0 || beams[0].Score < minFinishedScore)
+                    {
+                        break;
+                    }
                 }
             }
-        }
+
+            return true;
+        }, cancellationToken);
 
         // Add any remaining unfinished beams to finished (with EOS appended)
         foreach (var beam in beams)

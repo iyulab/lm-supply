@@ -167,11 +167,14 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
 
     private async Task<CaptionResult> GenerateCaptionAsync(float[] imageData, CancellationToken cancellationToken)
     {
-        // Run encoder to get image embeddings
-        var imageEmbeddings = await Task.Run(() => RunEncoder(imageData), cancellationToken).ConfigureAwait(false);
+        // Run encoder to get image embeddings. CancellableInference guarantees control returns
+        // to the caller if the token is cancelled, or after a bounded default timeout, even
+        // when the native ONNX call (e.g. a cold DirectML kernel init) ignores cancellation and
+        // blocks indefinitely.
+        var imageEmbeddings = await CancellableInference.RunAsync(() => RunEncoder(imageData), cancellationToken).ConfigureAwait(false);
 
         // Run decoder to generate caption tokens
-        var (tokenIds, confidence) = await Task.Run(
+        var (tokenIds, confidence) = await CancellableInference.RunAsync(
             () => GenerateTokens(imageEmbeddings, cancellationToken), cancellationToken).ConfigureAwait(false);
 
         // Decode tokens to text, skipping special tokens

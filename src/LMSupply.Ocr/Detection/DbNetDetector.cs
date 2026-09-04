@@ -106,8 +106,10 @@ internal sealed class DbNetDetector : IDisposable
         // Convert to tensor
         var inputTensor = PreprocessImage(resizedImage);
 
-        // Run inference
-        var results = await Task.Run(() =>
+        // Run inference. CancellableInference guarantees control returns to the caller if the
+        // token is cancelled, or after a bounded default timeout, even when the native ONNX
+        // call (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
+        var results = await CancellableInference.RunAsync(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var inputs = new List<NamedOnnxValue>

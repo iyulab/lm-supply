@@ -127,8 +127,10 @@ internal sealed class CrnnRecognizer : IDisposable
         // Convert to tensor
         var inputTensor = PreprocessImage(resized);
 
-        // Run inference
-        var logits = await Task.Run(() =>
+        // Run inference. CancellableInference guarantees control returns to the caller if the
+        // token is cancelled, or after a bounded default timeout, even when the native ONNX
+        // call (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
+        var logits = await CancellableInference.RunAsync(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var inputs = new List<NamedOnnxValue>

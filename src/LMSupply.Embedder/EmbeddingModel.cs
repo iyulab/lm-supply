@@ -2,6 +2,7 @@ using System.Buffers;
 using LMSupply.Embedder.Inference;
 using LMSupply.Embedder.Pooling;
 using LMSupply.Embedder.Utils;
+using LMSupply.Inference;
 using LMSupply.Text;
 
 namespace LMSupply.Embedder;
