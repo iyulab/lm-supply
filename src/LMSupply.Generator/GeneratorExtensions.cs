@@ -73,19 +73,6 @@ public static class GeneratorExtensions
             new TokenUsage(promptTokens, completionTokens));
     }
 
-    /// <summary>
-    /// Counts tokens in a text using heuristic estimation (~4 chars per token).
-    /// </summary>
-    /// <param name="generator">The generator model.</param>
-    /// <param name="text">The text to count tokens for.</param>
-    /// <returns>Estimated token count.</returns>
-    [Obsolete("Use IGeneratorModel.CountTokensAsync() for exact token counting. This method uses heuristic estimation only.")]
-    public static int CountTokens(this ITextGenerator generator, string text)
-    {
-        // Currently using estimation; could be enhanced with actual tokenizer access
-        return TokenUsage.EstimateTokens(text);
-    }
-
     private static string FormatMessagesForEstimation(IEnumerable<ChatMessage> messages)
     {
         var sb = new StringBuilder();
