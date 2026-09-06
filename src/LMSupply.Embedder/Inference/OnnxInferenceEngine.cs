@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using LMSupply.Download;
+using LMSupply.Exceptions;
 using LMSupply.Inference;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
@@ -11,28 +12,51 @@ namespace LMSupply.Embedder.Inference;
 /// </summary>
 internal sealed class OnnxInferenceEngine : IDisposable
 {
-    private InferenceSession _session;
+    /// <summary>
+    /// An inference session paired with the gate that serializes access to it. The pair is
+    /// immutable and swapped atomically on provider fallback, so a caller that acquired the gate
+    /// of a handle that has since been replaced can detect it (reference mismatch) and re-dispatch
+    /// onto the current one instead of running on a stale session.
+    /// </summary>
+    private sealed class SessionHandle
+    {
+        public SessionHandle(InferenceSession session, IReadOnlyList<string> activeProviders, bool isGpuActive)
+        {
+            Session = session;
+            ActiveProviders = activeProviders;
+            IsGpuActive = isGpuActive;
+        }
+
+        public InferenceSession Session { get; }
+        public SemaphoreSlim Gate { get; } = new(1, 1);
+        public IReadOnlyList<string> ActiveProviders { get; }
+        public bool IsGpuActive { get; }
+    }
+
+    private volatile SessionHandle _handle;
     private readonly bool _hasTokenTypeIds;
     private readonly string _outputName;
     private bool _isGpuProvider;
-    private bool _isGpuActive;
-    private IReadOnlyList<string> _activeProviders;
     private readonly ExecutionProvider _requestedProvider;
     private readonly string _modelPath;
     private readonly List<ExecutionProvider> _blacklistedProviders = new();
-    private readonly SemaphoreSlim _sessionLock = new(1, 1);
+
+    // Handles abandoned by TryRecoverAfterTimeout: their native run may still be blocked, so they
+    // are neither disposed nor reused; Dispose() releases them only once their gate is free.
+    private readonly List<SessionHandle> _abandonedHandles = new();
+    private readonly object _recoveryGate = new();
 
     public int HiddenSize { get; }
 
     /// <summary>
     /// Gets whether GPU acceleration is being used for inference.
     /// </summary>
-    public bool IsGpuActive => _isGpuActive;
+    public bool IsGpuActive => _handle.IsGpuActive;
 
     /// <summary>
     /// Gets the list of active execution providers.
     /// </summary>
-    public IReadOnlyList<string> ActiveProviders => _activeProviders;
+    public IReadOnlyList<string> ActiveProviders => _handle.ActiveProviders;
 
     /// <summary>
     /// Gets the execution provider that was requested.
@@ -50,13 +74,11 @@ internal sealed class OnnxInferenceEngine : IDisposable
         ExecutionProvider requestedProvider,
         string modelPath)
     {
-        _session = session;
+        _handle = new SessionHandle(session, activeProviders, isGpuActive);
         HiddenSize = hiddenSize;
         _hasTokenTypeIds = hasTokenTypeIds;
         _outputName = outputName;
         _isGpuProvider = isGpuProvider;
-        _isGpuActive = isGpuActive;
-        _activeProviders = activeProviders;
         _requestedProvider = requestedProvider;
         _modelPath = modelPath;
     }
@@ -201,10 +223,22 @@ internal sealed class OnnxInferenceEngine : IDisposable
             inputs.Add(NamedOnnxValue.CreateFromTensor("token_type_ids", tokenTypeIdsTensor));
         }
 
-        // Serialize access to InferenceSession (not thread-safe for concurrent Run calls).
-        // Honor cancellation while waiting for the lock; Wait throws before the try, so the
-        // finally/Release below is only reached when the lock was actually acquired.
-        _sessionLock.Wait(cancellationToken);
+        // Serialize access to the InferenceSession (not thread-safe for concurrent Run calls).
+        // The session and its gate travel together as one handle: if the handle was replaced by a
+        // timeout recovery while this thread was waiting on the old gate, re-dispatch onto the
+        // current handle rather than running on the abandoned session.
+        SessionHandle handle;
+        while (true)
+        {
+            handle = _handle;
+            // Honor cancellation while waiting for the lock; Wait throws before the try, so the
+            // finally/Release below is only reached when the lock was actually acquired.
+            handle.Gate.Wait(cancellationToken);
+            if (ReferenceEquals(handle, _handle))
+                break;
+            handle.Gate.Release();
+        }
+
         try
         {
             // Per-run options so a cancelled token asks the native run to terminate cooperatively.
@@ -217,7 +251,7 @@ internal sealed class OnnxInferenceEngine : IDisposable
                 : default;
             try
             {
-                using var results = _session.Run(inputs, [_outputName], runOptions);
+                using var results = handle.Session.Run(inputs, [_outputName], runOptions);
                 var output = results[0].AsTensor<float>();
 
                 // Output shape: [1, seqLength, hiddenSize]
@@ -251,37 +285,104 @@ internal sealed class OnnxInferenceEngine : IDisposable
         }
         finally
         {
-            _sessionLock.Release();
+            handle.Gate.Release();
         }
     }
 
     /// <summary>
     /// Attempts to recreate the inference session on the next provider in the fallback chain
-    /// after the current provider's session crashed at run time. Must be called while holding
-    /// <see cref="_sessionLock"/>. Returns true on success; false if no remaining provider can run.
+    /// after the current provider's session crashed at run time. Must be called by the thread
+    /// holding the current handle's gate (the run has returned, so the old session is safe to
+    /// dispose). Returns true on success; false if no remaining provider can run.
     /// </summary>
     private bool TryFallback(OnnxRuntimeException ex)
     {
-        // Identify the failing provider from the current active set.
-        var failedProvider = MapActiveToProvider(_activeProviders);
-        if (failedProvider is null)
+        lock (_recoveryGate)
         {
-            Trace.TraceWarning(
-                "[OnnxInferenceEngine] Inference failed but active provider could not be identified; not attempting fallback.");
-            return false;
-        }
+            var current = _handle;
+            var failedProvider = MapActiveToProvider(current.ActiveProviders);
+            if (failedProvider is null)
+            {
+                Trace.TraceWarning(
+                    "[OnnxInferenceEngine] Inference failed but active provider could not be identified; not attempting fallback.");
+                return false;
+            }
 
-        if (_blacklistedProviders.Contains(failedProvider.Value))
+            var replacement = TryCreateReplacementHandle(
+                failedProvider.Value,
+                $"Inference failed on {failedProvider} ({ex.GetType().Name})",
+                ex.Message);
+            if (replacement is null)
+                return false;
+
+            // The crashed run has returned, so the old session can be released right away.
+            current.Session.Dispose();
+            _handle = replacement;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to move inference to the next provider in the fallback chain after a run on the
+    /// current provider exceeded the caller-side timeout (see <see cref="CancellableInference"/>).
+    /// Unlike <see cref="TryFallback"/>, the timed-out native run may still be blocked and still
+    /// holds the old handle's gate, so the old session is abandoned rather than disposed and a
+    /// fresh session/gate pair is published for subsequent calls. Returns true when a replacement
+    /// provider is active and the caller should retry once; false when nothing can be done (CPU
+    /// was requested, CPU was already the active provider, the provider was already blacklisted,
+    /// or session recreation failed).
+    /// </summary>
+    public bool TryRecoverAfterTimeout(InferenceTimeoutException ex)
+    {
+        if (_requestedProvider == ExecutionProvider.Cpu)
+            return false;
+
+        lock (_recoveryGate)
+        {
+            var stale = _handle;
+            var failedProvider = MapActiveToProvider(stale.ActiveProviders);
+            if (failedProvider is null or ExecutionProvider.Cpu)
+            {
+                // Nothing below CPU to fall back to; surface the timeout as-is.
+                return false;
+            }
+
+            var replacement = TryCreateReplacementHandle(
+                failedProvider.Value,
+                $"Inference timed out on {failedProvider} after {ex.Timeout.TotalSeconds:F0}s (likely a cold GPU kernel initialization hang)",
+                ex.Message);
+            if (replacement is null)
+                return false;
+
+            // The timed-out run may still be inside native code holding the old gate: never
+            // dispose or reuse that session. Park it and let Dispose() reclaim it if it ever
+            // returns. Waiters on the old gate re-dispatch onto the new handle (see
+            // RunInferenceInternal).
+            _abandonedHandles.Add(stale);
+            _handle = replacement;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Shared fallback step: blacklists <paramref name="failedProvider"/>, then creates a session on
+    /// the next provider in the Auto chain. Returns null when the provider was already blacklisted,
+    /// when no different provider could be selected, or when session creation failed. Caller must
+    /// hold <see cref="_recoveryGate"/>.
+    /// </summary>
+    private SessionHandle? TryCreateReplacementHandle(ExecutionProvider failedProvider, string reason, string originalMessage)
+    {
+        if (_blacklistedProviders.Contains(failedProvider))
         {
             // Already tried recovery for this provider — give up.
-            return false;
+            return null;
         }
 
-        _blacklistedProviders.Add(failedProvider.Value);
+        _blacklistedProviders.Add(failedProvider);
 
         Trace.TraceWarning(
-            $"[OnnxInferenceEngine] Inference failed on {failedProvider} ({ex.GetType().Name}). " +
-            $"Attempting fallback to next provider. Original message: {Truncate(ex.Message, 200)}");
+            $"[OnnxInferenceEngine] {reason}. " +
+            $"Attempting fallback to next provider. Original message: {Truncate(originalMessage, 200)}");
 
         try
         {
@@ -299,25 +400,20 @@ internal sealed class OnnxInferenceEngine : IDisposable
                     $"[OnnxInferenceEngine] Fallback produced no usable alternative provider " +
                     $"(blacklist=[{string.Join(",", _blacklistedProviders)}]). Surfacing original exception.");
                 result.Session.Dispose();
-                return false;
+                return null;
             }
 
-            // Swap the session under the lock.
-            _session.Dispose();
-            _session = result.Session;
-            _activeProviders = result.ActiveProviders;
-            _isGpuActive = result.IsGpuActive;
             _isGpuProvider = IsGpuProvider(newProvider.Value);
 
             Trace.TraceWarning(
-                $"[OnnxInferenceEngine] Recovered: now running on {string.Join("+", _activeProviders)}.");
-            return true;
+                $"[OnnxInferenceEngine] Recovered: now running on {string.Join("+", result.ActiveProviders)}.");
+            return new SessionHandle(result.Session, result.ActiveProviders, result.IsGpuActive);
         }
         catch (Exception fallbackEx)
         {
             Trace.TraceError(
                 $"[OnnxInferenceEngine] Fallback session creation failed: {Truncate(fallbackEx.Message, 200)}");
-            return false;
+            return null;
         }
     }
 
@@ -342,44 +438,32 @@ internal sealed class OnnxInferenceEngine : IDisposable
     private static string Truncate(string s, int max) =>
         s.Length <= max ? s : s[..max] + "...";
 
-    /// <summary>
-    /// Runs batch inference for multiple sequences (sequential).
-    /// </summary>
-    public float[][] RunBatchInference(
-        long[][] inputIds, long[][] attentionMasks, CancellationToken cancellationToken = default)
-    {
-        int batchSize = inputIds.Length;
-        var results = new float[batchSize][];
-
-        for (int i = 0; i < batchSize; i++)
-        {
-            results[i] = RunInference(inputIds[i], attentionMasks[i], cancellationToken);
-        }
-
-        return results;
-    }
-
-    /// <summary>
-    /// Runs batch inference sequentially. InferenceSession is not thread-safe for concurrent
-    /// Run() calls, so all batch items are processed serially under the session lock.
-    /// </summary>
-    public float[][] RunBatchInferenceParallel(
-        long[][] inputIds, long[][] attentionMasks, CancellationToken cancellationToken = default)
-    {
-        int batchSize = inputIds.Length;
-        var results = new float[batchSize][];
-
-        for (int i = 0; i < batchSize; i++)
-        {
-            results[i] = RunInference(inputIds[i], attentionMasks[i], cancellationToken);
-        }
-
-        return results;
-    }
-
     public void Dispose()
     {
-        _session?.Dispose();
-        _sessionLock.Dispose();
+        var current = _handle;
+        current.Session?.Dispose();
+        current.Gate.Dispose();
+
+        lock (_recoveryGate)
+        {
+            foreach (var abandoned in _abandonedHandles)
+            {
+                // Only reclaim a session whose timed-out run has actually returned; a session still
+                // blocked in native code must be leaked rather than disposed under it.
+                if (abandoned.Gate.Wait(0))
+                {
+                    abandoned.Session?.Dispose();
+                    abandoned.Gate.Release();
+                    abandoned.Gate.Dispose();
+                }
+                else
+                {
+                    Trace.TraceWarning(
+                        $"[OnnxInferenceEngine] Leaking a session on {string.Join("+", abandoned.ActiveProviders)}: " +
+                        "its timed-out native run has not returned, so it cannot be disposed safely.");
+                }
+            }
+            _abandonedHandles.Clear();
+        }
     }
 }

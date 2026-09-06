@@ -2,6 +2,7 @@ using System.Buffers;
 using LMSupply.Embedder.Inference;
 using LMSupply.Embedder.Pooling;
 using LMSupply.Embedder.Utils;
+using LMSupply.Exceptions;
 using LMSupply.Inference;
 using LMSupply.Text;
 
@@ -56,6 +57,24 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         _modelPath = modelPath;
     }
 
+    /// <summary>
+    /// Runs <paramref name="work"/> under <see cref="CancellableInference"/>'s bound. If the bound
+    /// elapses while a GPU provider is active, the engine is moved to the next provider in its
+    /// fallback chain (same chain a run-time provider crash uses) and the work is retried exactly
+    /// once. A timeout on CPU, or a second timeout after recovery, surfaces unchanged.
+    /// </summary>
+    private async Task<T> RunWithTimeoutRecoveryAsync<T>(Func<T> work, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await CancellableInference.RunAsync(work, cancellationToken);
+        }
+        catch (InferenceTimeoutException ex) when (_engine.TryRecoverAfterTimeout(ex))
+        {
+            return await CancellableInference.RunAsync(work, cancellationToken);
+        }
+    }
+
     public async ValueTask<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -65,7 +84,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
 
         // Run inference. CancellableInference guarantees control returns to the caller if the
         // token is cancelled, even when the native ONNX call (e.g. cold DirectML init) ignores it.
-        var tokenEmbeddings = await CancellableInference.RunAsync(
+        var tokenEmbeddings = await RunWithTimeoutRecoveryAsync(
             () => _engine.RunInference(encoded.InputIds, encoded.AttentionMask, cancellationToken),
             cancellationToken);
 
@@ -103,11 +122,20 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         var allInputIds = encodedBatch.GetInputIdsJagged();
         var allAttentionMasks = encodedBatch.GetAttentionMasksJagged();
 
-        // Run batch inference with parallelization. CancellableInference guarantees control
-        // returns to the caller on cancellation even if the native ONNX call ignores the token.
-        var allTokenEmbeddings = await CancellableInference.RunAsync(
-            () => _engine.RunBatchInferenceParallel(allInputIds, allAttentionMasks, cancellationToken),
-            cancellationToken);
+        // Run inference one item at a time, each under its own CancellableInference bound. The
+        // bound exists to catch a hung native call, and a hang shows up on a single item — whereas
+        // a whole batch on CPU can legitimately run well past one item's bound (observed: a 5-item
+        // bge-m3 batch on CPU exceeded the 60s default and was reported as a hang). Per-item bounds
+        // also let timeout recovery retry only the item that timed out, not the entire batch.
+        var allTokenEmbeddings = new float[texts.Count][];
+        for (int i = 0; i < texts.Count; i++)
+        {
+            var inputIds = allInputIds[i];
+            var attentionMask = allAttentionMasks[i];
+            allTokenEmbeddings[i] = await RunWithTimeoutRecoveryAsync(
+                () => _engine.RunInference(inputIds, attentionMask, cancellationToken),
+                cancellationToken);
+        }
 
         // Pool each to sentence embedding with parallel processing
         var results = new float[texts.Count][];

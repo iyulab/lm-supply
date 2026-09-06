@@ -15,6 +15,10 @@ public static class Program
     {
         Console.WriteLine("=== LMSupply Embedder Sample ===\n");
 
+        // Surface the library's provider-selection / fallback diagnostics (Trace warnings) on
+        // stderr so a GPU→CPU fallback is visible in this sample's output rather than silent.
+        Trace.Listeners.Add(new TextWriterTraceListener(Console.Error));
+
         var modelAlias = args.Length > 0 ? args[0] : "default";
         var provider = ParseProvider(args.Length > 1 ? args[1] : "auto");
 
