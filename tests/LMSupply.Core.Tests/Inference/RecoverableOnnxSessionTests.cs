@@ -131,4 +131,74 @@ public class RecoverableOnnxSessionTests
 
         act.Should().Throw<ObjectDisposedException>();
     }
+
+    [Fact]
+    public async Task Run_GpuCrash_FallbackFails_RethrowsOriginal_AndReleasesGate()
+    {
+        var capture = new WarningCapture();
+        Trace.Listeners.Add(capture);
+        try
+        {
+            using var session = Create(ExecutionProvider.Auto, "DmlExecutionProvider", "CPUExecutionProvider");
+            var crash = OnnxCrash("simulated DML crash");
+            var ct = TestContext.Current.CancellationToken;
+
+            var act = () => session.Run<int>((_, _) => throw crash, ct);
+
+            // The fallback path is entered (replacement creation fails on the nonexistent model), and
+            // the original exception — not a wrapper — reaches the caller.
+            act.Should().Throw<OnnxRuntimeException>().Which.Should().BeSameAs(crash);
+            capture.Warnings.Should().Contain(w => w.StartsWith("[TestEngine]", StringComparison.Ordinal) && w.Contains("Inference failed on DirectML"));
+
+            // The gate was released on the way out: a second run on the same session must not deadlock.
+            var runsAgain = Task.Run(() => session.Run((_, _) => 42, ct), ct);
+            var winner = await Task.WhenAny(runsAgain, Task.Delay(TimeSpan.FromSeconds(5), ct));
+            winner.Should().BeSameAs(runsAgain, "the crashed run must release the session gate");
+            (await runsAgain).Should().Be(42);
+        }
+        finally { Trace.Listeners.Remove(capture); }
+    }
+
+    [Fact]
+    public void SharedBlacklist_SiblingFailure_MakesOtherSessionLeaveProviderBeforeItsNextRun()
+    {
+        var capture = new WarningCapture();
+        Trace.Listeners.Add(capture);
+        try
+        {
+            var shared = new ProviderBlacklist();
+            using var encoder = new RecoverableOnnxSession(null!, ["DmlExecutionProvider", "CPUExecutionProvider"], true,
+                ExecutionProvider.Auto, "/nonexistent/encoder.onnx", logPrefix: "[Encoder]", blacklist: shared);
+            using var decoder = new RecoverableOnnxSession(null!, ["DmlExecutionProvider", "CPUExecutionProvider"], true,
+                ExecutionProvider.Auto, "/nonexistent/decoder.onnx", logPrefix: "[Decoder]", blacklist: shared);
+
+            // The encoder fails on DirectML. Replacement creation fails (nonexistent model), but the
+            // provider is now on the blacklist both sessions consult.
+            encoder.TryFallback(OnnxCrash("simulated DML crash")).Should().BeFalse();
+            shared.Contains(ExecutionProvider.DirectML).Should().BeTrue();
+            decoder.Blacklist.Should().BeSameAs(shared);
+
+            // The decoder has not failed itself, yet its next run first tries to leave DirectML
+            // because a sibling blacklisted it — observable as the [Decoder] fallback attempt. With
+            // no replacement available it runs where it is rather than failing the caller.
+            var ran = false;
+            decoder.Run((_, _) => { ran = true; return 0; }, TestContext.Current.CancellationToken);
+
+            ran.Should().BeTrue();
+            capture.Warnings.Should().Contain(w => w.StartsWith("[Decoder]", StringComparison.Ordinal) && w.Contains("blacklisted by another session"));
+        }
+        finally { Trace.Listeners.Remove(capture); }
+    }
+
+    [Fact]
+    public void PrivateBlacklist_IsPerSession_ByDefault()
+    {
+        using var a = Create(ExecutionProvider.Auto, "DmlExecutionProvider", "CPUExecutionProvider");
+        using var b = Create(ExecutionProvider.Auto, "DmlExecutionProvider", "CPUExecutionProvider");
+
+        a.TryFallback(OnnxCrash("simulated DML crash")).Should().BeFalse();
+
+        a.Blacklist.Contains(ExecutionProvider.DirectML).Should().BeTrue();
+        b.Blacklist.Contains(ExecutionProvider.DirectML).Should().BeFalse("sessions created without a shared blacklist do not influence each other");
+    }
 }

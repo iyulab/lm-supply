@@ -189,8 +189,14 @@ followed by `[<Module>] Recovered: now running on CPUExecutionProvider.` Attach 
 `TraceListener` (see `samples/EmbedderSample`) if you want to see them. After a recovery,
 `IsGpuActive` / `ActiveProviders` on the model reflect the provider actually in use.
 
+A model made of several sessions (Whisper's encoder + decoder, for example) shares one provider
+blacklist across them: once one session has left a provider, its siblings leave it before their next
+run instead of hitting the same crash or hang themselves. For an autoregressive decoder the bound and
+the recovery apply **per decode step**, so a long transcript is never cut off by a whole-loop timeout.
+
 Modules on this recovery path: Embedder, Reranker, Segmenter (SegFormer), Ocr (detection and
-recognition), Synthesizer, Detector. The remaining ONNX modules are being migrated; until then they run under the inference bound only
+recognition), Synthesizer, Detector, Transcriber (encoder + decoder). The remaining ONNX modules are
+being migrated; until then they run under the inference bound only
 (a hang surfaces as `InferenceTimeoutException` without a provider switch).
 
 ---

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using LMSupply.Exceptions;
 using Microsoft.ML.OnnxRuntime;
 
@@ -20,10 +21,21 @@ namespace LMSupply.Inference;
 /// acquires the old gate notices the handle changed and re-dispatches onto the current one.
 /// </para>
 /// <para>
+/// The blacklist of providers that have failed is a <see cref="ProviderBlacklist"/> that several
+/// sessions of one model can share (encoder + decoder, detector + recognizer). A session whose
+/// current provider was blacklisted by a sibling leaves that provider before its next run instead
+/// of hitting the same crash or hang itself.
+/// </para>
+/// <para>
 /// Originally implemented inside <c>LMSupply.Embedder</c>'s inference engine and promoted here so
 /// every ONNX-backed module (Reranker, Transcriber, Translator, Synthesizer, Segmenter, Ocr,
 /// ImageGenerator, Detector, Captioner, …) shares one recovery path instead of each holding a
 /// bare <c>InferenceSession</c> that fails outright on the first GPU crash or hang.
+/// </para>
+/// <para>
+/// Lock order, for anyone extending this class: a handle's <c>Gate</c> is always acquired before
+/// <c>_recoveryGate</c>, never after it while blocking. <see cref="Dispose"/> only ever polls a gate
+/// (<c>Wait(0)</c>) under <c>_recoveryGate</c>.
 /// </para>
 /// </remarks>
 public sealed class RecoverableOnnxSession : IDisposable
@@ -48,7 +60,10 @@ public sealed class RecoverableOnnxSession : IDisposable
     private readonly string _modelPath;
     private readonly Action<SessionOptions>? _configureOptions;
     private readonly string _logPrefix;
-    private readonly List<ExecutionProvider> _blacklistedProviders = new();
+    private readonly ProviderBlacklist _blacklist;
+    // Providers this session itself has already tried to recover from — a second failure on the
+    // same provider gives up instead of paying for another (doomed) session creation.
+    private readonly HashSet<ExecutionProvider> _attemptedProviders = new();
     private readonly List<SessionHandle> _abandonedHandles = new();
     private readonly object _recoveryGate = new();
     private bool _disposed;
@@ -63,6 +78,10 @@ public sealed class RecoverableOnnxSession : IDisposable
     /// <param name="modelPath">Model file, needed to create a replacement session on the next provider.</param>
     /// <param name="configureOptions">Session options to reapply to a replacement session.</param>
     /// <param name="logPrefix">Prefix for the <see cref="Trace"/> diagnostics this class emits.</param>
+    /// <param name="blacklist">
+    /// Blacklist shared with the other sessions of the same model, so a provider that failed on one
+    /// of them is left by all of them. Omit for a single-session model.
+    /// </param>
     public RecoverableOnnxSession(
         InferenceSession session,
         IReadOnlyList<string> activeProviders,
@@ -70,13 +89,15 @@ public sealed class RecoverableOnnxSession : IDisposable
         ExecutionProvider requestedProvider,
         string modelPath,
         Action<SessionOptions>? configureOptions = null,
-        string logPrefix = "[RecoverableOnnxSession]")
+        string logPrefix = "[RecoverableOnnxSession]",
+        ProviderBlacklist? blacklist = null)
     {
         _handle = new SessionHandle(session, activeProviders, isGpuActive);
         _requestedProvider = requestedProvider;
         _modelPath = modelPath;
         _configureOptions = configureOptions;
         _logPrefix = logPrefix;
+        _blacklist = blacklist ?? new ProviderBlacklist();
     }
 
     /// <summary>
@@ -86,8 +107,9 @@ public sealed class RecoverableOnnxSession : IDisposable
         SessionCreationResult result,
         string modelPath,
         Action<SessionOptions>? configureOptions = null,
-        string logPrefix = "[RecoverableOnnxSession]")
-        => new(result.Session, result.ActiveProviders, result.IsGpuActive, result.RequestedProvider, modelPath, configureOptions, logPrefix);
+        string logPrefix = "[RecoverableOnnxSession]",
+        ProviderBlacklist? blacklist = null)
+        => new(result.Session, result.ActiveProviders, result.IsGpuActive, result.RequestedProvider, modelPath, configureOptions, logPrefix, blacklist);
 
     /// <summary>Execution providers active on the current session, primary first.</summary>
     public IReadOnlyList<string> ActiveProviders => _handle.ActiveProviders;
@@ -98,8 +120,12 @@ public sealed class RecoverableOnnxSession : IDisposable
     /// <summary>The provider the caller asked for.</summary>
     public ExecutionProvider RequestedProvider => _requestedProvider;
 
+    /// <summary>The blacklist this session consults and contributes to (shared or private).</summary>
+    public ProviderBlacklist Blacklist => _blacklist;
+
     /// <summary>
-    /// The current session, for diagnostics only. Do not run inference on it directly — use
+    /// The current session, for diagnostics and model metadata only (input/output names and shapes
+    /// are the same on every provider). Do not run inference on it directly — use
     /// <see cref="Run{T}"/> so the gate, cancellation translation and provider fallback apply.
     /// </summary>
     public InferenceSession Session => _handle.Session;
@@ -140,18 +166,8 @@ public sealed class RecoverableOnnxSession : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // If the handle was replaced by a timeout recovery while this thread waited on the old
-        // gate, re-dispatch onto the current handle rather than running on the abandoned session.
-        SessionHandle handle;
-        while (true)
-        {
-            handle = _handle;
-            handle.Gate.Wait(cancellationToken);
-            if (ReferenceEquals(handle, _handle))
-                break;
-            handle.Gate.Release();
-        }
-
+        var handle = AcquireCurrentHandle(cancellationToken);
+        OnnxRuntimeException? crash;
         try
         {
             // Terminate is checked between operators; it cannot preempt a hang inside a single
@@ -170,46 +186,140 @@ public sealed class RecoverableOnnxSession : IDisposable
                 // see a cancellation, not a provider crash, and so fallback is not entered.
                 throw new OperationCanceledException(cancellationToken);
             }
-            catch (OnnxRuntimeException ex) when (allowRetry && _requestedProvider != ExecutionProvider.Cpu && TryFallback(ex))
+            catch (OnnxRuntimeException ex) when (allowRetry && _requestedProvider != ExecutionProvider.Cpu)
             {
-                // Retry exactly once on the replacement session (allowRetry: false prevents
-                // runaway recursion if the next provider also fails on the same input).
-                return RunInternal(work, allowRetry: false, cancellationToken);
+                crash = ex;
             }
         }
         finally
         {
             handle.Gate.Release();
         }
+
+        // Only a recoverable crash gets here, and only after this thread has released the gate — so
+        // TryFallback can reclaim the crashed handle's gate to dispose it safely.
+        if (TryFallback(crash, handle))
+        {
+            // Retry exactly once on the replacement session (allowRetry: false prevents
+            // runaway recursion if the next provider also fails on the same input).
+            return RunInternal(work, allowRetry: false, cancellationToken);
+        }
+
+        ExceptionDispatchInfo.Throw(crash);
+        return default!; // unreachable — ExceptionDispatchInfo.Throw does not return
+    }
+
+    /// <summary>
+    /// Acquires the gate of the current handle. If the handle was replaced while this thread waited
+    /// on the old gate, re-dispatches onto the current one rather than running on the abandoned
+    /// session. If a sibling session blacklisted the provider this handle is on, moves off it first.
+    /// </summary>
+    private SessionHandle AcquireCurrentHandle(CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            var handle = _handle;
+            handle.Gate.Wait(cancellationToken);
+            if (!ReferenceEquals(handle, _handle))
+            {
+                handle.Gate.Release();
+                continue;
+            }
+
+            if (TryLeaveBlacklistedProvider(handle))
+            {
+                handle.Gate.Release();
+                continue;
+            }
+
+            return handle;
+        }
+    }
+
+    /// <summary>
+    /// With <paramref name="handle"/>'s gate held: if its provider is on the shared blacklist (a
+    /// sibling session failed on it), swaps in a replacement on the next provider and disposes the
+    /// old session. Holding the gate is what makes the dispose safe — nobody else is inside a run on
+    /// it, and anyone waiting on it re-dispatches once it sees the handle change.
+    /// </summary>
+    private bool TryLeaveBlacklistedProvider(SessionHandle handle)
+    {
+        if (_requestedProvider == ExecutionProvider.Cpu)
+            return false;
+
+        var provider = MapActiveToProvider(handle.ActiveProviders);
+        if (provider is null or ExecutionProvider.Cpu || !_blacklist.Contains(provider.Value))
+            return false;
+
+        lock (_recoveryGate)
+        {
+            if (!ReferenceEquals(handle, _handle))
+                return true;   // someone else already moved on — re-dispatch
+
+            var replacement = TryCreateReplacementHandle(
+                provider.Value,
+                $"{provider} was blacklisted by another session of this model",
+                originalMessage: null);
+            if (replacement is null)
+                return false;  // nothing better available — run where we are
+
+            handle.Session?.Dispose();
+            _handle = replacement;
+            return true;
+        }
     }
 
     /// <summary>
     /// After a run on the current provider threw, blacklists that provider and recreates the
-    /// session on the next one in the Auto chain. The crashed run has returned, so the old session
-    /// is disposed. Returns false when nothing can be done.
+    /// session on the next one in the Auto chain. Returns false when nothing can be done.
     /// </summary>
-    public bool TryFallback(OnnxRuntimeException ex)
+    /// <remarks>
+    /// Safe to call from outside <see cref="Run{T}"/> (e.g. a module that catches the crash itself):
+    /// the old session is disposed only if no run is in flight on it, and abandoned to
+    /// <see cref="Dispose"/> otherwise.
+    /// </remarks>
+    public bool TryFallback(OnnxRuntimeException ex) => TryFallback(ex, _handle);
+
+    private bool TryFallback(OnnxRuntimeException ex, SessionHandle failed)
     {
-        lock (_recoveryGate)
+        // Lock order: gate first, then _recoveryGate (see class remarks). Wait(0) rather than Wait():
+        // another thread may legitimately be mid-run on this handle (or hung on it), and blocking
+        // behind it here would stall the caller's retry for no benefit — abandoning is just as safe.
+        var gateHeld = failed.Gate.Wait(0);
+        try
         {
-            var current = _handle;
-            var failedProvider = MapActiveToProvider(current.ActiveProviders);
-            if (failedProvider is null)
+            lock (_recoveryGate)
             {
-                Trace.TraceWarning($"{_logPrefix} Inference failed but active provider could not be identified; not attempting fallback.");
-                return false;
+                if (!ReferenceEquals(failed, _handle))
+                    return true;   // a concurrent fallback already replaced it — retry on the current handle
+
+                var failedProvider = MapActiveToProvider(failed.ActiveProviders);
+                if (failedProvider is null)
+                {
+                    Trace.TraceWarning($"{_logPrefix} Inference failed but active provider could not be identified; not attempting fallback.");
+                    return false;
+                }
+
+                var replacement = TryCreateReplacementHandle(
+                    failedProvider.Value,
+                    $"Inference failed on {failedProvider} ({ex.GetType().Name})",
+                    ex.Message);
+                if (replacement is null)
+                    return false;
+
+                if (gateHeld)
+                    failed.Session?.Dispose();
+                else
+                    _abandonedHandles.Add(failed);
+
+                _handle = replacement;
+                return true;
             }
-
-            var replacement = TryCreateReplacementHandle(
-                failedProvider.Value,
-                $"Inference failed on {failedProvider} ({ex.GetType().Name})",
-                ex.Message);
-            if (replacement is null)
-                return false;
-
-            current.Session?.Dispose();
-            _handle = replacement;
-            return true;
+        }
+        finally
+        {
+            if (gateHeld)
+                failed.Gate.Release();
         }
     }
 
@@ -218,7 +328,7 @@ public sealed class RecoverableOnnxSession : IDisposable
     /// old session (its native run may still be blocked holding the old gate — it is abandoned and
     /// reclaimed by <see cref="Dispose"/> only once its gate is free). Returns true when the caller
     /// should retry once; false when CPU was requested, CPU is already active, the provider was
-    /// already blacklisted, or session recreation failed.
+    /// already tried, or session recreation failed.
     /// </summary>
     public bool TryRecoverAfterTimeout(InferenceTimeoutException ex)
     {
@@ -246,27 +356,29 @@ public sealed class RecoverableOnnxSession : IDisposable
     }
 
     // Caller must hold _recoveryGate.
-    private SessionHandle? TryCreateReplacementHandle(ExecutionProvider failedProvider, string reason, string originalMessage)
+    private SessionHandle? TryCreateReplacementHandle(ExecutionProvider failedProvider, string reason, string? originalMessage)
     {
-        if (_blacklistedProviders.Contains(failedProvider))
-            return null;   // already tried recovery for this provider — give up
+        if (!_attemptedProviders.Add(failedProvider))
+            return null;   // this session already tried to recover from this provider — give up
 
-        _blacklistedProviders.Add(failedProvider);
+        _blacklist.Add(failedProvider);
 
-        Trace.TraceWarning($"{_logPrefix} {reason}. Attempting fallback to next provider. Original message: {Truncate(originalMessage, 200)}");
+        var detail = originalMessage is null ? "" : $" Original message: {Truncate(originalMessage, 200)}";
+        Trace.TraceWarning($"{_logPrefix} {reason}. Attempting fallback to next provider.{detail}");
 
         try
         {
+            var skip = _blacklist.ToArray();
             var result = OnnxSessionFactory.CreateWithInfoAsync(
                 _modelPath,
                 ExecutionProvider.Auto,
-                _blacklistedProviders.ToArray(),
+                skip,
                 _configureOptions).GetAwaiter().GetResult();
 
             var newProvider = MapActiveToProvider(result.ActiveProviders);
-            if (newProvider is null || _blacklistedProviders.Contains(newProvider.Value))
+            if (newProvider is null || _blacklist.Contains(newProvider.Value))
             {
-                Trace.TraceWarning($"{_logPrefix} Fallback produced no usable alternative provider (blacklist=[{string.Join(",", _blacklistedProviders)}]). Surfacing original exception.");
+                Trace.TraceWarning($"{_logPrefix} Fallback produced no usable alternative provider (blacklist=[{string.Join(",", skip)}]). Surfacing original exception.");
                 result.Session.Dispose();
                 return null;
             }
@@ -312,8 +424,8 @@ public sealed class RecoverableOnnxSession : IDisposable
         {
             foreach (var abandoned in _abandonedHandles)
             {
-                // Reclaim only a session whose timed-out run has actually returned; one still blocked
-                // in native code must be leaked rather than disposed under it.
+                // Reclaim only a session whose run has actually returned; one still blocked in
+                // native code must be leaked rather than disposed under it.
                 if (abandoned.Gate.Wait(0))
                 {
                     abandoned.Session?.Dispose();

@@ -14,7 +14,11 @@ namespace LMSupply.Transcriber.Decoding;
 /// </summary>
 internal sealed class WhisperDecoder
 {
-    private readonly InferenceSession _decoderSession;
+    // Each decode step runs through the session's recovery path: a provider crash or a hang inside
+    // one step moves the session to the next provider and retries that step. Decoder state (the
+    // token list and the KV cache) lives on the managed side, so a mid-loop provider switch is
+    // transparent to the loop.
+    private readonly RecoverableOnnxSession _decoderSession;
     private readonly WhisperTokenizer _tokenizer;
     private readonly int _maxLength;
 
@@ -61,7 +65,7 @@ internal sealed class WhisperDecoder
     }
 
     public WhisperDecoder(
-        InferenceSession decoderSession,
+        RecoverableOnnxSession decoderSession,
         WhisperTokenizer tokenizer,
         int maxLength = 448)
     {
@@ -69,9 +73,11 @@ internal sealed class WhisperDecoder
         _tokenizer = tokenizer;
         _maxLength = maxLength;
 
-        // Detect input/output names from session metadata
-        var inputNames = _decoderSession.InputMetadata.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var outputNames = _decoderSession.OutputMetadata.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Detect input/output names from session metadata (identical on every provider, so reading
+        // it from the current underlying session once is safe across later recoveries)
+        var metadataSession = decoderSession.Session;
+        var inputNames = metadataSession.InputMetadata.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var outputNames = metadataSession.OutputMetadata.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         _actualTokenInputName = TokenInputNames.FirstOrDefault(n => inputNames.Contains(n))
             ?? throw new InvalidOperationException(
@@ -91,7 +97,7 @@ internal sealed class WhisperDecoder
         if (_isMergedModel)
         {
             // Collect past_key_values input metadata
-            foreach (var input in _decoderSession.InputMetadata)
+            foreach (var input in metadataSession.InputMetadata)
             {
                 if (input.Key.StartsWith("past_key_values", StringComparison.OrdinalIgnoreCase))
                 {
@@ -124,210 +130,213 @@ internal sealed class WhisperDecoder
         TranscribeOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        // CancellableInference guarantees control returns to the caller if the token is
-        // cancelled, or after a bounded default timeout, even when a single decoder step (e.g. a
-        // cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-        return await CancellableInference.RunAsync(() =>
+        // Initialize tokens with SOT sequence
+        var useTimestamps = options?.WordTimestamps ?? false;
+        var translate = options?.Translate ?? false;
+        var initialTokens = _tokenizer.GetSotSequence(options?.Language, useTimestamps, translate);
+        var tokens = new List<int>(initialTokens);
+
+        var segments = new List<TranscriptionSegment>();
+        var currentSegmentTokens = new List<int>();
+        var currentSegmentStart = 0.0;
+
+        // Create encoder output tensor [1, seq_len, hidden_size]
+        var encoderTensor = new DenseTensor<float>(
+            encoderOutput,
+            [1, encoderSequenceLength, hiddenSize]);
+
+        string? detectedLanguage = null;
+        float? languageProbability = null;
+        int segmentId = 0;
+
+        // Per-segment metric tracking
+        var currentSegmentLogProbs = new List<float>();
+        float? chunkNoSpeechProb = null;
+
+        // For merged models, we'll track KV cache state
+        Dictionary<string, DenseTensor<float>>? kvCache = null;
+
+        if (_isMergedModel)
         {
-            // Initialize tokens with SOT sequence
-            var useTimestamps = options?.WordTimestamps ?? false;
-            var translate = options?.Translate ?? false;
-            var initialTokens = _tokenizer.GetSotSequence(options?.Language, useTimestamps, translate);
-            var tokens = new List<int>(initialTokens);
+            // Initialize empty KV cache tensors
+            kvCache = CreateEmptyKvCache();
+        }
 
-            var segments = new List<TranscriptionSegment>();
-            var currentSegmentTokens = new List<int>();
-            var currentSegmentStart = 0.0;
+        // Autoregressive generation loop
+        while (tokens.Count < _maxLength)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
 
-            // Create encoder output tensor [1, seq_len, hidden_size]
-            var encoderTensor = new DenseTensor<float>(
-                encoderOutput,
-                [1, encoderSequenceLength, hiddenSize]);
+            // Create input tensor
+            var tokenArray = tokens.ToArray();
+            var tokenTensor = new DenseTensor<long>(
+                tokenArray.Select(t => (long)t).ToArray(),
+                [1, tokens.Count]);
 
-            string? detectedLanguage = null;
-            float? languageProbability = null;
-            int segmentId = 0;
-
-            // Per-segment metric tracking
-            var currentSegmentLogProbs = new List<float>();
-            float? chunkNoSpeechProb = null;
-
-            // For merged models, we'll track KV cache state
-            Dictionary<string, DenseTensor<float>>? kvCache = null;
-
-            if (_isMergedModel)
+            // Build inputs list
+            var inputs = new List<NamedOnnxValue>
             {
-                // Initialize empty KV cache tensors
-                kvCache = CreateEmptyKvCache();
+                NamedOnnxValue.CreateFromTensor(_actualTokenInputName, tokenTensor),
+                NamedOnnxValue.CreateFromTensor(_actualEncoderInputName, encoderTensor)
+            };
+
+            // Add merged model specific inputs
+            if (_isMergedModel && kvCache != null)
+            {
+                // Add use_cache_branch = false (we're not using cache efficiently yet)
+                var useCacheTensor = new DenseTensor<bool>(s_falseArray, s_oneDimension);
+                inputs.Add(NamedOnnxValue.CreateFromTensor(UseCacheBranchName, useCacheTensor));
+
+                // Add past_key_values tensors
+                foreach (var (name, _) in _pastKeyValueInputs)
+                {
+                    if (kvCache.TryGetValue(name, out var tensor))
+                    {
+                        inputs.Add(NamedOnnxValue.CreateFromTensor(name, tensor));
+                    }
+                }
             }
 
-            // Autoregressive generation loop
-            while (tokens.Count < _maxLength)
+            // One bounded decode step. The bound (and provider recovery) applies per step: a cold
+            // GPU kernel hang is a property of a single native call, and a long transcript that
+            // legitimately takes many steps must not be cut off by a whole-loop timeout.
+            var lastLogits = await _decoderSession.RunWithRecoveryAsync((session, runOptions) =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                using var results = session.Run(inputs, [_actualLogitsOutputName], runOptions);
+                return ExtractLastPositionLogits(results[0].AsTensor<float>());
+            }, cancellationToken: cancellationToken);
 
-                // Create input tensor
-                var tokenArray = tokens.ToArray();
-                var tokenTensor = new DenseTensor<long>(
-                    tokenArray.Select(t => (long)t).ToArray(),
-                    [1, tokens.Count]);
+            // Greedy selection: argmax, after repetition-penalty/temperature/hallucination-guard
+            var nextToken = SelectNextToken(lastLogits, tokens, initialTokens, options);
 
-                // Build inputs list
-                var inputs = new List<NamedOnnxValue>
+            // Compute log probability of selected token for AvgLogProb metric
+            if (!_tokenizer.IsSpecialToken(nextToken))
+            {
+                currentSegmentLogProbs.Add(ComputeLogProb(lastLogits, nextToken));
+            }
+
+            // Detect language from first generated token after SOT
+            if (tokens.Count == initialTokens.Length)
+            {
+                // Compute no-speech probability at the first decoder step
+                chunkNoSpeechProb = ComputeNoSpeechProb(lastLogits);
+
+                if (_tokenizer.IsLanguageToken(nextToken))
                 {
-                    NamedOnnxValue.CreateFromTensor(_actualTokenInputName, tokenTensor),
-                    NamedOnnxValue.CreateFromTensor(_actualEncoderInputName, encoderTensor)
-                };
-
-                // Add merged model specific inputs
-                if (_isMergedModel && kvCache != null)
-                {
-                    // Add use_cache_branch = false (we're not using cache efficiently yet)
-                    var useCacheTensor = new DenseTensor<bool>(s_falseArray, s_oneDimension);
-                    inputs.Add(NamedOnnxValue.CreateFromTensor(UseCacheBranchName, useCacheTensor));
-
-                    // Add past_key_values tensors
-                    foreach (var (name, _) in _pastKeyValueInputs)
-                    {
-                        if (kvCache.TryGetValue(name, out var tensor))
-                        {
-                            inputs.Add(NamedOnnxValue.CreateFromTensor(name, tensor));
-                        }
-                    }
+                    detectedLanguage = _tokenizer.GetLanguageFromToken(nextToken);
+                    languageProbability = ComputeLanguageTokenProbability(lastLogits, nextToken);
                 }
+            }
 
-                using var results = _decoderSession.Run(inputs);
-                var logits = results.First(r => r.Name == _actualLogitsOutputName).AsTensor<float>();
+            // Check for end of text
+            if (nextToken == _tokenizer.EndOfTextToken)
+            {
+                Trace.TraceInformation($"[WhisperDecoder] EOT at step {tokens.Count - initialTokens.Length}, totalTokens={tokens.Count}");
+                break;
+            }
 
-                // Get logits for last position - use actual model vocab size, not tokenizer
-                int vocabSize;
-                float[] lastLogits;
+            // Handle timestamp tokens
+            if (_tokenizer.IsTimestampToken(nextToken))
+            {
+                var timestamp = _tokenizer.TimestampTokenToSeconds(nextToken);
 
-                // Handle different logits shapes:
-                // - [batch, seq_len, vocab_size] - standard transformer output
-                // - [batch, vocab_size] - optimized decoder that only outputs last position
-                if (logits.Dimensions.Length == 3)
+                // Start timestamp
+                if (currentSegmentTokens.Count == 0)
                 {
-                    vocabSize = (int)logits.Dimensions[2];
-                    lastLogits = new float[vocabSize];
-                    var lastPosition = (int)logits.Dimensions[1] - 1;
-                    for (int i = 0; i < vocabSize; i++)
-                    {
-                        lastLogits[i] = logits[0, lastPosition, i];
-                    }
-                }
-                else if (logits.Dimensions.Length == 2)
-                {
-                    vocabSize = (int)logits.Dimensions[1];
-                    lastLogits = new float[vocabSize];
-                    for (int i = 0; i < vocabSize; i++)
-                    {
-                        lastLogits[i] = logits[0, i];
-                    }
+                    currentSegmentStart = timestamp;
                 }
                 else
                 {
-                    throw new InvalidOperationException($"Unexpected logits shape: [{string.Join(", ", logits.Dimensions.ToArray())}]");
-                }
+                    // End timestamp - create segment
+                    var segmentText = _tokenizer.Decode(
+                        currentSegmentTokens.ToArray().AsSpan(),
+                        skipSpecialTokens: true);
 
-                // Greedy selection: argmax, after repetition-penalty/temperature/hallucination-guard
-                var nextToken = SelectNextToken(lastLogits, tokens, initialTokens, options);
-
-                // Compute log probability of selected token for AvgLogProb metric
-                if (!_tokenizer.IsSpecialToken(nextToken))
-                {
-                    currentSegmentLogProbs.Add(ComputeLogProb(lastLogits, nextToken));
-                }
-
-                // Detect language from first generated token after SOT
-                if (tokens.Count == initialTokens.Length)
-                {
-                    // Compute no-speech probability at the first decoder step
-                    chunkNoSpeechProb = ComputeNoSpeechProb(lastLogits);
-
-                    if (_tokenizer.IsLanguageToken(nextToken))
+                    if (!string.IsNullOrWhiteSpace(segmentText))
                     {
-                        detectedLanguage = _tokenizer.GetLanguageFromToken(nextToken);
-                        languageProbability = ComputeLanguageTokenProbability(lastLogits, nextToken);
-                    }
-                }
-
-                // Check for end of text
-                if (nextToken == _tokenizer.EndOfTextToken)
-                {
-                    Trace.TraceInformation($"[WhisperDecoder] EOT at step {tokens.Count - initialTokens.Length}, totalTokens={tokens.Count}");
-                    break;
-                }
-
-                // Handle timestamp tokens
-                if (_tokenizer.IsTimestampToken(nextToken))
-                {
-                    var timestamp = _tokenizer.TimestampTokenToSeconds(nextToken);
-
-                    // Start timestamp
-                    if (currentSegmentTokens.Count == 0)
-                    {
-                        currentSegmentStart = timestamp;
-                    }
-                    else
-                    {
-                        // End timestamp - create segment
-                        var segmentText = _tokenizer.Decode(
-                            currentSegmentTokens.ToArray().AsSpan(),
-                            skipSpecialTokens: true);
-
-                        if (!string.IsNullOrWhiteSpace(segmentText))
+                        var trimmedText = segmentText.Trim();
+                        segments.Add(new TranscriptionSegment
                         {
-                            var trimmedText = segmentText.Trim();
-                            segments.Add(new TranscriptionSegment
-                            {
-                                Id = segmentId++,
-                                Start = currentSegmentStart,
-                                End = timestamp,
-                                Text = trimmedText,
-                                AvgLogProb = currentSegmentLogProbs.Count > 0
-                                    ? currentSegmentLogProbs.Average() : null,
-                                NoSpeechProb = chunkNoSpeechProb,
-                                CompressionRatio = SegmentPostProcessor.ComputeCompressionRatio(trimmedText)
-                            });
-                        }
-
-                        currentSegmentLogProbs.Clear();
-                        currentSegmentTokens.Clear();
+                            Id = segmentId++,
+                            Start = currentSegmentStart,
+                            End = timestamp,
+                            Text = trimmedText,
+                            AvgLogProb = currentSegmentLogProbs.Count > 0
+                                ? currentSegmentLogProbs.Average() : null,
+                            NoSpeechProb = chunkNoSpeechProb,
+                            CompressionRatio = SegmentPostProcessor.ComputeCompressionRatio(trimmedText)
+                        });
                     }
-                }
-                else if (!_tokenizer.IsSpecialToken(nextToken))
-                {
-                    // Regular text token
-                    currentSegmentTokens.Add(nextToken);
-                }
 
-                tokens.Add(nextToken);
+                    currentSegmentLogProbs.Clear();
+                    currentSegmentTokens.Clear();
+                }
+            }
+            else if (!_tokenizer.IsSpecialToken(nextToken))
+            {
+                // Regular text token
+                currentSegmentTokens.Add(nextToken);
             }
 
-            FinalizeSegments(
-                segments,
-                tokens,
-                initialTokens,
-                currentSegmentTokens,
-                currentSegmentLogProbs,
-                segmentId,
-                currentSegmentStart,
-                chunkNoSpeechProb,
-                chunkDurationSeconds);
+            tokens.Add(nextToken);
+        }
 
-            // Combine all segment texts for full transcription
-            var fullTranscription = string.Join(" ", segments.Select(s => s.Text));
+        FinalizeSegments(
+            segments,
+            tokens,
+            initialTokens,
+            currentSegmentTokens,
+            currentSegmentLogProbs,
+            segmentId,
+            currentSegmentStart,
+            chunkNoSpeechProb,
+            chunkDurationSeconds);
 
-            return new DecodingResult
+        // Combine all segment texts for full transcription
+        var fullTranscription = string.Join(" ", segments.Select(s => s.Text));
+
+        return new DecodingResult
+        {
+            Text = fullTranscription,
+            Language = detectedLanguage ?? options?.Language ?? "en",
+            LanguageProbability = languageProbability,
+            Segments = segments,
+            TokenCount = tokens.Count - initialTokens.Length
+        };
+    }
+
+    /// <summary>
+    /// Copies the last position's logits out of a decoder output so the native result can be
+    /// disposed before the step returns. Handles both export shapes: <c>[batch, seq_len, vocab]</c>
+    /// (standard transformer output) and <c>[batch, vocab]</c> (decoder that only emits the last
+    /// position). The vocab size is the model's, not the tokenizer's.
+    /// </summary>
+    private static float[] ExtractLastPositionLogits(Tensor<float> logits)
+    {
+        if (logits.Dimensions.Length == 3)
+        {
+            var vocabSize = (int)logits.Dimensions[2];
+            var lastLogits = new float[vocabSize];
+            var lastPosition = (int)logits.Dimensions[1] - 1;
+            for (int i = 0; i < vocabSize; i++)
             {
-                Text = fullTranscription,
-                Language = detectedLanguage ?? options?.Language ?? "en",
-                LanguageProbability = languageProbability,
-                Segments = segments,
-                TokenCount = tokens.Count - initialTokens.Length
-            };
-        }, cancellationToken);
+                lastLogits[i] = logits[0, lastPosition, i];
+            }
+            return lastLogits;
+        }
+
+        if (logits.Dimensions.Length == 2)
+        {
+            var vocabSize = (int)logits.Dimensions[1];
+            var lastLogits = new float[vocabSize];
+            for (int i = 0; i < vocabSize; i++)
+            {
+                lastLogits[i] = logits[0, i];
+            }
+            return lastLogits;
+        }
+
+        throw new InvalidOperationException($"Unexpected logits shape: [{string.Join(", ", logits.Dimensions.ToArray())}]");
     }
 
     /// <summary>

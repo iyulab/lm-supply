@@ -20,9 +20,12 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
     private readonly TranscriberOptions _options;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
-    private InferenceSession? _encoderSession;
-    private InferenceSession? _decoderSession;
-    private SessionCreationResult? _encoderSessionInfo;
+    // Encoder and decoder each own a RecoverableOnnxSession and share one provider blacklist: a
+    // provider that crashes or hangs on one half of the model is left by the other half before its
+    // next run, instead of failing the same way a second time.
+    private readonly ProviderBlacklist _providerBlacklist = new();
+    private RecoverableOnnxSession? _encoderSession;
+    private RecoverableOnnxSession? _decoderSession;
     private WhisperTokenizer? _tokenizer;
     private WhisperDecoder? _decoder;
     private TranscriberModelInfo? _modelInfo;
@@ -36,19 +39,20 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
     public string? Language => null; // Auto-detected per transcription
 
     /// <summary>
-    /// Gets whether GPU acceleration is actually being used for inference.
+    /// Gets whether GPU acceleration is actually being used for inference (encoder session; reflects
+    /// a run-time provider recovery).
     /// </summary>
-    public bool IsGpuActive => _encoderSessionInfo?.IsGpuActive ?? false;
+    public bool IsGpuActive => _encoderSession?.IsGpuActive ?? false;
 
     /// <summary>
     /// Gets the list of active execution providers for the encoder session.
     /// </summary>
-    public IReadOnlyList<string> ActiveProviders => _encoderSessionInfo?.ActiveProviders ?? [];
+    public IReadOnlyList<string> ActiveProviders => _encoderSession?.ActiveProviders ?? [];
 
     /// <summary>
     /// Gets the execution provider that was requested.
     /// </summary>
-    public ExecutionProvider RequestedProvider => _encoderSessionInfo?.RequestedProvider ?? ExecutionProvider.Auto;
+    public ExecutionProvider RequestedProvider => _options.Provider;
 
     /// <inheritdoc />
     public long? EstimatedMemoryBytes => _modelInfo?.SizeBytes * 2;
@@ -298,25 +302,19 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
 
     private Task<float[]> RunEncoderAsync(float[] melSpec, int numMelBins, CancellationToken cancellationToken)
     {
-        // CancellableInference guarantees control returns to the caller if the token is
-        // cancelled, or after a bounded default timeout, even when the native ONNX call (e.g. a
-        // cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-        return CancellableInference.RunAsync(() =>
+        var inputTensor = new DenseTensor<float>(melSpec, [1, numMelBins, 3000]);
+        var inputs = new List<NamedOnnxValue>
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            NamedOnnxValue.CreateFromTensor("input_features", inputTensor)
+        };
 
-            var inputTensor = new DenseTensor<float>(melSpec, [1, numMelBins, 3000]);
-            var inputs = new List<NamedOnnxValue>
-            {
-                NamedOnnxValue.CreateFromTensor("input_features", inputTensor)
-            };
-
-            using var results = _encoderSession!.Run(inputs);
-            var output = results[0].AsTensor<float>();
-
-            // Copy tensor output to array
-            return output.ToArray();
-        }, cancellationToken);
+        // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the provider
+        // crashes, the session moves to the next provider and the run is retried once.
+        return _encoderSession!.RunWithRecoveryAsync((session, runOptions) =>
+        {
+            using var results = session.Run(inputs, session.OutputNames, runOptions);
+            return results[0].AsTensor<float>().ToArray();
+        }, cancellationToken: cancellationToken);
     }
 
     private async Task<DecodingResult> RunDecoderAsync(
@@ -411,18 +409,20 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
                 throw new FileNotFoundException($"Encoder model not found: {encoderPath}");
             }
 
-            _encoderSessionInfo = await OnnxSessionFactory.CreateWithInfoAsync(
+            var encoderSessionInfo = await OnnxSessionFactory.CreateWithInfoAsync(
                 encoderPath,
                 _options.Provider,
                 ConfigureSessionOptions,
                 cancellationToken: cancellationToken);
-            _encoderSession = _encoderSessionInfo.Session;
+            _encoderSession = RecoverableOnnxSession.FromResult(
+                encoderSessionInfo, encoderPath, ConfigureSessionOptions,
+                logPrefix: "[OnnxTranscriberModel:encoder]", blacklist: _providerBlacklist);
 
             // Log GPU provider status
-            Trace.TraceInformation($"[OnnxTranscriberModel] Encoder loaded - Requested: {_encoderSessionInfo.RequestedProvider}, " +
-                $"Active providers: [{string.Join(", ", _encoderSessionInfo.ActiveProviders)}], GPU active: {_encoderSessionInfo.IsGpuActive}");
+            Trace.TraceInformation($"[OnnxTranscriberModel] Encoder loaded - Requested: {encoderSessionInfo.RequestedProvider}, " +
+                $"Active providers: [{string.Join(", ", encoderSessionInfo.ActiveProviders)}], GPU active: {encoderSessionInfo.IsGpuActive}");
 
-            if (_options.Provider != ExecutionProvider.Cpu && !_encoderSessionInfo.IsGpuActive)
+            if (_options.Provider != ExecutionProvider.Cpu && !encoderSessionInfo.IsGpuActive)
             {
                 Trace.TraceInformation("[OnnxTranscriberModel] WARNING: GPU provider was requested but only CPU is active. " +
                     "Check CUDA/DirectML installation and GPU availability.");
@@ -436,7 +436,9 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
                     _options.Provider,
                     ConfigureSessionOptions,
                     cancellationToken: cancellationToken);
-                _decoderSession = decoderSessionInfo.Session;
+                _decoderSession = RecoverableOnnxSession.FromResult(
+                    decoderSessionInfo, decoderPath, ConfigureSessionOptions,
+                    logPrefix: "[OnnxTranscriberModel:decoder]", blacklist: _providerBlacklist);
 
                 Trace.TraceInformation($"[OnnxTranscriberModel] Decoder loaded - Requested: {decoderSessionInfo.RequestedProvider}, " +
                     $"Active providers: [{string.Join(", ", decoderSessionInfo.ActiveProviders)}], GPU active: {decoderSessionInfo.IsGpuActive}");
@@ -464,7 +466,6 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
             // Dispose partially-created sessions to prevent resource leaks
             _encoderSession?.Dispose();
             _encoderSession = null;
-            _encoderSessionInfo = null;
             _decoderSession?.Dispose();
             _decoderSession = null;
             _decoder = null;
