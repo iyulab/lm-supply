@@ -103,14 +103,13 @@ internal sealed class DbNetDetector : IDisposable
         {
             NamedOnnxValue.CreateFromTensor(_inputName, inputTensor)
         };
-        var results = await _session.RunWithRecoveryAsync(
+        using var results = await _session.RunWithRecoveryAsync(
                 (session, runOptions) => session.Run(inputs, [_outputName], runOptions),
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
-        // Get output tensor
-        using var outputResult = results[0];
-        var outputTensor = outputResult.AsTensor<float>();
+        // Get output tensor (the collection owns and disposes its values)
+        var outputTensor = results[0].AsTensor<float>();
 
         // Extract probability map
         var probabilityMap = ExtractProbabilityMap(outputTensor, resizeWidth, resizeHeight);

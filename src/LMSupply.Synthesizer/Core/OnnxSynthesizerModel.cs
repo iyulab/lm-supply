@@ -21,24 +21,22 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
     private readonly SynthesizerOptions _options;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
-    private InferenceSession? _session;
+    // Owns the ONNX session and recovers from a crashing or hanging execution provider by moving
+    // to the next one in the fallback chain (see RecoverableOnnxSession).
+    private RecoverableOnnxSession? _session;
     private SynthesizerModelInfo? _modelInfo;
     private VitsConfig? _config;
     private bool _isInitialized;
     private bool _isDisposed;
 
-    // Runtime diagnostics
-    private bool _isGpuActive;
-    private IReadOnlyList<string> _activeProviders = Array.Empty<string>();
-
     /// <inheritdoc />
     public string ModelId => _modelInfo?.Id ?? _options.ModelId;
 
     /// <inheritdoc />
-    public bool IsGpuActive => _isGpuActive;
+    public bool IsGpuActive => _session?.IsGpuActive ?? false;
 
     /// <inheritdoc />
-    public IReadOnlyList<string> ActiveProviders => _activeProviders;
+    public IReadOnlyList<string> ActiveProviders => _session?.ActiveProviders ?? Array.Empty<string>();
 
     /// <inheritdoc />
     public ExecutionProvider RequestedProvider => _options.Provider;
@@ -149,42 +147,37 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
         await _lock.WaitAsync(cancellationToken);
         try
         {
-            // CancellableInference guarantees control returns to the caller if the token is
-            // cancelled, or after a bounded default timeout, even when the native ONNX call
-            // (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-            // Previously this ran inline on the calling thread with no bound at all.
-            return await CancellableInference.RunAsync(() =>
+            // Convert text to phoneme IDs
+            var phonemeIds = TextToPhonemeIds(text);
+
+            // Prepare inputs
+            var inputIds = new DenseTensor<long>(phonemeIds, new[] { 1, phonemeIds.Length });
+            var inputLengths = new DenseTensor<long>(new long[] { phonemeIds.Length }, new[] { 1 });
+            var scales = new DenseTensor<float>(
+                new[] { options?.NoiseScale ?? 0.667f, options?.Speed ?? 1.0f, options?.NoiseWidth ?? 0.8f },
+                new[] { 3 });
+
+            var inputs = new List<NamedOnnxValue>
             {
-                // Convert text to phoneme IDs
-                var phonemeIds = TextToPhonemeIds(text);
+                NamedOnnxValue.CreateFromTensor("input", inputIds),
+                NamedOnnxValue.CreateFromTensor("input_lengths", inputLengths),
+                NamedOnnxValue.CreateFromTensor("scales", scales)
+            };
 
-                // Prepare inputs
-                var inputIds = new DenseTensor<long>(phonemeIds, new[] { 1, phonemeIds.Length });
-                var inputLengths = new DenseTensor<long>(new long[] { phonemeIds.Length }, new[] { 1 });
-                var scales = new DenseTensor<float>(
-                    new[] { options?.NoiseScale ?? 0.667f, options?.Speed ?? 1.0f, options?.NoiseWidth ?? 0.8f },
-                    new[] { 3 });
+            // Add speaker ID for multi-speaker models
+            if (_modelInfo?.NumSpeakers > 1)
+            {
+                var speakerId = new DenseTensor<long>(new long[] { options?.SpeakerId ?? 0 }, new[] { 1 });
+                inputs.Add(NamedOnnxValue.CreateFromTensor("sid", speakerId));
+            }
 
-                var inputs = new List<NamedOnnxValue>
-                {
-                    NamedOnnxValue.CreateFromTensor("input", inputIds),
-                    NamedOnnxValue.CreateFromTensor("input_lengths", inputLengths),
-                    NamedOnnxValue.CreateFromTensor("scales", scales)
-                };
-
-                // Add speaker ID for multi-speaker models
-                if (_modelInfo?.NumSpeakers > 1)
-                {
-                    var speakerId = new DenseTensor<long>(new long[] { options?.SpeakerId ?? 0 }, new[] { 1 });
-                    inputs.Add(NamedOnnxValue.CreateFromTensor("sid", speakerId));
-                }
-
-                // Run inference
-                using var results = _session!.Run(inputs);
-                var output = results[0].AsTensor<float>();
-
-                return output.ToArray();
-            }, cancellationToken);
+            // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the
+            // provider crashes, the session moves to the next provider and the run is retried once.
+            return await _session!.RunWithRecoveryAsync((session, runOptions) =>
+            {
+                using var results = session.Run(inputs, session.OutputNames, runOptions);
+                return results[0].AsTensor<float>().ToArray();
+            }, cancellationToken: cancellationToken);
         }
         finally
         {
@@ -286,9 +279,8 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
                 ConfigureSessionOptions,
                 cancellationToken: cancellationToken);
 
-            _session = result.Session;
-            _isGpuActive = result.IsGpuActive;
-            _activeProviders = result.ActiveProviders;
+            _session = RecoverableOnnxSession.FromResult(
+                result, modelFilePath, ConfigureSessionOptions, logPrefix: "[OnnxSynthesizerModel]");
 
             _isInitialized = true;
         }

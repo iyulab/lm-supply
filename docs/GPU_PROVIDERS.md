@@ -189,8 +189,8 @@ followed by `[<Module>] Recovered: now running on CPUExecutionProvider.` Attach 
 `TraceListener` (see `samples/EmbedderSample`) if you want to see them. After a recovery,
 `IsGpuActive` / `ActiveProviders` on the model reflect the provider actually in use.
 
-Modules on this recovery path: Embedder, Reranker, Segmenter, Ocr (detection and recognition). The
-remaining ONNX modules are being migrated; until then they run under the inference bound only
+Modules on this recovery path: Embedder, Reranker, Segmenter (SegFormer), Ocr (detection and
+recognition), Synthesizer, Detector. The remaining ONNX modules are being migrated; until then they run under the inference bound only
 (a hang surfaces as `InferenceTimeoutException` without a provider switch).
 
 ---
