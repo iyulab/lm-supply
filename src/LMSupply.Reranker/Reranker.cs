@@ -175,30 +175,23 @@ public sealed class Reranker : IRerankerModel
         var allScores = new float[documents.Count];
         var batchSize = _options.BatchSize;
 
-        // CancellableInference guarantees control returns to the caller if the token is
-        // cancelled, or after a bounded default timeout, even when a single batch's native ONNX
-        // call (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-        // Previously this loop ran inline on the calling thread with no bound at all — unlike
-        // the other 8 sibling modules, it did not even offload to the thread pool.
-        await CancellableInference.RunAsync(() =>
+        // Each batch runs under its own inference bound (a cold GPU kernel init that hangs is
+        // recovered by falling back to the next provider and retrying that batch once), so the
+        // bound scales with one batch's work rather than with the caller's document count.
+        for (var offset = 0; offset < documents.Count; offset += batchSize)
         {
-            for (var offset = 0; offset < documents.Count; offset += batchSize)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
+            cancellationToken.ThrowIfCancellationRequested();
 
-                var batchDocs = documents
-                    .Skip(offset)
-                    .Take(Math.Min(batchSize, documents.Count - offset))
-                    .ToList();
+            var batchDocs = documents
+                .Skip(offset)
+                .Take(Math.Min(batchSize, documents.Count - offset))
+                .ToList();
 
-                var batch = state.Tokenizer.EncodePairBatch(query, batchDocs);
-                var scores = state.Inference.Infer(batch);
+            var batch = state.Tokenizer.EncodePairBatch(query, batchDocs);
+            var scores = await state.Inference.InferAsync(batch, cancellationToken);
 
-                Array.Copy(scores, 0, allScores, offset, scores.Length);
-            }
-
-            return true;
-        }, cancellationToken);
+            Array.Copy(scores, 0, allScores, offset, scores.Length);
+        }
 
         return allScores;
     }
