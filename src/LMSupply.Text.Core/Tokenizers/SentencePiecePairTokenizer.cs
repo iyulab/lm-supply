@@ -98,11 +98,16 @@ internal sealed class SentencePiecePairTokenizer : IPairTokenizer
         var startToken = _specialTokens.ClsTokenId ?? _specialTokens.BosTokenId ?? 0;
         var endToken = _specialTokens.SepTokenId ?? _specialTokens.EosTokenId ?? 2;
 
+        // maxLength is a truncation cap only: the sequence is sized to its real content so a short
+        // text is not inflated to the model maximum (which made every embedding cost a full
+        // max-length pass — e.g. 8192 tokens for a 10-token sentence). Batches pad to the longest
+        // member in EncodeBatch.
         var availableLength = length - 2;
         var contentLength = Math.Min(tokens.Length, availableLength);
+        var totalLength = contentLength + 2;
 
-        var inputIds = new long[length];
-        var attentionMask = new long[length];
+        var inputIds = new long[totalLength];
+        var attentionMask = new long[totalLength];
 
         inputIds[0] = startToken;
         attentionMask[0] = 1;
@@ -116,23 +121,25 @@ internal sealed class SentencePiecePairTokenizer : IPairTokenizer
         inputIds[contentLength + 1] = endToken;
         attentionMask[contentLength + 1] = 1;
 
-        for (int i = contentLength + 2; i < length; i++)
-        {
-            inputIds[i] = PadTokenId;
-        }
-
-        return new EncodedSequence(inputIds, attentionMask, contentLength + 2);
+        return new EncodedSequence(inputIds, attentionMask, totalLength);
     }
 
     public EncodedBatch EncodeBatch(IReadOnlyList<string> texts, int? maxLength = null)
     {
         var length = maxLength ?? _maxSequenceLength;
-        var batch = new EncodedBatch(texts.Count, length);
-
+        var encoded = new EncodedSequence[texts.Count];
+        int longest = 0;
         for (int i = 0; i < texts.Count; i++)
         {
-            var encoded = EncodeSequence(texts[i], length);
-            batch.SetSequence(i, encoded);
+            encoded[i] = EncodeSequence(texts[i], length);
+            longest = Math.Max(longest, encoded[i].Length);
+        }
+
+        // Dynamic padding: pad to the longest sequence in this batch, not to the cap.
+        var batch = new EncodedBatch(texts.Count, longest);
+        for (int i = 0; i < texts.Count; i++)
+        {
+            batch.SetSequence(i, encoded[i], PadTokenId);
         }
 
         return batch;
@@ -167,9 +174,11 @@ internal sealed class SentencePiecePairTokenizer : IPairTokenizer
             len1 = Math.Min(tokens1.Length, availableLength - len2);
         }
 
-        var inputIds = new long[length];
-        var attentionMask = new long[length];
-        var tokenTypeIds = new long[length];
+        // Sized to real content (see EncodeSequence); EncodePairBatch pads to the longest pair.
+        var totalLength = len1 + len2 + 3;
+        var inputIds = new long[totalLength];
+        var attentionMask = new long[totalLength];
+        var tokenTypeIds = new long[totalLength];
 
         var pos = 0;
 
@@ -209,25 +218,25 @@ internal sealed class SentencePiecePairTokenizer : IPairTokenizer
         tokenTypeIds[pos] = 1;
         pos++;
 
-        // Padding
-        for (int i = pos; i < length; i++)
-        {
-            inputIds[i] = PadTokenId;
-            // attentionMask and tokenTypeIds already 0
-        }
-
         return new EncodedPair(inputIds, attentionMask, tokenTypeIds, pos);
     }
 
     public EncodedPairBatch EncodePairBatch(string text1, IReadOnlyList<string> texts2, int? maxLength = null)
     {
         var length = maxLength ?? _maxSequenceLength;
-        var batch = new EncodedPairBatch(texts2.Count, length);
-
+        var encoded = new EncodedPair[texts2.Count];
+        int longest = 0;
         for (int i = 0; i < texts2.Count; i++)
         {
-            var encoded = EncodePair(text1, texts2[i], length);
-            batch.SetPair(i, encoded);
+            encoded[i] = EncodePair(text1, texts2[i], length);
+            longest = Math.Max(longest, encoded[i].Length);
+        }
+
+        // Dynamic padding: pad to the longest pair in this batch, not to the cap.
+        var batch = new EncodedPairBatch(texts2.Count, longest);
+        for (int i = 0; i < texts2.Count; i++)
+        {
+            batch.SetPair(i, encoded[i], PadTokenId);
         }
 
         return batch;

@@ -122,14 +122,22 @@ public sealed class EncodedBatch
     }
 
     /// <summary>
-    /// Sets a sequence at the specified index.
+    /// Sets a sequence at the specified index, right-padding it with <paramref name="padTokenId"/>
+    /// (attention mask 0) when it is shorter than <see cref="SequenceLength"/>. A longer sequence is
+    /// truncated to <see cref="SequenceLength"/>.
     /// </summary>
-    public void SetSequence(int index, EncodedSequence sequence)
+    public void SetSequence(int index, EncodedSequence sequence, long padTokenId = 0)
     {
-        for (int i = 0; i < SequenceLength; i++)
+        int copy = Math.Min(sequence.InputIds.Length, SequenceLength);
+        for (int i = 0; i < copy; i++)
         {
             InputIds[index, i] = sequence.InputIds[i];
             AttentionMask[index, i] = sequence.AttentionMask[i];
+        }
+        for (int i = copy; i < SequenceLength; i++)
+        {
+            InputIds[index, i] = padTokenId;
+            AttentionMask[index, i] = 0;
         }
     }
 
@@ -231,15 +239,24 @@ public sealed class EncodedPairBatch
     }
 
     /// <summary>
-    /// Sets a pair at the specified index.
+    /// Sets a pair at the specified index, right-padding it with <paramref name="padTokenId"/>
+    /// (attention mask 0, token type 0) when it is shorter than <see cref="SequenceLength"/>. A
+    /// longer pair is truncated to <see cref="SequenceLength"/>.
     /// </summary>
-    public void SetPair(int index, EncodedPair pair)
+    public void SetPair(int index, EncodedPair pair, long padTokenId = 0)
     {
-        for (int i = 0; i < SequenceLength; i++)
+        int copy = Math.Min(pair.InputIds.Length, SequenceLength);
+        for (int i = 0; i < copy; i++)
         {
             InputIds[index, i] = pair.InputIds[i];
             AttentionMask[index, i] = pair.AttentionMask[i];
             TokenTypeIds[index, i] = pair.TokenTypeIds[i];
+        }
+        for (int i = copy; i < SequenceLength; i++)
+        {
+            InputIds[index, i] = padTokenId;
+            AttentionMask[index, i] = 0;
+            TokenTypeIds[index, i] = 0;
         }
     }
 

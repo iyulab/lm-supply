@@ -65,12 +65,14 @@ internal sealed class WordPieceSequenceTokenizer : ISequenceTokenizer
         var length = maxLength ?? _maxSequenceLength;
         var tokens = _tokenizer.EncodeToIds(text).ToArray();
 
-        // Calculate available space (excluding [CLS] and [SEP])
+        // Calculate available space (excluding [CLS] and [SEP]). maxLength is a truncation cap
+        // only — the sequence is sized to real content; EncodeBatch pads to the longest member.
         var availableLength = length - 2;
         var contentLength = Math.Min(tokens.Length, availableLength);
+        var totalLength = contentLength + 2;
 
-        var inputIds = new long[length];
-        var attentionMask = new long[length];
+        var inputIds = new long[totalLength];
+        var attentionMask = new long[totalLength];
 
         // [CLS]
         inputIds[0] = _specialTokens.ClsTokenId ?? 101;
@@ -87,25 +89,24 @@ internal sealed class WordPieceSequenceTokenizer : ISequenceTokenizer
         inputIds[contentLength + 1] = _specialTokens.SepTokenId ?? 102;
         attentionMask[contentLength + 1] = 1;
 
-        // Padding (inputIds already 0 from initialization)
-        for (int i = contentLength + 2; i < length; i++)
-        {
-            inputIds[i] = PadTokenId;
-            // attentionMask already 0
-        }
-
-        return new EncodedSequence(inputIds, attentionMask, contentLength + 2);
+        return new EncodedSequence(inputIds, attentionMask, totalLength);
     }
 
     public EncodedBatch EncodeBatch(IReadOnlyList<string> texts, int? maxLength = null)
     {
         var length = maxLength ?? _maxSequenceLength;
-        var batch = new EncodedBatch(texts.Count, length);
-
+        var encoded = new EncodedSequence[texts.Count];
+        int longest = 0;
         for (int i = 0; i < texts.Count; i++)
         {
-            var encoded = EncodeSequence(texts[i], length);
-            batch.SetSequence(i, encoded);
+            encoded[i] = EncodeSequence(texts[i], length);
+            longest = Math.Max(longest, encoded[i].Length);
+        }
+
+        var batch = new EncodedBatch(texts.Count, longest);
+        for (int i = 0; i < texts.Count; i++)
+        {
+            batch.SetSequence(i, encoded[i], PadTokenId);
         }
 
         return batch;

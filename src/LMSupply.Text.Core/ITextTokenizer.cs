@@ -77,7 +77,9 @@ public interface ISequenceTokenizer : ITextTokenizer
     int MaxSequenceLength { get; }
 
     /// <summary>
-    /// Encodes text into padded sequences with attention mask.
+    /// Encodes text into a sequence with attention mask. The result is sized to the real content
+    /// (special tokens included) — it is <b>not</b> padded to <paramref name="maxLength"/>, which
+    /// only caps the length by truncation.
     /// </summary>
     /// <param name="text">Text to encode.</param>
     /// <param name="maxLength">Maximum sequence length (uses default if null).</param>
@@ -85,7 +87,8 @@ public interface ISequenceTokenizer : ITextTokenizer
     EncodedSequence EncodeSequence(string text, int? maxLength = null);
 
     /// <summary>
-    /// Encodes multiple texts into a batch.
+    /// Encodes multiple texts into a batch, padded to the longest sequence in the batch
+    /// (dynamic padding) rather than to <paramref name="maxLength"/>.
     /// </summary>
     /// <param name="texts">Texts to encode.</param>
     /// <param name="maxLength">Maximum sequence length (uses default if null).</param>
