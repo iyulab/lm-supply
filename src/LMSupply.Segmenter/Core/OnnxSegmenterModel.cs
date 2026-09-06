@@ -19,22 +19,20 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
     private readonly SegmenterModelInfo _modelInfo;
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
 
-    private InferenceSession? _session;
+    // Owns the ONNX session and recovers from a crashing or hanging execution provider by moving
+    // to the next one in the fallback chain (see RecoverableOnnxSession).
+    private RecoverableOnnxSession? _session;
     private bool _isInitialized;
     private bool _disposed;
-
-    // Runtime diagnostics
-    private bool _isGpuActive;
-    private IReadOnlyList<string> _activeProviders = Array.Empty<string>();
 
     /// <inheritdoc />
     public string ModelId => _modelInfo.Id;
 
     /// <inheritdoc />
-    public bool IsGpuActive => _isGpuActive;
+    public bool IsGpuActive => _session?.IsGpuActive ?? false;
 
     /// <inheritdoc />
-    public IReadOnlyList<string> ActiveProviders => _activeProviders;
+    public IReadOnlyList<string> ActiveProviders => _session?.ActiveProviders ?? Array.Empty<string>();
 
     /// <inheritdoc />
     public ExecutionProvider RequestedProvider => _options.Provider;
@@ -181,20 +179,18 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
         await _sessionLock.WaitAsync(cancellationToken);
         try
         {
-            // CancellableInference guarantees control returns to the caller if the token is
-            // cancelled, or after a bounded default timeout, even when the native ONNX call
-            // (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-            // Previously this ran inline on the calling thread with no bound at all.
-            return await CancellableInference.RunAsync(() =>
+            // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the
+            // provider crashes, the session moves to the next provider and the run is retried once.
+            return await _session!.RunWithRecoveryAsync((session, runOptions) =>
             {
-                var inputName = _session!.InputNames[0];
+                var inputName = session.InputNames[0];
                 var inputs = new List<NamedOnnxValue>
                 {
                     NamedOnnxValue.CreateFromTensor(inputName, inputTensor)
                 };
 
-                return _session.Run(inputs);
-            }, cancellationToken);
+                return session.Run(inputs, session.OutputNames, runOptions);
+            }, cancellationToken: cancellationToken);
         }
         finally
         {
@@ -307,9 +303,8 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
                 ConfigureSessionOptions,
                 cancellationToken: cancellationToken);
 
-            _session = result.Session;
-            _isGpuActive = result.IsGpuActive;
-            _activeProviders = result.ActiveProviders;
+            _session = RecoverableOnnxSession.FromResult(
+                result, modelPath, ConfigureSessionOptions, logPrefix: "[OnnxSegmenterModel]");
 
             _isInitialized = true;
         }

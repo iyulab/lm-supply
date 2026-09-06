@@ -14,8 +14,9 @@ namespace LMSupply.Ocr.Detection;
 /// </summary>
 internal sealed class DbNetDetector : IDisposable
 {
-    private readonly InferenceSession _session;
-    private readonly SemaphoreSlim _sessionLock = new(1, 1);
+    // Owns the ONNX session and recovers from a crashing or hanging execution provider by moving
+    // to the next one in the fallback chain (see RecoverableOnnxSession).
+    private readonly RecoverableOnnxSession _session;
     private readonly DetectionModelInfo _modelInfo;
     private readonly DbNetPostProcessor _postProcessor;
     private readonly string _inputName;
@@ -25,36 +26,30 @@ internal sealed class DbNetDetector : IDisposable
     /// <summary>
     /// Gets whether GPU acceleration is being used for inference.
     /// </summary>
-    public bool IsGpuActive { get; }
+    public bool IsGpuActive => _session.IsGpuActive;
 
     /// <summary>
     /// Gets the list of active execution providers.
     /// </summary>
-    public IReadOnlyList<string> ActiveProviders { get; }
+    public IReadOnlyList<string> ActiveProviders => _session.ActiveProviders;
 
     /// <summary>
     /// Gets the execution provider that was requested.
     /// </summary>
-    public ExecutionProvider RequestedProvider { get; }
+    public ExecutionProvider RequestedProvider => _session.RequestedProvider;
 
     private DbNetDetector(
-        InferenceSession session,
+        RecoverableOnnxSession session,
         DetectionModelInfo modelInfo,
-        OcrOptions options,
-        bool isGpuActive,
-        IReadOnlyList<string> activeProviders,
-        ExecutionProvider requestedProvider)
+        OcrOptions options)
     {
         _session = session;
         _modelInfo = modelInfo;
         _postProcessor = new DbNetPostProcessor(options);
-        IsGpuActive = isGpuActive;
-        ActiveProviders = activeProviders;
-        RequestedProvider = requestedProvider;
 
         // Get input/output names from the model
-        _inputName = session.InputNames[0];
-        _outputName = session.OutputNames[0];
+        _inputName = session.Session.InputNames[0];
+        _outputName = session.Session.OutputNames[0];
     }
 
     /// <summary>
@@ -65,19 +60,15 @@ internal sealed class DbNetDetector : IDisposable
         DetectionModelInfo modelInfo,
         OcrOptions options)
     {
-        var result = await OnnxSessionFactory.CreateWithInfoAsync(
-                modelPath,
-                options.Provider,
-                so => so.LogSeverityLevel = (OrtLoggingLevel)(int)options.LogLevel)
+        Action<SessionOptions> configure = so => so.LogSeverityLevel = (OrtLoggingLevel)(int)options.LogLevel;
+
+        var result = await OnnxSessionFactory.CreateWithInfoAsync(modelPath, options.Provider, configure)
             .ConfigureAwait(false);
 
         return new DbNetDetector(
-            result.Session,
+            RecoverableOnnxSession.FromResult(result, modelPath, configure, logPrefix: "[DbNetDetector]"),
             modelInfo,
-            options,
-            result.IsGpuActive,
-            result.ActiveProviders,
-            result.RequestedProvider);
+            options);
     }
 
     /// <summary>
@@ -106,26 +97,16 @@ internal sealed class DbNetDetector : IDisposable
         // Convert to tensor
         var inputTensor = PreprocessImage(resizedImage);
 
-        // Run inference. CancellableInference guarantees control returns to the caller if the
-        // token is cancelled, or after a bounded default timeout, even when the native ONNX
-        // call (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-        var results = await CancellableInference.RunAsync(() =>
+        // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the
+        // provider crashes, the session moves to the next provider and the run is retried once.
+        var inputs = new List<NamedOnnxValue>
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var inputs = new List<NamedOnnxValue>
-            {
-                NamedOnnxValue.CreateFromTensor(_inputName, inputTensor)
-            };
-            _sessionLock.Wait(cancellationToken);
-            try
-            {
-                return _session.Run(inputs);
-            }
-            finally
-            {
-                _sessionLock.Release();
-            }
-        }, cancellationToken).ConfigureAwait(false);
+            NamedOnnxValue.CreateFromTensor(_inputName, inputTensor)
+        };
+        var results = await _session.RunWithRecoveryAsync(
+                (session, runOptions) => session.Run(inputs, [_outputName], runOptions),
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
 
         // Get output tensor
         using var outputResult = results[0];
@@ -271,7 +252,6 @@ internal sealed class DbNetDetector : IDisposable
     {
         if (_disposed) return;
         _session.Dispose();
-        _sessionLock.Dispose();
         _disposed = true;
     }
 }

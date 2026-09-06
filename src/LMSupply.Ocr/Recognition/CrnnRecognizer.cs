@@ -13,8 +13,9 @@ namespace LMSupply.Ocr.Recognition;
 /// </summary>
 internal sealed class CrnnRecognizer : IDisposable
 {
-    private readonly InferenceSession _session;
-    private readonly SemaphoreSlim _sessionLock = new(1, 1);
+    // Owns the ONNX session and recovers from a crashing or hanging execution provider by moving
+    // to the next one in the fallback chain (see RecoverableOnnxSession).
+    private readonly RecoverableOnnxSession _session;
     private readonly RecognitionModelInfo _modelInfo;
     private readonly CharacterDictionary _dictionary;
     private readonly float _confidenceThreshold;
@@ -23,7 +24,7 @@ internal sealed class CrnnRecognizer : IDisposable
     private bool _disposed;
 
     private CrnnRecognizer(
-        InferenceSession session,
+        RecoverableOnnxSession session,
         RecognitionModelInfo modelInfo,
         CharacterDictionary dictionary,
         OcrOptions options)
@@ -34,8 +35,8 @@ internal sealed class CrnnRecognizer : IDisposable
         _confidenceThreshold = options.RecognitionThreshold;
 
         // Get input/output names from the model
-        _inputName = session.InputNames[0];
-        _outputName = session.OutputNames[0];
+        _inputName = session.Session.InputNames[0];
+        _outputName = session.Session.OutputNames[0];
     }
 
     /// <summary>
@@ -47,15 +48,18 @@ internal sealed class CrnnRecognizer : IDisposable
         RecognitionModelInfo modelInfo,
         OcrOptions options)
     {
-        var session = await OnnxSessionFactory.CreateAsync(
-                modelPath,
-                options.Provider,
-                so => so.LogSeverityLevel = (OrtLoggingLevel)(int)options.LogLevel)
+        Action<SessionOptions> configure = so => so.LogSeverityLevel = (OrtLoggingLevel)(int)options.LogLevel;
+
+        var result = await OnnxSessionFactory.CreateWithInfoAsync(modelPath, options.Provider, configure)
             .ConfigureAwait(false);
 
         var dictionary = new CharacterDictionary(dictPath, modelInfo.UseSpace);
 
-        return new CrnnRecognizer(session, modelInfo, dictionary, options);
+        return new CrnnRecognizer(
+            RecoverableOnnxSession.FromResult(result, modelPath, configure, logPrefix: "[CrnnRecognizer]"),
+            modelInfo,
+            dictionary,
+            options);
     }
 
     /// <summary>
@@ -127,27 +131,18 @@ internal sealed class CrnnRecognizer : IDisposable
         // Convert to tensor
         var inputTensor = PreprocessImage(resized);
 
-        // Run inference. CancellableInference guarantees control returns to the caller if the
-        // token is cancelled, or after a bounded default timeout, even when the native ONNX
-        // call (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-        var logits = await CancellableInference.RunAsync(() =>
+        // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the
+        // provider crashes, the session moves to the next provider and the run is retried once.
+        var inputs = new List<NamedOnnxValue>
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var inputs = new List<NamedOnnxValue>
+            NamedOnnxValue.CreateFromTensor(_inputName, inputTensor)
+        };
+        var logits = await _session.RunWithRecoveryAsync((session, runOptions) =>
             {
-                NamedOnnxValue.CreateFromTensor(_inputName, inputTensor)
-            };
-            _sessionLock.Wait(cancellationToken);
-            try
-            {
-                var results = _session.Run(inputs);
+                using var results = session.Run(inputs, [_outputName], runOptions);
                 return ExtractLogits(results[0].AsTensor<float>());
-            }
-            finally
-            {
-                _sessionLock.Release();
-            }
-        }, cancellationToken).ConfigureAwait(false);
+            }, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
 
         // CTC decode
         return CtcDecoder.GreedyDecode(logits, _dictionary);
@@ -249,7 +244,6 @@ internal sealed class CrnnRecognizer : IDisposable
     {
         if (_disposed) return;
         _session.Dispose();
-        _sessionLock.Dispose();
         _disposed = true;
     }
 }

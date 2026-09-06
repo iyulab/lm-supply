@@ -169,6 +169,30 @@ Requested Provider → Available? → Use
 2. CUDA → CPU (Linux)
 3. CoreML → CPU (macOS)
 
+### 5.1 Runtime Recovery (after the session is loaded)
+
+The chain above is walked at **load time** — it answers "which provider can create a session".
+A provider can still fail **at run time**: an unsupported kernel throws from the first inference,
+or a cold GPU initialization hangs inside the native call and never returns. Modules that own
+an ONNX session (`RecoverableOnnxSession` in `LMSupply.Core`) handle both the same way:
+
+| Run-time failure | What happens |
+|---|---|
+| The provider throws (`OnnxRuntimeException`) | The provider is blacklisted, the session is recreated on the next provider in the chain, and the run is retried **once**. |
+| The run exceeds the inference bound (`InferenceTimeoutException`, 60 s by default) | Same move to the next provider, then **one** retry. The hung native call is abandoned — it is never disposed underneath, so it cannot corrupt the replacement session. |
+| The next provider also fails, or CPU is already active | The original exception surfaces unchanged. Nothing below CPU to fall back to. |
+| `Provider = ExecutionProvider.Cpu` was requested | Recovery is off — you asked for CPU and get exactly that. |
+
+Each recovery writes a `Trace` warning of the form
+`[<Module>] Inference failed on DirectML (...)` / `[<Module>] Inference timed out on DirectML after 60s ...`
+followed by `[<Module>] Recovered: now running on CPUExecutionProvider.` Attach a
+`TraceListener` (see `samples/EmbedderSample`) if you want to see them. After a recovery,
+`IsGpuActive` / `ActiveProviders` on the model reflect the provider actually in use.
+
+Modules on this recovery path: Embedder, Reranker, Segmenter, Ocr (detection and recognition). The
+remaining ONNX modules are being migrated; until then they run under the inference bound only
+(a hang surfaces as `InferenceTimeoutException` without a provider switch).
+
 ---
 
 ## 6. Best Practices
