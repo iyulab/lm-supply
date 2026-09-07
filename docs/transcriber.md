@@ -75,7 +75,7 @@ await foreach (var segment in transcriber.TranscribeStreamingAsync("audio.wav"))
 ```csharp
 var options = new TranscribeOptions
 {
-    Language = "en",        // Force specific language (null for auto-detect)
+    Language = "en",        // Force specific language (null: identified from the first 30 s, see below)
     Translate = true,       // Translate to English
     WordTimestamps = true,  // Include word-level timestamps
     InitialPrompt = "Technical discussion about AI" // Guide transcription style
@@ -83,6 +83,25 @@ var options = new TranscribeOptions
 
 var result = await transcriber.TranscribeAsync("audio.wav", options);
 ```
+
+### Language auto-detection
+
+With `Language = null` (the default) the transcriber runs Whisper's language-identification step on
+the first 30-second window — one decoder step prompted with `<|startoftranscript|>` alone, argmax
+over the language tokens — and uses that language for every window of the file. The result reports
+what was found:
+
+```csharp
+var result = await transcriber.TranscribeAsync("meeting.wav");
+Console.WriteLine($"{result.Language} (p={result.LanguageProbability:F2})"); // e.g. "ko (p=0.97)"
+```
+
+A hint (`Language = "ko"`) skips the step and leaves `LanguageProbability` null. English-only
+models (`*.en`) have no language tokens and always report `en`. Before v0.58.0 the step did not
+exist — the prompt simply omitted the language token, which decoded non-English audio as English.
+
+Trailing audio shorter than 500 ms after the last full 30-second window is not decoded on its own:
+zero-padded to a full window it is mostly silence, and Whisper hallucinates text into silence.
 
 ### Model Configuration
 

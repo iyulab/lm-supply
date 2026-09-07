@@ -26,6 +26,10 @@
          encoder's Windows-only native library (libmp3lame.64.dll) and actually runs on the
          cross-platform CI runners the underlying NLayer decode fix targets. -->
     <None Include="Fixtures\*.mp3" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Korean speech clip for the language auto-detection conformance test (docket #59). Synthesized
+         once, offline, from a local TTS voice and checked in for the same reason as the MP3 above:
+         a fixture generated at test time only exists on machines that have that voice. -->
+    <None Include="Fixtures\*.wav" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

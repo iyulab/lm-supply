@@ -110,13 +110,15 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         string? lastYieldedText = null;
         var compressionThreshold = options?.CompressionRatioThreshold ?? 2.4f;
         var noSpeechThreshold = options?.NoSpeechThreshold ?? 0.6f;
+        LanguageDetection? language = null;
 
         for (int i = 0; i < chunks.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var chunkStartTime = i * 30.0;
-            var result = await TranscribeChunkAsync(chunks[i], options, cancellationToken);
+            var (result, detected) = await TranscribeChunkAsync(chunks[i], options, language, cancellationToken);
+            language ??= detected;
 
             foreach (var segment in result.Segments)
             {
@@ -183,7 +185,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         // For short audio, process as single chunk
         if (samples.Length <= 480000) // 30 seconds
         {
-            var result = await TranscribeChunkAsync(samples, options, cancellationToken);
+            var (result, _) = await TranscribeChunkAsync(samples, options, null, cancellationToken);
             var (filteredSegments, filteredText) = SegmentPostProcessor.Process(
                 result.Segments.ToList(), options);
             sw.Stop();
@@ -207,12 +209,16 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         var textParts = new List<string>();
         string? detectedLanguage = null;
         float? languageProb = null;
+        LanguageDetection? language = null;
 
         for (int i = 0; i < chunks.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var chunkResult = await TranscribeChunkAsync(chunks[i], options, cancellationToken);
+            // The language is identified once, on the first chunk, and reused for the rest of the
+            // file (Whisper's reference behaviour); a hint in options bypasses identification.
+            var (chunkResult, detected) = await TranscribeChunkAsync(chunks[i], options, language, cancellationToken);
+            language ??= detected;
             var chunkStartTime = i * 30.0;
 
             if (i == 0)
@@ -253,16 +259,22 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         };
     }
 
-    private async Task<TranscriptionResult> TranscribeChunkAsync(
+    /// <summary>
+    /// Transcribes one 30 s window. When no language hint is set and <paramref name="knownLanguage"/>
+    /// is null, runs the language-identification step on this window's encoder output first (one
+    /// extra decoder step) and returns what it found so the caller can reuse it for later windows.
+    /// </summary>
+    private async Task<(TranscriptionResult Result, LanguageDetection? Language)> TranscribeChunkAsync(
         float[] samples,
         TranscribeOptions? options,
+        LanguageDetection? knownLanguage,
         CancellationToken cancellationToken)
     {
         await _lock.WaitAsync(cancellationToken);
         try
         {
             // Log language settings for debugging
-            Trace.TraceInformation($"[OnnxTranscriberModel] Transcribing chunk - Language: {options?.Language ?? "auto-detect"}, " +
+            Trace.TraceInformation($"[OnnxTranscriberModel] Transcribing chunk - Language: {options?.Language ?? knownLanguage?.Language ?? "auto-detect"}, " +
                 $"WordTimestamps: {options?.WordTimestamps ?? false}");
 
             // Compute mel spectrogram
@@ -279,25 +291,45 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
             var sampleRate = _modelInfo?.SampleRate ?? 16000;
             var chunkDurationSeconds = Math.Min(samples.Length / (double)sampleRate, 30.0);
 
-            // Run decoder with greedy decoding (includes language detection)
-            var decoderResult = await RunDecoderAsync(encoderOutput, chunkDurationSeconds, options, cancellationToken);
+            // Identify the language before building the transcription prompt: the prompt needs a
+            // language token, and an English-only export has no language range to identify from.
+            var language = knownLanguage;
+            if (language is null && options?.Language is null && _modelInfo is not { IsMultilingual: false })
+            {
+                language = await DetectLanguageAsync(encoderOutput, cancellationToken);
+            }
+
+            var decoderResult = await RunDecoderAsync(encoderOutput, chunkDurationSeconds, options, language, cancellationToken);
 
             Trace.TraceInformation($"[OnnxTranscriberModel] Transcription result - Language: {decoderResult.Language}, " +
                 $"Probability: {decoderResult.LanguageProbability?.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) ?? "N/A"}, " +
                 $"Text length: {decoderResult.Text.Length}, Segments: {decoderResult.Segments.Count}");
 
-            return new TranscriptionResult
+            var result = new TranscriptionResult
             {
                 Text = decoderResult.Text,
                 Language = decoderResult.Language,
                 LanguageProbability = decoderResult.LanguageProbability,
                 Segments = decoderResult.Segments
             };
+            return (result, language);
         }
         finally
         {
             _lock.Release();
         }
+    }
+
+    private async Task<LanguageDetection?> DetectLanguageAsync(float[] encoderOutput, CancellationToken cancellationToken)
+    {
+        if (_decoder == null)
+        {
+            throw new InvalidOperationException("Decoder not initialized");
+        }
+
+        var hiddenSize = _modelInfo?.HiddenSize ?? 512;
+        var sequenceLength = encoderOutput.Length / hiddenSize;
+        return await _decoder.DetectLanguageAsync(encoderOutput, sequenceLength, hiddenSize, cancellationToken);
     }
 
     private Task<float[]> RunEncoderAsync(float[] melSpec, int numMelBins, CancellationToken cancellationToken)
@@ -321,6 +353,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         float[] encoderOutput,
         double chunkDurationSeconds,
         TranscribeOptions? options,
+        LanguageDetection? detectedLanguage,
         CancellationToken cancellationToken)
     {
         if (_decoder == null)
@@ -340,6 +373,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
             hiddenSize,
             chunkDurationSeconds,
             options,
+            detectedLanguage,
             cancellationToken);
     }
 

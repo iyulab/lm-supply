@@ -19,6 +19,15 @@ internal static class AudioProcessor
     private const int NumSamples = WhisperSampleRate * ChunkLengthSeconds; // 480000
 
     /// <summary>
+    /// Shortest trailing remainder (in samples) that still becomes its own chunk: 500 ms. A shorter
+    /// tail zero-padded to the 30 s window is a chunk of silence with a sliver of sound at the start,
+    /// and Whisper hallucinates text into it — a 60.07 s file produced a segment at 60→70 s reading
+    /// "[BLANK_AUDIO]" (auto) or a polite sign-off (with a language hint). Whisper's own front ends
+    /// apply a minimum of a few hundred milliseconds for the same reason.
+    /// </summary>
+    public const int MinTailSamples = WhisperSampleRate / 2;
+
+    /// <summary>
     /// Loads audio from a file and converts to float samples at 16kHz mono.
     /// </summary>
     /// <param name="audioPath">Path to the audio file.</param>
@@ -137,18 +146,30 @@ internal static class AudioProcessor
     }
 
     /// <summary>
-    /// Splits audio into 30-second chunks for processing.
+    /// Splits audio into 30-second chunks for processing. A trailing remainder shorter than
+    /// <paramref name="minTailSamples"/> is dropped rather than padded into a chunk of its own,
+    /// unless it is the only chunk (the whole input is never dropped).
     /// </summary>
     /// <param name="samples">Input audio samples.</param>
+    /// <param name="minTailSamples">Shortest trailing remainder kept as a chunk; default <see cref="MinTailSamples"/>.</param>
     /// <returns>List of 30-second audio chunks.</returns>
-    public static List<float[]> SplitIntoChunks(float[] samples)
+    public static List<float[]> SplitIntoChunks(float[] samples, int minTailSamples = MinTailSamples)
     {
         var chunks = new List<float[]>();
         var position = 0;
 
         while (position < samples.Length)
         {
-            var chunkSize = Math.Min(NumSamples, samples.Length - position);
+            var remaining = samples.Length - position;
+            if (chunks.Count > 0 && remaining < minTailSamples)
+            {
+                Trace.TraceInformation(
+                    $"[AudioProcessor] Dropping {remaining} trailing samples ({remaining * 1000.0 / WhisperSampleRate:F0} ms) " +
+                    $"below the {minTailSamples}-sample minimum; padded to a full window they would only invite hallucination.");
+                break;
+            }
+
+            var chunkSize = Math.Min(NumSamples, remaining);
             var chunk = new float[NumSamples];
             Array.Copy(samples, position, chunk, 0, chunkSize);
             chunks.Add(chunk);

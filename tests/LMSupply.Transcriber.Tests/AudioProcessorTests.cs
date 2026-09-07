@@ -112,7 +112,7 @@ public class AudioProcessorTests
     [Fact]
     public void SplitIntoChunks_PartialLastChunk_ShouldPadWithZeros()
     {
-        var extraSamples = 100;
+        var extraSamples = 16000; // 1 s — a real tail, well above the minimum
         var samples = new float[NumSamples + extraSamples];
         samples[NumSamples] = 0.7f; // first sample of second chunk
 
@@ -123,6 +123,42 @@ public class AudioProcessorTests
         chunks[1].Length.Should().Be(NumSamples);
         chunks[1][0].Should().Be(0.7f);
         chunks[1][extraSamples].Should().Be(0f, "remainder is zero-padded");
+    }
+
+    // A tail shorter than the minimum is dropped rather than decoded: 70 ms of audio zero-padded to a
+    // 30 s window is a chunk of silence with a sliver of sound at the start, and Whisper hallucinates
+    // text into it (docket #59: "[BLANK_AUDIO]" / "-감사합니다." placed at 60→70 s of a 60.07 s file).
+
+    [Fact]
+    public void SplitIntoChunks_TailShorterThanMinimum_IsDropped()
+    {
+        var samples = new float[NumSamples + 1120]; // 30 s + 70 ms, the docket #59 shape
+
+        var chunks = AudioProcessor.SplitIntoChunks(samples);
+
+        chunks.Should().HaveCount(1, "70 ms padded to 30 s is a hallucination window, not a chunk");
+    }
+
+    [Fact]
+    public void SplitIntoChunks_TailAtMinimum_IsKept()
+    {
+        var samples = new float[NumSamples + AudioProcessor.MinTailSamples];
+        samples[NumSamples] = 0.3f;
+
+        var chunks = AudioProcessor.SplitIntoChunks(samples);
+
+        chunks.Should().HaveCount(2);
+        chunks[1][0].Should().Be(0.3f);
+    }
+
+    [Fact]
+    public void SplitIntoChunks_OnlyChunkShorterThanMinimum_IsKept()
+    {
+        var samples = new float[1600]; // 100 ms total — the whole input, never dropped
+
+        var chunks = AudioProcessor.SplitIntoChunks(samples);
+
+        chunks.Should().HaveCount(1);
     }
 
     [Fact]

@@ -44,8 +44,11 @@ public sealed class TranscriberOptions : LMSupplyOptionsBase
 public sealed class TranscribeOptions
 {
     /// <summary>
-    /// Gets or sets the language code for transcription.
-    /// If null, the model will auto-detect the language.
+    /// Gets or sets the language code for transcription (ISO 639-1, e.g. "en", "ko").
+    /// If null, the language is identified from the first 30 s window with Whisper's
+    /// language-identification step and reused for the rest of the audio; the outcome is reported
+    /// as <see cref="TranscriptionResult.Language"/> / <see cref="TranscriptionResult.LanguageProbability"/>.
+    /// A hint skips identification (and leaves the probability null).
     /// <para>Default: null (auto-detect)</para>
     /// </summary>
     public string? Language { get; set; }

@@ -132,7 +132,61 @@ internal sealed class WhisperDecoder
     }
 
     /// <summary>
-    /// Decodes encoder output to text using greedy search.
+    /// Runs Whisper's language-identification step on one chunk: a single decoder step prompted with
+    /// <c>[SOT]</c> alone, argmax over the language-token range of the resulting logits. This is the
+    /// step the reference implementation runs before transcribing when no language is given — the
+    /// transcription prompt itself (<c>[SOT, &lt;lang&gt;, task, …]</c>) needs the language token
+    /// filled in, so "auto-detect" is not something the model does on its own inside that prompt.
+    /// Returns null when the logits carry no language range (an English-only export).
+    /// </summary>
+    public async Task<LanguageDetection?> DetectLanguageAsync(
+        float[] encoderOutput,
+        int encoderSequenceLength,
+        int hiddenSize,
+        CancellationToken cancellationToken = default)
+    {
+        var encoderTensor = new DenseTensor<float>(encoderOutput, [1, encoderSequenceLength, hiddenSize]);
+        var kvCache = _isMergedModel ? CreateEmptyKvCache() : null;
+        var logits = await RunDecoderStepAsync([_tokenizer.StartOfTranscriptToken], encoderTensor, kvCache, cancellationToken);
+        var detection = SelectLanguage(logits);
+
+        Trace.TraceInformation(detection is null
+            ? "[WhisperDecoder] Language detection: logits carry no language-token range; skipping."
+            : $"[WhisperDecoder] Language detection: {detection.Language} (p={detection.Probability.ToString("F3", System.Globalization.CultureInfo.InvariantCulture)})");
+        return detection;
+    }
+
+    /// <summary>
+    /// The pure half of <see cref="DetectLanguageAsync"/>: the most likely language token in the
+    /// language range of one <c>[SOT]</c>-step logit vector, with its softmax probability over that
+    /// range. Exposed so the selection can be asserted on a synthetic vector without a session.
+    /// </summary>
+    internal LanguageDetection? SelectLanguage(float[] logits)
+    {
+        var start = _tokenizer.LanguageTokenStart;
+        var end = Math.Min(_tokenizer.LanguageTokenEnd, logits.Length - 1);
+        if (start > end)
+            return null;
+
+        var best = start;
+        for (int i = start + 1; i <= end; i++)
+        {
+            if (logits[i] > logits[best])
+                best = i;
+        }
+
+        var language = _tokenizer.GetLanguageFromToken(best);
+        if (language is null)
+            return null;
+
+        return new LanguageDetection(language, ComputeLanguageTokenProbability(logits, best));
+    }
+
+    /// <summary>
+    /// Decodes encoder output to text using greedy search. The language token in the prompt comes
+    /// from <see cref="TranscribeOptions.Language"/>, else from <paramref name="detectedLanguage"/>
+    /// (see <see cref="DetectLanguageAsync"/>), else the prompt carries no language token and the
+    /// model falls back to its training bias (English on the multilingual checkpoints).
     /// </summary>
     public async Task<DecodingResult> DecodeAsync(
         float[] encoderOutput,
@@ -140,12 +194,14 @@ internal sealed class WhisperDecoder
         int hiddenSize,
         double chunkDurationSeconds,
         TranscribeOptions? options = null,
+        LanguageDetection? detectedLanguage = null,
         CancellationToken cancellationToken = default)
     {
         // Initialize tokens with SOT sequence
         var useTimestamps = options?.WordTimestamps ?? false;
         var translate = options?.Translate ?? false;
-        var initialTokens = _tokenizer.GetSotSequence(options?.Language, useTimestamps, translate);
+        var language = options?.Language ?? detectedLanguage?.Language;
+        var initialTokens = _tokenizer.GetSotSequence(language, useTimestamps, translate);
         var tokens = new List<int>(initialTokens);
 
         var segments = new List<TranscriptionSegment>();
@@ -157,8 +213,6 @@ internal sealed class WhisperDecoder
             encoderOutput,
             [1, encoderSequenceLength, hiddenSize]);
 
-        string? detectedLanguage = null;
-        float? languageProbability = null;
         int segmentId = 0;
 
         // Per-segment metric tracking
@@ -179,44 +233,7 @@ internal sealed class WhisperDecoder
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Create input tensor
-            var tokenArray = tokens.ToArray();
-            var tokenTensor = new DenseTensor<long>(
-                tokenArray.Select(t => (long)t).ToArray(),
-                [1, tokens.Count]);
-
-            // Build inputs list
-            var inputs = new List<NamedOnnxValue>
-            {
-                NamedOnnxValue.CreateFromTensor(_actualTokenInputName, tokenTensor),
-                NamedOnnxValue.CreateFromTensor(_actualEncoderInputName, encoderTensor)
-            };
-
-            // Add merged model specific inputs
-            if (_isMergedModel && kvCache != null)
-            {
-                // Add use_cache_branch = false (we're not using cache efficiently yet)
-                var useCacheTensor = new DenseTensor<bool>(s_falseArray, s_oneDimension);
-                inputs.Add(NamedOnnxValue.CreateFromTensor(UseCacheBranchName, useCacheTensor));
-
-                // Add past_key_values tensors
-                foreach (var (name, _) in _pastKeyValueInputs)
-                {
-                    if (kvCache.TryGetValue(name, out var tensor))
-                    {
-                        inputs.Add(NamedOnnxValue.CreateFromTensor(name, tensor));
-                    }
-                }
-            }
-
-            // One bounded decode step. The bound (and provider recovery) applies per step: a cold
-            // GPU kernel hang is a property of a single native call, and a long transcript that
-            // legitimately takes many steps must not be cut off by a whole-loop timeout.
-            var lastLogits = await _decoderSession.RunWithRecoveryAsync((session, runOptions) =>
-            {
-                using var results = session.Run(inputs, [_actualLogitsOutputName], runOptions);
-                return ExtractLastPositionLogits(results[0].AsTensor<float>());
-            }, cancellationToken: cancellationToken);
+            var lastLogits = await RunDecoderStepAsync(tokens, encoderTensor, kvCache, cancellationToken);
 
             // Greedy selection: argmax, after repetition-penalty/temperature/hallucination-guard
             var nextToken = SelectNextToken(lastLogits, tokens, initialTokens, options);
@@ -227,17 +244,12 @@ internal sealed class WhisperDecoder
                 currentSegmentLogProbs.Add(ComputeLogProb(lastLogits, nextToken));
             }
 
-            // Detect language from first generated token after SOT
+            // No-speech probability is read at the first decoder step. (Language is NOT read here:
+            // with a language token in the prompt the first generated token is never a language
+            // token, and without one the model never emits it either -- see DetectLanguageAsync.)
             if (tokens.Count == initialTokens.Length)
             {
-                // Compute no-speech probability at the first decoder step
                 chunkNoSpeechProb = ComputeNoSpeechProb(lastLogits);
-
-                if (_tokenizer.IsLanguageToken(nextToken))
-                {
-                    detectedLanguage = _tokenizer.GetLanguageFromToken(nextToken);
-                    languageProbability = ComputeLanguageTokenProbability(lastLogits, nextToken);
-                }
             }
 
             // Check for end of text
@@ -336,11 +348,55 @@ internal sealed class WhisperDecoder
         return new DecodingResult
         {
             Text = fullTranscription,
-            Language = detectedLanguage ?? options?.Language ?? "en",
-            LanguageProbability = languageProbability,
+            Language = language ?? "en",
+            LanguageProbability = options?.Language is null ? detectedLanguage?.Probability : null,
             Segments = segments,
             TokenCount = tokens.Count - initialTokens.Length
         };
+    }
+
+    /// <summary>
+    /// One bounded decoder step for the given token prefix. The bound (and provider recovery)
+    /// applies per step: a cold GPU kernel hang is a property of a single native call, and a long
+    /// transcript that legitimately takes many steps must not be cut off by a whole-loop timeout.
+    /// Shared by the transcription loop and the language-identification step.
+    /// </summary>
+    private Task<float[]> RunDecoderStepAsync(
+        List<int> tokens,
+        DenseTensor<float> encoderTensor,
+        Dictionary<string, DenseTensor<float>>? kvCache,
+        CancellationToken cancellationToken)
+    {
+        var tokenTensor = new DenseTensor<long>(
+            tokens.Select(t => (long)t).ToArray(),
+            [1, tokens.Count]);
+
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor(_actualTokenInputName, tokenTensor),
+            NamedOnnxValue.CreateFromTensor(_actualEncoderInputName, encoderTensor)
+        };
+
+        if (_isMergedModel && kvCache != null)
+        {
+            // use_cache_branch = false (we're not using cache efficiently yet)
+            var useCacheTensor = new DenseTensor<bool>(s_falseArray, s_oneDimension);
+            inputs.Add(NamedOnnxValue.CreateFromTensor(UseCacheBranchName, useCacheTensor));
+
+            foreach (var (name, _) in _pastKeyValueInputs)
+            {
+                if (kvCache.TryGetValue(name, out var tensor))
+                {
+                    inputs.Add(NamedOnnxValue.CreateFromTensor(name, tensor));
+                }
+            }
+        }
+
+        return _decoderSession.RunWithRecoveryAsync((session, runOptions) =>
+        {
+            using var results = session.Run(inputs, [_actualLogitsOutputName], runOptions);
+            return ExtractLastPositionLogits(results[0].AsTensor<float>());
+        }, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -689,3 +745,9 @@ internal sealed class DecodingResult
     public required List<TranscriptionSegment> Segments { get; init; }
     public int TokenCount { get; init; }
 }
+
+/// <summary>
+/// Outcome of Whisper's language-identification step: the ISO 639-1 code of the most likely
+/// language token and its softmax probability over the language-token range.
+/// </summary>
+internal sealed record LanguageDetection(string Language, float Probability);
