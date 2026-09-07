@@ -121,6 +121,25 @@ await using var def  = await LocalGenerator.LoadAsync("default"); // same as "au
 .WithModelPath("C:/models/my-model-onnx")
 ```
 
+### Downloading ahead of time
+
+`LocalGenerator.DownloadModelAsync` pulls exactly the files `LoadAsync` would open — same alias
+resolution, same `default`/`auto` hardware selection, same quantization pick — and returns their
+local path without loading the model, provisioning a runtime or starting llama-server. Use it from
+an installer, a first-run screen or a CI cache-warming step; the later `LoadAsync` then downloads
+nothing.
+
+```csharp
+var options = new GeneratorOptions { Provider = ExecutionProvider.Auto };
+var path = await LocalGenerator.DownloadModelAsync("gguf:gemma4-default", options,
+    progress: new Progress<DownloadProgress>(p => Console.WriteLine(p.Phase)));
+// later, same id + options:
+await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-default", options);
+```
+
+Pass the same `Provider` both times: GGUF auto-quantization picks the file from the provider's
+memory budget, so a different provider can warm a different file. Local paths are returned as-is.
+
 ## Configuration Options
 
 ### Execution Provider

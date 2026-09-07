@@ -32,6 +32,27 @@ internal static class GeneratorModelLoader
     }
 
     /// <summary>
+    /// Downloads the weights <see cref="LoadAsync"/> would load for <paramref name="modelId"/> and
+    /// returns their local path, without loading anything (no runtime provisioning, no llama-server,
+    /// no session). Same format routing as <see cref="LoadAsync"/>.
+    /// </summary>
+    public static async Task<string> DownloadAsync(
+        string modelId,
+        GeneratorOptions options,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var format = ModelFormatDetector.Detect(modelId);
+        return format switch
+        {
+            ModelFormat.Gguf => (await ResolveGgufAsync(modelId, options, progress, cancellationToken)).ModelPath,
+            ModelFormat.Onnx => (await DownloadOnnxAsync(modelId, options, progress, cancellationToken)).ModelPath,
+            ModelFormat.Unknown => (await ResolveGgufAsync(modelId, options, progress, cancellationToken)).ModelPath,
+            _ => throw new NotSupportedException($"Unsupported model format: {format}")
+        };
+    }
+
+    /// <summary>
     /// Loads an ONNX GenAI model from HuggingFace.
     /// </summary>
     private static async Task<IGeneratorModel> LoadOnnxAsync(
@@ -43,6 +64,21 @@ internal static class GeneratorModelLoader
         // Ensure GenAI runtime binaries are available before loading the model
         await OnnxGeneratorBackendRegistry.Require().EnsureRuntimeAsync(options.Provider, progress, cancellationToken);
 
+        var (modelPath, configBasePath) = await DownloadOnnxAsync(modelId, options, progress, cancellationToken);
+        return await LoadFromPathAsync(modelPath, options, modelId, configBasePath);
+    }
+
+    /// <summary>
+    /// The download half of <see cref="LoadOnnxAsync"/>: resolves registry/hardware preferences and
+    /// pulls the ONNX files via discovery. Returns the model path (subfolder included when the
+    /// export uses one) and the base path GenAiConfigReader needs when a subfolder is in play.
+    /// </summary>
+    private static async Task<(string ModelPath, string? ConfigBasePath)> DownloadOnnxAsync(
+        string modelId,
+        GeneratorOptions options,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         using var downloader = new HuggingFaceDownloader(cacheDir);
 
@@ -87,13 +123,40 @@ internal static class GeneratorModelLoader
         // Pass basePath as configBasePath when subfolder is used,
         // so GenAiConfigReader can find genai_config.json at either location
         var configBasePath = discovery.Subfolder != null ? basePath : null;
-        return await LoadFromPathAsync(modelPath, options, modelId, configBasePath);
+        return (modelPath, configBasePath);
     }
 
     /// <summary>
     /// Loads a GGUF model from HuggingFace using llama-server backend.
     /// </summary>
     private static async Task<IGeneratorModel> LoadGgufAsync(
+        string modelId,
+        GeneratorOptions options,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var (modelPath, chatFormat, registryInfo) = await ResolveGgufAsync(modelId, options, progress, cancellationToken);
+
+        // Load the model from downloaded path using llama-server
+        var resolvedModelId = registryInfo?.DisplayName ?? modelId;
+        var chatFormatter = ChatFormatterFactory.CreateByFormat(chatFormat);
+
+        return await LlamaServerGeneratorModel.LoadAsync(
+            resolvedModelId,
+            modelPath,
+            chatFormatter,
+            options,
+            progress,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The download half of <see cref="LoadGgufAsync"/>: resolves a registry alias or a HuggingFace
+    /// repo id to a local GGUF file (auto-quantization under <see cref="LMSupplyOptionsBase.Provider"/>'s
+    /// memory budget) and the chat format to drive it with. Shared with <see cref="DownloadAsync"/>
+    /// so a cache warmed ahead of time holds exactly the file a later load opens.
+    /// </summary>
+    private static async Task<(string ModelPath, string ChatFormat, GgufModelInfo? RegistryInfo)> ResolveGgufAsync(
         string modelId,
         GeneratorOptions options,
         IProgress<DownloadProgress>? progress,
@@ -144,17 +207,7 @@ internal static class GeneratorModelLoader
             chatFormat = options.ChatFormat ?? GgufChatFormatDetector.DetectFromFilename(modelPath);
         }
 
-        // Load the model from downloaded path using llama-server
-        var resolvedModelId = registryInfo?.DisplayName ?? modelId;
-        var chatFormatter = ChatFormatterFactory.CreateByFormat(chatFormat);
-
-        return await LlamaServerGeneratorModel.LoadAsync(
-            resolvedModelId,
-            modelPath,
-            chatFormatter,
-            options,
-            progress,
-            cancellationToken);
+        return (modelPath, chatFormat, registryInfo);
     }
 
     public static async Task<IGeneratorModel> LoadFromPathAsync(

@@ -106,6 +106,73 @@ public static class LocalGenerator
     }
 
     /// <summary>
+    /// Downloads the weights <see cref="LoadAsync"/> would load for <paramref name="modelId"/> and
+    /// returns their local path — without loading the model, provisioning a runtime or starting
+    /// llama-server. For installers, first-run screens and CI cache warming: a later
+    /// <see cref="LoadAsync"/> with the same id and options then downloads nothing.
+    /// </summary>
+    /// <param name="modelId">
+    /// Anything <see cref="LoadAsync"/> accepts: a user alias, a <c>gguf:</c> alias, a registry alias,
+    /// <c>"default"</c>/<c>"auto"</c> (resolved with the same hardware-aware selection), a HuggingFace
+    /// repo id, or a local path (returned as-is).
+    /// </param>
+    /// <param name="options">
+    /// The options the later load will use. <see cref="LMSupplyOptionsBase.Provider"/> matters: GGUF
+    /// auto-quantization picks the file from the provider's memory budget, so passing a different
+    /// provider here than at load time can warm the wrong file.
+    /// </param>
+    /// <param name="progress">Download progress.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The local file (GGUF) or directory (ONNX) the model will be loaded from.</returns>
+    public static async Task<string> DownloadModelAsync(
+        string modelId,
+        GeneratorOptions? options = null,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        options ??= new GeneratorOptions();
+
+        // Mirrors LoadAsync's resolution step for step — see the comments there for why each
+        // check sits where it does. Divergence here would warm a file the load never opens.
+        if (GeneratorModelRegistry.Default.TryGetUserAliasTarget(modelId, out var userAliasTarget))
+        {
+            modelId = userAliasTarget!;
+        }
+
+        if (modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ||
+            Internal.Llama.GgufModelRegistry.IsAlias(modelId))
+        {
+            return await Internal.GeneratorModelLoader.DownloadAsync(modelId, options, progress, cancellationToken).ConfigureAwait(false);
+        }
+
+        var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelId);
+        modelId = baseId;
+        options.QuantizationHint ??= qualifier;
+
+        if (modelId.Equals("default", StringComparison.OrdinalIgnoreCase) ||
+            modelId.Equals("auto", StringComparison.OrdinalIgnoreCase))
+        {
+            modelId = !string.IsNullOrEmpty(options.PreferredAutoModelId)
+                ? options.PreferredAutoModelId
+                : SelectAutoModel(options).ModelId;
+            return await DownloadModelAsync(modelId, options, progress, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (GeneratorModelRegistry.Default.TryResolve(modelId, out var resolvedModel))
+        {
+            modelId = resolvedModel!.ModelId;
+        }
+
+        if (File.Exists(modelId) || Directory.Exists(modelId))
+        {
+            return modelId;
+        }
+
+        return await Internal.GeneratorModelLoader.DownloadAsync(modelId, options, progress, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Loads a text generator from a local model path.
     /// </summary>
     /// <param name="modelPath">The path to the local model directory or GGUF file.</param>
@@ -224,33 +291,7 @@ public static class LocalGenerator
             }
         }
 
-        var profile = HardwareProfile.Current;
-        var useOnnx = Internal.GeneratorRoutingPolicy.ShouldUseOnnx(
-            profile.GpuInfo, profile.RecommendedProvider);
-
-        string selectedModelId;
-        SelectionDiagnostics diagnostics;
-
-        if (useOnnx)
-        {
-            var model = GeneratorModelRegistry.Default.Resolve("auto");
-            selectedModelId = model.ModelId;
-            diagnostics = BuildOnnxDiagnostics(profile);
-            LogOnnxAutoSelection(profile, model.ModelId);
-        }
-        else
-        {
-            var selection = Internal.Llama.GgufModelRegistry.GetAutoSelection(profile.GpuInfo);
-            // Pass the alias (e.g. "gguf:gemma4-fast") rather than RepoId so the downstream
-            // loader can re-resolve the registry entry and use its DefaultFile. Passing
-            // RepoId would lose the DefaultFile and fall back to GgufFileSelector, which
-            // can pick larger variants (e.g. bf16) that fit in VRAM+RAM but blow VRAM.
-            selectedModelId = !string.IsNullOrEmpty(selection.Selected.AliasName)
-                ? selection.Selected.AliasName
-                : selection.Selected.RepoId;
-            diagnostics = BuildGgufDiagnostics(profile, selection);
-            LogGgufAutoSelection(profile, selection);
-        }
+        var (selectedModelId, diagnostics) = SelectAutoModel(options);
 
         var loaded = await Internal.GeneratorModelLoader.LoadAsync(
             selectedModelId, options, progress, cancellationToken).ConfigureAwait(false);
@@ -282,6 +323,37 @@ public static class LocalGenerator
             SelectionReason = selection.Reason.ToString(),
             EnvOverrideApplied = VramBudget.TryGetEnvOverrideBytes(out _)
         };
+
+    /// <summary>
+    /// Hardware-aware model selection behind <c>"default"</c>/<c>"auto"</c>: the backend decision
+    /// (ONNX vs GGUF) and the model within it, with the diagnostics a loaded model reports. Shared by
+    /// <see cref="LoadAutoAsync"/> and <see cref="DownloadModelAsync"/> so warming and loading agree.
+    /// Logs the selection with the <c>[LocalGenerator.auto]</c> prefix.
+    /// </summary>
+    private static (string ModelId, SelectionDiagnostics Diagnostics) SelectAutoModel(GeneratorOptions options)
+    {
+        var profile = HardwareProfile.Current;
+        var useOnnx = Internal.GeneratorRoutingPolicy.ShouldUseOnnx(
+            profile.GpuInfo, profile.RecommendedProvider);
+
+        if (useOnnx)
+        {
+            var model = GeneratorModelRegistry.Default.Resolve("auto");
+            LogOnnxAutoSelection(profile, model.ModelId);
+            return (model.ModelId, BuildOnnxDiagnostics(profile));
+        }
+
+        var selection = Internal.Llama.GgufModelRegistry.GetAutoSelection(profile.GpuInfo);
+        // Pass the alias (e.g. "gguf:gemma4-fast") rather than RepoId so the downstream
+        // loader can re-resolve the registry entry and use its DefaultFile. Passing
+        // RepoId would lose the DefaultFile and fall back to GgufFileSelector, which
+        // can pick larger variants (e.g. bf16) that fit in VRAM+RAM but blow VRAM.
+        var selectedModelId = !string.IsNullOrEmpty(selection.Selected.AliasName)
+            ? selection.Selected.AliasName
+            : selection.Selected.RepoId;
+        LogGgufAutoSelection(profile, selection);
+        return (selectedModelId, BuildGgufDiagnostics(profile, selection));
+    }
 
     private static void LogOnnxAutoSelection(HardwareProfile profile, string modelId)
     {

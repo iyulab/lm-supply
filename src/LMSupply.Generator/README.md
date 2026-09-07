@@ -48,6 +48,13 @@ Console.WriteLine(response);
 await generator.DisposeAsync();
 ```
 
+### Downloading ahead of time
+
+```csharp
+// Same resolution as LoadAsync (aliases, default/auto, repo ids), no model load:
+var path = await LocalGenerator.DownloadModelAsync("gguf:gemma4-default");
+```
+
 ## Chat Completion
 
 ```csharp
