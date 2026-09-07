@@ -7,6 +7,7 @@ internal sealed class SentencePieceTextTokenizer : ITextTokenizer
 {
     private readonly Tokenizer _tokenizer;
     private readonly SpecialTokens _specialTokens;
+    private readonly SentencePieceIdMap _idMap;
 
     public int VocabSize { get; }
     public int PadTokenId => _specialTokens.PadTokenId;
@@ -16,16 +17,29 @@ internal sealed class SentencePieceTextTokenizer : ITextTokenizer
     public int? ClsTokenId => _specialTokens.ClsTokenId;
     public int? SepTokenId => _specialTokens.SepTokenId;
 
-    public SentencePieceTextTokenizer(Tokenizer tokenizer, SpecialTokens specialTokens, int vocabSize = 32000)
+    public SentencePieceTextTokenizer(
+        Tokenizer tokenizer,
+        SpecialTokens specialTokens,
+        int vocabSize = 32000,
+        SentencePieceIdMap? idMap = null)
     {
         _tokenizer = tokenizer;
         _specialTokens = specialTokens;
         VocabSize = vocabSize;
+        _idMap = idMap ?? SentencePieceIdMap.Identity;
     }
+
+    /// <summary>
+    /// 내용 토큰만 인코딩한다 — 특수 토큰은 이 클래스가 붙이므로 하위 토크나이저가 BOS/EOS를
+    /// 덧붙이지 않는다는 전제(<see cref="TokenizerFactory"/>가 그렇게 만든다)에 기대고,
+    /// 모델이 선언한 어휘 배치로 id를 옮긴다.
+    /// </summary>
+    private int[] EncodeContent(string text)
+        => _idMap.Map(_tokenizer.EncodeToIds(text).ToArray());
 
     public int[] Encode(string text, bool addSpecialTokens = true)
     {
-        var ids = _tokenizer.EncodeToIds(text).ToArray();
+        var ids = EncodeContent(text);
 
         if (!addSpecialTokens)
             return ids;

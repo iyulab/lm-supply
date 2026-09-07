@@ -9,6 +9,7 @@ internal sealed class SentencePiecePairTokenizer : IPairTokenizer
     private readonly Tokenizer _tokenizer;
     private readonly SpecialTokens _specialTokens;
     private readonly int _maxSequenceLength;
+    private readonly SentencePieceIdMap _idMap;
 
     public int VocabSize { get; }
     public int PadTokenId => _specialTokens.PadTokenId;
@@ -23,17 +24,27 @@ internal sealed class SentencePiecePairTokenizer : IPairTokenizer
         Tokenizer tokenizer,
         SpecialTokens specialTokens,
         int maxSequenceLength,
-        int vocabSize = 32000)
+        int vocabSize = 32000,
+        SentencePieceIdMap? idMap = null)
     {
         _tokenizer = tokenizer;
         _specialTokens = specialTokens;
         _maxSequenceLength = maxSequenceLength;
+        _idMap = idMap ?? SentencePieceIdMap.Identity;
         VocabSize = vocabSize;
     }
 
+    /// <summary>
+    /// 내용 토큰만 인코딩한다 — 특수 토큰은 이 클래스가 붙이므로 하위 토크나이저가 BOS/EOS를
+    /// 덧붙이지 않는다는 전제(<see cref="TokenizerFactory"/>가 그렇게 만든다)에 기대고,
+    /// 모델이 선언한 어휘 배치로 id를 옮긴다.
+    /// </summary>
+    private int[] EncodeContent(string text)
+        => _idMap.Map(_tokenizer.EncodeToIds(text).ToArray());
+
     public int[] Encode(string text, bool addSpecialTokens = true)
     {
-        var ids = _tokenizer.EncodeToIds(text).ToArray();
+        var ids = EncodeContent(text);
 
         if (!addSpecialTokens)
             return ids;
@@ -93,7 +104,7 @@ internal sealed class SentencePiecePairTokenizer : IPairTokenizer
     public EncodedSequence EncodeSequence(string text, int? maxLength = null)
     {
         var length = maxLength ?? _maxSequenceLength;
-        var tokens = _tokenizer.EncodeToIds(text).ToArray();
+        var tokens = EncodeContent(text);
 
         var startToken = _specialTokens.ClsTokenId ?? _specialTokens.BosTokenId ?? 0;
         var endToken = _specialTokens.SepTokenId ?? _specialTokens.EosTokenId ?? 2;
@@ -149,8 +160,8 @@ internal sealed class SentencePiecePairTokenizer : IPairTokenizer
     {
         var length = maxLength ?? _maxSequenceLength;
 
-        var tokens1 = _tokenizer.EncodeToIds(text1).ToArray();
-        var tokens2 = _tokenizer.EncodeToIds(text2).ToArray();
+        var tokens1 = EncodeContent(text1);
+        var tokens2 = EncodeContent(text2);
 
         var startToken = _specialTokens.ClsTokenId ?? _specialTokens.BosTokenId ?? 0;
         var sepToken = _specialTokens.SepTokenId ?? _specialTokens.EosTokenId ?? 2;

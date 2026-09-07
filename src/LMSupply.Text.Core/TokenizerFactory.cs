@@ -101,7 +101,12 @@ public static class TokenizerFactory
             // SentencePieceTokenizer.Create accepts both BPE (LLaMA) and Unigram
             // (XLM-Roberta / multilingual-e5 / BGE-M3). LlamaTokenizer.Create only
             // accepts BPE and throws "model type is not Bpe" on Unigram models.
-            tokenizer = SentencePieceTokenizer.Create(stream);
+            // BOS/EOS emission is turned off here because the wrapper owns the special
+            // tokens; leaving it on prepends the SentencePiece model's own <s> underneath
+            // the wrapper's, which lands on a different token entirely in an XLM-Roberta
+            // vocabulary (<pad>).
+            tokenizer = SentencePieceTokenizer.Create(
+                stream, addBeginningOfSentence: false, addEndOfSentence: false);
         }
         else
         {
@@ -111,7 +116,8 @@ public static class TokenizerFactory
                     $"No SentencePiece model found. Expected .spm or .model file in: {modelDir}");
         }
 
-        return new SentencePieceTextTokenizer(tokenizer, specialTokens);
+        return new SentencePieceTextTokenizer(
+            tokenizer, specialTokens, idMap: BuildIdMap(tokenizer, vocab));
     }
 
     /// <summary>
@@ -252,15 +258,22 @@ public static class TokenizerFactory
 
         Tokenizer tokenizer;
         SpecialTokens specialTokens;
+        var idMap = SentencePieceIdMap.Identity;
 
         if (spmPath != null)
         {
             using var stream = File.OpenRead(spmPath);
             // SentencePieceTokenizer.Create accepts both BPE and Unigram model types,
             // so it works for LLaMA-style as well as XLM-Roberta-style SPM files.
-            tokenizer = SentencePieceTokenizer.Create(stream);
+            // BOS/EOS emission is turned off here because the wrapper owns the special
+            // tokens; leaving it on prepends the SentencePiece model's own <s> underneath
+            // the wrapper's, which lands on a different token entirely in an XLM-Roberta
+            // vocabulary (<pad>).
+            tokenizer = SentencePieceTokenizer.Create(
+                stream, addBeginningOfSentence: false, addEndOfSentence: false);
             var vocab = LoadVocabularySync(modelDir);
             specialTokens = SpecialTokens.FromVocabulary(vocab);
+            idMap = BuildIdMap(tokenizer, vocab);
         }
         else if (File.Exists(tokenizerJsonPath))
         {
@@ -282,7 +295,8 @@ public static class TokenizerFactory
             specialTokens = SpecialTokens.FromVocabulary(vocab);
         }
 
-        return new SentencePiecePairTokenizer(tokenizer, specialTokens, maxSequenceLength);
+        return new SentencePiecePairTokenizer(
+            tokenizer, specialTokens, maxSequenceLength, idMap: idMap);
     }
 
     /// <summary>
@@ -606,6 +620,39 @@ public static class TokenizerFactory
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// SentencePiece 모델의 raw id를, 그 모델과 함께 배포된 어휘가 실제로 쓰는 id로 옮기는
+    /// 사상을 만든다. 두 어휘가 이미 일치하면 아무것도 하지 않는 사상이 나온다.
+    /// </summary>
+    /// <remarks>
+    /// XLM-Roberta 계열(multilingual-e5-*, bge-m3)은 fairseq 예약 슬롯 때문에 내용 토큰이
+    /// spm 자신의 id보다 한 칸 뒤에 있다 — 그 어긋남을 계열 목록으로 알아맞히지 않고
+    /// 두 어휘를 대조해 도출한다(<see cref="SentencePieceIdMap"/>).
+    /// </remarks>
+    private static SentencePieceIdMap BuildIdMap(Tokenizer tokenizer, Dictionary<string, int> targetVocabulary)
+    {
+        if (tokenizer is not SentencePieceTokenizer spm || targetVocabulary.Count == 0)
+            return SentencePieceIdMap.Identity;
+
+        var map = SentencePieceIdMap.Create(
+            spm.Vocabulary.ToDictionary(entry => entry.Key.ToString(), entry => entry.Value, StringComparer.Ordinal),
+            targetVocabulary,
+            spm.UnknownToken,
+            spm.UnknownId,
+            spm.BeginningOfSentenceToken,
+            spm.BeginningOfSentenceId,
+            spm.EndOfSentenceToken,
+            spm.EndOfSentenceId);
+
+        if (!map.IsIdentity)
+        {
+            Trace.TraceInformation(
+                "[TokenizerFactory] SentencePiece ids are remapped onto the model's declared vocabulary.");
+        }
+
+        return map;
     }
 
     private static Dictionary<string, int> LoadVocabularySync(string modelDir)

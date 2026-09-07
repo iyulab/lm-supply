@@ -3,7 +3,9 @@ using LMSupply.Embedder;
 using LMSupply.Embedder.Utils;
 using LMSupply.Exceptions;
 using LMSupply.Generator;
+using LMSupply.Download;
 using LMSupply.Integration.Tests.Helpers;
+using LMSupply.Text;
 
 namespace LMSupply.Integration.Tests.Functional;
 
@@ -26,13 +28,13 @@ public class EmbedderFunctionalTests
         await using var model = await LocalEmbedder.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
-        model.Dimensions.Should().Be(384, "default model (BGE-small) has 384 dimensions");
+        model.Dimensions.Should().Be(1024, "the default alias is BGE-M3, which is 1024-dimensional");
     }
 
     [Theory]
     [Trait("Axis", "Loading")]
     [InlineData("fast", 384)]
-    [InlineData("default", 384)]
+    [InlineData("default", 1024)]
     public async Task L_KnownAliases_LoadWithExpectedDimensions(string alias, int expectedDims)
     {
         await using var model = await LocalEmbedder.LoadAsync(alias, cancellationToken: TestContext.Current.CancellationToken);
@@ -98,6 +100,47 @@ public class EmbedderFunctionalTests
 
         models.Should().NotBeEmpty();
         models.Should().Contain("all-MiniLM-L6-v2");
+    }
+
+
+    // ── Tokenizer conformance ───────────────────────────────────────
+
+    /// <summary>
+    /// XLM-Roberta 계열(default=bge-m3, fast/large=multilingual-e5-*)은 SentencePiece 모델의
+    /// raw id를 그대로 쓰지 않는다 — fairseq가 <c>0..3</c>을 예약해 내용 토큰이 한 칸 밀려 있다.
+    /// 이 축이 비어 있었기 때문에(기존 테스트는 shape/range만 단언했다) 어긋난 id가 배포됐다.
+    /// </summary>
+    /// <remarks>
+    /// 기대값은 HuggingFace <c>tokenizers</c>가 같은 스냅샷의 <c>tokenizer.json</c>으로 낸 id다.
+    /// 실제 모델 다운로드가 필요해 CI에서는 돌지 않는다(<c>Category=Functional</c>).
+    /// </remarks>
+    [Fact]
+    [Trait("Axis", "Quality")]
+    public async Task Q_XlmRobertaTokenizer_MatchesTheReferenceTokenizerIds()
+    {
+        const string repoId = "intfloat/multilingual-e5-base";
+
+        // Load once so the snapshot is on disk; the tokenizer assets come down with it.
+        await using (await LocalEmbedder.LoadAsync(repoId, cancellationToken: TestContext.Current.CancellationToken))
+        {
+        }
+
+        var snapshotDir = CacheManager.GetModelDirectory(CacheManager.GetDefaultCacheDirectory(), repoId);
+
+        // Probe the same two places the loader does rather than assuming a layout.
+        var tokenizerDir = new[] { snapshotDir, Path.Combine(snapshotDir, "onnx") }
+            .FirstOrDefault(dir => File.Exists(Path.Combine(dir, "tokenizer.json")));
+
+        tokenizerDir.Should().NotBeNull($"the snapshot under '{snapshotDir}' must carry tokenizer.json");
+
+        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(tokenizerDir!, maxSequenceLength: 512);
+
+        var ids = tokenizer.Encode("query: refund policy");
+
+        ids.Should().Equal(
+            [0, 41, 1294, 12, 127402, 44930, 2],
+            "these are the ids HuggingFace's own tokenizer produces for this string: a single "
+            + "leading <s>, content ids carrying the fairseq offset, then </s>");
     }
 
     // ── I axis: Basic Inference ─────────────────────────────────────
