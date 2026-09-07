@@ -11,15 +11,17 @@ namespace LMSupply.ImageGenerator.Pipeline;
 /// </summary>
 internal sealed class VaeDecoder : IAsyncDisposable
 {
-    private readonly InferenceSession _session;
-    private readonly SemaphoreSlim _sessionLock = new(1, 1);
+    // Owns the ONNX session and recovers from a crashing or hanging execution provider by moving
+    // to the next one in the fallback chain (see RecoverableOnnxSession). The blacklist is shared
+    // with the pipeline's other sessions.
+    private readonly RecoverableOnnxSession _session;
     private readonly string _inputName;
     private readonly string _outputName;
     private readonly float _scalingFactor;
     private bool _disposed;
 
     private VaeDecoder(
-        InferenceSession session,
+        RecoverableOnnxSession session,
         string inputName,
         string outputName,
         float scalingFactor)
@@ -33,21 +35,34 @@ internal sealed class VaeDecoder : IAsyncDisposable
     /// <summary>
     /// Loads the VAE decoder from the model directory.
     /// </summary>
+    /// <param name="modelDir">Path to model directory.</param>
+    /// <param name="provider">Execution provider to create the session with.</param>
+    /// <param name="deviceId">GPU device index for CUDA/DirectML.</param>
+    /// <param name="configureOptions">Session options to apply (log level, threads).</param>
+    /// <param name="blacklist">Provider blacklist shared with the pipeline's other sessions.</param>
+    /// <param name="scalingFactor">VAE latent scaling factor.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<VaeDecoder> LoadAsync(
         string modelDir,
-        SessionOptions? options = null,
+        ExecutionProvider provider,
+        int deviceId,
+        Action<SessionOptions>? configureOptions,
+        ProviderBlacklist blacklist,
         float scalingFactor = 0.18215f,
         CancellationToken cancellationToken = default)
     {
         var modelPath = FindVaePath(modelDir);
 
-        options ??= new SessionOptions();
-        var session = await Task.Run(
-            () => new InferenceSession(modelPath, options),
-            cancellationToken);
+        var result = await OnnxSessionFactory.CreateWithInfoAsync(
+            modelPath, provider, skipProviders: null, configureOptions,
+            cancellationToken: cancellationToken, deviceId: deviceId);
 
-        var inputName = session.InputNames[0];
-        var outputName = session.OutputNames[0];
+        // Input/output names are identical on every provider
+        var inputName = result.Session.InputNames[0];
+        var outputName = result.Session.OutputNames[0];
+
+        var session = RecoverableOnnxSession.FromResult(
+            result, modelPath, configureOptions, logPrefix: "[VaeDecoder]", blacklist: blacklist);
 
         return new VaeDecoder(session, inputName, outputName, scalingFactor);
     }
@@ -58,7 +73,7 @@ internal sealed class VaeDecoder : IAsyncDisposable
     /// <param name="latents">Latent tensor [1, 4, h/8, w/8].</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Decoded image as PNG bytes.</returns>
-    public async Task<byte[]> DecodeAsync(
+    public Task<byte[]> DecodeAsync(
         DenseTensor<float> latents,
         CancellationToken cancellationToken = default)
     {
@@ -72,27 +87,14 @@ internal sealed class VaeDecoder : IAsyncDisposable
             NamedOnnxValue.CreateFromTensor(_inputName, scaledLatents)
         };
 
-        // CancellableInference guarantees control returns to the caller if the token is
-        // cancelled, or after a bounded default timeout, even when the native ONNX call (e.g. a
-        // cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-        var imageBytes = await CancellableInference.RunAsync(() =>
+        // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the provider
+        // crashes, the session moves to the next provider and the run is retried once. The image is
+        // encoded inside the run so the native output can be disposed when it returns.
+        return _session.RunWithRecoveryAsync((session, runOptions) =>
         {
-            _sessionLock.Wait(cancellationToken);
-            try
-            {
-                using var outputs = _session.Run(inputs);
-                var output = outputs[0];
-
-                var outputTensor = output.AsTensor<float>();
-                return TensorToImage(outputTensor);
-            }
-            finally
-            {
-                _sessionLock.Release();
-            }
-        }, cancellationToken);
-
-        return imageBytes;
+            using var outputs = session.Run(inputs, [_outputName], runOptions);
+            return TensorToImage(outputs[0].AsTensor<float>());
+        }, cancellationToken: cancellationToken);
     }
 
     private static DenseTensor<float> ScaleLatents(DenseTensor<float> latents, float scale)
@@ -179,7 +181,6 @@ internal sealed class VaeDecoder : IAsyncDisposable
         _disposed = true;
 
         _session.Dispose();
-        _sessionLock.Dispose();
         return ValueTask.CompletedTask;
     }
 }

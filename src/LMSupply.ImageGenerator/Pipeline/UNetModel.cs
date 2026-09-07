@@ -9,8 +9,11 @@ namespace LMSupply.ImageGenerator.Pipeline;
 /// </summary>
 internal sealed class UNetModel : IAsyncDisposable
 {
-    private readonly InferenceSession _session;
-    private readonly SemaphoreSlim _sessionLock = new(1, 1);
+    // Owns the ONNX session and recovers from a crashing or hanging execution provider by moving
+    // to the next one in the fallback chain (see RecoverableOnnxSession). Each denoising step is one
+    // bounded, recoverable run — the pipeline's latents live on the managed side, so a provider
+    // switch between steps is transparent to the scheduler.
+    private readonly RecoverableOnnxSession _session;
     private readonly string _sampleInput;
     private readonly string _timestepInput;
     private readonly string _encoderHiddenStatesInput;
@@ -25,7 +28,7 @@ internal sealed class UNetModel : IAsyncDisposable
     public int LatentChannels { get; }
 
     private UNetModel(
-        InferenceSession session,
+        RecoverableOnnxSession session,
         string sampleInput,
         string timestepInput,
         string encoderHiddenStatesInput,
@@ -47,21 +50,29 @@ internal sealed class UNetModel : IAsyncDisposable
     /// <summary>
     /// Loads the UNet model from the model directory.
     /// </summary>
+    /// <param name="modelDir">Path to model directory.</param>
+    /// <param name="provider">Execution provider to create the session with.</param>
+    /// <param name="deviceId">GPU device index for CUDA/DirectML.</param>
+    /// <param name="configureOptions">Session options to apply (log level, threads).</param>
+    /// <param name="blacklist">Provider blacklist shared with the pipeline's other sessions.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<UNetModel> LoadAsync(
         string modelDir,
-        SessionOptions? options = null,
+        ExecutionProvider provider,
+        int deviceId,
+        Action<SessionOptions>? configureOptions,
+        ProviderBlacklist blacklist,
         CancellationToken cancellationToken = default)
     {
         var modelPath = FindUNetPath(modelDir);
 
-        options ??= new SessionOptions();
-        var session = await Task.Run(
-            () => new InferenceSession(modelPath, options),
-            cancellationToken);
+        var result = await OnnxSessionFactory.CreateWithInfoAsync(
+            modelPath, provider, skipProviders: null, configureOptions,
+            cancellationToken: cancellationToken, deviceId: deviceId);
 
-        // Detect input/output names
-        var inputs = session.InputMetadata;
-        var outputs = session.OutputMetadata;
+        // Detect input/output names (identical on every provider)
+        var inputs = result.Session.InputMetadata;
+        var outputs = result.Session.OutputMetadata;
 
         // Common input patterns
         var sampleInput = FindInput(inputs, ["sample", "latent_model_input", "x"]);
@@ -87,6 +98,9 @@ internal sealed class UNetModel : IAsyncDisposable
         var sampleShape = inputs[sampleInput].Dimensions;
         var latentChannels = sampleShape.Length > 1 && sampleShape[1] > 0 ? sampleShape[1] : 4;
 
+        var session = RecoverableOnnxSession.FromResult(
+            result, modelPath, configureOptions, logPrefix: "[UNetModel]", blacklist: blacklist);
+
         return new UNetModel(session, sampleInput, timestepInput, encoderInput,
             timestepCondInput, timestepCondDim, outputName, latentChannels);
     }
@@ -99,7 +113,7 @@ internal sealed class UNetModel : IAsyncDisposable
     /// <param name="textEmbeddings">Text encoder output [batch, seqLen, hiddenSize].</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Predicted noise tensor.</returns>
-    public async Task<DenseTensor<float>> ForwardAsync(
+    public Task<DenseTensor<float>> ForwardAsync(
         DenseTensor<float> latents,
         long timestep,
         DenseTensor<float> textEmbeddings,
@@ -127,30 +141,16 @@ internal sealed class UNetModel : IAsyncDisposable
             inputs.Add(NamedOnnxValue.CreateFromTensor(_timestepCondInput, condTensor));
         }
 
-        // CancellableInference guarantees control returns to the caller if the token is
-        // cancelled, or after a bounded default timeout, even when the native ONNX call (e.g. a
-        // cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-        var result = await CancellableInference.RunAsync(() =>
+        // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the provider
+        // crashes, the session moves to the next provider and the run is retried once.
+        return _session.RunWithRecoveryAsync((session, runOptions) =>
         {
-            _sessionLock.Wait(cancellationToken);
-            try
-            {
-                using var outputs = _session.Run(inputs);
-                var output = outputs[0];
+            using var outputs = session.Run(inputs, [_output], runOptions);
+            var outputTensor = outputs[0].AsTensor<float>();
 
-                var outputTensor = output.AsTensor<float>();
-                var dims = outputTensor.Dimensions.ToArray();
-                var data = outputTensor.ToArray();
-
-                return new DenseTensor<float>(data, dims);
-            }
-            finally
-            {
-                _sessionLock.Release();
-            }
-        }, cancellationToken);
-
-        return result;
+            // Copy out of the native buffer since the outputs are disposed with this delegate
+            return new DenseTensor<float>(outputTensor.ToArray(), outputTensor.Dimensions);
+        }, cancellationToken: cancellationToken);
     }
 
     private static string FindUNetPath(string modelDir)
@@ -203,7 +203,6 @@ internal sealed class UNetModel : IAsyncDisposable
         _disposed = true;
 
         _session.Dispose();
-        _sessionLock.Dispose();
         return ValueTask.CompletedTask;
     }
 }

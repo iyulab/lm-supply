@@ -38,6 +38,12 @@ public sealed class SessionCreationResult
     public IReadOnlyList<ExecutionProvider> FailedProviders { get; init; } = Array.Empty<ExecutionProvider>();
 
     /// <summary>
+    /// GPU device index the session was created for (CUDA/DirectML). 0 unless the caller asked for a
+    /// specific device. Carried so a replacement session created at run time targets the same device.
+    /// </summary>
+    public int DeviceId { get; init; }
+
+    /// <summary>
     /// Whether GPU acceleration is actually being used.
     /// </summary>
     public bool IsGpuActive => ActiveProviders.Any(p =>
@@ -96,20 +102,28 @@ public static class OnnxSessionFactory
         CancellationToken cancellationToken = default)
     {
         return await CreateWithInfoAsync(modelPath, provider, skipProviders: null,
-            configureOptions, progress, cancellationToken);
+            configureOptions, progress, deviceId: 0, cancellationToken);
     }
 
     /// <summary>
     /// Same as <see cref="CreateWithInfoAsync(string, ExecutionProvider, Action{SessionOptions}?, IProgress{DownloadProgress}?, CancellationToken)"/>
-    /// but accepts a set of providers to exclude from the Auto fallback chain.
+    /// but accepts a set of providers to exclude from the Auto fallback chain and a GPU device index.
     /// Used by inference-time fallback recovery when a previously-selected provider crashed at run time.
     /// </summary>
+    /// <param name="modelPath">Path to the ONNX model file.</param>
+    /// <param name="provider">The execution provider to use.</param>
+    /// <param name="skipProviders">Providers to exclude from the Auto fallback chain (already known to fail for this model).</param>
+    /// <param name="configureOptions">Optional callback to configure additional session options.</param>
+    /// <param name="progress">Optional progress reporter for binary downloads.</param>
+    /// <param name="deviceId">GPU device index for CUDA/DirectML (ignored by CPU and CoreML).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<SessionCreationResult> CreateWithInfoAsync(
         string modelPath,
         ExecutionProvider provider,
         IReadOnlyCollection<ExecutionProvider>? skipProviders,
         Action<SessionOptions>? configureOptions = null,
         IProgress<DownloadProgress>? progress = null,
+        int deviceId = 0,
         CancellationToken cancellationToken = default)
     {
         // Ensure runtime binaries are available
@@ -118,7 +132,7 @@ public static class OnnxSessionFactory
         if (provider == ExecutionProvider.Auto)
         {
             // Use fallback chain: CUDA → DirectML → CoreML → CPU
-            return await CreateWithFallbackChainAsync(modelPath, skipProviders, configureOptions, progress, cancellationToken);
+            return await CreateWithFallbackChainAsync(modelPath, skipProviders, configureOptions, progress, deviceId, cancellationToken);
         }
 
         // Explicit provider specified
@@ -165,7 +179,7 @@ public static class OnnxSessionFactory
             var created = await Task.Factory.StartNew(
                 () =>
                 {
-                    var s = Create(modelPath, provider, configureOptions, out var appended);
+                    var s = Create(modelPath, provider, configureOptions, deviceId, out var appended);
                     return (s, appended);
                 },
                 cancellationToken,
@@ -199,7 +213,8 @@ public static class OnnxSessionFactory
                 Session = session,
                 RequestedProvider = provider,
                 ActiveProviders = new[] { "CPUExecutionProvider" },
-                FailedProviders = new[] { provider }
+                FailedProviders = new[] { provider },
+                DeviceId = deviceId
             };
         }
 
@@ -216,7 +231,8 @@ public static class OnnxSessionFactory
         {
             Session = session,
             RequestedProvider = provider,
-            ActiveProviders = activeProviders
+            ActiveProviders = activeProviders,
+            DeviceId = deviceId
         };
     }
 
@@ -239,6 +255,7 @@ public static class OnnxSessionFactory
         IReadOnlyCollection<ExecutionProvider>? skipProviders,
         Action<SessionOptions>? configureOptions,
         IProgress<DownloadProgress>? progress,
+        int deviceId,
         CancellationToken cancellationToken)
     {
         var fallbackChain = RuntimeManager.Instance.Gpu?.GetFallbackProviders()
@@ -297,7 +314,7 @@ public static class OnnxSessionFactory
                 // Create session on a dedicated thread to avoid thread pool starvation.
                 // InferenceSession construction blocks for several seconds on large models.
                 var session = await Task.Factory.StartNew(
-                    () => Create(modelPath, providerToTry, configureOptions),
+                    () => Create(modelPath, providerToTry, configureOptions, deviceId, out _),
                     cancellationToken,
                     TaskCreationOptions.LongRunning,
                     TaskScheduler.Default);
@@ -342,7 +359,8 @@ public static class OnnxSessionFactory
                     Session = session,
                     RequestedProvider = ExecutionProvider.Auto,
                     ActiveProviders = activeProviders,
-                    FailedProviders = failedProviders
+                    FailedProviders = failedProviders,
+                    DeviceId = deviceId
                 };
             }
             catch (OperationCanceledException)
@@ -407,7 +425,8 @@ public static class OnnxSessionFactory
             Session = cpuSession,
             RequestedProvider = ExecutionProvider.Auto,
             ActiveProviders = new[] { "CPUExecutionProvider" },
-            FailedProviders = failedProviders
+            FailedProviders = failedProviders,
+            DeviceId = deviceId
         };
     }
 
@@ -608,6 +627,18 @@ public static class OnnxSessionFactory
         ExecutionProvider provider,
         Action<SessionOptions>? configureOptions,
         out bool gpuEpAppended)
+        => Create(modelPath, provider, configureOptions, deviceId: 0, out gpuEpAppended);
+
+    /// <summary>
+    /// Same as <see cref="Create(string, ExecutionProvider, Action{SessionOptions}?, out bool)"/> for a
+    /// specific GPU device index (CUDA/DirectML; ignored by CPU and CoreML).
+    /// </summary>
+    public static InferenceSession Create(
+        string modelPath,
+        ExecutionProvider provider,
+        Action<SessionOptions>? configureOptions,
+        int deviceId,
+        out bool gpuEpAppended)
     {
         // Pre-check: prevent fatal crash from NativeMethods..cctor() on missing native dependencies
         EnsureOnnxRuntimeAvailable(modelPath);
@@ -623,7 +654,7 @@ public static class OnnxSessionFactory
         configureOptions?.Invoke(options);
 
         // Configure execution provider
-        gpuEpAppended = ConfigureExecutionProvider(options, provider);
+        gpuEpAppended = ConfigureExecutionProvider(options, provider, deviceId);
 
         return new InferenceSession(modelPath, options);
     }
@@ -632,13 +663,16 @@ public static class OnnxSessionFactory
     /// Configures the execution provider for the session options.
     /// Returns true when a GPU execution provider was successfully appended.
     /// </summary>
-    public static bool ConfigureExecutionProvider(SessionOptions options, ExecutionProvider provider)
+    /// <param name="options">Session options to append the provider to.</param>
+    /// <param name="provider">The execution provider to configure.</param>
+    /// <param name="deviceId">GPU device index for CUDA/DirectML (ignored by CPU and CoreML).</param>
+    public static bool ConfigureExecutionProvider(SessionOptions options, ExecutionProvider provider, int deviceId = 0)
     {
         return provider switch
         {
-            ExecutionProvider.Auto => TryAddBestAvailableProvider(options),
-            ExecutionProvider.Cuda => TryAddCuda(options),
-            ExecutionProvider.DirectML => TryAddDirectML(options),
+            ExecutionProvider.Auto => TryAddBestAvailableProvider(options, deviceId),
+            ExecutionProvider.Cuda => TryAddCuda(options, deviceId),
+            ExecutionProvider.DirectML => TryAddDirectML(options, deviceId),
             ExecutionProvider.CoreML => TryAddCoreML(options),
             ExecutionProvider.Cpu => false, // CPU is always available as fallback; no GPU EP appended
             _ => throw new ArgumentOutOfRangeException(nameof(provider), provider, "Unknown execution provider")
@@ -649,11 +683,11 @@ public static class OnnxSessionFactory
     /// Tries to add the best available GPU provider. Returns true if a GPU EP was appended,
     /// false when none was available (CPU fallback is automatic).
     /// </summary>
-    private static bool TryAddBestAvailableProvider(SessionOptions options)
+    private static bool TryAddBestAvailableProvider(SessionOptions options, int deviceId)
     {
         // Try providers in order of preference
-        if (TryAddCuda(options)) return true;
-        if (TryAddDirectML(options)) return true;
+        if (TryAddCuda(options, deviceId)) return true;
+        if (TryAddDirectML(options, deviceId)) return true;
         if (TryAddCoreML(options)) return true;
         // CPU fallback is automatic
         return false;
@@ -693,11 +727,11 @@ public static class OnnxSessionFactory
         return providers;
     }
 
-    private static bool TryAddCuda(SessionOptions options)
+    private static bool TryAddCuda(SessionOptions options, int deviceId = 0)
     {
         try
         {
-            options.AppendExecutionProvider_CUDA();
+            options.AppendExecutionProvider_CUDA(deviceId);
             Trace.TraceInformation("[OnnxSessionFactory] CUDA provider added successfully");
             return true;
         }
@@ -708,7 +742,7 @@ public static class OnnxSessionFactory
         }
     }
 
-    private static bool TryAddDirectML(SessionOptions options)
+    private static bool TryAddDirectML(SessionOptions options, int deviceId = 0)
     {
         try
         {
@@ -716,8 +750,8 @@ public static class OnnxSessionFactory
             // See: https://onnxruntime.ai/docs/execution-providers/DirectML-ExecutionProvider.html
             options.EnableMemoryPattern = false;
             options.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
-            
-            options.AppendExecutionProvider_DML();
+
+            options.AppendExecutionProvider_DML(deviceId);
             Trace.TraceInformation("[OnnxSessionFactory] DirectML provider added successfully");
             return true;
         }

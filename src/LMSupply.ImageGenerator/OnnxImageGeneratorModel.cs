@@ -46,11 +46,20 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
         ImageGeneratorOptions options,
         CancellationToken cancellationToken = default)
     {
-        var sessionOptions = CreateSessionOptions(options);
-
+        // Provider selection (Auto chain, DirectML settings, runtime provisioning) is the shared
+        // OnnxSessionFactory's job; this callback only carries the caller's log level and threads.
         var pipeline = await LcmPipeline.LoadAsync(
             modelPath,
-            sessionOptions,
+            options.Provider,
+            options.DeviceId,
+            sessionOptions =>
+            {
+                sessionOptions.LogSeverityLevel = (OrtLoggingLevel)(int)options.LogLevel;
+                if (options.ThreadCount.HasValue)
+                {
+                    sessionOptions.IntraOpNumThreads = options.ThreadCount.Value;
+                }
+            },
             cancellationToken);
 
         return new OnnxImageGeneratorModel(pipeline, modelDefinition, options, modelPath);
@@ -178,113 +187,6 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
             Seed = options.Seed,
             GeneratePreviews = options.GeneratePreviews
         };
-    }
-
-    private static SessionOptions CreateSessionOptions(ImageGeneratorOptions options)
-    {
-        var sessionOptions = new SessionOptions
-        {
-            LogSeverityLevel = (OrtLoggingLevel)(int)options.LogLevel
-        };
-
-        if (options.ThreadCount.HasValue)
-        {
-            sessionOptions.IntraOpNumThreads = options.ThreadCount.Value;
-        }
-
-        // Configure execution provider
-        switch (options.Provider)
-        {
-            case ExecutionProvider.Cuda:
-                try
-                {
-                    sessionOptions.AppendExecutionProvider_CUDA(options.DeviceId);
-                }
-                catch (Exception ex)
-                {
-                    Trace.TraceInformation($"[OnnxImageGeneratorModel] CUDA not available, falling back to CPU: {ex.Message}");
-                }
-                break;
-
-            case ExecutionProvider.DirectML:
-                try
-                {
-                    // DirectML requires these settings to avoid hangs
-                    sessionOptions.EnableMemoryPattern = false;
-                    sessionOptions.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
-                    sessionOptions.AppendExecutionProvider_DML(options.DeviceId);
-                }
-                catch (Exception ex)
-                {
-                    Trace.TraceInformation($"[OnnxImageGeneratorModel] DirectML not available, falling back to CPU: {ex.Message}");
-                }
-                break;
-
-            case ExecutionProvider.CoreML:
-                try
-                {
-                    sessionOptions.AppendExecutionProvider_CoreML();
-                }
-                catch (Exception ex)
-                {
-                    Trace.TraceInformation($"[OnnxImageGeneratorModel] CoreML not available, falling back to CPU: {ex.Message}");
-                }
-                break;
-
-            case ExecutionProvider.Auto:
-                // Try providers in order of preference
-                TryAppendBestProvider(sessionOptions, options.DeviceId);
-                break;
-
-            case ExecutionProvider.Cpu:
-            default:
-                // CPU is default, no additional provider needed
-                break;
-        }
-
-        return sessionOptions;
-    }
-
-    private static void TryAppendBestProvider(SessionOptions options, int deviceId)
-    {
-        // Try CUDA first (NVIDIA GPUs)
-        try
-        {
-            options.AppendExecutionProvider_CUDA(deviceId);
-            return;
-        }
-        catch (Exception ex)
-        {
-            Trace.TraceInformation($"[Fallback] CUDA provider not available: {ex.Message}");
-        }
-
-        // Try DirectML (Windows with any DirectX 12 GPU)
-        try
-        {
-            // DirectML requires these settings to avoid hangs
-            options.EnableMemoryPattern = false;
-            options.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
-            options.AppendExecutionProvider_DML(deviceId);
-            return;
-        }
-        catch (Exception ex)
-        {
-            Trace.TraceInformation($"[Fallback] DirectML provider not available: {ex.Message}");
-        }
-
-        // Try CoreML (macOS)
-        try
-        {
-            options.AppendExecutionProvider_CoreML();
-            return;
-        }
-        catch (Exception ex)
-        {
-            Trace.TraceInformation($"[Fallback] CoreML provider not available: {ex.Message}");
-        }
-
-        // CPU fallback is implicit
-        Trace.TraceInformation("[Fallback] Using CPU execution provider");
     }
 
     public async ValueTask DisposeAsync()

@@ -61,6 +61,7 @@ public sealed class RecoverableOnnxSession : IDisposable
     private readonly Action<SessionOptions>? _configureOptions;
     private readonly string _logPrefix;
     private readonly ProviderBlacklist _blacklist;
+    private readonly int _deviceId;
     // Providers this session itself has already tried to recover from — a second failure on the
     // same provider gives up instead of paying for another (doomed) session creation.
     private readonly HashSet<ExecutionProvider> _attemptedProviders = new();
@@ -82,6 +83,7 @@ public sealed class RecoverableOnnxSession : IDisposable
     /// Blacklist shared with the other sessions of the same model, so a provider that failed on one
     /// of them is left by all of them. Omit for a single-session model.
     /// </param>
+    /// <param name="deviceId">GPU device index the session was created for; a replacement session targets the same device.</param>
     public RecoverableOnnxSession(
         InferenceSession session,
         IReadOnlyList<string> activeProviders,
@@ -90,7 +92,8 @@ public sealed class RecoverableOnnxSession : IDisposable
         string modelPath,
         Action<SessionOptions>? configureOptions = null,
         string logPrefix = "[RecoverableOnnxSession]",
-        ProviderBlacklist? blacklist = null)
+        ProviderBlacklist? blacklist = null,
+        int deviceId = 0)
     {
         _handle = new SessionHandle(session, activeProviders, isGpuActive);
         _requestedProvider = requestedProvider;
@@ -98,6 +101,7 @@ public sealed class RecoverableOnnxSession : IDisposable
         _configureOptions = configureOptions;
         _logPrefix = logPrefix;
         _blacklist = blacklist ?? new ProviderBlacklist();
+        _deviceId = deviceId;
     }
 
     /// <summary>
@@ -114,7 +118,7 @@ public sealed class RecoverableOnnxSession : IDisposable
         ProviderBlacklist? blacklist = null)
     {
         var session = new RecoverableOnnxSession(
-            result.Session, result.ActiveProviders, result.IsGpuActive, result.RequestedProvider, modelPath, configureOptions, logPrefix, blacklist);
+            result.Session, result.ActiveProviders, result.IsGpuActive, result.RequestedProvider, modelPath, configureOptions, logPrefix, blacklist, result.DeviceId);
         foreach (var failed in result.FailedProviders)
             session._blacklist.Add(failed);
         return session;
@@ -382,7 +386,8 @@ public sealed class RecoverableOnnxSession : IDisposable
                 _modelPath,
                 ExecutionProvider.Auto,
                 skip,
-                _configureOptions).GetAwaiter().GetResult();
+                _configureOptions,
+                deviceId: _deviceId).GetAwaiter().GetResult();
 
             var newProvider = MapActiveToProvider(result.ActiveProviders);
             if (newProvider is null || _blacklist.Contains(newProvider.Value))

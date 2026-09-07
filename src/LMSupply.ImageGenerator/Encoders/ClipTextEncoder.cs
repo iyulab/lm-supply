@@ -11,8 +11,10 @@ namespace LMSupply.ImageGenerator.Encoders;
 /// </summary>
 internal sealed class ClipTextEncoder : IAsyncDisposable
 {
-    private readonly InferenceSession _session;
-    private readonly SemaphoreSlim _sessionLock = new(1, 1);
+    // Owns the ONNX session and recovers from a crashing or hanging execution provider by moving
+    // to the next one in the fallback chain (see RecoverableOnnxSession). The blacklist is shared
+    // with the pipeline's other sessions.
+    private readonly RecoverableOnnxSession _session;
     private readonly ClipTokenizer _tokenizer;
     private readonly string _inputName;
     private readonly string _outputName;
@@ -29,7 +31,7 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
     public int MaxLength => _tokenizer.MaxLength;
 
     private ClipTextEncoder(
-        InferenceSession session,
+        RecoverableOnnxSession session,
         ClipTokenizer tokenizer,
         string inputName,
         string outputName,
@@ -46,12 +48,18 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
     /// Loads the CLIP text encoder from model directory.
     /// </summary>
     /// <param name="modelDir">Path to model directory.</param>
-    /// <param name="options">Session options for ONNX Runtime.</param>
+    /// <param name="provider">Execution provider to create the session with.</param>
+    /// <param name="deviceId">GPU device index for CUDA/DirectML.</param>
+    /// <param name="configureOptions">Session options to apply (log level, threads).</param>
+    /// <param name="blacklist">Provider blacklist shared with the pipeline's other sessions.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Loaded text encoder.</returns>
     public static async Task<ClipTextEncoder> LoadAsync(
         string modelDir,
-        SessionOptions? options = null,
+        ExecutionProvider provider,
+        int deviceId,
+        Action<SessionOptions>? configureOptions,
+        ProviderBlacklist blacklist,
         CancellationToken cancellationToken = default)
     {
         // Find text encoder ONNX file
@@ -60,21 +68,23 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
         // Load tokenizer
         var tokenizer = ClipTokenizer.FromDirectory(modelDir);
 
-        // Create session
-        options ??= new SessionOptions();
-        var session = await Task.Run(
-            () => new InferenceSession(encoderPath, options),
-            cancellationToken);
+        // Create session through the shared factory (provider chain, runtime provisioning)
+        var result = await OnnxSessionFactory.CreateWithInfoAsync(
+            encoderPath, provider, skipProviders: null, configureOptions,
+            cancellationToken: cancellationToken, deviceId: deviceId);
 
-        // Get input/output names
-        var inputName = session.InputNames[0];
-        var outputName = session.OutputNames[0];
+        // Get input/output names (identical on every provider)
+        var inputName = result.Session.InputNames[0];
+        var outputName = result.Session.OutputNames[0];
 
         // Determine embedding dimension from output shape
-        var outputMeta = session.OutputMetadata[outputName];
+        var outputMeta = result.Session.OutputMetadata[outputName];
         var embeddingDim = outputMeta.Dimensions.Length > 2
             ? outputMeta.Dimensions[2]
             : outputMeta.Dimensions[^1];
+
+        var session = RecoverableOnnxSession.FromResult(
+            result, encoderPath, configureOptions, logPrefix: "[ClipTextEncoder]", blacklist: blacklist);
 
         return new ClipTextEncoder(session, tokenizer, inputName, outputName, embeddingDim);
     }
@@ -85,7 +95,7 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
     /// <param name="prompt">Text prompt to encode.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Text embeddings tensor of shape [1, maxLength, embeddingDim].</returns>
-    public async Task<DenseTensor<float>> EncodeAsync(
+    public Task<DenseTensor<float>> EncodeAsync(
         string prompt,
         CancellationToken cancellationToken = default)
     {
@@ -99,37 +109,7 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
         var inputData = tokenIds.Select(id => (int)id).ToArray();
         var inputTensor = new DenseTensor<int>(inputData, [1, _tokenizer.MaxLength]);
 
-        // Run inference
-        var inputs = new List<NamedOnnxValue>
-        {
-            NamedOnnxValue.CreateFromTensor(_inputName, inputTensor)
-        };
-
-        // CancellableInference guarantees control returns to the caller if the token is
-        // cancelled, or after a bounded default timeout, even when the native ONNX call (e.g. a
-        // cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-        var result = await CancellableInference.RunAsync(() =>
-        {
-            _sessionLock.Wait(cancellationToken);
-            try
-            {
-                using var outputs = _session.Run(inputs);
-                var output = outputs[0];
-
-                // Copy to our own tensor
-                var outputTensor = output.AsTensor<float>();
-                var dims = outputTensor.Dimensions.ToArray();
-                var data = outputTensor.ToArray();
-
-                return new DenseTensor<float>(data, dims);
-            }
-            finally
-            {
-                _sessionLock.Release();
-            }
-        }, cancellationToken);
-
-        return result;
+        return RunAsync(inputTensor, cancellationToken);
     }
 
     /// <summary>
@@ -139,7 +119,7 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
     /// <param name="negativePrompt">Negative prompt (empty string if none).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Combined embeddings [2, maxLength, embeddingDim] where [0] is negative, [1] is positive.</returns>
-    public async Task<DenseTensor<float>> EncodeWithNegativeAsync(
+    public Task<DenseTensor<float>> EncodeWithNegativeAsync(
         string prompt,
         string? negativePrompt,
         CancellationToken cancellationToken = default)
@@ -164,36 +144,26 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
 
         var inputTensor = new DenseTensor<int>(inputData, [2, _tokenizer.MaxLength]);
 
-        // Run inference
+        return RunAsync(inputTensor, cancellationToken);
+    }
+
+    private Task<DenseTensor<float>> RunAsync(DenseTensor<int> inputTensor, CancellationToken cancellationToken)
+    {
         var inputs = new List<NamedOnnxValue>
         {
             NamedOnnxValue.CreateFromTensor(_inputName, inputTensor)
         };
 
-        // CancellableInference guarantees control returns to the caller if the token is
-        // cancelled, or after a bounded default timeout, even when the native ONNX call (e.g. a
-        // cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-        var result = await CancellableInference.RunAsync(() =>
+        // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the provider
+        // crashes, the session moves to the next provider and the run is retried once.
+        return _session.RunWithRecoveryAsync((session, runOptions) =>
         {
-            _sessionLock.Wait(cancellationToken);
-            try
-            {
-                using var outputs = _session.Run(inputs);
-                var output = outputs[0];
+            using var outputs = session.Run(inputs, [_outputName], runOptions);
+            var outputTensor = outputs[0].AsTensor<float>();
 
-                var outputTensor = output.AsTensor<float>();
-                var dims = outputTensor.Dimensions.ToArray();
-                var data = outputTensor.ToArray();
-
-                return new DenseTensor<float>(data, dims);
-            }
-            finally
-            {
-                _sessionLock.Release();
-            }
-        }, cancellationToken);
-
-        return result;
+            // Copy out of the native buffer since the outputs are disposed with this delegate
+            return new DenseTensor<float>(outputTensor.ToArray(), outputTensor.Dimensions);
+        }, cancellationToken: cancellationToken);
     }
 
     private static string FindTextEncoderPath(string modelDir)
@@ -222,15 +192,14 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
             $"Could not find CLIP text encoder ONNX file in: {modelDir}");
     }
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (_disposed) return;
+        if (_disposed) return ValueTask.CompletedTask;
         _disposed = true;
 
         _tokenizer.Dispose();
         _session.Dispose();
-        _sessionLock.Dispose();
 
-        await Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 }

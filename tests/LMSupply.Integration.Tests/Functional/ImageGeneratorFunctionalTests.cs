@@ -262,7 +262,7 @@ public class ImageGeneratorFunctionalTests
             new GenerationOptions { Width = 511, Steps = 2 });
 
         await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*Width*divisible by 8*");
+            .WithMessage("*Width*multiple of 8*");
     }
 
     [Fact]
@@ -275,7 +275,7 @@ public class ImageGeneratorFunctionalTests
             new GenerationOptions { Height = 513, Steps = 2 });
 
         await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*Height*divisible by 8*");
+            .WithMessage("*Height*multiple of 8*");
     }
 
     [Fact]

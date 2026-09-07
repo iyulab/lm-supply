@@ -195,10 +195,11 @@ chain already saw that provider fail for this model — its siblings leave it be
 instead of hitting the same crash or hang themselves. For an autoregressive decoder the bound and the
 recovery apply **per decode step**, so a long output is never cut off by a whole-loop timeout.
 
-Modules on this recovery path: Embedder, Reranker, Segmenter (SegFormer and MobileSAM), Ocr (detection
-and recognition), Synthesizer, Detector, Transcriber, Translator, Captioner (each encoder + decoder). The
-remaining ONNX modules are being migrated; until then they run under the inference bound only
-(a hang surfaces as `InferenceTimeoutException` without a provider switch).
+Every `InferenceSession`-backed module is on this recovery path: Embedder, Reranker, Segmenter (SegFormer
+and MobileSAM), Ocr (detection and recognition), Synthesizer, Detector, Transcriber, Translator, Captioner
+(each encoder + decoder), and ImageGenerator (text encoder + UNet + VAE, one shared blacklist — a UNet
+denoising step is one recoverable run). The GenAI-backed text generator (`LMSupply.Generator.Onnx`) does
+not use `InferenceSession` and is outside this mechanism.
 
 ---
 

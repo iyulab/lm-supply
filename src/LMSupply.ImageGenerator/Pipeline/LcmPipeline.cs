@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using LMSupply.ImageGenerator.Encoders;
 using LMSupply.ImageGenerator.Models;
 using LMSupply.ImageGenerator.Schedulers;
+using LMSupply.Inference;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
@@ -41,17 +42,26 @@ internal sealed class LcmPipeline : IAsyncDisposable
     /// <summary>
     /// Loads the LCM pipeline from a model directory.
     /// </summary>
+    /// <param name="modelDir">Path to model directory.</param>
+    /// <param name="provider">Execution provider for the three sessions (text encoder, UNet, VAE).</param>
+    /// <param name="deviceId">GPU device index for CUDA/DirectML.</param>
+    /// <param name="configureOptions">Session options to apply to every session (log level, threads).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<LcmPipeline> LoadAsync(
         string modelDir,
-        SessionOptions? sessionOptions = null,
+        ExecutionProvider provider,
+        int deviceId = 0,
+        Action<SessionOptions>? configureOptions = null,
         CancellationToken cancellationToken = default)
     {
-        sessionOptions ??= new SessionOptions();
+        // The three sessions belong to one model: a provider that fails on any of them is left by all
+        // of them (see RecoverableOnnxSession).
+        var blacklist = new ProviderBlacklist();
 
         // Load all components in parallel
-        var textEncoderTask = ClipTextEncoder.LoadAsync(modelDir, sessionOptions, cancellationToken);
-        var unetTask = UNetModel.LoadAsync(modelDir, sessionOptions, cancellationToken);
-        var vaeTask = VaeDecoder.LoadAsync(modelDir, sessionOptions, cancellationToken: cancellationToken);
+        var textEncoderTask = ClipTextEncoder.LoadAsync(modelDir, provider, deviceId, configureOptions, blacklist, cancellationToken);
+        var unetTask = UNetModel.LoadAsync(modelDir, provider, deviceId, configureOptions, blacklist, cancellationToken);
+        var vaeTask = VaeDecoder.LoadAsync(modelDir, provider, deviceId, configureOptions, blacklist, cancellationToken: cancellationToken);
 
         await Task.WhenAll(textEncoderTask, unetTask, vaeTask);
 
