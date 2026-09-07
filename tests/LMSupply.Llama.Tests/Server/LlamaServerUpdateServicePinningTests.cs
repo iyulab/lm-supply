@@ -1,7 +1,4 @@
-using System.Formats.Tar;
-using System.IO.Compression;
 using System.Net;
-using System.Runtime.InteropServices;
 using AwesomeAssertions;
 using LMSupply.Llama.Server;
 using Xunit;
@@ -49,14 +46,11 @@ public sealed class LlamaServerUpdateServicePinningTests : IDisposable
     [Fact]
     public async Task PinnedVersion_CacheMiss_DownloadsExactTag_NeverCallsLatestEndpoint()
     {
-        var (os, arch, ext) = PlatformAssetParts();
-        var assetName = $"llama-b7898-bin-{os}-cpu-{arch}.{ext}";
-        if (!OperatingSystem.IsWindows())
-            assetName = $"llama-b7898-bin-{os}-{arch}.{ext}"; // non-Windows CPU asset omits "cpu"
+        var assetName = FakeReleaseAssets.CpuAssetName("b7898");
         var downloadUrl = "https://fake.local/" + assetName;
         var releaseJson =
-            $$"""{ "assets": [ { "name": "{{assetName}}", "browser_download_url": "{{downloadUrl}}" } ] }""";
-        var archiveBytes = BuildArchive(ext, GetServerExecutableName(), "not a real binary, just test bytes"u8.ToArray());
+            $$"""{ "tag_name": "b7898", "assets": [ { "name": "{{assetName}}", "browser_download_url": "{{downloadUrl}}" } ] }""";
+        var archiveBytes = FakeReleaseAssets.ServerArchive();
 
         var handler = new TagsOnlyHandler(downloadUrl, releaseJson, archiveBytes);
         using var http = new HttpClient(handler);
@@ -141,50 +135,11 @@ public sealed class LlamaServerUpdateServicePinningTests : IDisposable
         serviceB.Should().NotBeSameAs(serviceA1, "distinct options objects must get isolated services");
     }
 
-    private static (string os, string arch, string ext) PlatformAssetParts()
-    {
-        var os = OperatingSystem.IsWindows() ? "win" : OperatingSystem.IsMacOS() ? "macos" : "ubuntu";
-        var arch = RuntimeInformation.OSArchitecture == Architecture.Arm64 ? "arm64" : "x64";
-        var ext = OperatingSystem.IsWindows() ? "zip" : "tar.gz";
-        return (os, arch, ext);
-    }
-
-    private static string GetServerExecutableName() => OperatingSystem.IsWindows() ? "llama-server.exe" : "llama-server";
-
     private static void SeedCachedBinary(string cacheDir, string version, LlamaServerBackend backend)
     {
         var versionDir = Path.Combine(cacheDir, version, backend.ToString().ToLowerInvariant());
         Directory.CreateDirectory(versionDir);
-        File.WriteAllBytes(Path.Combine(versionDir, GetServerExecutableName()), "cached binary"u8.ToArray());
-    }
-
-    private static byte[] BuildArchive(string ext, string entryName, byte[] content)
-        => ext == "zip" ? BuildZip(entryName, content) : BuildTarGz(entryName, content);
-
-    private static byte[] BuildZip(string entryName, byte[] content)
-    {
-        using var ms = new MemoryStream();
-        using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
-        {
-            using var entryStream = zip.CreateEntry(entryName).Open();
-            entryStream.Write(content);
-        }
-        return ms.ToArray();
-    }
-
-    private static byte[] BuildTarGz(string entryName, byte[] content)
-    {
-        using var ms = new MemoryStream();
-        using (var gzip = new GZipStream(ms, CompressionLevel.Fastest, leaveOpen: true))
-        using (var writer = new TarWriter(gzip, TarEntryFormat.Gnu, leaveOpen: true))
-        {
-            var entry = new GnuTarEntry(TarEntryType.RegularFile, entryName)
-            {
-                DataStream = new MemoryStream(content)
-            };
-            writer.WriteEntry(entry);
-        }
-        return ms.ToArray();
+        File.WriteAllBytes(Path.Combine(versionDir, FakeReleaseAssets.ServerExecutableName), "cached binary"u8.ToArray());
     }
 
     /// <summary>Fails the test outright if any request is made — proves a code path is network-free.</summary>

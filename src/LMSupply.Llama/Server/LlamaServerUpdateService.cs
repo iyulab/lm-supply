@@ -65,7 +65,7 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
     {
         _options = options;
         _stateManager = new LlamaServerStateManager(options.CacheDirectory);
-        _downloader = new LlamaServerDownloader(options.CacheDirectory, httpClient);
+        _downloader = new LlamaServerDownloader(options.CacheDirectory, httpClient, options.IncludePrerelease);
     }
 
     /// <summary>
@@ -199,14 +199,16 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
             Phase = DownloadPhase.Downloading
         });
 
-        var serverPath = await _downloader.EnsureServerAsync(
-            version: null, // Latest
-            preferredBackend: backend,
-            progress: progress,
-            cancellationToken: cancellationToken);
+        // Resolve the asset once and take the version from it: the resolved build tag is what the
+        // download lands under, so it is also what the state file must record. (Re-asking "latest"
+        // afterwards was a second network call that could name a different build than the one
+        // just downloaded, and fell back to "unknown" on any hiccup.)
+        var asset = await _downloader.GetAssetAsync(version: null, preferredBackend: backend, cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"No llama-server binary found for platform {platform}, backend {backendStr}.");
 
-        // Get the version that was downloaded
-        var version = await _downloader.GetLatestVersionAsync(cancellationToken) ?? "unknown";
+        var serverPath = await _downloader.DownloadAsync(asset, progress, cancellationToken);
+        var version = asset.Version;
 
         // Create initial state
         var versionDir2 = Path.GetDirectoryName(serverPath)!;

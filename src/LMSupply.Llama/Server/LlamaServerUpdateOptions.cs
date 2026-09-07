@@ -30,8 +30,11 @@ public sealed class LlamaServerUpdateOptions
     public bool UpdateOnWarmup { get; set; } = true;
 
     /// <summary>
-    /// Whether to include prerelease versions.
-    /// Default: false (only stable releases).
+    /// Whether to follow llama.cpp's nightly build line instead of its versioned stable line.
+    /// llama.cpp publishes versioned releases (<c>vX.Y.Z</c>, each naming the build it was cut from)
+    /// as its stable line and marks the per-commit <c>bNNNNN</c> build releases as prereleases.
+    /// False (default) resolves "latest" to the build the newest versioned release names; true takes
+    /// the newest build release outright. Either way the resolved version is a build tag.
     /// </summary>
     public bool IncludePrerelease { get; set; }
 

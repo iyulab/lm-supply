@@ -15,9 +15,24 @@ public sealed class LlamaServerDownloader : IDisposable
     private const string GitHubApiBase = "https://api.github.com/repos/ggml-org/llama.cpp";
     private const string ReleasesUrl = $"{GitHubApiBase}/releases";
 
+    /// <summary>
+    /// The asset a versioned llama.cpp release (<c>vX.Y.Z</c>) carries to name the build it was cut
+    /// from. Since 2026-08-21 llama.cpp publishes versioned releases as the non-prerelease line —
+    /// which is what GitHub's <c>releases/latest</c> returns — and marks the <c>bNNNNN</c> build
+    /// releases (the ones that actually carry binaries) as prereleases. This pointer is how the
+    /// stable line maps back to a downloadable build.
+    /// </summary>
+    private const string NightlyTagAssetName = "nightly-tag.txt";
+
+    /// <summary>How many recent releases the listing fallback scans for a build release with assets.</summary>
+    private const int ReleaseListingPageSize = 30;
+
+    private static readonly Regex s_buildTagPattern = new(@"^b\d+$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     private readonly HttpClient _httpClient;
     private readonly string _cacheDirectory;
     private readonly bool _ownsHttpClient;
+    private readonly bool _includePrerelease;
 
     /// <summary>
     /// Process-wide gate that serializes CUDA-runtime provisioning. A single static gate is the
@@ -34,9 +49,15 @@ public sealed class LlamaServerDownloader : IDisposable
     /// </summary>
     /// <param name="cacheDirectory">Directory to store downloaded binaries.</param>
     /// <param name="httpClient">Optional HTTP client (creates new if null).</param>
-    public LlamaServerDownloader(string? cacheDirectory = null, HttpClient? httpClient = null)
+    /// <param name="includePrerelease">
+    /// When true, "latest" means the newest <c>bNNNNN</c> build release regardless of its prerelease
+    /// flag (llama.cpp's nightly line). When false (default), "latest" follows the versioned stable
+    /// line and resolves it to the build it names — see <see cref="GetLatestVersionAsync"/>.
+    /// </param>
+    public LlamaServerDownloader(string? cacheDirectory = null, HttpClient? httpClient = null, bool includePrerelease = false)
     {
         _cacheDirectory = cacheDirectory ?? LMSupplyCachePaths.GetLlamaServerDirectory();
+        _includePrerelease = includePrerelease;
 
         if (httpClient != null)
         {
@@ -52,20 +73,35 @@ public sealed class LlamaServerDownloader : IDisposable
     }
 
     /// <summary>
-    /// Gets the latest release version.
+    /// Gets the latest llama-server <b>build tag</b> (<c>bNNNNN</c>) — never a versioned release tag.
+    /// Everything downstream (asset names, the cache layout, the state file,
+    /// <see cref="LlamaServerVersionRequirements.ParseBuildNumber"/>) is keyed on build tags, so this
+    /// is the single place upstream's release scheme is normalized:
+    /// <list type="number">
+    /// <item>With prereleases opted in, the newest build release that carries assets wins outright.</item>
+    /// <item>Otherwise <c>releases/latest</c> is read. If it is itself a build release (the pre-2026-08
+    /// scheme) its tag is returned as-is; if it is a versioned release its <c>nightly-tag.txt</c>
+    /// asset is read and the build it names is returned.</item>
+    /// <item>If neither yields a build tag, the release listing is scanned for the newest build release
+    /// with assets — so a missing or malformed pointer degrades to "newest downloadable" rather than
+    /// to "nothing downloadable".</item>
+    /// </list>
+    /// Returns null only when GitHub cannot be reached or no build release with assets exists.
     /// </summary>
     public async Task<string?> GetLatestVersionAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            var response = await _httpClient.GetAsync($"{ReleasesUrl}/latest", cancellationToken);
-            response.EnsureSuccessStatusCode();
+            if (_includePrerelease)
+                return await FindNewestBuildReleaseAsync(cancellationToken);
 
-            using var doc = await JsonDocument.ParseAsync(
-                await response.Content.ReadAsStreamAsync(cancellationToken),
-                cancellationToken: cancellationToken);
+            string? build;
+            using (var latest = await GetJsonAsync($"{ReleasesUrl}/latest", cancellationToken))
+            {
+                build = await ResolveBuildTagAsync(latest.RootElement, cancellationToken);
+            }
 
-            return doc.RootElement.GetProperty("tag_name").GetString();
+            return build ?? await FindNewestBuildReleaseAsync(cancellationToken);
         }
         catch (Exception ex)
         {
@@ -74,8 +110,87 @@ public sealed class LlamaServerDownloader : IDisposable
         }
     }
 
+    /// <summary>True for a llama.cpp build tag such as <c>b10809</c>.</summary>
+    internal static bool IsBuildTag(string? tag) => tag != null && s_buildTagPattern.IsMatch(tag);
+
+    /// <summary>
+    /// Maps one GitHub release payload to the build tag it stands for: a build release maps to its own
+    /// tag; a versioned release maps to the build named by its <see cref="NightlyTagAssetName"/> asset.
+    /// Null when the payload names neither (no pointer asset, or a pointer that is not a build tag).
+    /// </summary>
+    private async Task<string?> ResolveBuildTagAsync(JsonElement release, CancellationToken cancellationToken)
+    {
+        var tag = release.GetProperty("tag_name").GetString();
+        if (IsBuildTag(tag))
+            return tag;
+
+        if (!release.TryGetProperty("assets", out var assets))
+            return null;
+
+        foreach (var asset in assets.EnumerateArray())
+        {
+            if (!string.Equals(asset.GetProperty("name").GetString(), NightlyTagAssetName, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var url = asset.GetProperty("browser_download_url").GetString();
+            if (url == null)
+                return null;
+
+            var pointer = (await _httpClient.GetStringAsync(url, cancellationToken)).Trim();
+            if (IsBuildTag(pointer))
+                return pointer;
+
+            Trace.TraceInformation(
+                $"[LlamaServerDownloader] Release '{tag}' has a {NightlyTagAssetName} that does not name a build tag: '{pointer}'.");
+            return null;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Scans the most recent releases for the highest-numbered build release that actually carries
+    /// assets, prerelease or not. Null when the page holds none.
+    /// </summary>
+    private async Task<string?> FindNewestBuildReleaseAsync(CancellationToken cancellationToken)
+    {
+        using var listing = await GetJsonAsync($"{ReleasesUrl}?per_page={ReleaseListingPageSize}", cancellationToken);
+
+        string? newest = null;
+        var newestBuild = -1;
+        foreach (var release in listing.RootElement.EnumerateArray())
+        {
+            var tag = release.GetProperty("tag_name").GetString();
+            if (!IsBuildTag(tag))
+                continue;
+            if (!release.TryGetProperty("assets", out var assets) || assets.GetArrayLength() == 0)
+                continue;
+
+            var build = LlamaServerVersionRequirements.ParseBuildNumber(tag) ?? -1;
+            if (build > newestBuild)
+            {
+                newestBuild = build;
+                newest = tag;
+            }
+        }
+
+        return newest;
+    }
+
+    private async Task<JsonDocument> GetJsonAsync(string url, CancellationToken cancellationToken)
+    {
+        using var response = await _httpClient.GetAsync(url, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        return await JsonDocument.ParseAsync(
+            await response.Content.ReadAsStreamAsync(cancellationToken),
+            cancellationToken: cancellationToken);
+    }
+
     /// <summary>
     /// Gets the available asset for the current platform and preferred backend.
+    /// <paramref name="version"/> may be a build tag (<c>b10809</c>) or a versioned release tag
+    /// (<c>v0.4.0</c>); the latter is normalized to the build it names, so the returned asset's
+    /// <see cref="LlamaServerAsset.Version"/> — and therefore the cache directory — is always a build tag.
     /// </summary>
     public async Task<LlamaServerAsset?> GetAssetAsync(
         string? version = null,
@@ -86,19 +201,20 @@ public sealed class LlamaServerDownloader : IDisposable
         if (version == null)
             return null;
 
+        if (!IsBuildTag(version))
+        {
+            using var release = await GetJsonAsync($"{ReleasesUrl}/tags/{version}", cancellationToken);
+            version = await ResolveBuildTagAsync(release.RootElement, cancellationToken);
+            if (version == null)
+                return null;
+        }
+
         var platform = GetCurrentPlatform();
         var arch = GetCurrentArchitecture();
         var backend = preferredBackend ?? GetPreferredBackend(platform);
 
         // Get release assets
-        var releaseUrl = $"{ReleasesUrl}/tags/{version}";
-        var response = await _httpClient.GetAsync(releaseUrl, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        using var doc = await JsonDocument.ParseAsync(
-            await response.Content.ReadAsStreamAsync(cancellationToken),
-            cancellationToken: cancellationToken);
-
+        using var doc = await GetJsonAsync($"{ReleasesUrl}/tags/{version}", cancellationToken);
         var assets = doc.RootElement.GetProperty("assets");
 
         // Find matching asset
@@ -258,7 +374,9 @@ public sealed class LlamaServerDownloader : IDisposable
     }
 
     /// <summary>
-    /// Gets all cached versions.
+    /// Gets all cached build versions, newest build first. Ordered by build <i>number</i>, not by
+    /// string — lexically "b9999" sorts after "b10809", which would have made a stale cached build
+    /// win over a newer one once builds crossed b10000.
     /// </summary>
     public IReadOnlyList<string> GetCachedVersions()
     {
@@ -267,8 +385,8 @@ public sealed class LlamaServerDownloader : IDisposable
 
         return Directory.GetDirectories(_cacheDirectory)
             .Select(Path.GetFileName)
-            .Where(v => v != null && v.StartsWith('b'))
-            .OrderByDescending(v => v)
+            .Where(IsBuildTag)
+            .OrderByDescending(v => LlamaServerVersionRequirements.ParseBuildNumber(v))
             .ToList()!;
     }
 
