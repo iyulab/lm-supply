@@ -99,7 +99,11 @@ public class EmbedderFunctionalTests
         var models = LocalEmbedder.GetAvailableModels().ToList();
 
         models.Should().NotBeEmpty();
-        models.Should().Contain("all-MiniLM-L6-v2");
+
+        // The four standard aliases are the registry's public contract; naming a model that is
+        // not in it (this assertion used to expect "all-MiniLM-L6-v2") is how this suite rots
+        // unnoticed, since CI never runs it.
+        models.Should().Contain(["default", "fast", "quality", "large"]);
     }
 
 
@@ -243,11 +247,10 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_DimensionMatchesModelSpec()
     {
-        // BGE-small: 384, MiniLM-L6: 384
         await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var embedding = await model.EmbedAsync("dimension check", TestContext.Current.CancellationToken);
-        embedding.Length.Should().Be(384, "all-MiniLM-L6-v2 should produce 384-dim vectors");
+        embedding.Length.Should().Be(384, "the fast alias is multilingual-e5-small, which is 384-dimensional");
     }
 
     [Fact]
@@ -710,19 +713,24 @@ public class EmbedderFunctionalTests
     {
         var models = LocalEmbedder.GetAllModels().ToList();
 
-        // 14 unique models by RepoId in the registry
-        models.Count.Should().BeGreaterThanOrEqualTo(14,
-            "registry should have at least 14 unique models");
+        // DefaultModels.All holds 14 entries but only 11 distinct RepoIds — bge-m3,
+        // multilingual-e5-small and multilingual-e5-large each appear twice, once under a
+        // standard alias and once under their own name. This asserted 14 for long enough
+        // that nobody noticed, because CI does not run this suite.
+        models.Count.Should().BeGreaterThanOrEqualTo(11,
+            "the registry has 11 distinct models behind its 14 entries");
     }
 
     [Fact]
     [Trait("Axis", "Loading")]
-    public void L_GetAllModels_ContainsBgeSmall()
+    public void L_GetAllModels_ContainsTheDefaultAliasModel()
     {
         var models = LocalEmbedder.GetAllModels().ToList();
 
-        models.Should().Contain(m => m.RepoId == "BAAI/bge-small-en-v1.5",
-            "default model BGE-small should be in GetAllModels");
+        // This used to look for "BAAI/bge-small-en-v1.5", which the registry does not carry at
+        // all — the default alias is BGE-M3.
+        models.Should().Contain(m => m.RepoId == "BAAI/bge-m3",
+            "the model behind the default alias must be listed");
     }
 
     [Fact]
