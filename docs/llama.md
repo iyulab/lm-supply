@@ -328,7 +328,7 @@ rm -rf ~/.local/share/LMSupply/cache/llama-server
 
 - **llama-server**: Downloaded from [llama.cpp GitHub releases](https://github.com/ggml-org/llama.cpp/releases)
 - Binaries are versioned and cached by build number (tag format: `b<NNNN>`, e.g., `b8672`)
-- **"Latest" resolution** (v0.57.1+): llama.cpp's stable line is its versioned releases (`vX.Y.Z`), whose
+- **"Latest" resolution** (v0.58.0+): llama.cpp's stable line is its versioned releases (`vX.Y.Z`), whose
   single asset `nightly-tag.txt` names the build they were cut from; the per-commit `b<NNNN>` build
   releases carry the binaries and are marked prerelease. By default `LlamaServerDownloader` reads
   `releases/latest`, follows `nightly-tag.txt` to the build it names, and downloads that build. If the
