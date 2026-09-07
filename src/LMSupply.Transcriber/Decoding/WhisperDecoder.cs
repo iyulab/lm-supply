@@ -22,6 +22,18 @@ internal sealed class WhisperDecoder
     private readonly WhisperTokenizer _tokenizer;
     private readonly int _maxLength;
 
+    // Repetition-cycle detection (docket iyulab/lm-supply#59). A greedy decoder that has lost the
+    // audio settles into a *periodic* token cycle, not a run of one identical token -- and the
+    // three-identical-token guard in SelectNextToken cannot see it. Worse, a captured trace showed
+    // that guard *stabilising* one: suppressing the repeated token at every third occurrence is
+    // exactly what turns ".. x x x y x x x y .." into a fixed point. These thresholds decide when a
+    // tail is degenerate enough to end the chunk on. Deliberately conservative -- a unit must both
+    // repeat MinCycleRepeats times and cover MinCycleTokens generated tokens, so a single stutter
+    // ("the the the") still decodes on, as the 0.42.6 EOT penalty intends.
+    private const int MaxCyclePeriod = 8;
+    private const int MinCycleRepeats = 3;
+    private const int MinCycleTokens = 12;
+
     // Input/output names for onnx-community models
     private const string InputTokensName = "input_ids";
     private const string InputEncoderHiddenStates = "encoder_hidden_states";
@@ -279,6 +291,32 @@ internal sealed class WhisperDecoder
             }
 
             tokens.Add(nextToken);
+
+            // A detected cycle means the decoder stopped tracking the audio: everything from where
+            // the cycle began is hallucination, so end the chunk here instead of grinding on to
+            // _maxLength. Ending (rather than penalising yet another token) is the only exit that
+            // works -- the cycle is a fixed point of the greedy selection, so any per-token nudge
+            // is absorbed by the next turn of the same loop.
+            if (TryDetectRepetitionCycle(tokens, initialTokens.Length, out var cycleStart))
+            {
+                Trace.TraceWarning(
+                    $"[WhisperDecoder] Repetition cycle detected at step {tokens.Count - initialTokens.Length}; " +
+                    $"ending chunk and discarding {tokens.Count - cycleStart} degenerate tokens.");
+
+                // Drop the degenerate tail from the pending segment, keeping whatever real text
+                // preceded it. Only non-special tokens ever reached currentSegmentTokens, so the
+                // discard count is the number of those within the cyclic span.
+                var degenerateTextTokens = 0;
+                for (int i = cycleStart; i < tokens.Count; i++)
+                {
+                    if (!_tokenizer.IsSpecialToken(tokens[i]))
+                        degenerateTextTokens++;
+                }
+
+                var trim = Math.Min(degenerateTextTokens, currentSegmentTokens.Count);
+                currentSegmentTokens.RemoveRange(currentSegmentTokens.Count - trim, trim);
+                break;
+            }
         }
 
         FinalizeSegments(
@@ -405,6 +443,55 @@ internal sealed class WhisperDecoder
         }
 
         return ArgMax(logits);
+    }
+
+    /// <summary>
+    /// Reports whether the generated token tail has collapsed into a repeating cycle, and if so
+    /// where that cycle starts in <paramref name="tokens"/>.
+    /// </summary>
+    /// <remarks>
+    /// Finds the shortest period (the fundamental one) whose repetition explains the tail, then
+    /// extends that period backwards as far as it holds. A tail qualifies only when the unit
+    /// repeats at least <see cref="MinCycleRepeats"/> times <i>and</i> spans at least
+    /// <see cref="MinCycleTokens"/> tokens, so ordinary repeated words are never mistaken for a
+    /// decoder collapse: a period-1 tail has to be a dozen identical tokens, not three.
+    /// <para>
+    /// Only generated tokens are considered -- the prompt/SOT prefix is never part of a cycle.
+    /// </para>
+    /// </remarks>
+    internal static bool TryDetectRepetitionCycle(
+        IReadOnlyList<int> tokens,
+        int generatedStart,
+        out int cycleStartIndex)
+    {
+        cycleStartIndex = -1;
+        var generated = tokens.Count - generatedStart;
+        if (generated < MinCycleTokens)
+            return false;
+
+        for (int period = 1; period <= MaxCyclePeriod; period++)
+        {
+            if (generated < period * MinCycleRepeats)
+                break;
+
+            // The last `period` tokens are the candidate unit; walk backwards while each earlier
+            // token still matches the one a full period ahead of it.
+            var length = period;
+            while (generated - length - 1 >= 0 &&
+                   tokens[generatedStart + generated - length - 1] ==
+                   tokens[generatedStart + generated - length - 1 + period])
+            {
+                length++;
+            }
+
+            if (length >= MinCycleTokens && length / period >= MinCycleRepeats)
+            {
+                cycleStartIndex = tokens.Count - length;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

@@ -435,28 +435,43 @@ public sealed class RecoverableOnnxSession : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        var current = _handle;
-        current.Session?.Dispose();
-        current.Gate.Dispose();
-
         lock (_recoveryGate)
         {
+            // The current handle needs the same care as an abandoned one, and for a reason that is
+            // easy to miss: a run only becomes "abandoned" when TryRecoverAfterTimeout actually
+            // moves it aside, and that returns false whenever there is nothing to fall back to --
+            // CPU was requested, CPU is already active, or replacement creation failed. In those
+            // cases the timed-out run is still inside native code on the *current* handle, the
+            // caller has already been handed an InferenceTimeoutException, and teardown follows.
+            // Disposing that session is an access violation, not an exception: it takes the whole
+            // process down with no managed stack to catch. See docket iyulab/lm-supply#193.
+            ReclaimOrLeak(_handle);
+
             foreach (var abandoned in _abandonedHandles)
             {
-                // Reclaim only a session whose run has actually returned; one still blocked in
-                // native code must be leaked rather than disposed under it.
-                if (abandoned.Gate.Wait(0))
-                {
-                    abandoned.Session?.Dispose();
-                    abandoned.Gate.Release();
-                    abandoned.Gate.Dispose();
-                }
-                else
-                {
-                    Trace.TraceWarning($"{_logPrefix} Leaking a session on {string.Join("+", abandoned.ActiveProviders)}: its timed-out native run has not returned, so it cannot be disposed safely.");
-                }
+                ReclaimOrLeak(abandoned);
             }
             _abandonedHandles.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Disposes a handle only if no run is in flight on it; otherwise leaks it deliberately.
+    /// Holding the gate is the proof that the native call has returned -- <see cref="RunInternal"/>
+    /// releases it in a <c>finally</c>, so a gate that cannot be taken means a call that never came
+    /// back. Polls (<c>Wait(0)</c>) rather than blocking, preserving this class's lock order.
+    /// </summary>
+    private void ReclaimOrLeak(SessionHandle handle)
+    {
+        if (handle.Gate.Wait(0))
+        {
+            handle.Session?.Dispose();
+            handle.Gate.Release();
+            handle.Gate.Dispose();
+        }
+        else
+        {
+            Trace.TraceWarning($"{_logPrefix} Leaking a session on {string.Join("+", handle.ActiveProviders)}: its native run has not returned, so it cannot be disposed safely.");
         }
     }
 }

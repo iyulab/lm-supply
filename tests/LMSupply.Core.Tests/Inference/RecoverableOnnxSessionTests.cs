@@ -122,6 +122,67 @@ public class RecoverableOnnxSessionTests
     }
 
     [Fact]
+    public async Task Dispose_RunStillInFlightOnCurrentHandle_LeaksInsteadOfDisposing()
+    {
+        // docket iyulab/lm-supply#193. A caller-side timeout unblocks the caller but leaves the
+        // native call running -- and TryRecoverAfterTimeout only moves that handle aside when a
+        // fallback exists. On a CPU-requested session (the reported configuration) it returns
+        // false immediately, so the in-flight run stays on the *current* handle. Disposing it
+        // there is an access violation that takes the process down, uncatchable, which is exactly
+        // the reported symptom. Dispose must poll the gate for the current handle too, not only
+        // for abandoned ones.
+        var capture = new WarningCapture();
+        Trace.Listeners.Add(capture);
+        try
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var session = Create(ExecutionProvider.Cpu, "CPUExecutionProvider");
+            using var runEntered = new ManualResetEventSlim(false);
+            using var releaseRun = new ManualResetEventSlim(false);
+
+            // Stands in for a native Run that has not returned: it holds the handle's gate for as
+            // long as the real one would.
+            var inFlight = Task.Run(() => session.Run((_, _) =>
+            {
+                runEntered.Set();
+                releaseRun.Wait(TimeSpan.FromSeconds(30), ct);
+                return 0;
+            }, ct), ct);
+
+            runEntered.Wait(TimeSpan.FromSeconds(10), ct).Should().BeTrue("the run must be in flight before disposing");
+
+            session.Dispose();
+
+            capture.Warnings.Should().Contain(
+                w => w.StartsWith("[TestEngine]", StringComparison.Ordinal) && w.Contains("Leaking a session"),
+                "a session whose run has not returned must be leaked, never disposed under the call");
+
+            releaseRun.Set();
+            (await inFlight).Should().Be(0, "the in-flight run must still complete normally");
+        }
+        finally { Trace.Listeners.Remove(capture); }
+    }
+
+    [Fact]
+    public void Dispose_NoRunInFlight_ReclaimsNormally()
+    {
+        // The other half: with the gate free there is nothing to protect, so Dispose must reclaim
+        // rather than leak -- otherwise the fix above would turn every teardown into a leak.
+        var capture = new WarningCapture();
+        Trace.Listeners.Add(capture);
+        try
+        {
+            var session = Create(ExecutionProvider.Cpu, "CPUExecutionProvider");
+            session.Run((_, _) => 1, TestContext.Current.CancellationToken).Should().Be(1);
+
+            session.Dispose();
+
+            capture.Warnings.Should().NotContain(w => w.Contains("Leaking a session"));
+        }
+        finally { Trace.Listeners.Remove(capture); }
+    }
+
+    [Fact]
     public void Run_AfterDispose_Throws()
     {
         var session = Create(ExecutionProvider.Cpu, "CPUExecutionProvider");
