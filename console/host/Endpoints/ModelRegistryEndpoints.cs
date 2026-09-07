@@ -90,6 +90,27 @@ public static class ModelRegistryEndpoints
         };
     }
 
+    /// <summary>
+    /// Resolves a generator alias to the repository id the cache is actually keyed by.
+    ///
+    /// <para>
+    /// <c>WellKnownModels.Generator</c> deliberately names registry aliases rather than repository
+    /// ids for some tiers (<c>"phi-4-mini"</c>), and the cache index is built from directory names
+    /// of the form <c>models--org--name</c> — so it only ever contains <c>org/name</c> strings.
+    /// Comparing an alias against it therefore reported "not cached" for a model sitting on disk,
+    /// and the response's <c>RepoId</c> field carried something that was not a repository id.
+    /// </para>
+    ///
+    /// <para>
+    /// <c>"default"</c> stays unresolved on purpose: the generator picks it by hardware at load
+    /// time, so there is no single repository id this endpoint could name for it.
+    /// </para>
+    /// </summary>
+    private static string ResolveGeneratorRepoId(string idOrAlias)
+        => GeneratorModelRegistry.Default.TryResolve(idOrAlias, out var model) && model is not null
+            ? model.ModelId
+            : idOrAlias;
+
     private static ModelTypeInfo CreateGeneratorModels(HashSet<string> cachedRepoIds) => new()
     {
         Type = "generator",
@@ -97,11 +118,11 @@ public static class ModelRegistryEndpoints
         Description = "LLM text generation models",
         Models =
         [
-            new ModelAliasInfo { AliasName = "default", RepoId = WellKnownModels.Generator.Default, Description = "Microsoft Phi-4 Mini (3.8B, MIT)", IsCached = cachedRepoIds.Contains(WellKnownModels.Generator.Default) },
-            new ModelAliasInfo { AliasName = "fast", RepoId = WellKnownModels.Generator.Fast, Description = "Phi-4 Mini (3.8B, fastest FC-capable)", IsCached = cachedRepoIds.Contains(WellKnownModels.Generator.Fast) },
-            new ModelAliasInfo { AliasName = "quality", RepoId = WellKnownModels.Generator.Quality, Description = "Microsoft Phi-4 (14B, highest quality)", IsCached = cachedRepoIds.Contains(WellKnownModels.Generator.Quality) },
-            new ModelAliasInfo { AliasName = "medium", RepoId = WellKnownModels.Generator.Medium, Description = "Phi-3.5 Mini (3.8B, 128K context)", IsCached = cachedRepoIds.Contains(WellKnownModels.Generator.Medium) },
-            new ModelAliasInfo { AliasName = "large", RepoId = WellKnownModels.Generator.Large, Description = "Microsoft Phi-4 (14B, highest quality)", IsCached = cachedRepoIds.Contains(WellKnownModels.Generator.Large) },
+            new ModelAliasInfo { AliasName = "default", RepoId = ResolveGeneratorRepoId(WellKnownModels.Generator.Default), Description = "Microsoft Phi-4 Mini (3.8B, MIT)", IsCached = cachedRepoIds.Contains(ResolveGeneratorRepoId(WellKnownModels.Generator.Default)) },
+            new ModelAliasInfo { AliasName = "fast", RepoId = ResolveGeneratorRepoId(WellKnownModels.Generator.Fast), Description = "Phi-4 Mini (3.8B, fastest FC-capable)", IsCached = cachedRepoIds.Contains(ResolveGeneratorRepoId(WellKnownModels.Generator.Fast)) },
+            new ModelAliasInfo { AliasName = "quality", RepoId = ResolveGeneratorRepoId(WellKnownModels.Generator.Quality), Description = "Microsoft Phi-4 (14B, highest quality)", IsCached = cachedRepoIds.Contains(ResolveGeneratorRepoId(WellKnownModels.Generator.Quality)) },
+            new ModelAliasInfo { AliasName = "medium", RepoId = ResolveGeneratorRepoId(WellKnownModels.Generator.Medium), Description = "Phi-3.5 Mini (3.8B, 128K context)", IsCached = cachedRepoIds.Contains(ResolveGeneratorRepoId(WellKnownModels.Generator.Medium)) },
+            new ModelAliasInfo { AliasName = "large", RepoId = ResolveGeneratorRepoId(WellKnownModels.Generator.Large), Description = "Microsoft Phi-4 (14B, highest quality)", IsCached = cachedRepoIds.Contains(ResolveGeneratorRepoId(WellKnownModels.Generator.Large)) },
         ]
     };
 
