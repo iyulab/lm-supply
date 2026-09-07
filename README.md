@@ -599,8 +599,7 @@ LMSupply supports three ways to specify models:
 Use predefined aliases for quick access to popular models:
 
 ```csharp
-await using var embedder = await LocalEmbedder.LoadAsync("default");      // bge-small-en-v1.5
-await using var embedder = await LocalEmbedder.LoadAsync("default");      // bge-m3 (multilingual SOTA, v0.34+)
+await using var embedder = await LocalEmbedder.LoadAsync("default");      // bge-m3 (multilingual SOTA)
 await using var generator = await LocalGenerator.LoadAsync("gguf:auto");    // Hardware-optimized
 await using var generator = await LocalGenerator.LoadAsync("gguf:qwen3-balanced"); // Qwen3 8B
 ```

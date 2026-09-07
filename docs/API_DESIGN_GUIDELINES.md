@@ -59,7 +59,7 @@ public static class Local{Domain}
 ```csharp
 // Embedder
 var embedder = await LocalEmbedder.LoadAsync("default");
-var embedder = await LocalEmbedder.LoadAsync("bge-small-en-v1.5");
+var embedder = await LocalEmbedder.LoadAsync("bge-base-en-v1.5");
 
 // Reranker
 var reranker = await LocalReranker.LoadAsync("default");

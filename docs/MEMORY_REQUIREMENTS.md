@@ -29,8 +29,7 @@ This formula is a rough estimate that includes model weight loading and runtime 
 
 | Model | Parameters | ONNX Size | Est. Memory | Context |
 |-------|------------|-----------|-------------|---------|
-| all-MiniLM-L6-v2 | 22M | ~90MB | ~180MB | 256 tokens |
-| bge-small-en-v1.5 | 33M | ~130MB | ~260MB | 512 tokens |
+| multilingual-e5-small | 118M | ~470MB | ~940MB | 512 tokens |
 | e5-small-v2 | 33M | ~130MB | ~260MB | 512 tokens |
 | bge-base-en-v1.5 | 110M | ~440MB | ~880MB | 512 tokens |
 | gte-base-en-v1.5 | 109M | ~440MB | ~880MB | 8K tokens |
@@ -39,11 +38,16 @@ This formula is a rough estimate that includes model weight loading and runtime 
 | bge-large-en-v1.5 | 335M | ~1.3GB | ~2.6GB | 512 tokens |
 | gte-large-en-v1.5 | 434M | ~1.7GB | ~3.4GB | 8K tokens |
 | multilingual-e5-large | 560M | ~2.2GB | ~4.4GB | 512 tokens |
+| bge-m3 | 568M | ~2.3GB | ~4.5GB | 8K tokens |
 
 **Recommended:**
-- 💡 **Low Memory (< 4GB)**: `fast` (all-MiniLM-L6-v2)
-- ⚖️ **Balanced (4-8GB)**: `default` (bge-small-en-v1.5)
-- 🚀 **Quality (8GB+)**: `quality` (gte-base-en-v1.5) or `large`
+- 💡 **Low Memory (< 4GB)**: `fast` (multilingual-e5-small)
+- ⚖️ **Balanced (4-8GB)**: `quality` (gte-large-en-v1.5), English-first
+- 🚀 **Quality (8GB+)**: `default` (bge-m3) — 100+ languages, 8K context
+
+> These follow the aliases the embedder registry actually resolves. The table above lists other
+> models that load by name; only the aliases carry the registry's tuning (pooling mode, dimensions,
+> and the E5 query/passage prefixes).
 
 ---
 

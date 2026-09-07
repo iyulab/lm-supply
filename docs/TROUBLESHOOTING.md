@@ -57,7 +57,7 @@ ModelNotFoundException: Model 'invalid-model' not found
 await LocalEmbedder.LoadAsync("default");  // or "fast", "quality", "auto"
 
 // Or use full HuggingFace ID
-await LocalEmbedder.LoadAsync("BAAI/bge-small-en-v1.5");
+await LocalEmbedder.LoadAsync("BAAI/bge-base-en-v1.5");
 ```
 
 ### 2.2 Download Failures
