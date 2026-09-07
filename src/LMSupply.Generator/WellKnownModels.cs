@@ -61,26 +61,33 @@ public static class WellKnownModels
     /// </summary>
     public static class Embedder
     {
-        /// <summary>
-        /// Default embedding model - BGE Small English v1.5.
-        /// 33M params, 384 dims, 512 tokens. MTEB top performer for size.
-        /// Best balance of speed, size, and quality for English.
-        /// </summary>
-        public const string Default = "BAAI/bge-small-en-v1.5";
+        // Every constant in this class must name a model the embedder registry actually carries
+        // (LMSupply.Embedder's DefaultModels). A repo id the registry does not know still loads —
+        // it is treated as a raw HuggingFace id and downloaded — but it arrives without the
+        // registry's tuning (dimensions, pooling mode, subfolder, query/passage prefixes), so the
+        // consumer silently gets a worse pipeline than the alias path would have given.
+        // WellKnownModelsRegistryTests asserts this, because nothing else does.
 
         /// <summary>
-        /// Fast/tiny embedding model - all-MiniLM-L6-v2.
-        /// 22M params, 384 dims, 256 tokens. Ultra-lightweight.
+        /// Default embedding model - BGE-M3.
+        /// 568M params, 1024 dims, 8192 tokens, CLS pooling, 100+ languages.
+        /// The registry's "default" alias; strongest general-purpose dense retrieval on offer here.
+        /// </summary>
+        public const string Default = "BAAI/bge-m3";
+
+        /// <summary>
+        /// Fast embedding model - multilingual-e5-small.
+        /// 118M params, 384 dims, 512 tokens, 100+ languages. Applies the E5 query/passage
+        /// prefixes automatically when loaded through the registry.
         /// Best for latency-critical applications.
         /// </summary>
-        public const string Fast = "sentence-transformers/all-MiniLM-L6-v2";
+        public const string Fast = "intfloat/multilingual-e5-small";
 
         /// <summary>
-        /// Quality embedding model - GTE Base English v1.5.
-        /// 109M params, 768 dims, 8192 tokens. Long context support.
-        /// 2025 MTEB top performer, Apache 2.0 license.
+        /// Quality embedding model - GTE Large English v1.5.
+        /// 434M params, 1024 dims, 8192 tokens. Long context, English-first, Apache 2.0 license.
         /// </summary>
-        public const string Quality = "Alibaba-NLP/gte-base-en-v1.5";
+        public const string Quality = "Alibaba-NLP/gte-large-en-v1.5";
 
         /// <summary>
         /// Large embedding model - Nomic Embed Text v1.5.

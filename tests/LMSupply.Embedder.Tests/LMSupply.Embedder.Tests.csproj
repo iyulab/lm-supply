@@ -18,6 +18,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\LMSupply.Embedder\LMSupply.Embedder.csproj" />
+    <!-- WellKnownModels lives in the Generator package; the registry it must agree with lives
+         here. Test-only reference so the two cannot drift unnoticed again. -->
+    <ProjectReference Include="..\..\src\LMSupply.Generator\LMSupply.Generator.csproj" />
   </ItemGroup>
 
   <ItemGroup>

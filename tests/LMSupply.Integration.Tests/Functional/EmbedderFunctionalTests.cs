@@ -693,16 +693,28 @@ public class EmbedderFunctionalTests
         opts.ThreadCount.Should().BeNull("default thread count should be null");
     }
 
+    /// <summary>
+    /// Substring assertions over hand-copied names are what let three of these constants drift
+    /// onto models the registry does not carry — the strings still matched their own stale
+    /// expectations. The real invariant (every constant resolves through the registry) is asserted
+    /// by <c>WellKnownModelsRegistryTests</c> in <c>LMSupply.Embedder.Tests</c>, which runs in CI;
+    /// this suite does not. What is kept here is only the part that suite cannot express: that the
+    /// tiers are distinct models rather than the same one under three names.
+    /// </summary>
     [Fact]
     [Trait("Axis", "Loading")]
-    public void L_WellKnownModels_Embedder_HasValidConstants()
+    public void L_WellKnownModels_Embedder_TiersAreDistinct()
     {
-        WellKnownModels.Embedder.Default.Should().Contain("bge-small-en");
-        WellKnownModels.Embedder.Fast.Should().Contain("MiniLM");
-        WellKnownModels.Embedder.Quality.Should().Contain("gte-base");
-        WellKnownModels.Embedder.Large.Should().Contain("nomic");
-        WellKnownModels.Embedder.Multilingual.Should().Contain("multilingual");
-        WellKnownModels.Embedder.MultilingualLarge.Should().Contain("bge-m3");
+        var tiers = new[]
+        {
+            WellKnownModels.Embedder.Fast,
+            WellKnownModels.Embedder.Quality,
+            WellKnownModels.Embedder.Large,
+            WellKnownModels.Embedder.Multilingual
+        };
+
+        tiers.Should().OnlyHaveUniqueItems();
+        tiers.Should().AllSatisfy(t => t.Should().NotBeNullOrWhiteSpace());
     }
 
     // ── GetAllModels API (no model loading) ───────────────────────

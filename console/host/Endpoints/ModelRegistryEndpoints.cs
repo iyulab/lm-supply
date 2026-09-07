@@ -112,9 +112,9 @@ public static class ModelRegistryEndpoints
         Description = "Text embedding models for semantic search",
         Models =
         [
-            new ModelAliasInfo { AliasName = "default", RepoId = WellKnownModels.Embedder.Default, Description = "BGE Small EN v1.5 (33M, 384 dims)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Default) },
-            new ModelAliasInfo { AliasName = "fast", RepoId = WellKnownModels.Embedder.Fast, Description = "MiniLM L6 v2 (22M, ultra-fast)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Fast) },
-            new ModelAliasInfo { AliasName = "quality", RepoId = WellKnownModels.Embedder.Quality, Description = "GTE Base EN v1.5 (109M, 8K context)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Quality) },
+            new ModelAliasInfo { AliasName = "default", RepoId = WellKnownModels.Embedder.Default, Description = "BGE-M3 (568M, 1024 dims, 100+ languages)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Default) },
+            new ModelAliasInfo { AliasName = "fast", RepoId = WellKnownModels.Embedder.Fast, Description = "multilingual-e5-small (118M, 384 dims, 100+ languages)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Fast) },
+            new ModelAliasInfo { AliasName = "quality", RepoId = WellKnownModels.Embedder.Quality, Description = "GTE Large EN v1.5 (434M, 1024 dims, 8K context)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Quality) },
             new ModelAliasInfo { AliasName = "large", RepoId = WellKnownModels.Embedder.Large, Description = "Nomic Embed v1.5 (137M, 8K context)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Large) },
             new ModelAliasInfo { AliasName = "multilingual", RepoId = WellKnownModels.Embedder.Multilingual, Description = "E5 Base (278M, 100+ languages)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Multilingual) },
             new ModelAliasInfo { AliasName = "multilingual-large", RepoId = WellKnownModels.Embedder.MultilingualLarge, Description = "BGE M3 (568M, best multilingual)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.MultilingualLarge) },
