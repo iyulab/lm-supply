@@ -164,10 +164,12 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "Loading")]
     public void L_GetAvailableModels_ContainsDefaultModel()
     {
-        var models = LocalCaptioner.GetAvailableModels().ToList();
+        // GetAvailableModels lists alias names, not repo ids; the model the aliases point at is
+        // visible through GetAllModels.
+        var models = LocalCaptioner.GetAllModels().ToList();
 
-        models.Should().Contain("vit-gpt2",
-            "default alias maps to vit-gpt2 model");
+        models.Should().Contain(m => m.RepoId == DefaultModels.VitGpt2.RepoId,
+            "default alias maps to the ViT-GPT2 model");
     }
 
     [Fact]
@@ -225,9 +227,9 @@ public class CaptionerFunctionalTests
     {
         var models = LocalCaptioner.GetAvailableModels().ToList();
 
-        // 2 aliases (default, fast) + model names + repo IDs
-        models.Count.Should().BeGreaterThanOrEqualTo(4,
-            "registry should have at least 4 entries (aliases + model names + repo IDs)");
+        // "auto" + the built-in aliases (default, fast); a user's ~/.lmsupply/aliases.json may add more
+        models.Count.Should().BeGreaterThanOrEqualTo(1 + DefaultModels.All.Count,
+            "registry lists the auto alias plus every built-in alias");
     }
 
     [Fact]
@@ -236,7 +238,11 @@ public class CaptionerFunctionalTests
     {
         var models = LocalCaptioner.GetAvailableModels().ToList();
 
-        models.Should().Contain("vit-gpt2");
+        models.Should().Contain("auto");
+        foreach (var builtIn in DefaultModels.All)
+        {
+            models.Should().Contain(builtIn.AliasName);
+        }
     }
 
     // ── GetAllModels API (no model loading) ───────────────────────
@@ -271,11 +277,13 @@ public class CaptionerFunctionalTests
     [Trait("Axis", "Loading")]
     public void L_GetAllModels_ContainsExpectedAliases()
     {
+        // GetAllModels is deduplicated by model id, so "fast" (same repo as "default") appears once,
+        // under the alias it was first registered with; the alias itself still resolves.
         var models = LocalCaptioner.GetAllModels().ToList();
         var aliases = models.Select(m => m.AliasName).ToList();
 
         aliases.Should().Contain("default");
-        aliases.Should().Contain("fast");
+        LocalCaptioner.GetAvailableModels().Should().Contain("fast");
     }
 
     // ── Gap Tests: Caption quality, text image ──────────────────

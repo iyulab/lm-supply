@@ -22,8 +22,12 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
     private readonly SegmenterModelInfo _modelInfo;
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
 
-    private InferenceSession? _encoderSession;
-    private InferenceSession? _decoderSession;
+    // Encoder and decoder each own a RecoverableOnnxSession and share one provider blacklist, so a
+    // provider that crashes or hangs on one half of the model is left by the other half before its
+    // next run (see RecoverableOnnxSession). The decoder session is lent to MobileSamSession.
+    private readonly ProviderBlacklist _providerBlacklist = new();
+    private RecoverableOnnxSession? _encoderSession;
+    private RecoverableOnnxSession? _decoderSession;
     private bool _isInitialized;
     private bool _disposed;
 
@@ -108,36 +112,26 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
         var inputTensor = PreprocessImage(image);
 
         // Run encoder to get image embedding
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("image", inputTensor)
+        };
+
         DenseTensor<float> imageEmbedding;
 
         await _sessionLock.WaitAsync(cancellationToken);
         try
         {
-            // CancellableInference guarantees control returns to the caller if the token is
-            // cancelled, or after a bounded default timeout, even when the native ONNX call
-            // (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-            // Previously this ran inline on the calling thread with no bound at all.
-            imageEmbedding = await CancellableInference.RunAsync(() =>
+            // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the
+            // provider crashes, the session moves to the next provider and the run is retried once.
+            imageEmbedding = await _encoderSession!.RunWithRecoveryAsync((session, runOptions) =>
             {
-                var inputs = new List<NamedOnnxValue>
-                {
-                    NamedOnnxValue.CreateFromTensor("image", inputTensor)
-                };
-
-                using var outputs = _encoderSession!.Run(inputs);
+                using var outputs = session.Run(inputs, session.OutputNames, runOptions);
                 var embeddingTensor = outputs[0].AsTensor<float>();
 
-                // Clone the embedding
-                var dims = embeddingTensor.Dimensions.ToArray();
-                var result = new DenseTensor<float>(dims);
-                var totalElements = dims.Aggregate(1, (a, b) => a * b);
-                for (int i = 0; i < totalElements; i++)
-                {
-                    result.SetValue(i, embeddingTensor.GetValue(i));
-                }
-
-                return result;
-            }, cancellationToken);
+                // Copy the embedding out of the native buffer since the outputs are disposed here
+                return new DenseTensor<float>(embeddingTensor.ToArray(), embeddingTensor.Dimensions);
+            }, cancellationToken: cancellationToken);
         }
         finally
         {
@@ -198,19 +192,25 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
 
             // Load encoder
             var encoderPath = Path.Combine(modelDir, _modelInfo.EncoderFile!);
-            _encoderSession = await OnnxSessionFactory.CreateAsync(
+            var encoderResult = await OnnxSessionFactory.CreateWithInfoAsync(
                 encoderPath,
                 _options.Provider,
                 ConfigureSessionOptions,
                 cancellationToken: cancellationToken);
+            _encoderSession = RecoverableOnnxSession.FromResult(
+                encoderResult, encoderPath, ConfigureSessionOptions,
+                logPrefix: "[MobileSamModel:encoder]", blacklist: _providerBlacklist);
 
             // Load decoder
             var decoderPath = Path.Combine(modelDir, _modelInfo.DecoderFile!);
-            _decoderSession = await OnnxSessionFactory.CreateAsync(
+            var decoderResult = await OnnxSessionFactory.CreateWithInfoAsync(
                 decoderPath,
                 _options.Provider,
                 ConfigureSessionOptions,
                 cancellationToken: cancellationToken);
+            _decoderSession = RecoverableOnnxSession.FromResult(
+                decoderResult, decoderPath, ConfigureSessionOptions,
+                logPrefix: "[MobileSamModel:decoder]", blacklist: _providerBlacklist);
 
             _isInitialized = true;
         }
@@ -302,7 +302,8 @@ internal sealed class MobileSamSession : IInteractiveSession
     private readonly MobileSamModel _model;
     private readonly DenseTensor<float> _imageEmbedding;
     private readonly SemaphoreSlim _sessionLock;
-    private readonly InferenceSession _decoderSession;
+    // Lent by the owning model; each prompt runs through its recovery path (see RecoverableOnnxSession).
+    private readonly RecoverableOnnxSession _decoderSession;
     private bool _disposed;
 
     private const int ImageEncoderSize = 1024;
@@ -317,7 +318,7 @@ internal sealed class MobileSamSession : IInteractiveSession
         int imageWidth,
         int imageHeight,
         SemaphoreSlim sessionLock,
-        InferenceSession decoderSession)
+        RecoverableOnnxSession decoderSession)
     {
         _model = model;
         _imageEmbedding = imageEmbedding;
@@ -358,33 +359,48 @@ internal sealed class MobileSamSession : IInteractiveSession
         var maskInput = new DenseTensor<float>([1, 1, 256, 256]);
         var origImSize = new DenseTensor<float>(new float[] { ImageHeight, ImageWidth }, [2]);
 
+        return await RunDecoderAsync(pointCoords, pointLabels, hasMask, maskInput, origImSize, multimask, sw, cancellationToken);
+    }
+
+    /// <summary>
+    /// One bounded, recoverable decoder run for a prompt set. The result is materialized inside the
+    /// run (the native outputs are disposed when it returns).
+    /// </summary>
+    private async Task<InteractiveSegmentationResult> RunDecoderAsync(
+        DenseTensor<float> pointCoords,
+        DenseTensor<float> pointLabels,
+        DenseTensor<float> hasMask,
+        DenseTensor<float> maskInput,
+        DenseTensor<float> origImSize,
+        bool multimask,
+        Stopwatch sw,
+        CancellationToken cancellationToken)
+    {
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("image_embeddings", _imageEmbedding),
+            NamedOnnxValue.CreateFromTensor("point_coords", pointCoords),
+            NamedOnnxValue.CreateFromTensor("point_labels", pointLabels),
+            NamedOnnxValue.CreateFromTensor("has_mask_input", hasMask),
+            NamedOnnxValue.CreateFromTensor("mask_input", maskInput),
+            NamedOnnxValue.CreateFromTensor("orig_im_size", origImSize)
+        };
+
         await _sessionLock.WaitAsync(cancellationToken);
         try
         {
-            // CancellableInference guarantees control returns to the caller if the token is
-            // cancelled, or after a bounded default timeout, even when the native ONNX call
-            // (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-            // Previously this ran inline on the calling thread with no bound at all.
-            return await CancellableInference.RunAsync(() =>
+            // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the
+            // provider crashes, the session moves to the next provider and the run is retried once.
+            return await _decoderSession.RunWithRecoveryAsync((session, runOptions) =>
             {
-                var inputs = new List<NamedOnnxValue>
-                {
-                    NamedOnnxValue.CreateFromTensor("image_embeddings", _imageEmbedding),
-                    NamedOnnxValue.CreateFromTensor("point_coords", pointCoords),
-                    NamedOnnxValue.CreateFromTensor("point_labels", pointLabels),
-                    NamedOnnxValue.CreateFromTensor("has_mask_input", hasMask),
-                    NamedOnnxValue.CreateFromTensor("mask_input", maskInput),
-                    NamedOnnxValue.CreateFromTensor("orig_im_size", origImSize)
-                };
-
-                using var outputs = _decoderSession.Run(inputs);
+                using var outputs = session.Run(inputs, ["masks", "iou_predictions"], runOptions);
                 var masksTensor = outputs.First(o => o.Name == "masks").AsTensor<float>();
                 var iouTensor = outputs.First(o => o.Name == "iou_predictions").AsTensor<float>();
 
                 sw.Stop();
 
                 return CreateResult(masksTensor, iouTensor, multimask, sw.Elapsed.TotalMilliseconds);
-            }, cancellationToken);
+            }, cancellationToken: cancellationToken);
         }
         finally
         {
@@ -406,38 +422,7 @@ internal sealed class MobileSamSession : IInteractiveSession
         var maskInput = PrepareMaskInput(previousMask);
         var origImSize = new DenseTensor<float>(new float[] { ImageHeight, ImageWidth }, [2]);
 
-        await _sessionLock.WaitAsync(cancellationToken);
-        try
-        {
-            // CancellableInference guarantees control returns to the caller if the token is
-            // cancelled, or after a bounded default timeout, even when the native ONNX call
-            // (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-            // Previously this ran inline on the calling thread with no bound at all.
-            return await CancellableInference.RunAsync(() =>
-            {
-                var inputs = new List<NamedOnnxValue>
-                {
-                    NamedOnnxValue.CreateFromTensor("image_embeddings", _imageEmbedding),
-                    NamedOnnxValue.CreateFromTensor("point_coords", pointCoords),
-                    NamedOnnxValue.CreateFromTensor("point_labels", pointLabels),
-                    NamedOnnxValue.CreateFromTensor("has_mask_input", hasMask),
-                    NamedOnnxValue.CreateFromTensor("mask_input", maskInput),
-                    NamedOnnxValue.CreateFromTensor("orig_im_size", origImSize)
-                };
-
-                using var outputs = _decoderSession.Run(inputs);
-                var masksTensor = outputs.First(o => o.Name == "masks").AsTensor<float>();
-                var iouTensor = outputs.First(o => o.Name == "iou_predictions").AsTensor<float>();
-
-                sw.Stop();
-
-                return CreateResult(masksTensor, iouTensor, multimask: false, sw.Elapsed.TotalMilliseconds);
-            }, cancellationToken);
-        }
-        finally
-        {
-            _sessionLock.Release();
-        }
+        return await RunDecoderAsync(pointCoords, pointLabels, hasMask, maskInput, origImSize, multimask: false, sw, cancellationToken);
     }
 
     private (DenseTensor<float> Coords, DenseTensor<float> Labels) PreparePointPrompts(

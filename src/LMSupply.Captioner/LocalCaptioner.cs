@@ -143,7 +143,9 @@ public static class LocalCaptioner
         CaptionerModelRegistry.Default.GetAliases().Select(a => a.Name);
 
     /// <summary>
-    /// Gets all registered model information (deduplicated by alias name).
+    /// Gets all registered model information, deduplicated by model id — aliases that point at the
+    /// same model (e.g. "default" and "fast") contribute one entry. Use <see cref="GetAvailableModels"/>
+    /// for the alias names themselves.
     /// </summary>
     public static IEnumerable<ModelInfo> GetAllModels() =>
         CaptionerModelRegistry.Default.GetAvailableModels();
