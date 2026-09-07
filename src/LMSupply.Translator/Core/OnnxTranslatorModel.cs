@@ -23,8 +23,12 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
     private readonly TranslatorModelInfo _modelInfo;
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
 
-    private InferenceSession? _encoderSession;
-    private InferenceSession? _decoderSession;
+    // Encoder and decoder each own a RecoverableOnnxSession and share one provider blacklist, so a
+    // provider that crashes or hangs on one half of the model is left by the other half before its
+    // next run (see RecoverableOnnxSession).
+    private readonly ProviderBlacklist _providerBlacklist = new();
+    private RecoverableOnnxSession? _encoderSession;
+    private RecoverableOnnxSession? _decoderSession;
     private TranslatorTokenizer? _tokenizer;
     private bool _isInitialized;
     private bool _disposed;
@@ -33,18 +37,14 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
     private string? _resolvedEncoderFile;
     private string? _resolvedDecoderFile;
 
-    // Runtime diagnostics
-    private bool _isGpuActive;
-    private IReadOnlyList<string> _activeProviders = Array.Empty<string>();
-
     /// <inheritdoc />
     public string ModelId => _modelInfo.Id;
 
     /// <inheritdoc />
-    public bool IsGpuActive => _isGpuActive;
+    public bool IsGpuActive => _encoderSession?.IsGpuActive ?? false;
 
     /// <inheritdoc />
-    public IReadOnlyList<string> ActiveProviders => _activeProviders;
+    public IReadOnlyList<string> ActiveProviders => _encoderSession?.ActiveProviders ?? Array.Empty<string>();
 
     /// <inheritdoc />
     public ExecutionProvider RequestedProvider => _options.Provider;
@@ -154,43 +154,31 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
         long[] attentionMask,
         CancellationToken cancellationToken)
     {
+        var seqLen = inputIds.Length;
+
+        // Create input tensors
+        var inputIdsTensor = new DenseTensor<long>(inputIds, [1, seqLen]);
+        var attentionMaskTensor = new DenseTensor<long>(attentionMask, [1, seqLen]);
+
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("input_ids", inputIdsTensor),
+            NamedOnnxValue.CreateFromTensor("attention_mask", attentionMaskTensor)
+        };
+
         await _sessionLock.WaitAsync(cancellationToken);
         try
         {
-            // CancellableInference guarantees control returns to the caller if the token is
-            // cancelled, or after a bounded default timeout, even when the native ONNX call
-            // (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-            // Previously this ran inline on the calling thread with no bound at all.
-            return await CancellableInference.RunAsync(() =>
+            // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the
+            // provider crashes, the session moves to the next provider and the run is retried once.
+            return await _encoderSession!.RunWithRecoveryAsync((session, runOptions) =>
             {
-                var seqLen = inputIds.Length;
-
-                // Create input tensors
-                var inputIdsTensor = new DenseTensor<long>(inputIds, [1, seqLen]);
-                var attentionMaskTensor = new DenseTensor<long>(attentionMask, [1, seqLen]);
-
-                var inputs = new List<NamedOnnxValue>
-                {
-                    NamedOnnxValue.CreateFromTensor("input_ids", inputIdsTensor),
-                    NamedOnnxValue.CreateFromTensor("attention_mask", attentionMaskTensor)
-                };
-
-                using var outputs = _encoderSession!.Run(inputs);
+                using var outputs = session.Run(inputs, session.OutputNames, runOptions);
                 var lastHiddenState = outputs[0].AsTensor<float>();
 
-                // Clone the tensor since we're disposing the outputs
-                var dims = lastHiddenState.Dimensions.ToArray();
-                var result = new DenseTensor<float>(dims);
-
-                // Copy data element by element
-                var totalElements = dims.Aggregate(1, (a, b) => a * b);
-                for (int i = 0; i < totalElements; i++)
-                {
-                    result.SetValue(i, lastHiddenState.GetValue(i));
-                }
-
-                return result;
-            }, cancellationToken);
+                // Copy out of the native buffer since the outputs are disposed with this delegate
+                return new DenseTensor<float>(lastHiddenState.ToArray(), lastHiddenState.Dimensions);
+            }, cancellationToken: cancellationToken);
         }
         finally
         {
@@ -211,65 +199,61 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
         await _sessionLock.WaitAsync(cancellationToken);
         try
         {
-            // CancellableInference guarantees control returns to the caller if the token is
-            // cancelled, or after a bounded default timeout, even when a single decoder step
-            // (e.g. a cold DirectML kernel init) ignores cancellation and blocks indefinitely.
-            // Previously this loop ran inline on the calling thread with no bound at all.
-            await CancellableInference.RunAsync(() =>
+            // use_cache_branch is required by merged decoder exports; always false (no KV-caching).
+            // Metadata is identical on every provider, so reading it once is safe across recoveries.
+            var needsCacheBranch = _decoderSession!.Session.InputMetadata.ContainsKey("use_cache_branch");
+
+            for (int step = 0; step < maxLength; step++)
             {
-                for (int step = 0; step < maxLength; step++)
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var decoderInputIds = new DenseTensor<long>(outputIds.ToArray(), [1, outputIds.Count]);
+                var encoderAttention = new DenseTensor<long>(encoderAttentionMask, [1, encoderAttentionMask.Length]);
+
+                var inputs = new List<NamedOnnxValue>
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
+                    NamedOnnxValue.CreateFromTensor("input_ids", decoderInputIds),
+                    NamedOnnxValue.CreateFromTensor("encoder_attention_mask", encoderAttention),
+                    NamedOnnxValue.CreateFromTensor("encoder_hidden_states", encoderOutput)
+                };
 
-                    var decoderInputIds = new DenseTensor<long>(outputIds.ToArray(), [1, outputIds.Count]);
-                    var encoderAttention = new DenseTensor<long>(encoderAttentionMask, [1, encoderAttentionMask.Length]);
+                if (needsCacheBranch)
+                {
+                    var useCacheBranch = new DenseTensor<bool>(s_falseArray, s_oneDimension);
+                    inputs.Add(NamedOnnxValue.CreateFromTensor("use_cache_branch", useCacheBranch));
+                }
 
-                    var inputs = new List<NamedOnnxValue>
-                    {
-                        NamedOnnxValue.CreateFromTensor("input_ids", decoderInputIds),
-                        NamedOnnxValue.CreateFromTensor("encoder_attention_mask", encoderAttention),
-                        NamedOnnxValue.CreateFromTensor("encoder_hidden_states", encoderOutput)
-                    };
+                var lastPosition = outputIds.Count - 1;
 
-                    // Add use_cache_branch input if the model requires it (merged decoder models)
-                    // Set to false since we're not using KV-caching
-                    var inputNames = _decoderSession!.InputMetadata.Keys;
-                    if (inputNames.Contains("use_cache_branch"))
-                    {
-                        var useCacheBranch = new DenseTensor<bool>(s_falseArray, s_oneDimension);
-                        inputs.Add(NamedOnnxValue.CreateFromTensor("use_cache_branch", useCacheBranch));
-                    }
-
-                    using var outputs = _decoderSession.Run(inputs);
+                // One bounded decode step; a provider crash or hang inside it moves the session to
+                // the next provider and retries this step (decoder state is on the managed side).
+                var bestToken = await _decoderSession.RunWithRecoveryAsync((session, runOptions) =>
+                {
+                    using var outputs = session.Run(inputs, [session.OutputNames[0]], runOptions);
                     var logits = outputs[0].AsTensor<float>();
-
-                    // Get the last token's logits
-                    var lastPosition = outputIds.Count - 1;
                     var vocabSize = (int)logits.Dimensions[2];
 
-                    // Greedy decoding: select token with highest probability
+                    // Greedy decoding: select token with highest probability at the last position
                     float maxLogit = float.MinValue;
-                    long bestToken = eosTokenId;
-
+                    long best = eosTokenId;
                     for (int v = 0; v < vocabSize; v++)
                     {
                         var logit = logits[0, lastPosition, v];
                         if (logit > maxLogit)
                         {
                             maxLogit = logit;
-                            bestToken = v;
+                            best = v;
                         }
                     }
+                    return best;
+                }, cancellationToken: cancellationToken);
 
-                    outputIds.Add(bestToken);
+                outputIds.Add(bestToken);
 
-                    // Stop if EOS token generated
-                    if (bestToken == eosTokenId)
-                        break;
-                }
-
-                return true;
-            }, cancellationToken);
+                // Stop if EOS token generated
+                if (bestToken == eosTokenId)
+                    break;
+            }
         }
         finally
         {
@@ -335,17 +319,20 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
                 ConfigureSessionOptions,
                 cancellationToken: cancellationToken);
 
-            _encoderSession = encoderResult.Session;
-            _isGpuActive = encoderResult.IsGpuActive;
-            _activeProviders = encoderResult.ActiveProviders;
+            _encoderSession = RecoverableOnnxSession.FromResult(
+                encoderResult, encoderPath, ConfigureSessionOptions,
+                logPrefix: "[OnnxTranslatorModel:encoder]", blacklist: _providerBlacklist);
 
             // Load decoder
             var decoderPath = Path.Combine(modelDir, decoderFile);
-            _decoderSession = await OnnxSessionFactory.CreateAsync(
+            var decoderResult = await OnnxSessionFactory.CreateWithInfoAsync(
                 decoderPath,
                 _options.Provider,
                 ConfigureSessionOptions,
                 cancellationToken: cancellationToken);
+            _decoderSession = RecoverableOnnxSession.FromResult(
+                decoderResult, decoderPath, ConfigureSessionOptions,
+                logPrefix: "[OnnxTranslatorModel:decoder]", blacklist: _providerBlacklist);
 
             // Initialize SentencePiece tokenizer
             _tokenizer = TranslatorTokenizer.Create(modelDir);

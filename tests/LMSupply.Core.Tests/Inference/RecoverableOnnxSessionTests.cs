@@ -191,6 +191,25 @@ public class RecoverableOnnxSessionTests
     }
 
     [Fact]
+    public void FromResult_SeedsBlacklist_WithProvidersTheLoadTimeChainSawFail()
+    {
+        var shared = new ProviderBlacklist();
+        var loadedOnCpuAfterDmlRefusedIt = new SessionCreationResult
+        {
+            Session = null!,
+            RequestedProvider = ExecutionProvider.Auto,
+            ActiveProviders = ["CPUExecutionProvider"],
+            FailedProviders = [ExecutionProvider.DirectML]
+        };
+
+        using var encoder = RecoverableOnnxSession.FromResult(loadedOnCpuAfterDmlRefusedIt, "/nonexistent/encoder.onnx", blacklist: shared);
+
+        // A sibling created afterwards consults the same blacklist, so it will not try DirectML.
+        shared.Contains(ExecutionProvider.DirectML).Should().BeTrue();
+        encoder.Blacklist.Contains(ExecutionProvider.DirectML).Should().BeTrue();
+    }
+
+    [Fact]
     public void PrivateBlacklist_IsPerSession_ByDefault()
     {
         using var a = Create(ExecutionProvider.Auto, "DmlExecutionProvider", "CPUExecutionProvider");

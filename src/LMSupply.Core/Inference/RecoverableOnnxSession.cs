@@ -102,6 +102,9 @@ public sealed class RecoverableOnnxSession : IDisposable
 
     /// <summary>
     /// Wraps the session produced by <see cref="OnnxSessionFactory"/>'s <c>CreateWithInfoAsync</c>.
+    /// Providers the load-time chain already saw fail for this model
+    /// (<see cref="SessionCreationResult.FailedProviders"/>) are put on the blacklist up front, so a
+    /// sibling session sharing it does not try them again.
     /// </summary>
     public static RecoverableOnnxSession FromResult(
         SessionCreationResult result,
@@ -109,7 +112,13 @@ public sealed class RecoverableOnnxSession : IDisposable
         Action<SessionOptions>? configureOptions = null,
         string logPrefix = "[RecoverableOnnxSession]",
         ProviderBlacklist? blacklist = null)
-        => new(result.Session, result.ActiveProviders, result.IsGpuActive, result.RequestedProvider, modelPath, configureOptions, logPrefix, blacklist);
+    {
+        var session = new RecoverableOnnxSession(
+            result.Session, result.ActiveProviders, result.IsGpuActive, result.RequestedProvider, modelPath, configureOptions, logPrefix, blacklist);
+        foreach (var failed in result.FailedProviders)
+            session._blacklist.Add(failed);
+        return session;
+    }
 
     /// <summary>Execution providers active on the current session, primary first.</summary>
     public IReadOnlyList<string> ActiveProviders => _handle.ActiveProviders;

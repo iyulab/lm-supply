@@ -28,6 +28,16 @@ public sealed class SessionCreationResult
     public required IReadOnlyList<string> ActiveProviders { get; init; }
 
     /// <summary>
+    /// GPU providers the load-time chain tried for this model and that failed to produce a working
+    /// session (initialization threw, or the provider library did not load). Empty when the first
+    /// candidate succeeded. A provider that was merely skipped — missing CUDA libraries, or excluded
+    /// by the caller — is not listed: it was never tried. <see cref="RecoverableOnnxSession"/> seeds
+    /// its <see cref="ProviderBlacklist"/> from this so sibling sessions of the same model do not
+    /// try a provider that already refused it.
+    /// </summary>
+    public IReadOnlyList<ExecutionProvider> FailedProviders { get; init; } = Array.Empty<ExecutionProvider>();
+
+    /// <summary>
     /// Whether GPU acceleration is actually being used.
     /// </summary>
     public bool IsGpuActive => ActiveProviders.Any(p =>
@@ -188,7 +198,8 @@ public static class OnnxSessionFactory
             {
                 Session = session,
                 RequestedProvider = provider,
-                ActiveProviders = new[] { "CPUExecutionProvider" }
+                ActiveProviders = new[] { "CPUExecutionProvider" },
+                FailedProviders = new[] { provider }
             };
         }
 
@@ -235,6 +246,7 @@ public static class OnnxSessionFactory
 
         Exception? lastException = null;
         var triedProviders = new List<string>();
+        var failedProviders = new List<ExecutionProvider>();
 
         foreach (var providerToTry in fallbackChain)
         {
@@ -305,6 +317,7 @@ public static class OnnxSessionFactory
                     {
                         Trace.TraceInformation($"[Fallback] CUDA: failed (provider not loaded), trying next...");
                         triedProviders.Add("CUDA(failed)");
+                        failedProviders.Add(ExecutionProvider.Cuda);
                         session.Dispose();
                         continue;
                     }
@@ -328,7 +341,8 @@ public static class OnnxSessionFactory
                 {
                     Session = session,
                     RequestedProvider = ExecutionProvider.Auto,
-                    ActiveProviders = activeProviders
+                    ActiveProviders = activeProviders,
+                    FailedProviders = failedProviders
                 };
             }
             catch (OperationCanceledException)
@@ -376,6 +390,7 @@ public static class OnnxSessionFactory
                     }
                 }
                 triedProviders.Add($"{providerToTry}(error)");
+                failedProviders.Add(providerToTry);
                 lastException = ex;
             }
         }
@@ -391,7 +406,8 @@ public static class OnnxSessionFactory
         {
             Session = cpuSession,
             RequestedProvider = ExecutionProvider.Auto,
-            ActiveProviders = new[] { "CPUExecutionProvider" }
+            ActiveProviders = new[] { "CPUExecutionProvider" },
+            FailedProviders = failedProviders
         };
     }
 

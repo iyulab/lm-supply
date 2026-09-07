@@ -51,14 +51,18 @@ internal sealed class BeamSearchDecoder
     /// <param name="encoderOutput">Encoder hidden states.</param>
     /// <param name="encoderAttentionMask">Encoder attention mask.</param>
     /// <param name="startTokenIds">Initial decoder input token IDs.</param>
-    /// <param name="decoderSession">ONNX decoder session.</param>
+    /// <param name="decoderSession">
+    /// Decoder session. Each decode step runs through its recovery path: a provider crash or a hang
+    /// inside one step moves the session to the next provider and retries that step — beam state is
+    /// on the managed side, so the switch is transparent to the search.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Best decoded sequence.</returns>
     public async Task<long[]> DecodeAsync(
         DenseTensor<float> encoderOutput,
         long[] encoderAttentionMask,
         long[] startTokenIds,
-        InferenceSession decoderSession,
+        RecoverableOnnxSession decoderSession,
         CancellationToken cancellationToken = default)
     {
         // Initialize beams with start tokens
@@ -69,82 +73,79 @@ internal sealed class BeamSearchDecoder
 
         var finishedBeams = new List<BeamHypothesis>();
 
-        // CancellableInference guarantees control returns to the caller if the token is
-        // cancelled, or after a bounded default timeout, even when a single decoder step (e.g.
-        // a cold DirectML kernel init) ignores cancellation and blocks indefinitely. Previously
-        // this loop ran inline on the calling thread with no bound at all.
-        await CancellableInference.RunAsync(() =>
+        // use_cache_branch is required by merged decoder exports; always false (no KV-caching).
+        // Metadata is identical on every provider, so reading it once is safe across recoveries.
+        var needsCacheBranch = decoderSession.Session.InputMetadata.ContainsKey("use_cache_branch");
+
+        for (int step = 0; step < _maxLength && beams.Count > 0; step++)
         {
-            for (int step = 0; step < _maxLength && beams.Count > 0; step++)
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var allCandidates = new List<BeamHypothesis>();
+
+            foreach (var beam in beams)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var allCandidates = new List<BeamHypothesis>();
-
-                foreach (var beam in beams)
+                if (beam.IsFinished)
                 {
-                    if (beam.IsFinished)
-                    {
-                        finishedBeams.Add(beam);
-                        continue;
-                    }
-
-                    // Run decoder for this beam
-                    var logits = RunDecoderStep(
-                        beam.TokenIds,
-                        encoderOutput,
-                        encoderAttentionMask,
-                        decoderSession);
-
-                    // Apply repetition penalty
-                    ApplyRepetitionPenalty(logits, beam.TokenIds);
-
-                    // Get top-k candidates for this beam
-                    var topK = GetTopK(logits, _beamSize * 2);
-
-                    foreach (var (tokenId, logProb) in topK)
-                    {
-                        var newTokenIds = new List<long>(beam.TokenIds) { tokenId };
-                        var newScore = beam.Score + logProb;
-
-                        var isFinished = tokenId == _eosTokenId;
-                        if (isFinished)
-                        {
-                            // Apply length penalty for finished sequences
-                            var normalizedScore = ApplyLengthPenalty(newScore, newTokenIds.Count);
-                            finishedBeams.Add(new BeamHypothesis(newTokenIds, normalizedScore, isFinished: true));
-                        }
-                        else
-                        {
-                            allCandidates.Add(new BeamHypothesis(newTokenIds, newScore, isFinished: false));
-                        }
-                    }
+                    finishedBeams.Add(beam);
+                    continue;
                 }
 
-                // Select top beams for next step
-                beams = allCandidates
-                    .OrderByDescending(b => b.Score)
-                    .Take(_beamSize)
-                    .ToList();
+                // Run decoder for this beam
+                var logits = await RunDecoderStepAsync(
+                    beam.TokenIds,
+                    encoderOutput,
+                    encoderAttentionMask,
+                    needsCacheBranch,
+                    decoderSession,
+                    cancellationToken);
 
-                // Early stopping if we have enough finished beams
-                if (finishedBeams.Count >= _beamSize)
+                // Apply repetition penalty
+                ApplyRepetitionPenalty(logits, beam.TokenIds);
+
+                // Get top-k candidates for this beam
+                var topK = GetTopK(logits, _beamSize * 2);
+
+                foreach (var (tokenId, logProb) in topK)
                 {
-                    var minFinishedScore = finishedBeams
-                        .OrderByDescending(b => b.Score)
-                        .Take(_beamSize)
-                        .Min(b => b.Score);
+                    var newTokenIds = new List<long>(beam.TokenIds) { tokenId };
+                    var newScore = beam.Score + logProb;
 
-                    // If best active beam can't beat worst finished beam, stop
-                    if (beams.Count == 0 || beams[0].Score < minFinishedScore)
+                    var isFinished = tokenId == _eosTokenId;
+                    if (isFinished)
                     {
-                        break;
+                        // Apply length penalty for finished sequences
+                        var normalizedScore = ApplyLengthPenalty(newScore, newTokenIds.Count);
+                        finishedBeams.Add(new BeamHypothesis(newTokenIds, normalizedScore, isFinished: true));
+                    }
+                    else
+                    {
+                        allCandidates.Add(new BeamHypothesis(newTokenIds, newScore, isFinished: false));
                     }
                 }
             }
 
-            return true;
-        }, cancellationToken);
+            // Select top beams for next step
+            beams = allCandidates
+                .OrderByDescending(b => b.Score)
+                .Take(_beamSize)
+                .ToList();
+
+            // Early stopping if we have enough finished beams
+            if (finishedBeams.Count >= _beamSize)
+            {
+                var minFinishedScore = finishedBeams
+                    .OrderByDescending(b => b.Score)
+                    .Take(_beamSize)
+                    .Min(b => b.Score);
+
+                // If best active beam can't beat worst finished beam, stop
+                if (beams.Count == 0 || beams[0].Score < minFinishedScore)
+                {
+                    break;
+                }
+            }
+        }
 
         // Add any remaining unfinished beams to finished (with EOS appended)
         foreach (var beam in beams)
@@ -162,11 +163,16 @@ internal sealed class BeamSearchDecoder
         return bestBeam?.TokenIds.ToArray() ?? startTokenIds;
     }
 
-    private static float[] RunDecoderStep(
+    /// <summary>
+    /// One bounded, recoverable decoder step. Returns the last position's log-probabilities.
+    /// </summary>
+    private static Task<float[]> RunDecoderStepAsync(
         List<long> inputIds,
         DenseTensor<float> encoderOutput,
         long[] encoderAttentionMask,
-        InferenceSession decoderSession)
+        bool needsCacheBranch,
+        RecoverableOnnxSession decoderSession,
+        CancellationToken cancellationToken)
     {
         var decoderInputIds = new DenseTensor<long>(inputIds.ToArray(), [1, inputIds.Count]);
         var encoderAttention = new DenseTensor<long>(encoderAttentionMask, [1, encoderAttentionMask.Length]);
@@ -178,39 +184,40 @@ internal sealed class BeamSearchDecoder
             NamedOnnxValue.CreateFromTensor("encoder_hidden_states", encoderOutput)
         };
 
-        // Add use_cache_branch input if the model requires it (merged decoder models)
-        // Set to false since we're not using KV-caching
-        var inputNames = decoderSession.InputMetadata.Keys;
-        if (inputNames.Contains("use_cache_branch"))
+        if (needsCacheBranch)
         {
             var useCacheBranch = new DenseTensor<bool>(s_falseArray, s_oneDimension);
             inputs.Add(NamedOnnxValue.CreateFromTensor("use_cache_branch", useCacheBranch));
         }
 
-        using var outputs = decoderSession.Run(inputs);
-        var logitsTensor = outputs[0].AsTensor<float>();
-
-        // Get logits for last position
         var lastPosition = inputIds.Count - 1;
-        var vocabSize = (int)logitsTensor.Dimensions[2];
-        var logits = new float[vocabSize];
 
-        for (int v = 0; v < vocabSize; v++)
+        return decoderSession.RunWithRecoveryAsync((session, runOptions) =>
         {
-            logits[v] = logitsTensor[0, lastPosition, v];
-        }
+            using var outputs = session.Run(inputs, [session.OutputNames[0]], runOptions);
+            var logitsTensor = outputs[0].AsTensor<float>();
 
-        // Convert to log probabilities (log softmax)
-        var maxLogit = logits.Max();
-        var expSum = logits.Select(x => MathF.Exp(x - maxLogit)).Sum();
-        var logSumExp = maxLogit + MathF.Log(expSum);
+            // Get logits for last position
+            var vocabSize = (int)logitsTensor.Dimensions[2];
+            var logits = new float[vocabSize];
 
-        for (int i = 0; i < vocabSize; i++)
-        {
-            logits[i] = logits[i] - logSumExp;
-        }
+            for (int v = 0; v < vocabSize; v++)
+            {
+                logits[v] = logitsTensor[0, lastPosition, v];
+            }
 
-        return logits;
+            // Convert to log probabilities (log softmax)
+            var maxLogit = logits.Max();
+            var expSum = logits.Select(x => MathF.Exp(x - maxLogit)).Sum();
+            var logSumExp = maxLogit + MathF.Log(expSum);
+
+            for (int i = 0; i < vocabSize; i++)
+            {
+                logits[i] = logits[i] - logSumExp;
+            }
+
+            return logits;
+        }, cancellationToken: cancellationToken);
     }
 
     private void ApplyRepetitionPenalty(float[] logits, List<long> previousTokens)

@@ -13,31 +13,28 @@ namespace LMSupply.Captioner.Inference;
 /// </summary>
 internal sealed class VitGpt2Captioner : ICaptionerModel
 {
-    private readonly InferenceSession _encoder;
-    private readonly InferenceSession _decoder;
+    // Encoder and decoder each own a RecoverableOnnxSession and share one provider blacklist, so a
+    // provider that crashes or hangs on one half of the model is left by the other half before its
+    // next run (see RecoverableOnnxSession).
+    private readonly RecoverableOnnxSession _encoder;
+    private readonly RecoverableOnnxSession _decoder;
     private readonly ITextTokenizer _tokenizer;
     private readonly ModelInfo _modelInfo;
     private readonly CaptionerOptions _options;
     private readonly ImagePreprocessor _preprocessor;
     private readonly string _modelDir;
-    private readonly bool _isGpuActive;
-    private readonly IReadOnlyList<string> _activeProviders;
-    private readonly ExecutionProvider _requestedProvider;
     private bool _disposed;
 
     private static readonly bool[] UseCacheBranchFalse = [false];
     private static readonly int[] UseCacheBranchDims = [1];
 
     private VitGpt2Captioner(
-        InferenceSession encoder,
-        InferenceSession decoder,
+        RecoverableOnnxSession encoder,
+        RecoverableOnnxSession decoder,
         ITextTokenizer tokenizer,
         ModelInfo modelInfo,
         CaptionerOptions options,
-        string modelDir,
-        bool isGpuActive,
-        IReadOnlyList<string> activeProviders,
-        ExecutionProvider requestedProvider)
+        string modelDir)
     {
         _encoder = encoder;
         _decoder = decoder;
@@ -46,22 +43,19 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
         _options = options;
         _modelDir = modelDir;
         _preprocessor = ImagePreprocessor.Instance;
-        _isGpuActive = isGpuActive;
-        _activeProviders = activeProviders;
-        _requestedProvider = requestedProvider;
     }
 
     /// <inheritdoc />
     public string ModelId => _modelInfo.AliasName;
 
     /// <inheritdoc />
-    public bool IsGpuActive => _isGpuActive;
+    public bool IsGpuActive => _encoder.IsGpuActive;
 
     /// <inheritdoc />
-    public IReadOnlyList<string> ActiveProviders => _activeProviders;
+    public IReadOnlyList<string> ActiveProviders => _encoder.ActiveProviders;
 
     /// <inheritdoc />
-    public ExecutionProvider RequestedProvider => _requestedProvider;
+    public ExecutionProvider RequestedProvider => _encoder.RequestedProvider;
 
     /// <inheritdoc />
     public long? EstimatedMemoryBytes => Directory.Exists(_modelDir)
@@ -105,22 +99,29 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
 
         // Load ONNX sessions
         Action<SessionOptions> configureLog = so => so.LogSeverityLevel = (OrtLoggingLevel)(int)options.LogLevel;
+        var blacklist = new ProviderBlacklist();
+
         var encoderResult = await OnnxSessionFactory.CreateWithInfoAsync(encoderPath, options.Provider, configureLog).ConfigureAwait(false);
-        var decoder = await OnnxSessionFactory.CreateAsync(decoderPath, options.Provider, configureLog).ConfigureAwait(false);
+        var encoder = RecoverableOnnxSession.FromResult(
+            encoderResult, encoderPath, configureLog, logPrefix: "[VitGpt2Captioner:encoder]", blacklist: blacklist);
+
+        RecoverableOnnxSession decoder;
+        try
+        {
+            var decoderResult = await OnnxSessionFactory.CreateWithInfoAsync(decoderPath, options.Provider, configureLog).ConfigureAwait(false);
+            decoder = RecoverableOnnxSession.FromResult(
+                decoderResult, decoderPath, configureLog, logPrefix: "[VitGpt2Captioner:decoder]", blacklist: blacklist);
+        }
+        catch
+        {
+            encoder.Dispose();
+            throw;
+        }
 
         // Load tokenizer from Text.Core - tokenizer files may be in a different directory (e.g., base dir for HuggingFace repos)
         var tokenizer = Text.TokenizerFactory.CreateGpt2(tokenizerDir ?? modelDir);
 
-        return new VitGpt2Captioner(
-            encoderResult.Session,
-            decoder,
-            tokenizer,
-            modelInfo,
-            options,
-            modelDir,
-            encoderResult.IsGpuActive,
-            encoderResult.ActiveProviders,
-            encoderResult.RequestedProvider);
+        return new VitGpt2Captioner(encoder, decoder, tokenizer, modelInfo, options, modelDir);
     }
 
     /// <inheritdoc />
@@ -167,15 +168,11 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
 
     private async Task<CaptionResult> GenerateCaptionAsync(float[] imageData, CancellationToken cancellationToken)
     {
-        // Run encoder to get image embeddings. CancellableInference guarantees control returns
-        // to the caller if the token is cancelled, or after a bounded default timeout, even
-        // when the native ONNX call (e.g. a cold DirectML kernel init) ignores cancellation and
-        // blocks indefinitely.
-        var imageEmbeddings = await CancellableInference.RunAsync(() => RunEncoder(imageData), cancellationToken).ConfigureAwait(false);
+        // Run encoder to get image embeddings
+        var imageEmbeddings = await RunEncoderAsync(imageData, cancellationToken).ConfigureAwait(false);
 
         // Run decoder to generate caption tokens
-        var (tokenIds, confidence) = await CancellableInference.RunAsync(
-            () => GenerateTokens(imageEmbeddings, cancellationToken), cancellationToken).ConfigureAwait(false);
+        var (tokenIds, confidence) = await GenerateTokensAsync(imageEmbeddings, cancellationToken).ConfigureAwait(false);
 
         // Decode tokens to text, skipping special tokens
         var caption = _tokenizer.Decode(tokenIds, skipSpecialTokens: true);
@@ -183,7 +180,7 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
         return new CaptionResult(caption, confidence);
     }
 
-    private float[] RunEncoder(float[] imageData)
+    private Task<float[]> RunEncoderAsync(float[] imageData, CancellationToken cancellationToken)
     {
         var profile = _modelInfo.PreprocessProfile;
         var imageTensor = TensorUtils.CreateImageTensor(imageData, profile);
@@ -193,15 +190,18 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
             NamedOnnxValue.CreateFromTensor("pixel_values", imageTensor)
         };
 
-        using var results = _encoder.Run(inputs);
-        var output = results[0];
+        // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the provider
+        // crashes, the session moves to the next provider and the run is retried once.
+        return _encoder.RunWithRecoveryAsync((session, runOptions) =>
+        {
+            using var results = session.Run(inputs, session.OutputNames, runOptions);
 
-        // Copy the output data
-        var embeddings = output.AsEnumerable<float>().ToArray();
-        return embeddings;
+            // Copy the output data out of the native buffer
+            return results[0].AsEnumerable<float>().ToArray();
+        }, cancellationToken: cancellationToken);
     }
 
-    private (int[] tokenIds, float confidence) GenerateTokens(float[] imageEmbeddings, CancellationToken cancellationToken)
+    private async Task<(int[] tokenIds, float confidence)> GenerateTokensAsync(float[] imageEmbeddings, CancellationToken cancellationToken)
     {
         var generatedTokens = new List<int>();
         float totalLogProb = 0f;
@@ -210,10 +210,10 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
         // Start with BOS token
         var currentTokenIds = new long[] { _modelInfo.BosTokenId };
 
-        // Get embedding dimensions from encoder output
+        // Get embedding dimensions from encoder output metadata (identical on every provider).
         // For ViT-GPT2, typical shape is [1, seq_len, hidden_size]
         // Note: ONNX dynamic dimensions are represented as -1 in metadata, so we infer from actual data
-        var embeddingDim = _encoder.OutputMetadata.First().Value.Dimensions;
+        var embeddingDim = _encoder.Session.OutputMetadata.First().Value.Dimensions;
         int seqLen = embeddingDim.Length > 1 ? embeddingDim[1] : 1;
         int hiddenSize = embeddingDim.Length > 2 ? embeddingDim[2] : embeddingDim[^1];
 
@@ -239,8 +239,9 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
             [1, seqLen, hiddenSize]);
 
         // Pre-create tensors for optional inputs (check once, reuse per step)
-        bool needsAttentionMask = _decoder.InputMetadata.ContainsKey("attention_mask");
-        bool needsCacheBranch = _decoder.InputMetadata.ContainsKey("use_cache_branch");
+        var decoderInputs = _decoder.Session.InputMetadata;
+        bool needsAttentionMask = decoderInputs.ContainsKey("attention_mask");
+        bool needsCacheBranch = decoderInputs.ContainsKey("use_cache_branch");
         // use_cache_branch=false: always use the non-cached decode path
         DenseTensor<bool>? useCacheTensor = needsCacheBranch
             ? new DenseTensor<bool>(UseCacheBranchFalse, UseCacheBranchDims)
@@ -270,10 +271,13 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
                 inputs.Add(NamedOnnxValue.CreateFromTensor("use_cache_branch", useCacheTensor!));
             }
 
-            // Run decoder
-            using var results = _decoder.Run(inputs);
-            var logitsOutput = results.First(r => r.Name == "logits");
-            var logits = logitsOutput.AsEnumerable<float>().ToArray();
+            // One bounded decode step; a provider crash or hang inside it moves the session to the
+            // next provider and retries this step (decoder state is on the managed side).
+            var logits = await _decoder.RunWithRecoveryAsync((session, runOptions) =>
+            {
+                using var results = session.Run(inputs, ["logits"], runOptions);
+                return results[0].AsEnumerable<float>().ToArray();
+            }, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             // Get logits for last token position
             int vocabSize = _modelInfo.VocabSize;
