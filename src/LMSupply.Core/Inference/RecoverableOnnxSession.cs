@@ -402,7 +402,12 @@ public sealed class RecoverableOnnxSession : IDisposable
         }
         catch (Exception fallbackEx)
         {
-            Trace.TraceError($"{_logPrefix} Fallback session creation failed: {Truncate(fallbackEx.Message, 200)}");
+            // Actionable: the usual cause is a model variant that was selected for the GPU provider
+            // and that the CPU provider cannot load, so tell the caller what to change.
+            Trace.TraceError(
+                $"{_logPrefix} Fallback session creation for '{Path.GetFileName(_modelPath)}' failed: {Truncate(fallbackEx.Message, 200)} " +
+                "The original exception will surface. If this repeats, load the model with Provider = ExecutionProvider.Cpu, or " +
+                "choose a QuantizationHint (e.g. \"fp32\") whose files the CPU provider can load.");
             return null;
         }
     }
