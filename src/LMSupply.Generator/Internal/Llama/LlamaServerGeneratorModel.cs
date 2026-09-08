@@ -193,33 +193,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                 capturedVramBytes = estimate.EstimatedVramBytes;
                 capturedRamBytes = estimate.EstimatedRamBytes;
 
-                llamaOpts = new LlamaOptions
-                {
-                    GpuLayerCount = estimate.RecommendedGpuLayers,
-                    BatchSize = llamaOpts.BatchSize,
-                    UBatchSize = llamaOpts.UBatchSize,
-                    FlashAttention = llamaOpts.FlashAttention,
-                    UseMemoryMap = llamaOpts.UseMemoryMap,
-                    UseMemoryLock = llamaOpts.UseMemoryLock,
-                    TypeK = llamaOpts.TypeK,
-                    TypeV = llamaOpts.TypeV,
-                    MainGpu = llamaOpts.MainGpu,
-                    Threads = llamaOpts.Threads,
-                    RopeFrequencyBase = llamaOpts.RopeFrequencyBase,
-                    RopeFrequencyScale = llamaOpts.RopeFrequencyScale,
-                    MultimodalProjector = llamaOpts.MultimodalProjector,
-                    LoraPath = llamaOpts.LoraPath,
-                    LoraScale = llamaOpts.LoraScale,
-                    SpeculativeDecoding  = llamaOpts.SpeculativeDecoding,
-                    DraftModelPath       = llamaOpts.DraftModelPath,
-                    RopeScaling          = llamaOpts.RopeScaling,
-                    YarnOriginalContext  = llamaOpts.YarnOriginalContext,
-                    YarnExtensionFactor  = llamaOpts.YarnExtensionFactor,
-                    YarnAttentionFactor  = llamaOpts.YarnAttentionFactor,
-                    YarnBetaFast         = llamaOpts.YarnBetaFast,
-                    YarnBetaSlow         = llamaOpts.YarnBetaSlow,
-                    AdditionalArgs       = llamaOpts.AdditionalArgs,
-                };
+                llamaOpts = CloneLlamaOptionsWithGpuLayers(llamaOpts, estimate.RecommendedGpuLayers);
                 // Severity-aware trace: TraceWarning for full CPU fallback (0 GPU layers),
                 // TraceInformation for partial offload. See LlamaOffloadTraceHelper.
                 LlamaOffloadTraceHelper.TraceOffloadDecision(
@@ -354,7 +328,12 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             // Phase 3: LoRA support
             LoraPath = llamaOpts.LoraPath,
             LoraScale = llamaOpts.LoraScale,
-            StartupTimeout = TimeSpan.FromSeconds(120),
+            // Startup wait policy: the caller's values when given, otherwise LlamaServerConfig's
+            // defaults (progress-based stall detection + a far-out absolute cap). No constant here —
+            // the 120 s that used to live at this site (and in Embedder/Reranker) is what a cold
+            // page-cache mmap load of a 4 GB model overran on a shared CI runner.
+            StartupTimeout = llamaOpts.StartupTimeout ?? LlamaServerConfig.DefaultStartupTimeout,
+            StartupStallTimeout = llamaOpts.StartupStallTimeout ?? LlamaServerConfig.DefaultStartupStallTimeout,
             ShutdownTimeout = TimeSpan.FromSeconds(10),
             AdditionalArgs = additionalArgs.Count > 0 ? additionalArgs : null
         };
@@ -1228,10 +1207,20 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     /// Copies <paramref name="src"/> with GPU offload disabled (CPU-only). Used when Auto falls back
     /// to CPU after a floored GPU context — does not mutate the caller-supplied options object.
     /// </summary>
-    private static LlamaOptions CloneLlamaOptionsForCpuFallback(LlamaOptions src) => new()
+    internal static LlamaOptions CloneLlamaOptionsForCpuFallback(LlamaOptions src) =>
+        CloneLlamaOptionsWithGpuLayers(src, gpuLayers: 0);
+
+    /// <summary>
+    /// Copies <paramref name="src"/> with <see cref="LlamaOptions.GpuLayerCount"/> replaced and
+    /// <see cref="LlamaOptions.GpuOffloadRatio"/> cleared (it would otherwise override the count).
+    /// Every other property is carried over — the VRAM auto-tune and the CPU fallback both go
+    /// through here, so a property added to <see cref="LlamaOptions"/> has one place to be copied,
+    /// and <c>LlamaOptionsCloneCompletenessTests</c> fails when it is not.
+    /// </summary>
+    internal static LlamaOptions CloneLlamaOptionsWithGpuLayers(LlamaOptions src, int gpuLayers) => new()
     {
-        GpuLayerCount = 0,        // CPU only
-        GpuOffloadRatio = null,   // GpuOffloadRatio would otherwise override GpuLayerCount
+        GpuLayerCount = gpuLayers,
+        GpuOffloadRatio = null,
         BatchSize = src.BatchSize,
         UBatchSize = src.UBatchSize,
         RopeFrequencyBase = src.RopeFrequencyBase,
@@ -1254,13 +1243,20 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         MultimodalProjector = src.MultimodalProjector,
         LoraPath = src.LoraPath,
         LoraScale = src.LoraScale,
+        StartupTimeout = src.StartupTimeout,
+        StartupStallTimeout = src.StartupStallTimeout,
         AdditionalArgs = src.AdditionalArgs,
     };
 
     /// <summary>
     /// Creates a copy of a LlamaServerConfig with a different GpuLayers value.
     /// </summary>
-    private static LlamaServerConfig CloneConfigWithGpuLayers(LlamaServerConfig source, int gpuLayers) => new()
+    /// <remarks>
+    /// Every property except <see cref="LlamaServerConfig.GpuLayers"/> is carried over;
+    /// <c>LlamaOptionsCloneCompletenessTests</c> fails when a new one is not. The OOM-retry clone
+    /// silently dropped <see cref="LlamaServerConfig.RequestTimeout"/> before that test existed.
+    /// </remarks>
+    internal static LlamaServerConfig CloneConfigWithGpuLayers(LlamaServerConfig source, int gpuLayers) => new()
     {
         ModelPath = source.ModelPath,
         Port = source.Port,
@@ -1291,7 +1287,9 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         Mode = source.Mode,
         Pooling = source.Pooling,
         StartupTimeout = source.StartupTimeout,
+        StartupStallTimeout = source.StartupStallTimeout,
         ShutdownTimeout = source.ShutdownTimeout,
+        RequestTimeout = source.RequestTimeout,
         AdditionalArgs = source.AdditionalArgs
     };
 

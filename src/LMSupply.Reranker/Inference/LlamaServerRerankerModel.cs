@@ -84,7 +84,6 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
             Parallel = 1,
             Mode = ServerMode.Reranking, // Enables --embedding and --pooling rank
             Pooling = PoolingType.Rank,
-            StartupTimeout = TimeSpan.FromSeconds(120),
             ShutdownTimeout = TimeSpan.FromSeconds(10)
         };
 

@@ -86,7 +86,9 @@ models is a `LMSupply.Generator.Onnx` concern; see that package's README.
 ## Advanced GGUF Tuning
 
 Fine-grained llama-server control (GPU offload, batch size, RoPE/YaRN scaling, KV cache
-quantization, speculative decoding, LoRA, and more) is available via `LlamaOptions`:
+quantization, speculative decoding, LoRA, the startup wait policy — `StartupStallTimeout` /
+`StartupTimeout`, progress-based rather than a fixed deadline — and more) is available via
+`LlamaOptions`:
 
 ```csharp
 var generator = await TextGeneratorBuilder.Create()

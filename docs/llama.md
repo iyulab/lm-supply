@@ -168,12 +168,42 @@ var options = new GeneratorOptions
         // Performance
         FlashAttention = true,
         BatchSize = 2048,
-        UBatchSize = 512
+        UBatchSize = 512,
+
+        // Startup wait (see below) — both optional
+        StartupStallTimeout = TimeSpan.FromMinutes(3),
+        StartupTimeout = TimeSpan.FromMinutes(15)
     }
 };
 
 await using var model = await LocalGenerator.LoadAsync("gguf:default", options);
 ```
+
+### Startup wait — progress-based, not a fixed deadline
+
+How long a legitimate llama-server start takes depends on the model size and the disk: a 4 GB model
+read through mmap from a cold page cache takes minutes on a shared CI runner or a laptop HDD, and the
+process is busy the whole time. A fixed deadline cannot tell that from a hung process, so the wait
+watches the process instead:
+
+- **`StartupStallTimeout`** (default **120 s**) — the working limit. It restarts on any observable
+  activity: a new stderr line, a new working-set high-water mark (pages being faulted in during the
+  load), or CPU time consumed (context creation and warm-up). Only a process that shows none of the
+  three for the whole window is declared stuck. stderr alone is not enough — the tensor load emits no
+  line-delimited output, so the stream is silent for the entire read.
+- **`StartupTimeout`** (default **10 min**) — the absolute cap, counted from launch regardless of
+  activity. It only bounds a process that keeps showing activity without ever answering `/health`.
+  Must be at least `StartupStallTimeout`.
+
+Both are exposed on `LlamaOptions` for the generator and default from `LlamaServerConfig` for the
+embedder and reranker. When the wait gives up, the exception says which limit fired and what the
+process looked like (elapsed, seconds since the last activity, working set, CPU time) ahead of the
+captured stderr.
+
+`Threads` is left to llama-server's own detection by default — it counts physical cores and skips SMT
+siblings and efficiency cores, which is the better choice on real hardware. A virtual machine can
+under-report its topology (a 4-vCPU CI runner has been seen start with `n_threads = 1`); when you
+know the host, set `Threads` explicitly, e.g. `Environment.ProcessorCount`.
 
 ### KV Cache Quantization
 

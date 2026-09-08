@@ -485,8 +485,15 @@ var options = new GeneratorOptions
         // Multi-GPU: select primary GPU (0-based index)
         MainGpu = 0,
 
-        // CPU thread count (default: auto-detected)
-        Threads = null
+        // CPU thread count (default: llama-server's physical-core detection; set explicitly
+        // on VMs/containers that under-report topology, e.g. Environment.ProcessorCount)
+        Threads = null,
+
+        // Startup wait: stall window restarts on any process activity (stderr line, working-set
+        // growth, CPU time); the absolute cap only bounds a start that never converges.
+        // Defaults: 120 s stall / 10 min cap — see docs/llama.md "Startup wait".
+        StartupStallTimeout = null,
+        StartupTimeout = null
     }
 };
 

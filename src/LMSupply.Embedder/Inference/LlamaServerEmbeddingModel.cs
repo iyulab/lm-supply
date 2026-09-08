@@ -93,7 +93,6 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             Parallel = 1,
             Mode = ServerMode.Embedding,
             Pooling = poolingType,
-            StartupTimeout = TimeSpan.FromSeconds(120),
             ShutdownTimeout = TimeSpan.FromSeconds(10)
         };
 

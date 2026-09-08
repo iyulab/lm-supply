@@ -1,4 +1,5 @@
 using LMSupply.Hardware;
+using LMSupply.Llama.Server;
 using LMSupply.Runtime;
 
 namespace LMSupply.Generator;
@@ -80,9 +81,39 @@ public sealed class LlamaOptions
 
     /// <summary>
     /// Gets or sets the number of threads for CPU computation.
-    /// Defaults to system-detected optimal thread count.
+    /// Defaults to llama-server's own detection (<c>--threads</c> not passed).
     /// </summary>
+    /// <remarks>
+    /// llama-server's default is the number of <em>physical</em> cores — it deliberately leaves out
+    /// SMT siblings and efficiency cores, which is the better choice on real desktop hardware, so
+    /// this library does not override it with <see cref="Environment.ProcessorCount"/>. The
+    /// detection reads the CPU topology the OS exposes, and a virtual machine can under-report it:
+    /// a 4-vCPU shared CI runner has been observed to start with <c>n_threads = 1</c>. When the
+    /// host is a VM or container whose topology you know, set this explicitly (for example to
+    /// <see cref="Environment.ProcessorCount"/>).
+    /// </remarks>
     public int? Threads { get; set; }
+
+    /// <summary>
+    /// Gets or sets the absolute limit on llama-server startup, counted from process launch
+    /// regardless of activity. <c>null</c> keeps <see cref="LlamaServerConfig.DefaultStartupTimeout"/>
+    /// (10 minutes). Must be at least <see cref="StartupStallTimeout"/>.
+    /// </summary>
+    /// <remarks>
+    /// This is the far-out cap; the working limit is <see cref="StartupStallTimeout"/>. A legitimate
+    /// start can take minutes — a 4 GB model read through mmap from a cold page cache on a shared CI
+    /// runner or a laptop HDD — and the process is busy the whole time, so a fixed budget cannot tell
+    /// slow from stuck. The cap only bounds a process that keeps showing activity without ever
+    /// answering <c>/health</c>.
+    /// </remarks>
+    public TimeSpan? StartupTimeout { get; set; }
+
+    /// <summary>
+    /// Gets or sets how long the starting llama-server may go without any observable activity
+    /// (a new stderr line, working-set growth, or CPU time consumed) before it is declared stuck.
+    /// <c>null</c> keeps <see cref="LlamaServerConfig.DefaultStartupStallTimeout"/> (120 seconds).
+    /// </summary>
+    public TimeSpan? StartupStallTimeout { get; set; }
 
     /// <summary>
     /// Gets or sets the quantization type for KV cache keys.

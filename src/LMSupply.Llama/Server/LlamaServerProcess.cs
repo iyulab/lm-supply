@@ -254,9 +254,42 @@ public sealed class LlamaServerConfig
     public PoolingType Pooling { get; init; } = PoolingType.None;
 
     /// <summary>
-    /// Timeout for server startup.
+    /// Default for <see cref="StartupTimeout"/>: 10 minutes.
     /// </summary>
-    public TimeSpan StartupTimeout { get; init; } = TimeSpan.FromSeconds(60);
+    public static readonly TimeSpan DefaultStartupTimeout = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// Default for <see cref="StartupStallTimeout"/>: 120 seconds.
+    /// </summary>
+    public static readonly TimeSpan DefaultStartupStallTimeout = TimeSpan.FromSeconds(120);
+
+    /// <summary>
+    /// Absolute limit on server startup, counted from process launch regardless of activity.
+    /// Default: <see cref="DefaultStartupTimeout"/> (10 minutes).
+    /// </summary>
+    /// <remarks>
+    /// This is the far-out cap, not the working limit. A start is normally declared failed by
+    /// <see cref="StartupStallTimeout"/> — the process going quiet — because how long a legitimate
+    /// start takes depends on model size and disk speed (a 4 GB model read through mmap from a cold
+    /// page cache takes minutes on a shared CI runner), and a fixed budget cannot tell slow from
+    /// stuck. The cap only bounds a process that keeps showing activity without ever answering
+    /// <c>/health</c>. Must be at least <see cref="StartupStallTimeout"/>.
+    /// </remarks>
+    public TimeSpan StartupTimeout { get; init; } = DefaultStartupTimeout;
+
+    /// <summary>
+    /// How long the starting server may go without any observable activity before it is declared
+    /// stuck. Default: <see cref="DefaultStartupStallTimeout"/> (120 seconds).
+    /// </summary>
+    /// <remarks>
+    /// Activity is any of: a new stderr line, a new working-set high-water mark (pages being faulted
+    /// in during the model load), or CPU time consumed (context creation and warm-up). The model load
+    /// itself emits no line-delimited output, so stderr alone would read as silence for the whole
+    /// read; the process metrics are what keep a slow-but-busy start alive. Raise this only for
+    /// environments where the process can legitimately show none of the three for longer — e.g. a
+    /// network filesystem that blocks the first page fault.
+    /// </remarks>
+    public TimeSpan StartupStallTimeout { get; init; } = DefaultStartupStallTimeout;
 
     /// <summary>
     /// Timeout for graceful shutdown.
@@ -452,9 +485,9 @@ public sealed class LlamaServerProcess : IAsyncDisposable
 
         // Wait for server to be ready
         var startTime = DateTimeOffset.UtcNow;
-        var ready = await WaitForServerReadyAsync(_config.StartupTimeout, stderrBuilder, cancellationToken);
+        var failure = await WaitForServerReadyAsync(startTime.UtcDateTime, stderrBuilder, cancellationToken);
 
-        if (!ready)
+        if (failure != null)
         {
             // Collect error output
             var error = stderrBuilder.ToString();
@@ -464,7 +497,7 @@ public sealed class LlamaServerProcess : IAsyncDisposable
             }
 
             throw new InvalidOperationException(
-                $"llama-server failed to start within {_config.StartupTimeout.TotalSeconds}s. " +
+                $"llama-server failed to start: {failure}. " +
                 $"Exit code: {(_process.HasExited ? _process.ExitCode : "still running")}. " +
                 $"Error: {error}");
         }
@@ -672,27 +705,32 @@ public sealed class LlamaServerProcess : IAsyncDisposable
         return string.Join(" ", args);
     }
 
-    private async Task<bool> WaitForServerReadyAsync(
-        TimeSpan timeout,
+    /// <summary>
+    /// Polls <c>/health</c> until the server answers, the process dies, stderr shows a fatal CLI
+    /// error, or <see cref="StartupProgressTracker"/> declares the start stalled or capped.
+    /// Returns <c>null</c> when ready, otherwise a one-line reason for the failure.
+    /// </summary>
+    private async Task<string?> WaitForServerReadyAsync(
+        DateTime startedAt,
         System.Text.StringBuilder stderrBuilder,
         CancellationToken cancellationToken)
     {
-        var deadline = DateTime.UtcNow + timeout;
+        var tracker = new StartupProgressTracker(startedAt, _config.StartupStallTimeout, _config.StartupTimeout);
 
-        while (DateTime.UtcNow < deadline)
+        while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             if (_process?.HasExited == true)
             {
-                return false;
+                return "the process exited before answering /health";
             }
 
             // Fail fast on fatal CLI-parse errors — llama.cpp prints these before the HTTP port
             // is up and the process may linger briefly, so don't wait for HasExited or the full timeout.
             if (HasFatalStartupError(stderrBuilder))
             {
-                return false;
+                return "llama-server rejected its command line (see stderr)";
             }
 
             try
@@ -700,7 +738,7 @@ public sealed class LlamaServerProcess : IAsyncDisposable
                 var response = await _httpClient.GetAsync($"http://localhost:{_port}/health", cancellationToken);
                 if (response.IsSuccessStatusCode)
                 {
-                    return true;
+                    return null;
                 }
             }
             catch (HttpRequestException)
@@ -712,10 +750,43 @@ public sealed class LlamaServerProcess : IAsyncDisposable
                 // Timeout, retry
             }
 
+            var now = DateTime.UtcNow;
+            var sample = SampleProcess(_process);
+            if (sample == null)
+            {
+                // The process went away between the HasExited check and the read.
+                return "the process exited before answering /health";
+            }
+
+            var verdict = tracker.Observe(now, stderrBuilder.Length, sample.Value.WorkingSet, sample.Value.CpuTime);
+            if (verdict != StartupWaitVerdict.Waiting)
+            {
+                return tracker.Describe(now);
+            }
+
             await Task.Delay(100, cancellationToken);
         }
+    }
 
-        return false;
+    /// <summary>
+    /// Reads the process metrics the stall detector watches. <c>null</c> when the process is gone —
+    /// <see cref="Process.Refresh"/> and the counters throw once the process has exited, and the
+    /// caller's earlier <see cref="Process.HasExited"/> check can race that.
+    /// </summary>
+    private static (long WorkingSet, TimeSpan CpuTime)? SampleProcess(Process? process)
+    {
+        if (process == null)
+            return null;
+
+        try
+        {
+            process.Refresh();
+            return (process.WorkingSet64, process.TotalProcessorTime);
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     private static bool HasFatalStartupError(System.Text.StringBuilder stderrBuilder)
