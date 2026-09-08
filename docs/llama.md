@@ -200,6 +200,10 @@ embedder and reranker. When the wait gives up, the exception says which limit fi
 process looked like (elapsed, seconds since the last activity, working set, CPU time) ahead of the
 captured stderr.
 
+`UseMemoryMap` / `UseMemoryLock` are passed as `--load-mode` (`mmap` | `none` | `mlock` = mmap + lock)
+on llama-server b10105 and later, where the old `--mmap`/`--no-mmap`/`--mlock` flags are deprecated;
+older builds, and binaries of unknown build (a consumer-provisioned path), keep the legacy flags.
+
 `Threads` is left to llama-server's own detection by default — it counts physical cores and skips SMT
 siblings and efficiency cores, which is the better choice on real hardware. A virtual machine can
 under-report its topology (a 4-vCPU CI runner has been seen start with `n_threads = 1`); when you

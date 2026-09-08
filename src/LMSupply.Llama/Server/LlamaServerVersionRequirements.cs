@@ -20,6 +20,7 @@ public static partial class LlamaServerVersionRequirements
         ["spec-ngram"]        = 8500,   // --spec-type ngram support (builds b8500–b8993)
         ["spec-ngram-simple"] = 8994,   // --spec-type renamed ngram→ngram-simple (b8994+)
         ["kv-q8-vulkan"]      = 8500,   // KV cache Q8_0 stable on Vulkan
+        ["load-mode"]         = 10105,  // --load-mode replaces --mmap/--no-mmap/--mlock (b10103 lacks it; b10104 untagged)
     };
 
     [GeneratedRegex(@"^b(\d+)", RegexOptions.IgnoreCase)]

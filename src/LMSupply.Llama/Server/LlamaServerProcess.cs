@@ -241,6 +241,15 @@ public sealed class LlamaServerConfig
     public IReadOnlyList<string>? AdditionalArgs { get; init; }
 
     /// <summary>
+    /// The llama-server build tag the binary at the server path was resolved as (e.g. <c>b10298</c>),
+    /// when known. Used to pick the argument spelling the binary understands where llama.cpp has
+    /// renamed a flag — currently <c>--load-mode</c> (b10105+) versus the deprecated
+    /// <c>--mmap</c>/<c>--no-mmap</c>/<c>--mlock</c>. <c>null</c> (a consumer-provisioned binary of
+    /// unknown build) keeps the legacy spelling, which parses on both sides of the gate today.
+    /// </summary>
+    public string? ServerVersion { get; init; }
+
+    /// <summary>
     /// Server operation mode. Default: Generation.
     /// Embedding mode: enables --embedding flag
     /// Reranking mode: enables --embedding and --pooling rank
@@ -529,6 +538,52 @@ public sealed class LlamaServerProcess : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Translates the memory-map / memory-lock options into the flags the given build parses.
+    /// llama.cpp b10105 replaced <c>--mmap</c>/<c>--no-mmap</c>/<c>--mlock</c> with one
+    /// <c>--load-mode</c> (<c>none</c> | <c>mmap</c> | <c>mlock</c> = mmap + lock | <c>dio</c>);
+    /// the old flags still parse there but log <c>DEPRECATED</c> on every start and will be removed,
+    /// at which point passing them is a fatal "unknown argument" before the port is open. Builds
+    /// below the gate, and binaries of unknown build, get the legacy flags — the only spelling
+    /// guaranteed to parse on both sides today.
+    /// </summary>
+    internal static IReadOnlyList<string> ResolveLoadModeArgs(bool? useMemoryMap, bool? useMemoryLock, string? serverVersion)
+    {
+        var args = new List<string>(2);
+        var build = LlamaServerVersionRequirements.ParseBuildNumber(serverVersion);
+        var gate = LlamaServerVersionRequirements.GetMinimumBuild("load-mode");
+
+        if (build.HasValue && gate.HasValue && build.Value >= gate.Value)
+        {
+            // The new vocabulary has no "lock without mapping" mode: mlock implies mmap. Locking
+            // is the stronger intent, so it wins over an explicit UseMemoryMap = false.
+            string? mode = useMemoryLock == true ? "mlock"
+                : useMemoryMap == true ? "mmap"
+                : useMemoryMap == false ? "none"
+                : null;
+
+            if (mode != null)
+            {
+                args.Add("--load-mode");
+                args.Add(mode);
+            }
+
+            return args;
+        }
+
+        if (useMemoryMap.HasValue)
+        {
+            args.Add(useMemoryMap.Value ? "--mmap" : "--no-mmap");
+        }
+
+        if (useMemoryLock == true)
+        {
+            args.Add("--mlock");
+        }
+
+        return args;
+    }
+
     private string BuildArguments()
     {
         var args = new List<string>
@@ -572,16 +627,8 @@ public sealed class LlamaServerProcess : IAsyncDisposable
             args.Add(_config.CacheTypeV);
         }
 
-        // Memory options (Phase 1)
-        if (_config.UseMemoryMap.HasValue)
-        {
-            args.Add(_config.UseMemoryMap.Value ? "--mmap" : "--no-mmap");
-        }
-
-        if (_config.UseMemoryLock == true)
-        {
-            args.Add("--mlock");
-        }
+        // Memory options (Phase 1) — spelling depends on the build, see ResolveLoadModeArgs.
+        args.AddRange(ResolveLoadModeArgs(_config.UseMemoryMap, _config.UseMemoryLock, _config.ServerVersion));
 
         // GPU options (Phase 1)
         if (_config.MainGpu.HasValue)

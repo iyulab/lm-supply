@@ -332,6 +332,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             // defaults (progress-based stall detection + a far-out absolute cap). No constant here —
             // the 120 s that used to live at this site (and in Embedder/Reranker) is what a cold
             // page-cache mmap load of a 4 GB model overran on a shared CI runner.
+            ServerVersion = serverVersion,
             StartupTimeout = llamaOpts.StartupTimeout ?? LlamaServerConfig.DefaultStartupTimeout,
             StartupStallTimeout = llamaOpts.StartupStallTimeout ?? LlamaServerConfig.DefaultStartupStallTimeout,
             ShutdownTimeout = TimeSpan.FromSeconds(10),
@@ -1286,6 +1287,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         LoraScale = source.LoraScale,
         Mode = source.Mode,
         Pooling = source.Pooling,
+        ServerVersion = source.ServerVersion,
         StartupTimeout = source.StartupTimeout,
         StartupStallTimeout = source.StartupStallTimeout,
         ShutdownTimeout = source.ShutdownTimeout,
