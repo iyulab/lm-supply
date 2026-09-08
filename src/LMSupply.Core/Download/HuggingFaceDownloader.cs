@@ -418,6 +418,10 @@ public sealed class HuggingFaceDownloader : IDisposable
         long bytesDownloaded = startPosition;
         int bytesRead;
 
+        // One report per read is one per 16 KB — 30,000 callbacks for a 470 MB model, each of which
+        // a UI-bound Progress<T> posts to its thread. Coalesce here, once, to first/last/1%/250 ms.
+        progress = CoalescingProgress.Wrap(progress);
+
         while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
         {
             await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
