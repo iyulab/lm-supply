@@ -48,9 +48,33 @@ public sealed class DetectorModelInfo : IModelInfoBase, IModelMemoryInfo
     public int InputSize { get; init; } = 640;
 
     /// <summary>
-    /// Gets or sets the number of classes.
+    /// The vocabulary this model was trained on, in class-id order. Defaults to COCO-80, which every model
+    /// shipped so far uses.
     /// </summary>
-    public int NumClasses { get; init; } = 80;
+    /// <remarks>
+    /// Post-processing labelled every detection from <see cref="CocoLabels"/> regardless of the model, so a
+    /// single-class detector's class 0 came back as "person" — wrong, and wrong invisibly, since the string is
+    /// a plausible COCO label rather than an error. Carrying the vocabulary on the model is what makes a
+    /// face or plate detector expressible at all.
+    /// </remarks>
+    public IReadOnlyList<string> ClassLabels { get; init; } = CocoLabels.Labels;
+
+    /// <summary>
+    /// The number of classes — derived from <see cref="ClassLabels"/> rather than declared beside it, so the
+    /// two cannot disagree. The previous shape allowed <c>NumClasses = 1</c> on a model still labelled from
+    /// eighty names.
+    /// </summary>
+    public int NumClasses => ClassLabels.Count;
+
+    /// <summary>
+    /// The label for a class id, or <c>"unknown"</c> when the id is outside this model's vocabulary.
+    /// </summary>
+    /// <remarks>
+    /// Out of range is deliberately not borrowed from COCO: a mislabelled detection that carries a plausible
+    /// name passes a consumer's filters unnoticed, while "unknown" does not.
+    /// </remarks>
+    public string LabelFor(int classId) =>
+        classId >= 0 && classId < ClassLabels.Count ? ClassLabels[classId] : "unknown";
 
     /// <summary>
     /// Gets or sets whether this model requires NMS post-processing.

@@ -7,7 +7,10 @@ Local object detection for .NET with automatic model downloading.
 - **Zero-config**: Models download automatically from HuggingFace
 - **GPU Acceleration**: CUDA, DirectML (Windows), CoreML (macOS)
 - **Apache-2.0 Licensed**: RT-DETR models for commercial use
-- **80 COCO Classes**: People, vehicles, animals, objects
+- **Per-model vocabulary**: COCO-80 (people, vehicles, animals, objects) by default, and a model that was
+  trained on something else carries its own labels — `DetectorModelInfo.ClassLabels`, with `NumClasses`
+  derived from it so the two cannot disagree. Post-processing labels from the loaded model, not from COCO
+  by assumption; an id outside the vocabulary reads as `unknown` rather than borrowing a COCO name.
 
 ## Quick Start
 

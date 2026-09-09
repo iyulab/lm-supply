@@ -42,9 +42,9 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     public long? EstimatedMemoryBytes => _modelInfo.SizeBytes * 2;
 
     /// <summary>
-    /// Gets the COCO class labels.
+    /// Gets the class labels of the loaded model — its own vocabulary, not COCO's by assumption.
     /// </summary>
-    public IReadOnlyList<string> ClassLabels => CocoLabels.Labels;
+    public IReadOnlyList<string> ClassLabels => _modelInfo.ClassLabels;
 
     public OnnxDetectorModel(DetectorOptions options)
     {
@@ -295,7 +295,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
 
                     results.Add(new DetectionResult(
                         ClassId: classId,
-                        Label: CocoLabels.GetLabel(classId),
+                        Label: _modelInfo.LabelFor(classId),
                         Confidence: score,
                         Box: box));
                 }
@@ -338,7 +338,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
 
                     results.Add(new DetectionResult(
                         ClassId: bestClass,
-                        Label: CocoLabels.GetLabel(bestClass),
+                        Label: _modelInfo.LabelFor(bestClass),
                         Confidence: maxScore,
                         Box: box));
                 }
@@ -373,7 +373,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
 
                     results.Add(new DetectionResult(
                         ClassId: classId,
-                        Label: CocoLabels.GetLabel(classId),
+                        Label: _modelInfo.LabelFor(classId),
                         Confidence: score,
                         Box: box));
                 }
@@ -410,7 +410,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
 
                     results.Add(new DetectionResult(
                         ClassId: bestClass,
-                        Label: CocoLabels.GetLabel(bestClass),
+                        Label: _modelInfo.LabelFor(bestClass),
                         Confidence: maxScore,
                         Box: box));
                 }
@@ -469,7 +469,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
 
             allDetections.Add(new DetectionResult(
                 ClassId: bestClass,
-                Label: CocoLabels.GetLabel(bestClass),
+                Label: _modelInfo.LabelFor(bestClass),
                 Confidence: maxScore,
                 Box: box));
         }
@@ -560,7 +560,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
 
             results.Add(new DetectionResult(
                 ClassId: 0,
-                Label: CocoLabels.GetLabel(0), // "person"
+                Label: _modelInfo.LabelFor(0), // a pose model has one class; it names it
                 Confidence: conf,
                 Box: box,
                 Keypoints: keypoints));
