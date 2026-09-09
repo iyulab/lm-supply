@@ -196,55 +196,101 @@ public sealed class LlamaServerDownloader : IDisposable
         string? version = null,
         LlamaServerBackend? preferredBackend = null,
         CancellationToken cancellationToken = default)
+        => (await ResolveAssetAsync(version, preferredBackend, cancellationToken)).Asset;
+
+    /// <summary>
+    /// Resolves the asset to download and, when there is none, keeps enough of the search to explain why.
+    /// </summary>
+    /// <remarks>
+    /// Acquisition can come up empty for three unrelated reasons — no release resolved, the tag did not
+    /// resolve to a build, or the release simply has no asset for this platform — and until 0.61.0 all three
+    /// surfaced as one sentence naming a backend. That was actively misleading: the backend it named was the
+    /// last link of the CPU fallback chain rather than the one requested, so a consumer on a GPU-less machine
+    /// read an upstream tag-resolution failure as "there is no CPU build" and went looking for a gap that does
+    /// not exist. The caller throws; this only makes sure the throw can say something true.
+    /// </remarks>
+    public async Task<LlamaServerAssetResolution> ResolveAssetAsync(
+        string? version = null,
+        LlamaServerBackend? preferredBackend = null,
+        CancellationToken cancellationToken = default)
     {
+        var platform = GetCurrentPlatform();
+        var arch = GetCurrentArchitecture();
+        var requested = preferredBackend ?? GetPreferredBackend(platform);
+
+        var requestedVersion = version;
         version ??= await GetLatestVersionAsync(cancellationToken);
         if (version == null)
-            return null;
+        {
+            return LlamaServerAssetResolution.Failed(
+                platform, arch, requested,
+                releaseTag: null,
+                failure: requestedVersion is null
+                    ? "no llama.cpp release could be resolved (the latest-release lookup returned nothing)"
+                    : $"release '{requestedVersion}' could not be resolved");
+        }
 
         if (!IsBuildTag(version))
         {
             using var release = await GetJsonAsync($"{ReleasesUrl}/tags/{version}", cancellationToken);
-            version = await ResolveBuildTagAsync(release.RootElement, cancellationToken);
-            if (version == null)
-                return null;
+            var resolved = await ResolveBuildTagAsync(release.RootElement, cancellationToken);
+            if (resolved == null)
+            {
+                return LlamaServerAssetResolution.Failed(
+                    platform, arch, requested,
+                    releaseTag: version,
+                    failure: $"release '{version}' does not name a build tag (no nightly-tag asset, and no build " +
+                             "release could be found)");
+            }
+
+            version = resolved;
         }
 
-        var platform = GetCurrentPlatform();
-        var arch = GetCurrentArchitecture();
-        var backend = preferredBackend ?? GetPreferredBackend(platform);
-
-        // Get release assets
         using var doc = await GetJsonAsync($"{ReleasesUrl}/tags/{version}", cancellationToken);
         var assets = doc.RootElement.GetProperty("assets");
 
-        // Find matching asset
-        var assetPattern = GetAssetPattern(platform, arch, backend);
-
+        var available = new List<string>();
         foreach (var asset in assets.EnumerateArray())
         {
-            var name = asset.GetProperty("name").GetString();
-            if (name != null && assetPattern.IsMatch(name))
+            if (asset.GetProperty("name").GetString() is { } name)
+                available.Add(name);
+        }
+
+        // The CPU fallback is walked here rather than by recursion so the chain that was actually tried can be
+        // reported. Recursing lost it: the failure then named whatever backend the innermost call held.
+        var chain = requested == LlamaServerBackend.Cpu
+            ? new[] { requested }
+            : [requested, LlamaServerBackend.Cpu];
+
+        foreach (var backend in chain)
+        {
+            var assetPattern = GetAssetPattern(platform, arch, backend);
+
+            foreach (var asset in assets.EnumerateArray())
             {
-                return new LlamaServerAsset
+                var name = asset.GetProperty("name").GetString();
+                if (name != null && assetPattern.IsMatch(name))
                 {
-                    Name = name,
-                    DownloadUrl = asset.GetProperty("browser_download_url").GetString()!,
-                    Version = version,
-                    Platform = platform,
-                    Backend = backend,
-                    Architecture = arch,
-                    SizeBytes = asset.TryGetProperty("size", out var size) ? size.GetInt64() : null
-                };
+                    return LlamaServerAssetResolution.Found(new LlamaServerAsset
+                    {
+                        Name = name,
+                        DownloadUrl = asset.GetProperty("browser_download_url").GetString()!,
+                        Version = version,
+                        Platform = platform,
+                        Backend = backend,
+                        Architecture = arch,
+                        SizeBytes = asset.TryGetProperty("size", out var size) ? size.GetInt64() : null
+                    });
+                }
             }
         }
 
-        // Fallback to CPU if preferred backend not found
-        if (backend != LlamaServerBackend.Cpu)
-        {
-            return await GetAssetAsync(version, LlamaServerBackend.Cpu, cancellationToken);
-        }
-
-        return null;
+        return LlamaServerAssetResolution.Failed(
+            platform, arch, requested,
+            releaseTag: version,
+            failure: "no asset in that release matches this platform",
+            backendsTried: chain,
+            availableAssets: available);
     }
 
     /// <summary>
@@ -351,15 +397,11 @@ public sealed class LlamaServerDownloader : IDisposable
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        var asset = await GetAssetAsync(version, preferredBackend, cancellationToken);
-        if (asset == null)
-        {
-            throw new InvalidOperationException(
-                $"No llama-server binary found for platform {GetCurrentPlatform()}, " +
-                $"architecture {GetCurrentArchitecture()}, backend {preferredBackend ?? GetPreferredBackend(GetCurrentPlatform())}");
-        }
+        var resolution = await ResolveAssetAsync(version, preferredBackend, cancellationToken);
+        if (resolution.Asset == null)
+            throw new InvalidOperationException(resolution.Describe());
 
-        return await DownloadAsync(asset, progress, cancellationToken);
+        return await DownloadAsync(resolution.Asset, progress, cancellationToken);
     }
 
     /// <summary>
