@@ -230,6 +230,33 @@ public static class DefaultModels
     };
 
     /// <summary>
+    /// NVIDIA Parakeet TDT 0.6B v3 — Conformer encoder + Token-and-Duration Transducer, 25 European languages,
+    /// int8 ONNX export by istupakov (~670 MB: encoder 652 MB + decoder/joint 18 MB + 128-mel preprocessor + vocab).
+    /// Not a Whisper model: no 30 s window, no autoregressive text decoder (so no runaway-repeat class of failure),
+    /// no language-id output. Opt-in only — never an "auto" candidate. CC-BY-4.0 per the model card.
+    /// </summary>
+    public static TranscriberModelInfo ParakeetTdt06BV3 { get; } = new()
+    {
+        Id = "istupakov/parakeet-tdt-0.6b-v3-onnx",
+        AliasName = "parakeet-tdt",
+        DisplayName = "Parakeet TDT 0.6B v3 (int8)",
+        Architecture = TranscriberArchitectures.ParakeetTdt,
+        ParametersM = 600f,
+        SizeBytes = 670_619_803,
+        WerLibriSpeech = null,
+        MaxDurationSeconds = 60,
+        SampleRate = 16000,
+        NumMelBins = 128,
+        HiddenSize = 1024,
+        EncoderFile = "encoder-model.int8.onnx",
+        DecoderFile = "decoder_joint-model.int8.onnx",
+        IsMultilingual = true,
+        SupportedLanguages = ["en", "es", "fr", "de", "bg", "hr", "cs", "da", "nl", "et", "fi", "el", "hu", "it", "lv", "lt", "mt", "pl", "pt", "ro", "sk", "sl", "sv", "ru", "uk"],
+        Description = "NVIDIA Parakeet TDT 0.6B v3 (ONNX int8) — fast CPU transcription for 25 European languages; transducer decoding, no translation.",
+        License = "CC-BY-4.0"
+    };
+
+    /// <summary>
     /// Gets all default models.
     /// </summary>
     public static IReadOnlyList<TranscriberModelInfo> All { get; } =
@@ -242,6 +269,7 @@ public static class DefaultModels
         WhisperLargeV3Turbo,
         DistilWhisperLargeV3,
         WhisperLargeV3TurboKorean,
-        WhisperBaseEn
+        WhisperBaseEn,
+        ParakeetTdt06BV3
     ];
 }

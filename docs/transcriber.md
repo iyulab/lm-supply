@@ -42,6 +42,7 @@ dotnet add package LMSupply.Transcriber
 | `medium` | Whisper Medium | 769M | ~3GB | 2.9% | High quality |
 | `large` | Whisper Large V3 | 1.5B | ~6GB | 2.5% | Highest accuracy |
 | `english` | Whisper Base.en | 74M | ~290MB | 4.3% | Optimized for English |
+| `parakeet-tdt` | Parakeet TDT 0.6B v3 (int8, NVIDIA/istupakov ONNX) | 600M | ~670MB | n/a | Conformer + Token-and-Duration Transducer, 25 European languages. No 30 s window, no autoregressive text decoder (no runaway repetition), no translation, no language-id output (`Language` is `"und"` unless hinted). Opt-in by alias only — `auto` never selects it |
 
 ## API Usage
 

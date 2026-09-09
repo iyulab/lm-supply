@@ -45,12 +45,49 @@ public static class LocalTranscriber
         options.ModelId = baseId;
         options.QuantizationHint ??= qualifier;
 
-        var transcriber = new OnnxTranscriberModel(options);
+        var transcriber = CreateModel(options);
 
         // Eagerly initialize and warm up the model
         await transcriber.WarmupAsync(cancellationToken);
 
         return transcriber;
+    }
+
+    /// <summary>
+    /// Picks the model family from the registry entry's <see cref="TranscriberModelInfo.Architecture"/> (or, for a local
+    /// directory, from its <c>config.json</c>). Everything that is not a known Parakeet TDT export takes the Whisper path —
+    /// which is what every previously supported id did.
+    /// </summary>
+    private static ITranscriberModel CreateModel(TranscriberOptions options)
+    {
+        if (Registry.TryResolve(options.ModelId, out var info) && info is not null
+            && TranscriberArchitectures.IsParakeetTdt(info.Architecture))
+        {
+            return new ParakeetTdtTranscriberModel(options, info);
+        }
+
+        if (Directory.Exists(options.ModelId)
+            && Internal.NemoConfigReader.ReadConfig(options.ModelId) is { IsTdt: true } config)
+        {
+            var template = DefaultModels.ParakeetTdt06BV3;
+            return new ParakeetTdtTranscriberModel(options, new TranscriberModelInfo
+            {
+                Id = options.ModelId,
+                AliasName = Path.GetFileName(options.ModelId.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+                DisplayName = "Parakeet TDT (local)",
+                Architecture = TranscriberArchitectures.ParakeetTdt,
+                NumMelBins = config.FeaturesSize ?? template.NumMelBins,
+                HiddenSize = template.HiddenSize,
+                MaxDurationSeconds = template.MaxDurationSeconds,
+                EncoderFile = template.EncoderFile,
+                DecoderFile = template.DecoderFile,
+                IsMultilingual = true,
+                SupportedLanguages = template.SupportedLanguages,
+                License = template.License
+            });
+        }
+
+        return new OnnxTranscriberModel(options);
     }
 
     /// <summary>

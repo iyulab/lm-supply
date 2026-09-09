@@ -27,7 +27,10 @@ public class LocalTranscriberTests
             m.Id.Should().NotBeNullOrEmpty();
             m.AliasName.Should().NotBeNullOrEmpty();
             m.DisplayName.Should().NotBeNullOrEmpty();
-            m.Architecture.Should().Be("Whisper");
+            // Two families since the Parakeet TDT spike: every entry must name one the loader can dispatch on.
+            m.Architecture.Should().BeOneOf(
+                LMSupply.Transcriber.Models.TranscriberArchitectures.Whisper,
+                LMSupply.Transcriber.Models.TranscriberArchitectures.ParakeetTdt);
         });
     }
 
