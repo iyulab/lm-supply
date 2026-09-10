@@ -62,7 +62,7 @@ jobs:
         # (BD-20260829-xunit-v3-pilot, cycle-372).
         run: |
           set +e
-          output=$(dotnet test --configuration Release --no-build --verbosity normal --filter-not-trait "Category=Integration" --filter-not-trait "Category=Functional" --filter-not-trait "Category=LocalOnly" --hangdump --hangdump-timeout 5m 2>&1)
+          output=$(dotnet test --configuration Release --no-build --verbosity normal --filter-not-trait "Category=Integration" --filter-not-trait "Category=Functional" --filter-not-trait "Category=LocalOnly" --hangdump --hangdump-timeout 5m --no-ansi 2>&1)
           code=$?
           echo "$output"
           if [ "$code" -eq 0 ]; then exit 0; fi
@@ -77,7 +77,14 @@ jobs:
             echo "::notice::dotnet test exited $code with $succeeded passed and 0 failed -- MTP's zero-tests-matched-a-filter quirk, not a real failure."
             exit 0
           fi
-          if [ -n "$succeeded" ] && [ "$succeeded" -eq 0 ]; then
+          if [ -z "$succeeded" ]; then
+            # "I could not read the counts" is not "the counts were zero", and only the second one
+            # says anything about the tests. MTP colours its summary and colours only the non-zero
+            # numbers, so a parser that reads the human-facing output can come back empty on a run
+            # that passed - say so here rather than letting the reason go unrecorded.
+            echo "::error::Could not read a pass count out of the test output. Do not read this as a"
+            echo "::error::vanished suite: check MTP's summary format against the parser above first."
+          elif [ "$succeeded" -eq 0 ]; then
             echo "::error::dotnet test exited $code and NO tests ran. This is not the zero-tests-matched-a-filter quirk; the suite itself contributed nothing."
           fi
           exit $code
