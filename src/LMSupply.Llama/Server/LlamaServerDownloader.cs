@@ -225,6 +225,7 @@ public sealed class LlamaServerDownloader : IDisposable
             return LlamaServerAssetResolution.Failed(
                 platform, arch, requested,
                 releaseTag: null,
+                reason: LlamaServerAcquisitionFailure.ReleaseNotResolved,
                 failure: requestedVersion is null
                     ? "no llama.cpp release could be resolved (the latest-release lookup returned nothing)"
                     : $"release '{requestedVersion}' could not be resolved");
@@ -239,6 +240,7 @@ public sealed class LlamaServerDownloader : IDisposable
                 return LlamaServerAssetResolution.Failed(
                     platform, arch, requested,
                     releaseTag: version,
+                    reason: LlamaServerAcquisitionFailure.ReleaseTagNotABuild,
                     failure: $"release '{version}' does not name a build tag (no nightly-tag asset, and no build " +
                              "release could be found)");
             }
@@ -288,6 +290,7 @@ public sealed class LlamaServerDownloader : IDisposable
         return LlamaServerAssetResolution.Failed(
             platform, arch, requested,
             releaseTag: version,
+            reason: LlamaServerAcquisitionFailure.NoAssetForPlatform,
             failure: "no asset in that release matches this platform",
             backendsTried: chain,
             availableAssets: available);
@@ -399,7 +402,7 @@ public sealed class LlamaServerDownloader : IDisposable
     {
         var resolution = await ResolveAssetAsync(version, preferredBackend, cancellationToken);
         if (resolution.Asset == null)
-            throw new InvalidOperationException(resolution.Describe());
+            throw new LlamaServerAcquisitionException(resolution);
 
         return await DownloadAsync(resolution.Asset, progress, cancellationToken);
     }

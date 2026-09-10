@@ -97,6 +97,66 @@ public sealed class LlamaServerAcquisitionDiagnosticsTests : IDisposable
 
     // ---------------------------------------------------------------- fakes
 
+    [Fact]
+    public async Task TheFailureIsTyped_SoAConsumerNeedNotMatchOnTheMessage()
+    {
+        // The prose above is for a human. A consumer that has to decide whether to offer local
+        // inference at all was matching on a substring of it, because there was nothing else to key
+        // on - and a message rewrite silently disabled that classifier against the exact case it was
+        // written for, with nothing going red. The fields were never missing, only rendered.
+        using var handler = new UnmatchableAssetsHandler(Build);
+        var downloader = CreateDownloader(handler);
+
+        var act = async () => await downloader.EnsureServerAsync(
+            version: Build,
+            preferredBackend: LlamaServerBackend.Cuda12,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        var ex = (await act.Should().ThrowAsync<LlamaServerAcquisitionException>()).Which;
+
+        ex.Reason.Should().Be(LlamaServerAcquisitionFailure.NoAssetForPlatform);
+        ex.IsPlatformUnsupported.Should().BeTrue(
+            "no asset matched for any backend in the chain, so retrying cannot produce one from this release");
+        ex.Resolution.RequestedBackend.Should().Be(LlamaServerBackend.Cuda12);
+        ex.Resolution.BackendsTried.Should().Contain(LlamaServerBackend.Cpu);
+        ex.Resolution.ReleaseTag.Should().Be(Build);
+        ex.Resolution.AvailableAssets.Should().NotBeEmpty(
+            "the asset names are the evidence for 'none of these match'");
+    }
+
+    [Fact]
+    public async Task AFailedReleaseLookup_IsNotReportedAsAnUnsupportedPlatform()
+    {
+        // The distinction the consumer actually needs: this one is a moment, not a property of the
+        // machine. Reporting it as "unsupported" is what sent them looking for a CPU-backend gap
+        // that does not exist.
+        using var handler = new NoReleasesHandler();
+        var downloader = CreateDownloader(handler);
+
+        var act = async () => await downloader.EnsureServerAsync(
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        var ex = (await act.Should().ThrowAsync<LlamaServerAcquisitionException>()).Which;
+
+        ex.Reason.Should().Be(LlamaServerAcquisitionFailure.ReleaseNotResolved);
+        ex.IsPlatformUnsupported.Should().BeFalse(
+            "nothing was learned about this machine - the release lookup simply did not answer");
+    }
+
+    [Fact]
+    public async Task TheTypedFailure_IsStillAnInvalidOperationException()
+    {
+        // Consumers on the previous release catch InvalidOperationException here. Narrowing the type
+        // must not silently stop their handler from running.
+        using var handler = new NoReleasesHandler();
+        var downloader = CreateDownloader(handler);
+
+        var act = async () => await downloader.EnsureServerAsync(
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
     private sealed class UnmatchableAssetsHandler(string build) : HttpMessageHandler
     {
         public const string DecoyAsset = "llama-b10809-bin-freebsd-sparc.tar.gz";

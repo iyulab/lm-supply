@@ -7,9 +7,17 @@ namespace LMSupply;
 public abstract class LMSupplyOptionsBase
 {
     /// <summary>
-    /// Gets or sets the custom cache directory for model files.
+    /// Gets or sets the custom cache directory for <b>model files</b>.
     /// <para>Default: null (uses HuggingFace standard cache location: ~/.cache/huggingface/hub)</para>
     /// </summary>
+    /// <remarks>
+    /// <b>This scopes model weights only — not runtime binaries.</b> Backend executables such as
+    /// <c>llama-server</c> are shared across every consumer on the machine and resolve through the
+    /// global LMSupply cache (<c>LMSUPPLY_CACHE_DIR</c>, defaulting under the user's local
+    /// application data), regardless of what this is set to. An application that isolates its data
+    /// per installation will otherwise read a per-app directory that never contains a server binary
+    /// and conclude that acquisition has never worked, when in fact it works and lands elsewhere.
+    /// </remarks>
     public string? CacheDirectory { get; set; }
 
     /// <summary>

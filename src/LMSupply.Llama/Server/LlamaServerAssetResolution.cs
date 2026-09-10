@@ -1,6 +1,47 @@
 namespace LMSupply.Llama.Server;
 
 /// <summary>
+/// Which of the acquisition failures a <see cref="LlamaServerAssetResolution"/> describes.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The prose in <see cref="LlamaServerAssetResolution.Failure"/> says what happened; this says what
+/// KIND of thing happened, which is the part a caller can branch on. A consumer deciding whether to
+/// offer local inference on a machine needs to tell "this combination has no build at all" from
+/// "the release lookup did not answer this time" - the first is a property of the device, the second
+/// is a moment.
+/// </para>
+/// <para>
+/// Before this existed the only way to tell them apart was to match on the message text. A consumer
+/// did exactly that, and a message rewrite silently disabled their classifier against the case it
+/// was written for, with nothing anywhere going red. Values are assigned explicitly so a future
+/// insertion cannot renumber the ones already persisted or logged.
+/// </para>
+/// </remarks>
+public enum LlamaServerAcquisitionFailure
+{
+    /// <summary>
+    /// No release could be resolved - the latest-release lookup returned nothing, or a named
+    /// release does not exist. Usually transient or a network condition; retrying can succeed.
+    /// </summary>
+    ReleaseNotResolved = 1,
+
+    /// <summary>
+    /// A release resolved but does not name a build: it publishes no nightly-tag asset and no build
+    /// release could be found behind it. An upstream publishing state, not a property of this
+    /// machine; retrying later can succeed.
+    /// </summary>
+    ReleaseTagNotABuild = 2,
+
+    /// <summary>
+    /// A build release was searched and none of its assets match this platform and architecture, for
+    /// any backend in the fallback chain. This is the one that says something about the DEVICE: no
+    /// amount of retrying produces a binary for it from this release.
+    /// </summary>
+    NoAssetForPlatform = 3
+}
+
+/// <summary>
 /// The outcome of looking for a llama-server asset: the asset, or enough of the search to say why there
 /// wasn't one.
 /// </summary>
@@ -36,7 +77,18 @@ public sealed record LlamaServerAssetResolution
     public IReadOnlyList<string> AvailableAssets { get; init; } = [];
 
     /// <summary>One clause naming which of the failure modes this was. Null on success.</summary>
+    /// <remarks>
+    /// Prose, for a human reading a log. Branch on <see cref="Reason"/> instead — this wording is
+    /// not a stable contract, and treating it as one is what broke a consumer's classifier when it
+    /// last changed.
+    /// </remarks>
     public string? Failure { get; init; }
+
+    /// <summary>
+    /// Which kind of failure this was, or null on success. This is the stable part — see
+    /// <see cref="LlamaServerAcquisitionFailure"/>.
+    /// </summary>
+    public LlamaServerAcquisitionFailure? Reason { get; init; }
 
     internal static LlamaServerAssetResolution Found(LlamaServerAsset asset) => new() { Asset = asset };
 
@@ -45,6 +97,7 @@ public sealed record LlamaServerAssetResolution
         LlamaServerArchitecture architecture,
         LlamaServerBackend requestedBackend,
         string? releaseTag,
+        LlamaServerAcquisitionFailure reason,
         string failure,
         IReadOnlyList<LlamaServerBackend>? backendsTried = null,
         IReadOnlyList<string>? availableAssets = null) => new()
@@ -53,6 +106,7 @@ public sealed record LlamaServerAssetResolution
             Architecture = architecture,
             RequestedBackend = requestedBackend,
             ReleaseTag = releaseTag,
+            Reason = reason,
             Failure = failure,
             BackendsTried = backendsTried ?? [],
             AvailableAssets = availableAssets ?? [],
