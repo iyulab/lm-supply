@@ -19,6 +19,10 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     private readonly DetectorModelInfo _modelInfo;
     private readonly DetectorOutputLayout _layout;
     private readonly DetectorInputFormat _inputFormat;
+
+    // Generated once: the priors are a pure function of the declared input size, and regenerating 4385 of
+    // them per frame would cost more than the inference does.
+    private readonly Lazy<LpdPrior[]> _platePriors;
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
 
     // Owns the ONNX session and recovers from a crashing or hanging execution provider by moving
@@ -56,6 +60,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         _modelInfo = DetectorModelRegistry.Default.Resolve(options.ModelId);
         _layout = options.OutputLayout ?? _modelInfo.OutputLayout;
         _inputFormat = options.InputFormat ?? _modelInfo.InputFormat;
+        _platePriors = new Lazy<LpdPrior[]>(() =>
+            LpdYuNetDecoder.GeneratePriors(_modelInfo.InputWidth, _modelInfo.InputHeight));
     }
 
     public async Task WarmupAsync(CancellationToken cancellationToken = default)
@@ -154,10 +160,11 @@ internal sealed class OnnxDetectorModel : IDetectorModel
 
         var originalWidth = image.Width;
         var originalHeight = image.Height;
-        var inputSize = _modelInfo.InputSize;
+        var inputWidth = _modelInfo.InputWidth;
+        var inputHeight = _modelInfo.InputHeight;
 
         // Preprocess image the way this particular model was exported to expect
-        var inputTensor = PreprocessImage(image, inputSize, _inputFormat);
+        var inputTensor = PreprocessImage(image, inputWidth, inputHeight, _inputFormat);
 
         // Run inference
         var outputs = await RunInferenceAsync(inputTensor, originalWidth, originalHeight, cancellationToken);
@@ -166,10 +173,11 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         // on a pair of booleans is what keeps a three-stride head from being read as a single pose tensor.
         var detections = _layout switch
         {
-            DetectorOutputLayout.RtDetr => ParseNmsFree(outputs, originalWidth, originalHeight, inputSize),
-            DetectorOutputLayout.YoloDetect => ParseWithNms(outputs, originalWidth, originalHeight, inputSize),
-            DetectorOutputLayout.YoloPose => ParsePoseOutput(outputs, originalWidth, originalHeight, inputSize),
-            DetectorOutputLayout.YuNet => ParseYuNet(outputs, originalWidth, originalHeight, inputSize),
+            DetectorOutputLayout.RtDetr => ParseNmsFree(outputs, originalWidth, originalHeight, inputWidth, inputHeight),
+            DetectorOutputLayout.YoloDetect => ParseWithNms(outputs, originalWidth, originalHeight, inputWidth, inputHeight),
+            DetectorOutputLayout.YoloPose => ParsePoseOutput(outputs, originalWidth, originalHeight, inputWidth, inputHeight),
+            DetectorOutputLayout.YuNet => ParseYuNet(outputs, originalWidth, originalHeight, inputWidth),
+            DetectorOutputLayout.YuNetPlate => ParseLpdYuNet(outputs, originalWidth, originalHeight),
             _ => throw new NotSupportedException($"Detector output layout '{_layout}' has no decoder.")
         };
 
@@ -193,12 +201,14 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     /// measured on YuNet, BGR finds seven faces in a street scene where RGB finds none.
     /// </remarks>
     internal static DenseTensor<float> PreprocessImage(
-        Image<Rgb24> image, int targetSize, DetectorInputFormat format)
+        Image<Rgb24> image, int targetWidth, int targetHeight, DetectorInputFormat format)
     {
-        // Resize to target size
-        image.Mutate(x => x.Resize(targetSize, targetSize));
+        // Resize to the size this model was exported for. Aspect ratio is deliberately not preserved: the
+        // reference preprocessing for both families stretches, and the offsets the models emit are read
+        // against that stretched frame.
+        image.Mutate(x => x.Resize(targetWidth, targetHeight));
 
-        var tensor = new DenseTensor<float>([1, 3, targetSize, targetSize]);
+        var tensor = new DenseTensor<float>([1, 3, targetHeight, targetWidth]);
 
         // The RT-DETR reference preprocessing rescales to 0..1 and stops there; its own image processor
         // ships the ImageNet statistics with normalisation switched off. YuNet takes raw BGR bytes.
@@ -212,19 +222,19 @@ internal sealed class OnnxDetectorModel : IDetectorModel
 
         // Written through the flat NCHW buffer rather than the four-index accessor: the tensor indexer
         // recomputes a stride product per element, and there are three million of them per 640x640 frame.
-        var plane = targetSize * targetSize;
+        var plane = targetWidth * targetHeight;
 
         image.ProcessPixelRows(accessor =>
         {
             // Taken inside the callback: a span cannot be captured by the lambda.
             var buffer = tensor.Buffer.Span;
 
-            for (int y = 0; y < targetSize; y++)
+            for (int y = 0; y < targetHeight; y++)
             {
                 var row = accessor.GetRowSpan(y);
-                var offset = y * targetSize;
+                var offset = y * targetWidth;
 
-                for (int x = 0; x < targetSize; x++)
+                for (int x = 0; x < targetWidth; x++)
                 {
                     var pixel = row[x];
                     buffer[offset + x] = (bgr ? pixel.B : pixel.R) * scale;
@@ -286,7 +296,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         IDisposableReadOnlyCollection<DisposableNamedOnnxValue> outputs,
         int originalWidth,
         int originalHeight,
-        int inputSize)
+        int inputWidth,
+        int inputHeight)
     {
         var results = new List<DetectionResult>();
 
@@ -395,8 +406,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
                         continue;
 
                     var classId = (int)output[0, i, 5];
-                    var scaleX = originalWidth / (float)inputSize;
-                    var scaleY = originalHeight / (float)inputSize;
+                    var scaleX = originalWidth / (float)inputWidth;
+                    var scaleY = originalHeight / (float)inputHeight;
 
                     var box = new BoundingBox(
                         output[0, i, 0] * scaleX,
@@ -461,7 +472,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         IDisposableReadOnlyCollection<DisposableNamedOnnxValue> outputs,
         int originalWidth,
         int originalHeight,
-        int inputSize)
+        int inputWidth,
+        int inputHeight)
     {
         var allDetections = new List<DetectionResult>();
         var output = outputs[0].AsTensor<float>();
@@ -471,8 +483,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         var outputDim = (int)output.Dimensions[2];
         var numClasses = outputDim - 4;
 
-        var scaleX = originalWidth / (float)inputSize;
-        var scaleY = originalHeight / (float)inputSize;
+        var scaleX = originalWidth / (float)inputWidth;
+        var scaleY = originalHeight / (float)inputHeight;
 
         for (int i = 0; i < numBoxes; i++)
         {
@@ -510,6 +522,43 @@ internal sealed class OnnxDetectorModel : IDetectorModel
 
         // Apply NMS
         return DetectionNms.Apply(allDetections, _options.IouThreshold);
+    }
+
+    /// <summary>
+    /// Parses licence-plate YuNet output: <c>loc</c>/<c>conf</c>/<c>iou</c> against generated priors,
+    /// decoded by <see cref="LpdYuNetDecoder"/> and then suppressed.
+    /// </summary>
+    private List<DetectionResult> ParseLpdYuNet(
+        IDisposableReadOnlyCollection<DisposableNamedOnnxValue> outputs,
+        int originalWidth,
+        int originalHeight)
+    {
+        var byName = outputs.ToDictionary(o => o.Name, StringComparer.Ordinal);
+
+        var decoded = LpdYuNetDecoder.Decode(
+            new LpdYuNetOutput(
+                Values(byName, "loc"),
+                Values(byName, "conf"),
+                Values(byName, "iou")),
+            _platePriors.Value,
+            originalWidth,
+            originalHeight,
+            _options.ConfidenceThreshold,
+            _modelInfo.LabelFor(0));
+
+        return DetectionNms.Apply(decoded, _options.IouThreshold);
+
+        static float[] Values(Dictionary<string, DisposableNamedOnnxValue> outputs, string name)
+        {
+            if (!outputs.TryGetValue(name, out var value))
+            {
+                throw new InvalidOperationException(
+                    $"Model was declared as licence-plate YuNet but emits no output named '{name}'. " +
+                    $"Available outputs: {string.Join(", ", outputs.Keys)}.");
+            }
+
+            return value.AsTensor<float>().ToArray();
+        }
     }
 
     /// <summary>
@@ -562,7 +611,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         IDisposableReadOnlyCollection<DisposableNamedOnnxValue> outputs,
         int originalWidth,
         int originalHeight,
-        int inputSize)
+        int inputWidth,
+        int inputHeight)
     {
         var results = new List<DetectionResult>();
         var output = outputs[0].AsTensor<float>();
@@ -580,8 +630,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         if (features < expectedFeatures)
             return results;
 
-        var scaleX = originalWidth / (float)inputSize;
-        var scaleY = originalHeight / (float)inputSize;
+        var scaleX = originalWidth / (float)inputWidth;
+        var scaleY = originalHeight / (float)inputHeight;
 
         for (int i = 0; i < numBoxes; i++)
         {

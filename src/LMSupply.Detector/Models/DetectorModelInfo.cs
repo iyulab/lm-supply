@@ -49,9 +49,19 @@ public sealed record DetectorModelInfo : IModelInfoBase, IModelMemoryInfo
     public float MapCoco { get; init; }
 
     /// <summary>
-    /// Gets or sets the input image size (width = height).
+    /// The input width this model was exported for.
     /// </summary>
-    public int InputSize { get; init; } = 640;
+    /// <remarks>
+    /// Width and height are separate because they are separate in practice - the licence-plate model takes
+    /// 320x240. A single square size could not describe it, and squeezing a plate into a square input is not
+    /// a formatting detail: the offsets the model emits are read against priors derived from these numbers.
+    /// </remarks>
+    public int InputWidth { get; init; } = 640;
+
+    /// <summary>
+    /// The input height this model was exported for.
+    /// </summary>
+    public int InputHeight { get; init; } = 640;
 
     /// <summary>
     /// The vocabulary this model was trained on, in class-id order. Defaults to COCO-80, which every model

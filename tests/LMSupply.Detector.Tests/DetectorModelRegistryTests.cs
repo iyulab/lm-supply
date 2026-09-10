@@ -95,7 +95,7 @@ public class DetectorModelRegistryTests
     {
         var models = _registry.GetAvailableModels();
 
-        models.Should().HaveCount(6); // five RT-DETR v2 sizes plus YuNet
+        models.Should().HaveCount(7); // five RT-DETR v2 sizes plus the two YuNet detectors
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class DetectorModelRegistryTests
         var aliases = _registry.GetAliases();
 
         var aliasNames = aliases.Select(a => a.Name).ToList();
-        aliasNames.Should().Contain(["auto", "default", "quality", "fast", "large", "xlarge", "face"]);
+        aliasNames.Should().Contain(["auto", "default", "quality", "fast", "large", "xlarge", "face", "plate"]);
         aliases.Should().AllSatisfy(a => a.Kind.Should().Be(AliasKind.System));
     }
 
@@ -119,8 +119,8 @@ public class DetectorModelRegistryTests
         models.Where(m => m.OutputLayout == DetectorOutputLayout.RtDetr)
             .Should().OnlyContain(m => !m.RequiresNms && m.Architecture == "RT-DETR");
 
-        models.Where(m => m.OutputLayout == DetectorOutputLayout.YuNet)
-            .Should().NotBeEmpty().And.OnlyContain(m => m.RequiresNms);
+        models.Where(m => m.OutputLayout is DetectorOutputLayout.YuNet or DetectorOutputLayout.YuNetPlate)
+            .Should().HaveCount(2).And.OnlyContain(m => m.RequiresNms);
     }
 
     [Fact]

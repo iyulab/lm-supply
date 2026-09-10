@@ -19,6 +19,7 @@ public static class DetectorOutputLayoutExtensions
     {
         DetectorOutputLayout.YoloPose => PoseSkeleton.Count,
         DetectorOutputLayout.YuNet => YuNetDecoder.LandmarkCount,
+        DetectorOutputLayout.YuNetPlate => LpdYuNetDecoder.CornerCount,
         _ => 0
     };
 

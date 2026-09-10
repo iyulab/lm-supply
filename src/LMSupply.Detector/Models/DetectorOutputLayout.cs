@@ -43,5 +43,12 @@ public enum DetectorOutputLayout
     /// YuNet face detection: twelve outputs, one <c>cls</c>/<c>obj</c>/<c>bbox</c>/<c>kps</c> group per
     /// stride (8, 16, 32), anchor-free, five landmarks, requiring NMS.
     /// </summary>
-    YuNet = 4
+    YuNet = 4,
+
+    /// <summary>
+    /// Licence-plate YuNet: three outputs (<c>loc</c>, <c>conf</c>, <c>iou</c>) against generated prior
+    /// boxes, emitting a quadrilateral rather than an upright box, requiring NMS. Despite the shared name
+    /// this is not <see cref="YuNet"/> with different weights - the head is a different design.
+    /// </summary>
+    YuNetPlate = 5
 }

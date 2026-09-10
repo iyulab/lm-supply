@@ -125,6 +125,33 @@ public class DetectorFunctionalTests
         }
     }
 
+    [Fact]
+    [Trait("Axis", "Loading")]
+    public async Task Plate_ResolvesToTheLicencePlateModel_WithItsOwnVocabularyAndNonSquareInput()
+    {
+        await using var model = await LocalDetector.LoadAsync("plate", cancellationToken: TestContext.Current.CancellationToken);
+
+        model.ModelId.Should().Be("opencv/license_plate_detection_yunet");
+        model.ClassLabels.Should().Equal(["plate"]);
+
+        var info = model.GetModelInfo()!;
+        info.InputWidth.Should().Be(320);
+        info.InputHeight.Should().Be(240, "the plate model is not square, and squeezing it into one would move every box");
+    }
+
+    [Fact]
+    [Trait("Axis", "Quality")]
+    public async Task Plate_FindsNothingInStructurelessInput()
+    {
+        // Unlike the face model, this one stays quiet on a gradient - and it stayed quiet on a cat and on a
+        // crowded street too, the highest score anywhere in either being 0.15.
+        await using var model = await LocalDetector.LoadAsync("plate", cancellationToken: TestContext.Current.CancellationToken);
+
+        var detections = await model.DetectAsync(TestDataHelper.CreateGradientBmp(640, 480), TestContext.Current.CancellationToken);
+
+        detections.Should().BeEmpty();
+    }
+
     // ── Q axis: Quality ─────────────────────────────────────────────
 
     [Fact]
@@ -320,7 +347,8 @@ public class DetectorFunctionalTests
             m.AliasName.Should().NotBeNullOrEmpty($"AliasName should be set for {m.Id}");
             m.DisplayName.Should().NotBeNullOrEmpty($"DisplayName should be set for {m.AliasName}");
             m.Architecture.Should().NotBeNullOrEmpty($"Architecture should be set for {m.AliasName}");
-            m.InputSize.Should().BeGreaterThan(0, $"InputSize should be positive for {m.AliasName}");
+            m.InputWidth.Should().BeGreaterThan(0, $"InputWidth should be positive for {m.AliasName}");
+            m.InputHeight.Should().BeGreaterThan(0, $"InputHeight should be positive for {m.AliasName}");
             m.NumClasses.Should().BeGreaterThan(0, $"NumClasses should be positive for {m.AliasName}");
             m.OnnxFile.Should().NotBeNullOrEmpty($"OnnxFile should be set for {m.AliasName}");
         });

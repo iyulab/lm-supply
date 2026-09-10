@@ -54,6 +54,7 @@ foreach (var detection in results)
 | `large` | RT-DETR v2 Large | ~169 MB | 53.4 | Apache-2.0 | COCO-80 |
 | `xlarge` | RT-DETR v2 XLarge | ~300 MB | 54.3 | Apache-2.0 | COCO-80 |
 | `face` | YuNet 2023mar | ~227 KB | n/a | MIT | `face`, with 5 landmarks |
+| `plate` | LPD-YuNet 2023mar | ~4.1 MB | n/a | Apache-2.0 | `plate`, with 4 corners |
 
 Every alias is permissively licensed and redistributable in a closed-source commercial product. No alias
 resolves to a YOLO checkpoint: those are AGPL-3.0 and would carry that obligation to the consumer.
@@ -89,6 +90,31 @@ aliases get a GPU; the provider fallback handles this without configuration.
 The defaults suit it: `ConfidenceThreshold` 0.25 and `IouThreshold` 0.45. A stricter `IouThreshold` of 0.3
 matches the reference implementation and merges one more duplicate in a dense crowd; the difference measured
 on a street scene was one box out of eight.
+
+### Licence plates
+
+`plate` resolves to OpenCV's licence-plate YuNet. It shares a name with the face model and little else -
+320x240 input, prior boxes rather than an anchor-free grid, and a **quadrilateral** rather than an upright
+box, because a plate photographed from an angle is not axis-aligned.
+
+```csharp
+await using var detector = await LocalDetector.LoadAsync("plate");
+
+foreach (var plate in await detector.DetectAsync("photo.jpg"))
+{
+    // plate.Box is the upright hull - what you want if you are blurring the region.
+    // plate.Keypoints holds the four corners, clockwise from top-left - what you want if you are
+    // rectifying the plate to read it, or blurring a tighter polygon.
+}
+```
+
+**Measured cost** (960x631 JPEG, 4-core CPU, no GPU): about **41 ms per frame** end to end; the model itself
+runs in 5.3 ms. Like `face`, it runs on CPU rather than DirectML.
+
+The library defaults (`ConfidenceThreshold` 0.25, `IouThreshold` 0.45) are usable: measured plates scored
+0.63-0.99 while a cat photograph and a crowded street scene both produced nothing at all, the highest score
+anywhere in them being 0.15. The reference implementation uses a stricter 0.8 with an IoU of 0.3; raise the
+threshold if false positives cost you more than misses.
 
 
 You can also use any HuggingFace object detection model by its full ID:

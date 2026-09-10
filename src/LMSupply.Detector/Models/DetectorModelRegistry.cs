@@ -104,7 +104,8 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
             ParametersM = 0,
             SizeBytes = File.Exists(fullPath) ? new FileInfo(fullPath).Length : 0,
             MapCoco = 0,
-            InputSize = 640,
+            InputWidth = 640,
+            InputHeight = 640,
             OnnxFile = fileName,
             Description = $"Local model from {directory}",
             License = "Unknown"
@@ -144,7 +145,8 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
             ParametersM = 0,
             SizeBytes = 0,
             MapCoco = 0,
-            InputSize = 640,
+            InputWidth = 640,
+            InputHeight = 640,
             // A pose model detects one thing; the eighty COCO names never applied to it.
             ClassLabels = isPose ? ["person"] : CocoLabels.Labels,
             OutputLayout = layout,

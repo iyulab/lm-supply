@@ -32,7 +32,7 @@ public class DetectorPreprocessingTests
     {
         using var image = SolidColour();
 
-        var tensor = OnnxDetectorModel.PreprocessImage(image, 4, DetectorInputFormat.ScaledRgb);
+        var tensor = OnnxDetectorModel.PreprocessImage(image, 4, 4, DetectorInputFormat.ScaledRgb);
 
         // Exact division, not the ImageNet shift that used to be applied unconditionally: the RT-DETR
         // reference preprocessing ships those statistics with normalisation switched off.
@@ -46,7 +46,7 @@ public class DetectorPreprocessingTests
     {
         using var image = SolidColour();
 
-        var tensor = OnnxDetectorModel.PreprocessImage(image, 4, DetectorInputFormat.RawBgr);
+        var tensor = OnnxDetectorModel.PreprocessImage(image, 4, 4, DetectorInputFormat.RawBgr);
 
         tensor[0, 0, 0, 0].Should().Be(B, "YuNet was exported against OpenCV's default blob, which is BGR");
         tensor[0, 1, 0, 0].Should().Be(G);
@@ -59,8 +59,8 @@ public class DetectorPreprocessingTests
         using var rgbImage = SolidColour();
         using var bgrImage = SolidColour();
 
-        var rgb = OnnxDetectorModel.PreprocessImage(rgbImage, 4, DetectorInputFormat.ScaledRgb);
-        var bgr = OnnxDetectorModel.PreprocessImage(bgrImage, 4, DetectorInputFormat.RawBgr);
+        var rgb = OnnxDetectorModel.PreprocessImage(rgbImage, 4, 4, DetectorInputFormat.ScaledRgb);
+        var bgr = OnnxDetectorModel.PreprocessImage(bgrImage, 4, 4, DetectorInputFormat.RawBgr);
 
         rgb[0, 0, 0, 0].Should().NotBe(bgr[0, 0, 0, 0]);
     }
@@ -72,7 +72,7 @@ public class DetectorPreprocessingTests
         {
             using var image = SolidColour(9);
 
-            var tensor = OnnxDetectorModel.PreprocessImage(image, 8, format);
+            var tensor = OnnxDetectorModel.PreprocessImage(image, 8, 8, format);
 
             tensor.Dimensions.ToArray().Should().Equal([1, 3, 8, 8]);
         }
@@ -83,8 +83,35 @@ public class DetectorPreprocessingTests
     {
         using var image = SolidColour();
 
-        var act = () => OnnxDetectorModel.PreprocessImage(image, 4, (DetectorInputFormat)0);
+        var act = () => OnnxDetectorModel.PreprocessImage(image, 4, 4, (DetectorInputFormat)0);
 
         act.Should().Throw<NotSupportedException>();
+    }
+
+    [Fact]
+    public void ANonSquareInputKeepsWidthAndHeightApart()
+    {
+        // The licence-plate model takes 320x240. A single square size could not describe it, and a tensor
+        // built with the two swapped is not a formatting detail - the model reads its offsets against priors
+        // derived from these numbers, so every box would land somewhere else.
+        using var image = SolidColour(64);
+
+        var tensor = OnnxDetectorModel.PreprocessImage(image, 320, 240, DetectorInputFormat.RawBgr);
+
+        tensor.Dimensions.ToArray().Should().Equal([1, 3, 240, 320]);
+    }
+
+    [Fact]
+    public void PixelsLandAtTheRightOffsetInANonSquareTensor()
+    {
+        using var image = new Image<Rgb24>(8, 4);
+        image[7, 3] = new Rgb24(1, 2, 3);
+
+        var tensor = OnnxDetectorModel.PreprocessImage(image, 8, 4, DetectorInputFormat.RawBgr);
+
+        // Last pixel of the last row, on each of the three planes.
+        tensor[0, 0, 3, 7].Should().Be(3);
+        tensor[0, 1, 3, 7].Should().Be(2);
+        tensor[0, 2, 3, 7].Should().Be(1);
     }
 }

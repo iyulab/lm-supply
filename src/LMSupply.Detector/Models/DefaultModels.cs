@@ -3,7 +3,7 @@ namespace LMSupply.Detector.Models;
 /// <summary>
 /// Default detector model configurations.
 /// Uses RT-DETR v2 ONNX models from xnorpx (Apache 2.0 compatible) for the COCO aliases, and OpenCV's
-/// YuNet (MIT) for faces.
+/// YuNet for faces (MIT) and licence plates (Apache-2.0).
 /// YOLO models are AGPL-3.0 and require Ultralytics license for commercial use, so no alias resolves to one.
 /// </summary>
 public static class DefaultModels
@@ -21,7 +21,8 @@ public static class DefaultModels
         ParametersM = 20f,
         SizeBytes = 80_500_000,
         MapCoco = 48.1f,
-        InputSize = 640,
+        InputWidth = 640,
+        InputHeight = 640,
         OnnxFile = "rt-detrv2-s.onnx",
         Description = "RT-DETR v2 Small for balanced speed and accuracy.",
         License = "Apache-2.0"
@@ -40,7 +41,8 @@ public static class DefaultModels
         ParametersM = 36f,
         SizeBytes = 133_000_000,
         MapCoco = 51.9f,
-        InputSize = 640,
+        InputWidth = 640,
+        InputHeight = 640,
         OnnxFile = "rt-detrv2-m.onnx",
         Description = "RT-DETR v2 Medium for higher accuracy detection.",
         License = "Apache-2.0"
@@ -59,7 +61,8 @@ public static class DefaultModels
         ParametersM = 42f,
         SizeBytes = 169_000_000,
         MapCoco = 53.4f,
-        InputSize = 640,
+        InputWidth = 640,
+        InputHeight = 640,
         OnnxFile = "rt-detrv2-l.onnx",
         Description = "RT-DETR v2 Large for highest accuracy detection.",
         License = "Apache-2.0"
@@ -78,7 +81,8 @@ public static class DefaultModels
         ParametersM = 15f,
         SizeBytes = 126_000_000,
         MapCoco = 46.0f,
-        InputSize = 640,
+        InputWidth = 640,
+        InputHeight = 640,
         OnnxFile = "rt-detrv2-ms.onnx",
         Description = "RT-DETR v2 Mini-Small for lightweight/fast inference.",
         License = "Apache-2.0"
@@ -97,7 +101,8 @@ public static class DefaultModels
         ParametersM = 76f,
         SizeBytes = 300_000_000,
         MapCoco = 54.3f,
-        InputSize = 640,
+        InputWidth = 640,
+        InputHeight = 640,
         OnnxFile = "rt-detrv2-x.onnx",
         Description = "RT-DETR v2 Extra Large for maximum accuracy.",
         License = "Apache-2.0"
@@ -121,13 +126,42 @@ public static class DefaultModels
         ParametersM = 0.085f,
         SizeBytes = 232_589,
         MapCoco = 0f,
-        InputSize = 640,
+        InputWidth = 640,
+        InputHeight = 640,
         ClassLabels = ["face"],
         OutputLayout = DetectorOutputLayout.YuNet,
         InputFormat = DetectorInputFormat.RawBgr,
         OnnxFile = "face_detection_yunet_2023mar.onnx",
         Description = "YuNet face detector with five facial landmarks, for redaction and anonymisation.",
         License = "MIT"
+    };
+
+    /// <summary>
+    /// Licence-plate YuNet - the "plate" alias.
+    /// Apache-2.0, 4.1 MB, prior-box head emitting the four corners of each plate.
+    /// </summary>
+    /// <remarks>
+    /// Shares a name with the face model and almost nothing else: 320x240 input, prior boxes rather than an
+    /// anchor-free grid, and a quadrilateral rather than an upright box. A plate photographed from an angle
+    /// is not axis-aligned, so the corners are carried as keypoints alongside their upright hull.
+    /// </remarks>
+    public static DetectorModelInfo YuNetPlate { get; } = new()
+    {
+        Id = "opencv/license_plate_detection_yunet",
+        AliasName = "plate",
+        DisplayName = "YuNet Licence Plate Detector",
+        Architecture = "LPD-YuNet",
+        ParametersM = 1f,
+        SizeBytes = 4_146_213,
+        MapCoco = 0f,
+        InputWidth = 320,
+        InputHeight = 240,
+        ClassLabels = ["plate"],
+        OutputLayout = DetectorOutputLayout.YuNetPlate,
+        InputFormat = DetectorInputFormat.RawBgr,
+        OnnxFile = "license_plate_detection_lpd_yunet_2023mar.onnx",
+        Description = "Licence-plate detector emitting the four corners of each plate, for redaction and anonymisation.",
+        License = "Apache-2.0"
     };
 
     // Backward compatibility aliases
@@ -146,6 +180,7 @@ public static class DefaultModels
         RtDetrV2L,
         RtDetrV2MS,
         RtDetrV2X,
-        YuNetFace
+        YuNetFace,
+        YuNetPlate
     ];
 }
