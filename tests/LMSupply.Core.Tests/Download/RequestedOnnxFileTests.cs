@@ -76,6 +76,31 @@ public class RequestedOnnxFileTests
         ModelPathResolver.WithRequestedFile(preferences, requested!).Should().BeSameAs(preferences);
     }
 
+    [Theory]
+    [InlineData("model.onnx")]
+    [InlineData("onnx/model.onnx")]
+    [InlineData("MODEL.ONNX")]
+    public void ThePlaceholderNameStillLetsTheMachineChooseAPrecision(string requested)
+    {
+        // Both fallbacks that describe an arbitrary repository emit this name because they have no idea
+        // what the repository calls its weights. Treating that guess as a decision would switch off variant
+        // selection for every consumer that never named anything - a repository publishing model.onnx beside
+        // model_quantized.onnx expects the machine to pick, and a low-memory machine that used to get the
+        // small build would suddenly be handed the large one.
+        var preferences = ModelPreferences.ForTier(PerformanceTier.Low);
+
+        ModelPathResolver.WithRequestedFile(preferences, requested).Should().BeSameAs(preferences);
+    }
+
+    [Fact]
+    public void ADistinctiveNameIsTreatedAsADecision()
+    {
+        var preferences = ModelPreferences.ForTier(PerformanceTier.Low);
+
+        ModelPathResolver.WithRequestedFile(preferences, "rt-detrv2-s.onnx")
+            .PreferredOnnxFiles.Should().Equal(["rt-detrv2-s.onnx"]);
+    }
+
     [Fact]
     public void WithoutTheRequest_AMidTierMachineWouldTakeTheInt8Build()
     {

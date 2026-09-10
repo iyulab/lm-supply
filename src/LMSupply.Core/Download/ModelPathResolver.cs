@@ -333,14 +333,32 @@ public sealed class ModelPathResolver : IDisposable
     }
 
     /// <summary>
-    /// Returns preferences that ask for <paramref name="requestedFile"/> by name, leaving an explicit
-    /// caller-supplied file list alone.
+    /// The conventional name for "the model in this repository", used by callers that are resolving a
+    /// repository they know nothing else about.
+    /// </summary>
+    /// <remarks>
+    /// Both fallbacks that build a model description for an arbitrary HuggingFace repository emit this,
+    /// having no way to know what the repository actually calls its weights. It is a placeholder, not a
+    /// choice, so it must not suppress variant selection: repositories that publish one model in several
+    /// precisions name the base build exactly this and expect the consumer to pick.
+    /// </remarks>
+    public const string PlaceholderOnnxFileName = "model.onnx";
+
+    /// <summary>
+    /// Returns preferences that ask for <paramref name="requestedFile"/> by name, leaving alone an explicit
+    /// caller-supplied file list and the placeholder name that means "whatever this repository calls it".
     /// </summary>
     internal static ModelPreferences WithRequestedFile(ModelPreferences preferences, string requestedFile)
     {
         ArgumentNullException.ThrowIfNull(preferences);
 
         if (string.IsNullOrWhiteSpace(requestedFile) || preferences.PreferredOnnxFiles.Count > 0)
+            return preferences;
+
+        // A distinctive filename is a decision - the model was described, and usually validated, against
+        // that exact artifact. The placeholder is a guess, and forcing it would turn off the precision
+        // selection that repositories publishing several builds are relying on.
+        if (Path.GetFileName(requestedFile).Equals(PlaceholderOnnxFileName, StringComparison.OrdinalIgnoreCase))
             return preferences;
 
         return new ModelPreferences

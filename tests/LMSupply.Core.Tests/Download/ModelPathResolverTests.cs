@@ -202,4 +202,39 @@ public class ModelPathResolverTests : IDisposable
         var act = () => resolver.Dispose();
         act.Should().NotThrow();
     }
+
+    [Fact]
+    public async Task ResolveModelAsync_WhenTheNamedFileIsMissing_SaysSoOnTheResult()
+    {
+        // Substituting is allowed - a caller resolving an arbitrary repository names a file it is guessing
+        // at. Substituting in silence is not: the caller is then running a model it did not choose, and the
+        // only evidence is that the numbers look different from what the model card promised.
+        var present = Path.Combine(_tempDir, "something-else.onnx");
+        await File.WriteAllTextAsync(present, "dummy onnx content", TestContext.Current.CancellationToken);
+
+        using var resolver = new ModelPathResolver(_tempDir);
+
+        var result = await resolver.ResolveModelAsync(
+            _tempDir, expectedOnnxFile: "the-one-i-asked-for.onnx",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.ModelPath.Should().Be(present);
+        result.SubstitutedForMissingFile.Should().Be("the-one-i-asked-for.onnx");
+    }
+
+    [Fact]
+    public async Task ResolveModelAsync_WhenTheNamedFileIsPresent_ReportsNoSubstitution()
+    {
+        var wanted = Path.Combine(_tempDir, "the-one-i-asked-for.onnx");
+        await File.WriteAllTextAsync(wanted, "dummy onnx content", TestContext.Current.CancellationToken);
+
+        using var resolver = new ModelPathResolver(_tempDir);
+
+        var result = await resolver.ResolveModelAsync(
+            _tempDir, expectedOnnxFile: "the-one-i-asked-for.onnx",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.ModelPath.Should().Be(wanted);
+        result.SubstitutedForMissingFile.Should().BeNull();
+    }
 }
