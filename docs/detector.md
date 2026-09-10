@@ -215,6 +215,26 @@ Console.WriteLine(string.Join(", ", labels.Take(5)));
 var modelLabels = detector.ClassLabels;
 ```
 
+### Describing a model's tensor layout
+
+A detector is not only a set of weights: it also fixes how the input tensor is built and how the raw
+output is read. Both are declared per model rather than assumed, because getting either wrong is silent —
+a model fed the opposite channel order raises nothing and returns an empty result, which is
+indistinguishable from a photograph containing none of what was being looked for.
+
+`DetectorInputFormat` names the input convention:
+
+| Value | Channel order | Pixel values |
+|-------|---------------|--------------|
+| `ScaledRgb` | RGB | scaled to `0..1`, no mean/standard-deviation shift |
+| `RawBgr` | BGR | raw `0..255`, no scaling and no shift |
+
+`DetectorOutputLayout` names the head the decoder must read, and `RequiresNms` and `NumKeypoints` are
+derived from it — so a description cannot contradict the decoder that acts on it.
+
+Both are surfaced on `DetectorModelInfo`, and `DetectorOptions.InputFormat` can override the input
+convention when loading a model the built-in registry does not describe.
+
 ## GPU Acceleration
 
 GPU acceleration is automatic when available. Priority order:
@@ -238,6 +258,33 @@ Models are cached following HuggingFace Hub conventions:
 - Default: `~/.cache/huggingface/hub`
 - Override via: `HF_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME` environment variables
 - Or set `DetectorOptions.CacheDirectory`
+
+## Upgrading from 0.61
+
+**RT-DETR scores move slightly, so a fixed threshold returns a different count.** Preprocessing used to
+shift every model by the ImageNet mean and standard deviation. The RT-DETR reference preprocessing does
+not do that — its own image processor ships those statistics with normalisation switched off — so the
+RT-DETR aliases now scale to `0..1` and stop there.
+
+The difference is small and runs in both directions, but it is visible at a fixed threshold. Measured on
+three photographs:
+
+| Input | 0.62 (aligned) | 0.61 |
+|-------|----------------|------|
+| single cat | `cat` 0.962 | `cat` 0.959 |
+| single dog | `dog` 0.965 | `dog` 0.950 |
+| crowd, threshold 0.5 | 17 detections, mean 0.705 | 21 detections, mean 0.651 |
+| crowd, threshold 0.3 | 49 detections, mean 0.498 | 44 detections, mean 0.509 |
+
+If you tuned `ConfidenceThreshold` against 0.61 output, re-check it. Nothing changes for `face` or
+`plate`, which were introduced in this release.
+
+**Two properties on `DetectorModelInfo` were renamed.**
+
+| Before | After | Why |
+|--------|-------|-----|
+| `InputSize` | `InputWidth`, `InputHeight` | a single value cannot describe a model whose input is not square |
+| `NumKeypoints` | `OutputLayout` | the keypoint count and the NMS answer are now derived from the layout, so the two cannot disagree |
 
 ## COCO Class Reference
 
