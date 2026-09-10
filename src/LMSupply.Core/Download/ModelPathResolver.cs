@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using LMSupply.Download;
 using LMSupply.Exceptions;
 
@@ -46,6 +47,18 @@ public sealed class ModelPathResolver : IDisposable
         /// Discovery result if downloaded from HuggingFace (null for local paths).
         /// </summary>
         public ModelDiscoveryResult? Discovery { get; init; }
+
+        /// <summary>
+        /// The file the caller asked for, when it was absent and a different one was used instead;
+        /// <c>null</c> when the caller got what it named.
+        /// </summary>
+        /// <remarks>
+        /// Substitution is legitimate for a caller that guessed - the fallback for an arbitrary repository
+        /// names <c>model.onnx</c> without knowing whether that repository uses it. It is not legitimate
+        /// silently: a caller that named an exact file and received a different one is running a different
+        /// model, and the only evidence used to be the timings.
+        /// </remarks>
+        public string? SubstitutedForMissingFile { get; init; }
     }
 
     /// <summary>
@@ -110,12 +123,14 @@ public sealed class ModelPathResolver : IDisposable
             {
                 var firstOnnx = onnxFiles[0];
                 var onnxDir = Path.GetDirectoryName(firstOnnx) ?? modelIdOrPath;
+                WarnSubstitution(expectedOnnxFile, Path.GetFileName(firstOnnx), modelIdOrPath);
                 return new ResolveResult
                 {
                     ModelPath = firstOnnx,
                     BaseDirectory = modelIdOrPath,
                     OnnxDirectory = onnxDir,
-                    Discovery = null
+                    Discovery = null,
+                    SubstitutedForMissingFile = expectedOnnxFile
                 };
             }
 
@@ -131,6 +146,12 @@ public sealed class ModelPathResolver : IDisposable
         // Download from HuggingFace using discovery for proper subfolder handling
         preferences ??= ModelPreferences.ForCurrentHardware();
 
+        // The caller named a file, so ask for that file. Without this the quantization preference derived
+        // from the machine's hardware tier decides instead, and on a repository publishing int8 alongside
+        // the plain weights it fetches the int8 and never the file that was named - after which the
+        // fallback below hands that over as though nothing had happened.
+        preferences = WithRequestedFile(preferences, expectedOnnxFile);
+
         var (modelDir, discovery) = await _downloader.DownloadWithDiscoveryAsync(
             repoId,
             preferences: preferences,
@@ -139,12 +160,15 @@ public sealed class ModelPathResolver : IDisposable
         // Use discovery result to find ONNX file in correct directory
         var onnxDirectory = discovery.GetOnnxDirectory(modelDir);
         var modelPath = Path.Combine(onnxDirectory, expectedOnnxFile);
+        string? substituted = null;
 
-        // If specified file not found, try to use discovered ONNX files
+        // If the named file really is not in this repository, fall back to what was discovered - a caller
+        // resolving an arbitrary repository guesses "model.onnx" and is often wrong - but say so.
         if (!File.Exists(modelPath) && discovery.OnnxFiles.Count > 0)
         {
-            // Use first discovered ONNX file
             modelPath = ModelDiscoveryResult.GetFilePath(modelDir, discovery.OnnxFiles[0]);
+            substituted = expectedOnnxFile;
+            WarnSubstitution(expectedOnnxFile, Path.GetFileName(modelPath), repoId);
         }
 
         if (!File.Exists(modelPath))
@@ -160,7 +184,8 @@ public sealed class ModelPathResolver : IDisposable
             ModelPath = modelPath,
             BaseDirectory = modelDir,
             OnnxDirectory = onnxDirectory,
-            Discovery = discovery
+            Discovery = discovery,
+            SubstitutedForMissingFile = substituted
         };
     }
 
@@ -305,5 +330,35 @@ public sealed class ModelPathResolver : IDisposable
         if (_disposed) return;
         _disposed = true;
         _downloader.Dispose();
+    }
+
+    /// <summary>
+    /// Returns preferences that ask for <paramref name="requestedFile"/> by name, leaving an explicit
+    /// caller-supplied file list alone.
+    /// </summary>
+    internal static ModelPreferences WithRequestedFile(ModelPreferences preferences, string requestedFile)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+
+        if (string.IsNullOrWhiteSpace(requestedFile) || preferences.PreferredOnnxFiles.Count > 0)
+            return preferences;
+
+        return new ModelPreferences
+        {
+            PreferLowMemory = preferences.PreferLowMemory,
+            QuantizationPriority = preferences.QuantizationPriority,
+            DecoderVariantPriority = preferences.DecoderVariantPriority,
+            PreferredOnnxFiles = [requestedFile]
+        };
+    }
+
+    private static void WarnSubstitution(string requested, string used, string source)
+    {
+        if (string.Equals(requested, used, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        Trace.TraceWarning(
+            $"[ModelPathResolver] '{source}' does not contain '{requested}'; loading '{used}' instead. " +
+            "This is a different model - neither its speed nor its accuracy is the one that was asked for.");
     }
 }

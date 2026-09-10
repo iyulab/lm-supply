@@ -62,10 +62,10 @@ foreach (var face in await detector.DetectAsync("photo.jpg"))
 Feed it ordinary images: it wants BGR bytes rather than the scaled RGB the RT-DETR aliases take, and that
 conversion happens inside the library.
 
-**Measured cost** (1280x1177 JPEG, 4-core CPU, no GPU): about **32 ms per frame** end to end, of which
-roughly half is JPEG decoding - the model itself runs in about 2.4 ms. Detection is therefore comfortably
-inside a 30 fps budget when frames arrive already decoded, and JPEG decoding is the thing to avoid paying
-twice for. DirectML rejects one of YuNet's operators, so it runs on CPU even on a machine where the RT-DETR
+**Measured cost** (1280x1177 JPEG, 4-core CPU): about **19 ms per frame** end to end, of which roughly half
+is JPEG decoding - the model itself runs in about 2.4 ms. Detection is therefore comfortably inside a 30 fps
+budget, and JPEG decoding is the thing to avoid paying twice for if frames arrive already decoded.
+DirectML rejects one of this model's operators, so it runs on CPU even on a machine where the RT-DETR
 aliases get a GPU; the provider fallback handles this without configuration.
 
 The defaults suit it: `ConfidenceThreshold` 0.25 and `IouThreshold` 0.45. A stricter `IouThreshold` of 0.3
@@ -89,8 +89,8 @@ foreach (var plate in await detector.DetectAsync("photo.jpg"))
 }
 ```
 
-**Measured cost** (960x631 JPEG, 4-core CPU, no GPU): about **41 ms per frame** end to end; the model itself
-runs in 5.3 ms. Like `face`, it runs on CPU rather than DirectML.
+**Measured cost** (960x631 JPEG, DirectML on an integrated GPU): about **7 ms per frame** end to end; on CPU
+the model alone is 5.3 ms. Unlike `face`, this one does run on DirectML.
 
 The library defaults (`ConfidenceThreshold` 0.25, `IouThreshold` 0.45) are usable: measured plates scored
 0.63-0.99 while a cat photograph and a crowded street scene both produced nothing at all, the highest score
