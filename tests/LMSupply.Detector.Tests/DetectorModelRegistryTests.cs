@@ -95,7 +95,7 @@ public class DetectorModelRegistryTests
     {
         var models = _registry.GetAvailableModels();
 
-        models.Should().HaveCount(5); // RtDetrV2S, RtDetrV2M, RtDetrV2L, RtDetrV2MS, RtDetrV2X
+        models.Should().HaveCount(6); // five RT-DETR v2 sizes plus YuNet
     }
 
     [Fact]
@@ -104,26 +104,35 @@ public class DetectorModelRegistryTests
         var aliases = _registry.GetAliases();
 
         var aliasNames = aliases.Select(a => a.Name).ToList();
-        aliasNames.Should().Contain(["auto", "default", "quality", "fast", "large", "xlarge"]);
+        aliasNames.Should().Contain(["auto", "default", "quality", "fast", "large", "xlarge", "face"]);
         aliases.Should().AllSatisfy(a => a.Kind.Should().Be(AliasKind.System));
     }
 
     [Fact]
-    public void DefaultModels_ShouldAllBeNmsFree()
+    public void RtDetrModels_AreNmsFree_AndYuNetIsNot()
     {
         var models = _registry.GetAvailableModels();
 
-        // All RT-DETR v2 models are NMS-free
-        models.Should().OnlyContain(m => m.RequiresNms == false);
-        models.Should().OnlyContain(m => m.Architecture == "RT-DETR");
+        // This used to read "every built-in model is NMS-free RT-DETR", which was true only while the
+        // registry held one family. It is the decoder, not the family, that decides: RT-DETR emits final
+        // detections, YuNet emits several anchors per face.
+        models.Where(m => m.OutputLayout == DetectorOutputLayout.RtDetr)
+            .Should().OnlyContain(m => !m.RequiresNms && m.Architecture == "RT-DETR");
+
+        models.Where(m => m.OutputLayout == DetectorOutputLayout.YuNet)
+            .Should().NotBeEmpty().And.OnlyContain(m => m.RequiresNms);
     }
 
     [Fact]
-    public void DefaultModels_ShouldAllHaveApache2License()
+    public void EveryBuiltInModelIsPermissivelyLicensed()
     {
-        var models = _registry.GetAvailableModels();
+        // The constraint a consumer actually has is redistribution in a closed-source commercial product,
+        // which is why no alias resolves to a YOLO checkpoint however convenient the weights are. Pinning
+        // the exact string "Apache-2.0" stated a narrower rule than the one that matters and would have had
+        // to be relaxed for any permissive model, so state the rule instead.
+        string[] permissive = ["Apache-2.0", "MIT", "BSD-3-Clause"];
 
-        models.Should().OnlyContain(m => m.License == "Apache-2.0");
+        _registry.GetAvailableModels().Should().OnlyContain(m => permissive.Contains(m.License));
     }
 
     [Fact]

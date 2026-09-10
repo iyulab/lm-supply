@@ -5,7 +5,13 @@ namespace LMSupply.Detector.Models;
 /// <summary>
 /// Metadata about a detector model.
 /// </summary>
-public sealed class DetectorModelInfo : IModelInfoBase, IModelMemoryInfo
+/// <remarks>
+/// A record rather than a class so a derived copy can be taken with <c>with</c>. The registry's
+/// auto-selection used to rebuild this by listing every property by hand, which silently drops any
+/// property added later - exactly the failure that would have sent an auto-selected model through the
+/// wrong decoder.
+/// </remarks>
+public sealed record DetectorModelInfo : IModelInfoBase, IModelMemoryInfo
 {
     /// <summary>
     /// Gets or sets the model ID (HuggingFace repo ID or local path).
@@ -77,16 +83,29 @@ public sealed class DetectorModelInfo : IModelInfoBase, IModelMemoryInfo
         classId >= 0 && classId < ClassLabels.Count ? ClassLabels[classId] : "unknown";
 
     /// <summary>
-    /// Gets or sets whether this model requires NMS post-processing.
+    /// The shape of this model's raw output, which selects the decoder. Defaults to
+    /// <see cref="DetectorOutputLayout.RtDetr"/>, the family every built-in alias belongs to.
     /// </summary>
-    public bool RequiresNms { get; init; }
+    public DetectorOutputLayout OutputLayout { get; init; } = DetectorOutputLayout.RtDetr;
 
     /// <summary>
-    /// Gets or sets the number of keypoints for pose estimation models.
-    /// Set to 0 for standard object detection models (default).
-    /// Set to 17 for COCO skeleton pose models (e.g., YOLOv8-pose).
+    /// How this model expects its input tensor built. Defaults to <see cref="DetectorInputFormat.ScaledRgb"/>.
     /// </summary>
-    public int NumKeypoints { get; init; }
+    public DetectorInputFormat InputFormat { get; init; } = DetectorInputFormat.ScaledRgb;
+
+    /// <summary>
+    /// Whether this model needs non-maximum suppression - derived from <see cref="OutputLayout"/> rather
+    /// than declared beside it, so a model cannot claim to be NMS-free while being decoded by a head that
+    /// emits overlapping anchors.
+    /// </summary>
+    public bool RequiresNms => OutputLayout.RequiresNms();
+
+    /// <summary>
+    /// The number of keypoints this model emits, derived from <see cref="OutputLayout"/> for the same
+    /// reason as <see cref="RequiresNms"/>: a count that disagreed with the decoder used to be expressible,
+    /// and produced keypoints read out of a tensor that never held them.
+    /// </summary>
+    public int NumKeypoints => OutputLayout.KeypointCount();
 
     /// <summary>
     /// Gets or sets the ONNX file path relative to model directory.

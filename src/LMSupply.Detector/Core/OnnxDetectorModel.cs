@@ -17,7 +17,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
 {
     private readonly DetectorOptions _options;
     private readonly DetectorModelInfo _modelInfo;
-    private readonly int _numKeypoints;
+    private readonly DetectorOutputLayout _layout;
+    private readonly DetectorInputFormat _inputFormat;
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
 
     // Owns the ONNX session and recovers from a crashing or hanging execution provider by moving
@@ -38,6 +39,9 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     /// <inheritdoc />
     public ExecutionProvider RequestedProvider => _options.Provider;
 
+    /// <summary>Keypoints this model's layout carries, from the one place that mapping is stated.</summary>
+    private int KeypointCount => _layout.KeypointCount();
+
     /// <inheritdoc />
     public long? EstimatedMemoryBytes => _modelInfo.SizeBytes * 2;
 
@@ -50,7 +54,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     {
         _options = options.Clone();
         _modelInfo = DetectorModelRegistry.Default.Resolve(options.ModelId);
-        _numKeypoints = options.NumKeypoints ?? _modelInfo.NumKeypoints;
+        _layout = options.OutputLayout ?? _modelInfo.OutputLayout;
+        _inputFormat = options.InputFormat ?? _modelInfo.InputFormat;
     }
 
     public async Task WarmupAsync(CancellationToken cancellationToken = default)
@@ -151,18 +156,22 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         var originalHeight = image.Height;
         var inputSize = _modelInfo.InputSize;
 
-        // Preprocess image
-        var inputTensor = PreprocessImage(image, inputSize);
+        // Preprocess image the way this particular model was exported to expect
+        var inputTensor = PreprocessImage(image, inputSize, _inputFormat);
 
         // Run inference
         var outputs = await RunInferenceAsync(inputTensor, originalWidth, originalHeight, cancellationToken);
 
-        // Parse detections based on model architecture
-        var detections = _numKeypoints > 0
-            ? ParsePoseOutput(outputs, originalWidth, originalHeight, inputSize)
-            : _modelInfo.RequiresNms
-                ? ParseWithNms(outputs, originalWidth, originalHeight, inputSize)
-                : ParseNmsFree(outputs, originalWidth, originalHeight, inputSize);
+        // Decode according to the layout this model declares. Selecting on the declared layout rather than
+        // on a pair of booleans is what keeps a three-stride head from being read as a single pose tensor.
+        var detections = _layout switch
+        {
+            DetectorOutputLayout.RtDetr => ParseNmsFree(outputs, originalWidth, originalHeight, inputSize),
+            DetectorOutputLayout.YoloDetect => ParseWithNms(outputs, originalWidth, originalHeight, inputSize),
+            DetectorOutputLayout.YoloPose => ParsePoseOutput(outputs, originalWidth, originalHeight, inputSize),
+            DetectorOutputLayout.YuNet => ParseYuNet(outputs, originalWidth, originalHeight, inputSize),
+            _ => throw new NotSupportedException($"Detector output layout '{_layout}' has no decoder.")
+        };
 
         // Apply confidence threshold and max detections
         var filtered = detections
@@ -175,27 +184,52 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         return filtered;
     }
 
-    private static DenseTensor<float> PreprocessImage(Image<Rgb24> image, int targetSize)
+    /// <summary>
+    /// Builds the NCHW input tensor in the channel order and value range the model was exported against.
+    /// </summary>
+    /// <remarks>
+    /// Getting this wrong is silent. A model fed the opposite channel order raises nothing and returns an
+    /// empty result, which reads exactly like a photograph containing none of what was being looked for -
+    /// measured on YuNet, BGR finds seven faces in a street scene where RGB finds none.
+    /// </remarks>
+    internal static DenseTensor<float> PreprocessImage(
+        Image<Rgb24> image, int targetSize, DetectorInputFormat format)
     {
         // Resize to target size
         image.Mutate(x => x.Resize(targetSize, targetSize));
 
-        // Create tensor in NCHW format with ImageNet normalization
         var tensor = new DenseTensor<float>([1, 3, targetSize, targetSize]);
-        var mean = new[] { 0.485f, 0.456f, 0.406f };
-        var std = new[] { 0.229f, 0.224f, 0.225f };
+
+        // The RT-DETR reference preprocessing rescales to 0..1 and stops there; its own image processor
+        // ships the ImageNet statistics with normalisation switched off. YuNet takes raw BGR bytes.
+        var scale = format switch
+        {
+            DetectorInputFormat.ScaledRgb => 1f / 255f,
+            DetectorInputFormat.RawBgr => 1f,
+            _ => throw new NotSupportedException($"Detector input format '{format}' is not supported.")
+        };
+        var bgr = format is DetectorInputFormat.RawBgr;
+
+        // Written through the flat NCHW buffer rather than the four-index accessor: the tensor indexer
+        // recomputes a stride product per element, and there are three million of them per 640x640 frame.
+        var plane = targetSize * targetSize;
 
         image.ProcessPixelRows(accessor =>
         {
+            // Taken inside the callback: a span cannot be captured by the lambda.
+            var buffer = tensor.Buffer.Span;
+
             for (int y = 0; y < targetSize; y++)
             {
                 var row = accessor.GetRowSpan(y);
+                var offset = y * targetSize;
+
                 for (int x = 0; x < targetSize; x++)
                 {
                     var pixel = row[x];
-                    tensor[0, 0, y, x] = (pixel.R / 255f - mean[0]) / std[0];
-                    tensor[0, 1, y, x] = (pixel.G / 255f - mean[1]) / std[1];
-                    tensor[0, 2, y, x] = (pixel.B / 255f - mean[2]) / std[2];
+                    buffer[offset + x] = (bgr ? pixel.B : pixel.R) * scale;
+                    buffer[plane + offset + x] = pixel.G * scale;
+                    buffer[plane * 2 + offset + x] = (bgr ? pixel.R : pixel.B) * scale;
                 }
             }
         });
@@ -475,29 +509,48 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         }
 
         // Apply NMS
-        return ApplyNms(allDetections);
+        return DetectionNms.Apply(allDetections, _options.IouThreshold);
     }
 
-    private List<DetectionResult> ApplyNms(List<DetectionResult> detections)
+    /// <summary>
+    /// Parses YuNet output: one cls/obj/bbox/kps group per stride, decoded by <see cref="YuNetDecoder"/>
+    /// and then suppressed, since the model emits several anchors per face.
+    /// </summary>
+    private List<DetectionResult> ParseYuNet(
+        IDisposableReadOnlyCollection<DisposableNamedOnnxValue> outputs,
+        int originalWidth,
+        int originalHeight,
+        int inputSize)
     {
-        var results = new List<DetectionResult>();
-        var grouped = detections.GroupBy(d => d.ClassId);
+        var byName = outputs.ToDictionary(o => o.Name, StringComparer.Ordinal);
+        var branches = new Dictionary<int, YuNetStrideOutput>(YuNetDecoder.Strides.Count);
 
-        foreach (var group in grouped)
+        foreach (var stride in YuNetDecoder.Strides)
         {
-            var sorted = group.OrderByDescending(d => d.Confidence).ToList();
-
-            while (sorted.Count > 0)
-            {
-                var best = sorted[0];
-                results.Add(best);
-                sorted.RemoveAt(0);
-
-                sorted = sorted.Where(d => best.Box.IoU(d.Box) <= _options.IouThreshold).ToList();
-            }
+            branches[stride] = new YuNetStrideOutput(
+                Values(byName, $"cls_{stride}"),
+                Values(byName, $"obj_{stride}"),
+                Values(byName, $"bbox_{stride}"),
+                Values(byName, $"kps_{stride}"));
         }
 
-        return results;
+        var decoded = YuNetDecoder.Decode(
+            branches, inputSize, originalWidth, originalHeight,
+            _options.ConfidenceThreshold, _modelInfo.LabelFor(0));
+
+        return DetectionNms.Apply(decoded, _options.IouThreshold);
+
+        static float[] Values(Dictionary<string, DisposableNamedOnnxValue> outputs, string name)
+        {
+            if (!outputs.TryGetValue(name, out var value))
+            {
+                throw new InvalidOperationException(
+                    $"Model was declared as YuNet but emits no output named '{name}'. " +
+                    $"Available outputs: {string.Join(", ", outputs.Keys)}.");
+            }
+
+            return value.AsTensor<float>().ToArray();
+        }
     }
 
     /// <summary>
@@ -517,7 +570,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         var dim0 = (int)output.Dimensions[1];
         var dim1 = (int)output.Dimensions[2];
 
-        var expectedFeatures = 4 + 1 + _numKeypoints * 3;
+        var expectedFeatures = 4 + 1 + KeypointCount * 3;
 
         // Auto-detect orientation: [1, features, boxes] vs [1, boxes, features]
         bool transposed = dim0 == expectedFeatures && dim1 != expectedFeatures;
@@ -548,9 +601,9 @@ internal sealed class OnnxDetectorModel : IDetectorModel
                 .Clamp(originalWidth, originalHeight);
 
             // Parse keypoints: (x, y, confidence) × numKeypoints
-            var keypoints = new Keypoint[_numKeypoints];
+            var keypoints = new Keypoint[KeypointCount];
             var kpOffset = 5;
-            for (int k = 0; k < _numKeypoints; k++)
+            for (int k = 0; k < KeypointCount; k++)
             {
                 var kx = Val(kpOffset + k * 3) * scaleX;
                 var ky = Val(kpOffset + k * 3 + 1) * scaleY;
@@ -567,7 +620,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         }
 
         // Apply NMS if needed
-        return _modelInfo.RequiresNms ? ApplyNms(results) : results;
+        return _layout.RequiresNms() ? DetectionNms.Apply(results, _options.IouThreshold) : results;
     }
 
     private static float Sigmoid(float x) => 1f / (1f + MathF.Exp(-x));

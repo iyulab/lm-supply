@@ -76,6 +76,55 @@ public class DetectorFunctionalTests
         }
     }
 
+    // ── Face preset ─────────────────────────────────────────────────
+
+    [Fact]
+    [Trait("Axis", "Loading")]
+    public async Task Face_ResolvesToYuNet_WithItsOwnSingleLabelVocabulary()
+    {
+        await using var model = await LocalDetector.LoadAsync("face", cancellationToken: TestContext.Current.CancellationToken);
+
+        model.ModelId.Should().Be("opencv/face_detection_yunet");
+        model.ClassLabels.Should().Equal(["face"], "COCO has no face class, so this model brings its own");
+    }
+
+    [Fact]
+    [Trait("Axis", "Quality")]
+    public async Task Face_SeparatesRealFacesFromStructurelessInput()
+    {
+        // Not "finds nothing": a gradient is not a photograph of an empty room, and YuNet does fire on it,
+        // once, at 0.271 - barely over the 0.25 default and with a box covering most of the frame. What is
+        // worth pinning is the separation: measured faces in a real crowd scored 0.50 to 0.74, so anything
+        // this weak is noise. An empty-result assertion would also pass for a decoder wired to the wrong
+        // strides, which is why the boxes a real run produced are pinned in LMSupply.Detector.Tests instead.
+        await using var model = await LocalDetector.LoadAsync("face", cancellationToken: TestContext.Current.CancellationToken);
+
+        var detections = await model.DetectAsync(TestDataHelper.CreateGradientBmp(640, 480), TestContext.Current.CancellationToken);
+
+        detections.Should().OnlyContain(d => d.Confidence < 0.35f);
+    }
+
+    [Fact]
+    [Trait("Axis", "Quality")]
+    public async Task Face_DetectionsAreWellFormed()
+    {
+        await using var model = await LocalDetector.LoadAsync("face", cancellationToken: TestContext.Current.CancellationToken);
+
+        var detections = await model.DetectAsync(TestDataHelper.CreateGradientBmp(640, 480), TestContext.Current.CancellationToken);
+
+        detections.Should().NotBeEmpty("the gradient produces one weak hit, so this exercises the decode path");
+
+        foreach (var d in detections)
+        {
+            d.Label.Should().Be("face");
+            d.ClassId.Should().Be(0);
+            d.Keypoints.Should().NotBeNull().And.HaveCount(5);
+            d.Box.X1.Should().BeInRange(0, 640);
+            d.Box.Y1.Should().BeInRange(0, 480);
+            d.Keypoints!.Should().OnlyContain(k => k.X >= 0 && k.X <= 640 && k.Y >= 0 && k.Y <= 480);
+        }
+    }
+
     // ── Q axis: Quality ─────────────────────────────────────────────
 
     [Fact]

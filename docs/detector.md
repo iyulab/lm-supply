@@ -46,14 +46,50 @@ foreach (var detection in results)
 
 ## Available Models
 
-| Alias | Model | Size | mAP | Description |
-|-------|-------|------|-----|-------------|
-| `default` | RT-DETR R18 | ~80MB | 46.5 | Best balance of speed and accuracy (NMS-free) |
-| `fast` | EfficientDet-D0 | ~15MB | 33.8 | Fastest inference, lightweight |
-| `quality` | RT-DETR R50 | ~170MB | 53.1 | Higher accuracy, moderate speed |
-| `large` | RT-DETR R101 | ~300MB | 54.3 | Highest accuracy |
+| Alias | Model | Size | mAP | Licence | Classes |
+|-------|-------|------|-----|---------|---------|
+| `default` | RT-DETR v2 Small | ~80 MB | 48.1 | Apache-2.0 | COCO-80 |
+| `fast` | RT-DETR v2 Mini-Small | ~126 MB | 46.0 | Apache-2.0 | COCO-80 |
+| `quality` | RT-DETR v2 Medium | ~133 MB | 51.9 | Apache-2.0 | COCO-80 |
+| `large` | RT-DETR v2 Large | ~169 MB | 53.4 | Apache-2.0 | COCO-80 |
+| `xlarge` | RT-DETR v2 XLarge | ~300 MB | 54.3 | Apache-2.0 | COCO-80 |
+| `face` | YuNet 2023mar | ~227 KB | n/a | MIT | `face`, with 5 landmarks |
 
-All models use Apache-2.0 license and support 80 COCO classes.
+Every alias is permissively licensed and redistributable in a closed-source commercial product. No alias
+resolves to a YOLO checkpoint: those are AGPL-3.0 and would carry that obligation to the consumer.
+
+The RT-DETR aliases are NMS-free and share the COCO-80 vocabulary. `face` is a different architecture with a
+different vocabulary, so it is described separately below.
+
+### Faces
+
+`face` resolves to OpenCV's YuNet. COCO has no face class and `person` is not a substitute for redaction
+work, so this is a separate model with its own single-label vocabulary and its own decoder.
+
+```csharp
+await using var detector = await LocalDetector.LoadAsync("face");
+
+foreach (var face in await detector.DetectAsync("photo.jpg"))
+{
+    // face.Label is "face"; face.Keypoints holds the two eyes, the nose tip and the two mouth corners,
+    // each carrying the detection's own score - YuNet publishes no per-landmark confidence.
+    Console.WriteLine($"{face.Box.X1:F0},{face.Box.Y1:F0} {face.Box.Width:F0}x{face.Box.Height:F0}");
+}
+```
+
+Feed it ordinary images: it wants BGR bytes rather than the scaled RGB the RT-DETR aliases take, and that
+conversion happens inside the library.
+
+**Measured cost** (1280x1177 JPEG, 4-core CPU, no GPU): about **32 ms per frame** end to end, of which
+roughly half is JPEG decoding - the model itself runs in about 2.4 ms. Detection is therefore comfortably
+inside a 30 fps budget when frames arrive already decoded, and JPEG decoding is the thing to avoid paying
+twice for. DirectML rejects one of YuNet's operators, so it runs on CPU even on a machine where the RT-DETR
+aliases get a GPU; the provider fallback handles this without configuration.
+
+The defaults suit it: `ConfidenceThreshold` 0.25 and `IouThreshold` 0.45. A stricter `IouThreshold` of 0.3
+matches the reference implementation and merges one more duplicate in a dense crowd; the difference measured
+on a street scene was one box out of eight.
+
 
 You can also use any HuggingFace object detection model by its full ID:
 

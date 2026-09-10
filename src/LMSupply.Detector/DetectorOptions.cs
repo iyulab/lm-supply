@@ -1,3 +1,5 @@
+using LMSupply.Detector.Models;
+
 namespace LMSupply.Detector;
 
 /// <summary>
@@ -51,12 +53,22 @@ public sealed class DetectorOptions : LMSupplyOptionsBase
     public IReadOnlySet<int>? ClassFilter { get; set; }
 
     /// <summary>
-    /// Gets or sets the number of keypoints for pose estimation models.
-    /// When set, overrides the model registry value.
-    /// Set to 17 for COCO skeleton (e.g., YOLOv8-pose).
-    /// <para>Default: null (use model registry value)</para>
+    /// Overrides the output layout the registry inferred for this model.
+    /// <para>Default: null (use the registry value)</para>
     /// </summary>
-    public int? NumKeypoints { get; set; }
+    /// <remarks>
+    /// Needed for a model the registry cannot recognise - a local <c>.onnx</c> path, or a repository whose
+    /// name says nothing about its architecture. This replaces the previous <c>NumKeypoints</c> override:
+    /// a keypoint count only ever stood in for "decode this as a pose model", and stating it that way let
+    /// the count and the decoder disagree.
+    /// </remarks>
+    public DetectorOutputLayout? OutputLayout { get; set; }
+
+    /// <summary>
+    /// Overrides the input format the registry inferred for this model.
+    /// <para>Default: null (use the registry value)</para>
+    /// </summary>
+    public DetectorInputFormat? InputFormat { get; set; }
 
     /// <summary>
     /// Creates a copy of these options.
@@ -73,6 +85,7 @@ public sealed class DetectorOptions : LMSupplyOptionsBase
         ThreadCount = ThreadCount,
         ClassFilter = ClassFilter is not null ? new HashSet<int>(ClassFilter) : null,
         QuantizationHint = QuantizationHint,
-        NumKeypoints = NumKeypoints
+        OutputLayout = OutputLayout,
+        InputFormat = InputFormat
     };
 }

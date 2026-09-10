@@ -64,23 +64,8 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
             }
         }
 
-        return new DetectorModelInfo
-        {
-            Id = selected.Id,
-            AliasName = "auto",
-            DisplayName = selected.DisplayName,
-            Architecture = selected.Architecture,
-            ParametersM = selected.ParametersM,
-            SizeBytes = selected.SizeBytes,
-            MapCoco = selected.MapCoco,
-            InputSize = selected.InputSize,
-            ClassLabels = selected.ClassLabels,
-            RequiresNms = selected.RequiresNms,
-            NumKeypoints = selected.NumKeypoints,
-            OnnxFile = selected.OnnxFile,
-            Description = selected.Description,
-            License = selected.License
-        };
+        // Copied wholesale: listing the properties by hand silently dropped whichever one was added next.
+        return selected with { AliasName = "auto" };
     }
 
     /// <summary>
@@ -120,7 +105,6 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
             SizeBytes = File.Exists(fullPath) ? new FileInfo(fullPath).Length : 0,
             MapCoco = 0,
             InputSize = 640,
-            RequiresNms = false,
             OnnxFile = fileName,
             Description = $"Local model from {directory}",
             License = "Unknown"
@@ -142,8 +126,14 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
             _ => "Unknown"
         };
 
-        var requiresNms = architecture is not ("RT-DETR" or "DETR");
         var isPose = name.Contains("pose", StringComparison.OrdinalIgnoreCase);
+
+        // Only the families this heuristic can actually name are guessed at. An unrecognised model gets the
+        // NMS-free reading, and a consumer who knows better says so through DetectorOptions.OutputLayout -
+        // guessing "YuNet" from a repo name would decode twelve outputs that may not be there.
+        var layout = architecture is "RT-DETR" or "DETR"
+            ? DetectorOutputLayout.RtDetr
+            : isPose ? DetectorOutputLayout.YoloPose : DetectorOutputLayout.YoloDetect;
 
         return new DetectorModelInfo
         {
@@ -157,8 +147,7 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
             InputSize = 640,
             // A pose model detects one thing; the eighty COCO names never applied to it.
             ClassLabels = isPose ? ["person"] : CocoLabels.Labels,
-            RequiresNms = requiresNms,
-            NumKeypoints = isPose ? 17 : 0,
+            OutputLayout = layout,
             OnnxFile = "model.onnx",
             Description = $"HuggingFace model: {modelId}",
             License = "Unknown"
