@@ -434,28 +434,24 @@ internal sealed class WhisperDecoder
     }
 
     /// <summary>
-    /// Applies repetition penalty, temperature scaling, and the hallucination-suppression guard to
-    /// one decode step's raw logits, then selects the next token via greedy argmax. Mutates
+    /// Applies temperature scaling and the hallucination-suppression guard to one decode step's raw
+    /// logits, then selects the next token via greedy argmax. Mutates
     /// <paramref name="logits"/> in place. Extracted from the decode loop (same reasoning as
     /// <see cref="FinalizeSegments"/>) so a captured decode-step logit vector can exercise this
     /// exact selection logic directly, without a real ONNX session.
     /// </summary>
     internal int SelectNextToken(float[] logits, List<int> tokens, int[] initialTokens, TranscribeOptions? options)
     {
-        // Apply repetition penalty to discourage repeating tokens
-        const float repetitionPenalty = 1.2f;
-        var recentTokens = tokens.Skip(Math.Max(0, tokens.Count - 10)).ToHashSet();
-        for (int i = 0; i < logits.Length; i++)
-        {
-            if (recentTokens.Contains(i))
-            {
-                // Penalize recently used tokens
-                if (logits[i] > 0)
-                    logits[i] /= repetitionPenalty;
-                else
-                    logits[i] *= repetitionPenalty;
-            }
-        }
+        // No blanket repetition penalty. The reference decoder applies none, and neither do the
+        // mainstream Whisper runtimes: speech legitimately reuses short tokens within a few tokens
+        // of each other -- "the", ".", a sentence opener -- and dividing every recently used logit
+        // by a constant taxes exactly those. Docket iyulab/lm-supply#253: after "... about the
+        // delayed order." the next sentence opens with "The", which was inside the ten-token window,
+        // so end-of-text overtook it and the final sentence of a single-window clip was dropped --
+        // deterministically, with the segment still claiming to cover the whole clip. The same tax
+        // pushed "the" out mid-sentence ("update The budget sheet" on base, "update budget sheet" on
+        // small). Degenerate loops are handled by the targeted guard below and by
+        // TryDetectRepetitionCycle, which look at the shape of the tail instead of at every token.
 
         // Apply temperature if specified
         if (options is { Temperature: > 0 and < 1 })
@@ -480,20 +476,19 @@ internal sealed class WhisperDecoder
                 }
 
                 // A hard-suppression event means the model was mid-hallucination; end-of-text is
-                // the other easy way out at exactly this point, and it was previously untouched
-                // by any penalty (it is never a "recently used" token). See docket
-                // iyulab/lm-supply#59: a captured decode trace showed EOT beating the real
-                // continuation token by a margin as small as 0.165 immediately after this guard
-                // fired. Give EOT the same soft penalty a recently-used token already gets here,
-                // so it has to clearly beat a real continuation rather than merely edge it out
-                // right when the decoder was caught repeating itself.
+                // the other easy way out at exactly this point. See docket iyulab/lm-supply#59: a
+                // captured decode trace showed EOT beating the real continuation token by a margin
+                // as small as 0.165 immediately after this guard fired. Give EOT a soft penalty
+                // here -- and only here -- so it has to clearly beat a real continuation rather
+                // than merely edge it out right when the decoder was caught repeating itself.
+                const float suppressionEotPenalty = 1.2f;
                 var eot = _tokenizer.EndOfTextToken;
                 if (eot < logits.Length)
                 {
                     if (logits[eot] > 0)
-                        logits[eot] /= repetitionPenalty;
+                        logits[eot] /= suppressionEotPenalty;
                     else
-                        logits[eot] *= repetitionPenalty;
+                        logits[eot] *= suppressionEotPenalty;
                 }
             }
         }

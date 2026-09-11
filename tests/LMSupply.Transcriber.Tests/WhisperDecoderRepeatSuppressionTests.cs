@@ -5,8 +5,8 @@ namespace LMSupply.Transcriber.Tests;
 
 /// <summary>
 /// Tests for <see cref="WhisperDecoder.SelectNextToken"/> — the per-decode-step selection logic
-/// (repetition penalty, hallucination-suppression guard, greedy argmax). Pure logit-array logic,
-/// no ONNX session involved.
+/// (hallucination-suppression guard, greedy argmax). Pure logit-array logic, no ONNX session
+/// involved.
 /// </summary>
 public class WhisperDecoderRepeatSuppressionTests
 {
@@ -43,17 +43,16 @@ public class WhisperDecoderRepeatSuppressionTests
         var tokens = new List<int>(initialTokens) { NoTimestampsToken, RepeatedToken, RepeatedToken, RepeatedToken };
 
         var logits = CreateBaselineLogits();
-        logits[EndOfTextToken] = 2.699f;      // not in recentTokens -> penalty untouched pre-fix
-        logits[ContinuationToken] = 2.534f;   // not in recentTokens -> untouched
-        logits[OtherCandidateToken] = 0.404f; // not in recentTokens -> untouched
-        logits[RepeatedToken] = 5.0f;         // in recentTokens; overwritten to -Inf by the guard regardless
+        logits[EndOfTextToken] = 2.699f;
+        logits[ContinuationToken] = 2.534f;
+        logits[OtherCandidateToken] = 0.404f;
+        logits[RepeatedToken] = 5.0f;         // overwritten to -Inf by the guard regardless
 
         var selected = decoder.SelectNextToken(logits, tokens, initialTokens, options: null);
 
         selected.Should().Be(ContinuationToken,
-            "a suppression event should cost EOT the same soft penalty a recently-used token " +
-            "already gets, so it can no longer win by a margin (0.165 in the captured trace) " +
-            "smaller than that penalty");
+            "a suppression event should cost EOT a soft penalty, so it can no longer win by a " +
+            "margin (0.165 in the captured trace) smaller than that penalty");
         selected.Should().NotBe(EndOfTextToken);
     }
 
@@ -94,5 +93,44 @@ public class WhisperDecoderRepeatSuppressionTests
 
         selected.Should().NotBe(RepeatedToken);
         selected.Should().Be(ContinuationToken);
+    }
+
+    [Fact]
+    public void SelectNextToken_RecentlyUsedSentenceOpener_IsNotTaxedIntoLosingToEot()
+    {
+        // Docket iyulab/lm-supply#253: "... about the delayed order. The next meeting is ..." —
+        // the opener of the final sentence ("The") had already appeared a few tokens earlier. A
+        // blanket 1.2 penalty on every token of the last ten dropped its logit from 3.0 to 2.5, so
+        // end-of-text (2.8) won and the clip's final sentence was never decoded.
+        var decoder = WhisperDecoder.CreateForTesting(WhisperTokenizer.CreateDefault());
+        var initialTokens = new[] { StartOfTranscriptToken, TranscribeToken };
+        var tokens = new List<int>(initialTokens) { NoTimestampsToken, RepeatedToken, 111, 222, 333, OtherCandidateToken };
+
+        var logits = CreateBaselineLogits();
+        logits[RepeatedToken] = 3.0f;
+        logits[EndOfTextToken] = 2.8f;
+
+        var selected = decoder.SelectNextToken(logits, tokens, initialTokens, options: null);
+
+        selected.Should().Be(RepeatedToken, "a token that already occurred is still a legitimate continuation");
+    }
+
+    [Fact]
+    public void SelectNextToken_NoSuppressionEvent_LeavesRecentTokenLogitsUntouched()
+    {
+        // Outside a suppression event nothing reweights recently used tokens — neither a positive
+        // logit (divided, before #253) nor a negative one (multiplied).
+        var decoder = WhisperDecoder.CreateForTesting(WhisperTokenizer.CreateDefault());
+        var initialTokens = new[] { StartOfTranscriptToken, TranscribeToken };
+        var tokens = new List<int>(initialTokens) { NoTimestampsToken, RepeatedToken, OtherCandidateToken };
+
+        var logits = CreateBaselineLogits();
+        logits[RepeatedToken] = 3.0f;
+        logits[OtherCandidateToken] = -2.0f;
+
+        decoder.SelectNextToken(logits, tokens, initialTokens, options: null);
+
+        logits[RepeatedToken].Should().Be(3.0f);
+        logits[OtherCandidateToken].Should().Be(-2.0f);
     }
 }
