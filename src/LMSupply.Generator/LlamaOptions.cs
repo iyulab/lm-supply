@@ -240,15 +240,11 @@ public sealed class LlamaOptions
         var profile = HardwareProfile.Current;
         var flashAttention = fitResult.GpuLayerCount != 0 && ShouldEnableFlashAttention(profile);
 
+        // The count alone: it is exact for these layers, and a ratio derived from it would take precedence
+        // and be turned back into a count — rounding can lose a layer on the way (20/33 -> 19).
         return new LlamaOptions
         {
             GpuLayerCount = fitResult.GpuLayerCount,
-            GpuOffloadRatio = fitResult.GpuLayerCount switch
-            {
-                -1 => null,
-                0 => 0f,
-                _ => fitResult.OffloadRatio
-            },
             BatchSize = fitResult.RecommendedBatchSize,
             UBatchSize = Math.Min(fitResult.RecommendedBatchSize, 512),
             FlashAttention = flashAttention,

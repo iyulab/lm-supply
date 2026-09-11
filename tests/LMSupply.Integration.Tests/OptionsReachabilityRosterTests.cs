@@ -44,10 +44,6 @@ public class OptionsReachabilityRosterTests
         ["LMSupply.Transcriber.TranscribeOptions"] = ["BeamWidth", "InitialPrompt"],
 
         // Found by this roster's first run (issue draft "options nothing reads, across seven types").
-        // GpuOffloadRatio is read only by LlamaOptions.GetEffectiveGpuLayerCount, which nothing calls: the
-        // server launch uses GpuLayerCount alone, so the CpuOnly preset (ratio 0) offloads every layer on a
-        // GPU backend.
-        ["LMSupply.Generator.LlamaOptions"] = ["GpuOffloadRatio"],
         ["LMSupply.Pool.ModelPoolOptions"] = ["MaxLoadedModels"],
         ["LMSupply.Llama.Server.LlamaServerUpdateOptions"] = ["ApiTimeout", "UpdateOnWarmup", "Verbose"],
         ["LMSupply.Runtime.RuntimeManagerOptions"] = ["MaxRetries", "ProxyPassword", "ProxyUrl", "ProxyUsername"],

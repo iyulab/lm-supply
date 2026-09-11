@@ -156,7 +156,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             Phase = DownloadPhase.Extracting
         });
 
-        var llamaOpts = options.LlamaOptions ?? GetVramAwareLlamaOptions(modelPath, ggufMetadata);
+        var llamaOpts = ChooseLlamaOptions(options, modelPath, ggufMetadata);
         var contextLength = options.MaxContextLength ?? 4096;
 
         // Captured when partial offload occurs — exposed via GetModelInfo() for diagnostics.
@@ -1205,6 +1205,45 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     }
 
     /// <summary>
+    /// The llama options a load starts from: the caller's, or hardware-fitted defaults when none were
+    /// given — with any <see cref="LlamaOptions.GpuOffloadRatio"/> already turned into a layer count,
+    /// because everything after this point (the VRAM fit, the context estimate, the server launch) reads
+    /// the count.
+    /// </summary>
+    internal static LlamaOptions ChooseLlamaOptions(GeneratorOptions options, string modelPath, GgufMetadata? ggufMetadata)
+        => ResolveGpuOffloadRatio(
+            options.LlamaOptions ?? GetVramAwareLlamaOptions(modelPath, ggufMetadata),
+            ggufMetadata?.LayerCount);
+
+    /// <summary>
+    /// Turns <see cref="LlamaOptions.GpuOffloadRatio"/> into a layer count for this model, so the server
+    /// launch — which takes a count — honours it (the ratio takes precedence over
+    /// <see cref="LlamaOptions.GpuLayerCount"/>, as documented). Returns <paramref name="opts"/> unchanged
+    /// when no ratio is set. 0 means no layers and 1 means all (-1, like an explicit
+    /// <c>GpuLayerCount = -1</c>, so the VRAM fit may still reduce it); a ratio in between needs the model's
+    /// layer count, and when the GGUF header does not carry one it cannot be applied — all layers are
+    /// offloaded instead, with a warning.
+    /// </summary>
+    internal static LlamaOptions ResolveGpuOffloadRatio(LlamaOptions opts, int? totalLayers)
+    {
+        if (opts.GpuOffloadRatio is not { } ratio)
+            return opts;
+
+        if (float.IsNaN(ratio))
+            throw new ArgumentException("LlamaOptions.GpuOffloadRatio must be a number from 0 to 1, not NaN.", nameof(opts));
+
+        if (ratio > 0f && ratio < 1f && totalLayers is not > 0)
+        {
+            Trace.TraceWarning(
+                $"[LlamaServerGeneratorModel] GpuOffloadRatio={ratio.ToString("0.##", CultureInfo.InvariantCulture)} " +
+                "needs the model's layer count, which its GGUF header does not carry; offloading all layers instead.");
+            return CloneLlamaOptionsWithGpuLayers(opts, gpuLayers: -1);
+        }
+
+        return CloneLlamaOptionsWithGpuLayers(opts, opts.GetEffectiveGpuLayerCount(totalLayers ?? 0));
+    }
+
+    /// <summary>
     /// Copies <paramref name="src"/> with GPU offload disabled (CPU-only). Used when Auto falls back
     /// to CPU after a floored GPU context — does not mutate the caller-supplied options object.
     /// </summary>
@@ -1213,7 +1252,9 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
 
     /// <summary>
     /// Copies <paramref name="src"/> with <see cref="LlamaOptions.GpuLayerCount"/> replaced and
-    /// <see cref="LlamaOptions.GpuOffloadRatio"/> cleared (it would otherwise override the count).
+    /// <see cref="LlamaOptions.GpuOffloadRatio"/> cleared — by the time a count is chosen here the ratio has
+    /// already been turned into one (<see cref="ResolveGpuOffloadRatio"/>), and a ratio left beside the new
+    /// count would claim precedence over it.
     /// Every other property is carried over — the VRAM auto-tune and the CPU fallback both go
     /// through here, so a property added to <see cref="LlamaOptions"/> has one place to be copied,
     /// and <c>LlamaOptionsCloneCompletenessTests</c> fails when it is not.
