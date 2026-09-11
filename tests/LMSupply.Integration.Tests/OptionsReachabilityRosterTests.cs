@@ -44,7 +44,6 @@ public class OptionsReachabilityRosterTests
         ["LMSupply.Transcriber.TranscribeOptions"] = ["BeamWidth", "InitialPrompt"],
 
         // Found by this roster's first run (issue draft "options nothing reads, across seven types").
-        ["LMSupply.Pool.ModelPoolOptions"] = ["MaxLoadedModels"],
         ["LMSupply.Llama.Server.LlamaServerUpdateOptions"] = ["ApiTimeout", "UpdateOnWarmup", "Verbose"],
         ["LMSupply.Runtime.RuntimeManagerOptions"] = ["MaxRetries", "ProxyPassword", "ProxyUrl", "ProxyUsername"],
         ["LMSupply.Captioner.CaptionerOptions"] = ["Prompt"],

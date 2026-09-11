@@ -18,15 +18,18 @@ public sealed class ModelPool<TModel, TOptions> : IAsyncDisposable
     private readonly ModelPoolOptions _options;
     private readonly long _availableMemory;
     private long _allocatedMemory;
+    private long _accessClock;
     private bool _disposed;
 
     /// <summary>
     /// Creates a new model pool with the specified loader and options.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><see cref="ModelPoolOptions.MaxLoadedModels"/> is less than 1.</exception>
     public ModelPool(IModelLoader<TModel, TOptions> loader, ModelPoolOptions? options = null)
     {
         _loader = loader ?? throw new ArgumentNullException(nameof(loader));
         _options = options ?? new ModelPoolOptions();
+        ArgumentOutOfRangeException.ThrowIfLessThan(_options.MaxLoadedModels, 1, "options.MaxLoadedModels");
 
         var profile = HardwareProfile.Current;
         _availableMemory = _options.MaxMemoryBytes
@@ -54,7 +57,7 @@ public sealed class ModelPool<TModel, TOptions> : IAsyncDisposable
 
         if (_models.TryGetValue(modelId, out var pooled))
         {
-            pooled.UpdateLastAccess();
+            pooled.UpdateLastAccess(Interlocked.Increment(ref _accessClock));
             return pooled.Model;
         }
 
@@ -63,15 +66,21 @@ public sealed class ModelPool<TModel, TOptions> : IAsyncDisposable
         {
             if (_models.TryGetValue(modelId, out pooled))
             {
-                pooled.UpdateLastAccess();
+                pooled.UpdateLastAccess(Interlocked.Increment(ref _accessClock));
                 return pooled.Model;
+            }
+
+            // Make room by count first: a new model is one more loaded model whatever its size.
+            if (_models.Count >= _options.MaxLoadedModels)
+            {
+                await EvictLeastRecentlyUsedAsync(() => _models.Count < _options.MaxLoadedModels, cancellationToken);
             }
 
             var memoryRequired = _loader.EstimateMemoryBytes(modelId, options);
 
             if (!CanAllocate(memoryRequired))
             {
-                await EvictModelsAsync(memoryRequired, cancellationToken);
+                await EvictLeastRecentlyUsedAsync(() => CanAllocate(memoryRequired), cancellationToken);
 
                 if (!CanAllocate(memoryRequired))
                 {
@@ -84,7 +93,7 @@ public sealed class ModelPool<TModel, TOptions> : IAsyncDisposable
 
             var model = await _loader.LoadAsync(modelId, options, cancellationToken);
 
-            pooled = new PooledModel(modelId, model, memoryRequired);
+            pooled = new PooledModel(modelId, model, memoryRequired, Interlocked.Increment(ref _accessClock));
             _models[modelId] = pooled;
             Interlocked.Add(ref _allocatedMemory, memoryRequired);
 
@@ -136,12 +145,14 @@ public sealed class ModelPool<TModel, TOptions> : IAsyncDisposable
         return _allocatedMemory + withMargin <= _availableMemory;
     }
 
-    private async Task EvictModelsAsync(long requiredBytes, CancellationToken cancellationToken)
+    // Least recently used first, by an access counter rather than a timestamp: two accesses inside the
+    // clock's resolution would otherwise tie, and the order among ties is whatever the dictionary yields.
+    private async Task EvictLeastRecentlyUsedAsync(Func<bool> enough, CancellationToken cancellationToken)
     {
-        var candidates = _models.Values.OrderBy(p => p.LastAccessedAt).ToList();
+        var candidates = _models.Values.OrderBy(p => p.AccessOrder).ToList();
         foreach (var candidate in candidates)
         {
-            if (CanAllocate(requiredBytes))
+            if (enough())
                 break;
             await UnloadAsync(candidate.ModelId, cancellationToken);
         }
@@ -172,16 +183,22 @@ public sealed class ModelPool<TModel, TOptions> : IAsyncDisposable
         public long AllocatedMemory { get; }
         public DateTime LoadedAt { get; }
         public DateTime LastAccessedAt { get; private set; }
+        public long AccessOrder { get; private set; }
 
-        public PooledModel(string modelId, TModel model, long allocatedMemory)
+        public PooledModel(string modelId, TModel model, long allocatedMemory, long accessOrder)
         {
             ModelId = modelId;
             Model = model;
             AllocatedMemory = allocatedMemory;
             LoadedAt = DateTime.UtcNow;
             LastAccessedAt = DateTime.UtcNow;
+            AccessOrder = accessOrder;
         }
 
-        public void UpdateLastAccess() => LastAccessedAt = DateTime.UtcNow;
+        public void UpdateLastAccess(long accessOrder)
+        {
+            LastAccessedAt = DateTime.UtcNow;
+            AccessOrder = accessOrder;
+        }
     }
 }

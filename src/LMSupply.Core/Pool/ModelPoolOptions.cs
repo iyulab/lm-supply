@@ -18,7 +18,8 @@ public sealed class ModelPoolOptions
     public double MemorySafetyMargin { get; set; } = 0.2;
 
     /// <summary>
-    /// Maximum number of models to keep loaded simultaneously.
+    /// Maximum number of models to keep loaded simultaneously. Loading one more unloads the least
+    /// recently used model first, before the memory check (which may unload more). Must be at least 1.
     /// Defaults to 2.
     /// </summary>
     public int MaxLoadedModels { get; set; } = 2;
