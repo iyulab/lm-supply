@@ -106,8 +106,11 @@ public sealed class HuggingFaceDownloader : IDisposable
         using var discoveryService = CreateDiscoveryService();
         var discovery = await discoveryService.DiscoverModelAsync(repoId, preferences, revision, cancellationToken);
 
+        // With local files only the cache is read, never written: an offline load must work from a
+        // read-only cache, and a miss must not leave an empty snapshot directory behind.
         var modelDir = CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
-        Directory.CreateDirectory(modelDir);
+        if (!_localFilesOnly)
+            Directory.CreateDirectory(modelDir);
 
         // Download all discovered files, preserving directory structure
         var allFiles = discovery.GetAllFiles().ToList();
@@ -125,18 +128,18 @@ public sealed class HuggingFaceDownloader : IDisposable
             if (!localPath.StartsWith(modelDir, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException($"Path traversal detected in file path: {file}");
 
-            // Ensure parent directory exists
-            var parentDir = Path.GetDirectoryName(localPath);
-            if (!string.IsNullOrEmpty(parentDir))
-            {
-                Directory.CreateDirectory(parentDir);
-            }
-
             if (!CacheManager.IsCachedFile(localPath))
             {
                 // Every discovered file is part of the model (graph, external weights, config).
                 if (_localFilesOnly)
                     throw NotCached(repoId, file, modelDir);
+
+                // Ensure parent directory exists
+                var parentDir = Path.GetDirectoryName(localPath);
+                if (!string.IsNullOrEmpty(parentDir))
+                {
+                    Directory.CreateDirectory(parentDir);
+                }
 
                 // Wrap progress to include multi-file context
                 var wrappedProgress = WrapProgress(progress, fileIndex, totalFileCount);
@@ -147,6 +150,9 @@ public sealed class HuggingFaceDownloader : IDisposable
                     wrappedProgress, cancellationToken);
             }
         }
+
+        if (_localFilesOnly)
+            return (modelDir, discovery);
 
         // After all files downloaded, write manifest
         var manifestFiles = allFiles
@@ -206,7 +212,10 @@ public sealed class HuggingFaceDownloader : IDisposable
         // and run the wrong model.
         var snapshotDir = CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
         var modelDir = CacheManager.GetSubfolderDirectory(snapshotDir, subfolder);
-        Directory.CreateDirectory(modelDir);
+
+        // With local files only the cache is read, never written (see DownloadWithDiscoveryAsync).
+        if (!_localFilesOnly)
+            Directory.CreateDirectory(modelDir);
 
         // Default files if not specified
         var fileList = (files ?? GetDefaultModelFiles()).ToList();
@@ -255,6 +264,9 @@ public sealed class HuggingFaceDownloader : IDisposable
                 }
             }
         }
+
+        if (_localFilesOnly)
+            return modelDir;
 
         // Write manifest from actually downloaded files (not directory scan)
         var downloadedFiles = fileList

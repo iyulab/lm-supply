@@ -28,7 +28,7 @@ dotnet add package LMSupply.Transcriber
 - **Whisper Models**: OpenAI Whisper models optimized for ONNX Runtime
 - **Multiple Sizes**: From tiny (39M) to large-v3 (1.5B) parameters
 - **Multilingual**: Support for 99+ languages with auto-detection
-- **Timestamps**: Word-level and segment-level timestamps
+- **Timestamps**: Segment-level timestamps (word-level timestamps are not produced)
 - **Streaming**: Real-time transcription as audio is processed
 - **GPU Acceleration**: CUDA, DirectML, and CoreML support
 
@@ -78,7 +78,7 @@ var options = new TranscribeOptions
 {
     Language = "en",        // Force specific language (null: identified from the first 30 s, see below)
     Translate = true,       // Translate to English
-    WordTimestamps = true,  // Include word-level timestamps
+    WordTimestamps = true,  // Segment timestamps: the model places segment boundaries
     InitialPrompt = "Technical discussion about AI" // Guide transcription style
 };
 
@@ -196,23 +196,17 @@ foreach (var segment in result.Segments)
 }
 ```
 
+What `End` means depends on the mode. With `WordTimestamps = true` the model places segment boundaries
+and a segment ends where its speech stops. In the default mode (no timestamps) each 30-second window
+yields one segment that ends at the end of that window's audio — where the window stops, not where the
+speech in it stops. Request timestamps when you need to know where speech ends.
+
 ### Word-Level Timestamps
 
-```csharp
-var options = new TranscribeOptions { WordTimestamps = true };
-var result = await transcriber.TranscribeAsync("audio.wav", options);
-
-foreach (var segment in result.Segments)
-{
-    if (segment.Words != null)
-    {
-        foreach (var word in segment.Words)
-        {
-            Console.WriteLine($"[{word.Start:F2}s] {word.Word} ({word.Probability:P0})");
-        }
-    }
-}
-```
+Not produced. Despite its name, `WordTimestamps = true` gives **segment**-level timestamps, and
+`TranscriptionSegment.Words` is always null: word timing needs cross-attention alignment (dynamic time
+warping), which the transcriber does not implement. For word timing use a tool built for it, such as
+whisper-timestamped or faster-whisper.
 
 ## Model Selection
 

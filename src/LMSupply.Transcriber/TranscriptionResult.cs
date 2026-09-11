@@ -61,6 +61,12 @@ public sealed class TranscriptionSegment
 
     /// <summary>
     /// Gets the end time in seconds.
+    /// <para>
+    /// With <see cref="TranscribeOptions.WordTimestamps"/> the model places segment boundaries, and
+    /// <see cref="End"/> is where the segment's speech stops. In the default mode (no timestamps) each
+    /// 30-second window yields one segment that ends at the end of that window's audio — it says where
+    /// the window stops, not where the speech in it stops. Ask for timestamps when you need that.
+    /// </para>
     /// </summary>
     public double End { get; init; }
 

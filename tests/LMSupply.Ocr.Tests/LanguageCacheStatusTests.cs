@@ -74,7 +74,7 @@ public sealed class LanguageCacheStatusTests : IDisposable
         var load = () => LocalOcr.LoadForLanguageAsync("ko", options, cancellationToken: Ct);
 
         await load.Should().ThrowAsync<ModelNotFoundException>().WithMessage("*downloads are disabled*");
-        Directory.GetFiles(_cacheDir, "*.onnx", SearchOption.AllDirectories).Should().BeEmpty();
+        Directory.Exists(_cacheDir).Should().BeFalse("an offline miss downloads nothing and writes nothing to the cache");
     }
 
     private Task SeedAsync(DetectionModelInfo model) => SeedAsync(model.RepoId, model.Subfolder, model.ModelFile);

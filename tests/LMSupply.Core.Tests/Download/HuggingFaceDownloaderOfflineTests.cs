@@ -50,6 +50,32 @@ public sealed class HuggingFaceDownloaderOfflineTests : IDisposable
         Assert.Equal(0, hub.Count);
     }
 
+    // An offline load must work from a read-only cache — the air-gapped deployment the mode exists for —
+    // so it writes nothing: a miss leaves no directory behind, and a hit does not rewrite the manifest.
+    [Fact]
+    public async Task AMiss_LeavesNoDirectoryBehind()
+    {
+        using var downloader = new HuggingFaceDownloader(_cacheDir, new CountingHub(), localFilesOnly: true);
+
+        await Assert.ThrowsAsync<ModelNotFoundException>(() => downloader.DownloadModelAsync(Repo, ["model.onnx"], subfolder: "onnx", cancellationToken: Ct));
+        await Assert.ThrowsAsync<ModelNotFoundException>(() => downloader.DownloadWithDiscoveryAsync(Repo, cancellationToken: Ct));
+
+        Assert.False(Directory.Exists(Path.Combine(_cacheDir, "models--acme--offline-model")), "an offline miss must not create the model's cache directory");
+    }
+
+    [Fact]
+    public async Task AHit_WritesNothingToTheCache()
+    {
+        var dir = CacheManager.GetModelDirectory(_cacheDir, Repo);
+        Directory.CreateDirectory(dir);
+        await File.WriteAllTextAsync(Path.Combine(dir, "model.onnx"), "graph", Ct);
+        using var downloader = new HuggingFaceDownloader(_cacheDir, new CountingHub(), localFilesOnly: true);
+
+        await downloader.DownloadModelAsync(Repo, ["model.onnx"], cancellationToken: Ct);
+
+        Assert.Equal(["model.onnx"], Directory.GetFiles(dir).Select(Path.GetFileName));
+    }
+
     [Fact]
     public async Task Discovery_WithNothingCached_ThrowsWithoutARequest()
     {
