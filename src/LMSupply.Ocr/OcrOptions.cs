@@ -20,7 +20,8 @@ public sealed class OcrOptions : LMSupplyOptionsBase
 
     /// <summary>
     /// Minimum confidence threshold for text recognition.
-    /// Results below this threshold may be marked as low confidence.
+    /// Regions whose recognition confidence (the mean probability of their characters) is below this
+    /// are dropped from the result. Set to 0 to keep every region.
     /// Default is 0.5.
     /// </summary>
     public float RecognitionThreshold { get; set; } = 0.5f;

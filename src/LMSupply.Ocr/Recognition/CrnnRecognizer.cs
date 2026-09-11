@@ -92,7 +92,7 @@ internal sealed class CrnnRecognizer : IDisposable
             var (text, confidence) = await RecognizeSingleAsync(cropped, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (!string.IsNullOrWhiteSpace(text))
+            if (!string.IsNullOrWhiteSpace(text) && confidence >= _confidenceThreshold)
             {
                 results.Add(new TextRegion(
                     text.Trim(),

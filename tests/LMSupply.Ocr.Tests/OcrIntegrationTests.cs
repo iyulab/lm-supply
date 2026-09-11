@@ -293,25 +293,27 @@ public class OcrIntegrationTests : IDisposable
     #region Options Tests
 
     [Fact]
-    public async Task OcrOptions_CustomThresholds_ShouldApply()
+    public async Task OcrOptions_RecognitionThreshold_DropsRegionsBelowIt()
     {
-        // Arrange
-        var options = new OcrOptions
-        {
-            DetectionThreshold = 0.7f,
-            RecognitionThreshold = 0.8f
-        };
-
+        // This test used to set thresholds and assert only that a result came back - it passed while
+        // RecognitionThreshold was never read, and while every confidence was ~0.01. The thresholds
+        // below come from a baseline run, so the test does not guess how certain the model is.
         var testImagePath = Path.Combine(_testImagesDir, "threshold_test.png");
         CreateTestImage(testImagePath, "High Confidence", 400, 100);
+        var ct = TestContext.Current.CancellationToken;
 
-        // Act
-        await using var ocr = await LocalOcr.LoadAsync(options: options, cancellationToken: TestContext.Current.CancellationToken);
-        var result = await ocr.RecognizeAsync(testImagePath, TestContext.Current.CancellationToken);
+        await using var keepAll = await LocalOcr.LoadAsync(options: new OcrOptions { RecognitionThreshold = 0f }, cancellationToken: ct);
+        var baseline = await keepAll.RecognizeAsync(testImagePath, ct);
 
-        // Assert
-        ocr.Should().NotBeNull();
-        result.Should().NotBeNull();
+        baseline.FullText.Should().Contain("Confidence");
+        baseline.Regions.Average(r => r.Confidence).Should().BeGreaterThan(0.5f,
+            "a clear read of printed text is a confident one; a score near 1/vocabulary-size carries no signal");
+
+        var top = baseline.Regions.Max(r => r.Confidence);
+        await using var aboveAll = await LocalOcr.LoadAsync(options: new OcrOptions { RecognitionThreshold = MathF.BitIncrement(top) }, cancellationToken: ct);
+        var filtered = await aboveAll.RecognizeAsync(testImagePath, ct);
+
+        filtered.Regions.Should().BeEmpty("every region scored below the threshold");
     }
 
     [Fact]

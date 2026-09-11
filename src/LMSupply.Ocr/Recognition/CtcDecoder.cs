@@ -5,6 +5,9 @@ namespace LMSupply.Ocr.Recognition;
 /// </summary>
 internal static class CtcDecoder
 {
+    /// <summary>How far a row's sum may stray from 1 and still count as a probability distribution.</summary>
+    private const float DistributionTolerance = 1e-3f;
+
     /// <summary>
     /// Performs greedy CTC decoding on model output.
     /// </summary>
@@ -16,29 +19,45 @@ internal static class CtcDecoder
         var seqLength = logits.GetLength(0);
         var vocabSize = logits.GetLength(1);
 
-        var indices = new List<int>();
-        var scores = new List<float>();
+        var indices = new List<int>(seqLength);
+        var maxValues = new float[seqLength];
+        var isDistribution = true;
 
         for (var t = 0; t < seqLength; t++)
         {
-            // Find argmax for this timestep
+            // Find argmax for this timestep, and whether the row is already a probability distribution
             var maxIndex = 0;
             var maxValue = logits[t, 0];
+            var rowSum = maxValue;
+            var rowMin = maxValue;
 
             for (var v = 1; v < vocabSize; v++)
             {
-                if (logits[t, v] > maxValue)
+                var value = logits[t, v];
+                rowSum += value;
+                rowMin = MathF.Min(rowMin, value);
+                if (value > maxValue)
                 {
-                    maxValue = logits[t, v];
+                    maxValue = value;
                     maxIndex = v;
                 }
             }
 
             indices.Add(maxIndex);
+            maxValues[t] = maxValue;
+            if (rowMin < 0f || MathF.Abs(rowSum - 1f) > DistributionTolerance)
+            {
+                isDistribution = false;
+            }
+        }
 
-            // Convert logit to probability using softmax
-            var prob = Softmax(logits, t, maxIndex);
-            scores.Add(prob);
+        // PaddleOCR recognizers end in a softmax, so their rows are already probabilities. Applying
+        // softmax again flattens every score towards 1/vocabulary-size (~0.01 for a perfect read on a
+        // 438-entry vocabulary). Decided once for the whole output: a model emits one or the other.
+        var scores = new List<float>(seqLength);
+        for (var t = 0; t < seqLength; t++)
+        {
+            scores.Add(isDistribution ? maxValues[t] : Softmax(logits, t, indices[t]));
         }
 
         // Decode using dictionary (handles blank removal and deduplication)

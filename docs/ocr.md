@@ -145,7 +145,7 @@ var options = new OcrOptions
 {
     LanguageHint = "en",           // Language hint for auto model selection
     DetectionThreshold = 0.5f,      // Minimum detection confidence
-    RecognitionThreshold = 0.5f,    // Minimum recognition confidence
+    RecognitionThreshold = 0.5f,    // Regions below this recognition confidence are dropped (0 keeps all)
     BinarizationThreshold = 0.3f,   // DBNet binarization threshold
     UnclipRatio = 1.5f,             // Polygon expansion ratio
     UsePolygon = true,              // Use polygon coordinates

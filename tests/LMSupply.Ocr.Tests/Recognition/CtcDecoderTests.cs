@@ -120,6 +120,59 @@ public class CtcDecoderTests : IDisposable
         confidence.Should().BeLessThanOrEqualTo(1f);
     }
 
+    // --- Output that is already a probability distribution ---
+    // The PaddleOCR recognizers end in a softmax: every timestep row is non-negative and sums to 1.
+    // Applying softmax again flattens each score towards 1/vocabulary-size, which on the real
+    // vocabularies (438 to 18,385 entries) reported ~0.01 for a perfect read.
+
+    [Fact]
+    public void GreedyDecode_ProbabilityRows_ConfidenceIsTheProbabilityItself()
+    {
+        var dict = CreateDict("a", "b");
+        // blank=0, a=1, b=2
+
+        var probs = new float[2, 3];
+        probs[0, 0] = 0.05f; probs[0, 1] = 0.90f; probs[0, 2] = 0.05f; // a
+        probs[1, 0] = 0.10f; probs[1, 1] = 0.10f; probs[1, 2] = 0.80f; // b
+
+        var (text, confidence) = CtcDecoder.GreedyDecode(probs, dict);
+
+        text.Should().Be("ab");
+        confidence.Should().BeApproximately(0.85f, 1e-4f);
+    }
+
+    [Fact]
+    public void GreedyDecode_ProbabilityRows_OverARealisticVocabulary_KeepTheirScale()
+    {
+        var chars = Enumerable.Range(0, 999).Select(i => char.ConvertFromUtf32(0x4E00 + i)).ToArray();
+        var dict = CreateDict(chars);
+        const int vocab = 1000;
+
+        var probs = new float[1, vocab];
+        var rest = 0.05f / (vocab - 1);
+        for (var v = 0; v < vocab; v++)
+            probs[0, v] = rest;
+        probs[0, 7] = 0.95f;
+
+        var (_, confidence) = CtcDecoder.GreedyDecode(probs, dict);
+
+        confidence.Should().BeApproximately(0.95f, 1e-3f,
+            "a 95% read must not be reported as ~0.3% because a second softmax spread it across the vocabulary");
+    }
+
+    [Fact]
+    public void GreedyDecode_RawLogitsThatHappenToBeNonNegative_AreStillNormalized()
+    {
+        // Non-negative is not enough to be a distribution: these rows sum to 12, not 1.
+        var dict = CreateDict("a");
+        var logits = new float[1, 2];
+        logits[0, 0] = 2f; logits[0, 1] = 10f;
+
+        var (_, confidence) = CtcDecoder.GreedyDecode(logits, dict);
+
+        confidence.Should().BeGreaterThan(0.99f).And.BeLessThanOrEqualTo(1f);
+    }
+
     // --- GreedyDecode 3D ---
 
     [Fact]
