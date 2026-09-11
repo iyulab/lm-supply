@@ -33,6 +33,7 @@ public sealed class LlamaServerDownloader : IDisposable
     private readonly string _cacheDirectory;
     private readonly bool _ownsHttpClient;
     private readonly bool _includePrerelease;
+    private readonly TimeSpan? _apiTimeout;
 
     /// <summary>
     /// Process-wide gate that serializes CUDA-runtime provisioning. A single static gate is the
@@ -54,10 +55,23 @@ public sealed class LlamaServerDownloader : IDisposable
     /// flag (llama.cpp's nightly line). When false (default), "latest" follows the versioned stable
     /// line and resolves it to the build it names — see <see cref="GetLatestVersionAsync"/>.
     /// </param>
-    public LlamaServerDownloader(string? cacheDirectory = null, HttpClient? httpClient = null, bool includePrerelease = false)
+    /// <param name="apiTimeout">
+    /// Limit for each GitHub API request (release lookups and the nightly-tag pointer); null for no
+    /// limit beyond the HTTP client's own. Build downloads are not limited by it — a server build is
+    /// hundreds of megabytes. A request that runs out of time fails as <see cref="TimeoutException"/>.
+    /// </param>
+    public LlamaServerDownloader(
+        string? cacheDirectory = null,
+        HttpClient? httpClient = null,
+        bool includePrerelease = false,
+        TimeSpan? apiTimeout = null)
     {
+        if (apiTimeout is { } limit && limit <= TimeSpan.Zero && limit != Timeout.InfiniteTimeSpan)
+            throw new ArgumentOutOfRangeException(nameof(apiTimeout), limit, "The API timeout must be positive, or infinite.");
+
         _cacheDirectory = cacheDirectory ?? LMSupplyCachePaths.GetLlamaServerDirectory();
         _includePrerelease = includePrerelease;
+        _apiTimeout = apiTimeout;
 
         if (httpClient != null)
         {
@@ -136,7 +150,7 @@ public sealed class LlamaServerDownloader : IDisposable
             if (url == null)
                 return null;
 
-            var pointer = (await _httpClient.GetStringAsync(url, cancellationToken)).Trim();
+            var pointer = (await WithApiTimeoutAsync(ct => _httpClient.GetStringAsync(url, ct), cancellationToken)).Trim();
             if (IsBuildTag(pointer))
                 return pointer;
 
@@ -177,13 +191,32 @@ public sealed class LlamaServerDownloader : IDisposable
         return newest;
     }
 
-    private async Task<JsonDocument> GetJsonAsync(string url, CancellationToken cancellationToken)
+    private Task<JsonDocument> GetJsonAsync(string url, CancellationToken cancellationToken)
+        => WithApiTimeoutAsync(async ct =>
+        {
+            using var response = await _httpClient.GetAsync(url, ct);
+            response.EnsureSuccessStatusCode();
+            return await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+        }, cancellationToken);
+
+    // Bounds one GitHub API request by the API timeout. Only API calls come through here: asset downloads
+    // are hundreds of megabytes and must not share a ten-second limit.
+    private async Task<T> WithApiTimeoutAsync<T>(Func<CancellationToken, Task<T>> call, CancellationToken cancellationToken)
     {
-        using var response = await _httpClient.GetAsync(url, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await JsonDocument.ParseAsync(
-            await response.Content.ReadAsStreamAsync(cancellationToken),
-            cancellationToken: cancellationToken);
+        if (_apiTimeout is not { } timeout || timeout == Timeout.InfiniteTimeSpan)
+            return await call(cancellationToken);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(timeout);
+        try
+        {
+            return await call(cts.Token);
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException(
+                $"GitHub API request did not complete within {timeout.TotalSeconds.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)} s.");
+        }
     }
 
     /// <summary>
@@ -757,13 +790,7 @@ public sealed class LlamaServerDownloader : IDisposable
         CancellationToken cancellationToken)
     {
         // Find the cudart companion asset in the same release.
-        var releaseUrl = $"{ReleasesUrl}/tags/{version}";
-        using var response = await _httpClient.GetAsync(releaseUrl, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        using var doc = await JsonDocument.ParseAsync(
-            await response.Content.ReadAsStreamAsync(cancellationToken),
-            cancellationToken: cancellationToken);
+        using var doc = await GetJsonAsync($"{ReleasesUrl}/tags/{version}", cancellationToken);
 
         string? cudartName = null;
         string? cudartUrl = null;

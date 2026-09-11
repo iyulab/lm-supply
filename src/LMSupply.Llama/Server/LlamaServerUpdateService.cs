@@ -65,7 +65,7 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
     {
         _options = options;
         _stateManager = new LlamaServerStateManager(options.CacheDirectory);
-        _downloader = new LlamaServerDownloader(options.CacheDirectory, httpClient, options.IncludePrerelease);
+        _downloader = new LlamaServerDownloader(options.CacheDirectory, httpClient, options.IncludePrerelease, options.ApiTimeout);
     }
 
     /// <summary>

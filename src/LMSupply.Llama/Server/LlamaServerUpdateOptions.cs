@@ -52,7 +52,9 @@ public sealed class LlamaServerUpdateOptions
     public string? CacheDirectory { get; set; }
 
     /// <summary>
-    /// Timeout for GitHub API requests.
+    /// Timeout for each GitHub API request — release lookups and the nightly-tag pointer. Downloading a
+    /// server build is not limited by it. A lookup that runs out of time counts as GitHub being
+    /// unreachable: the cached build is used when there is one.
     /// Default: 10 seconds.
     /// </summary>
     public TimeSpan ApiTimeout { get; set; } = TimeSpan.FromSeconds(10);
