@@ -56,7 +56,9 @@ public sealed class OcrRecognitionModelRegistry : ModelRegistryBase<RecognitionM
     /// <summary>
     /// Resolves a recognition model for a specific language code.
     /// Always returns the model with its primary alias (e.g., "crnn-korean-v3" rather than "ko").
-    /// Falls back to English if the language is not found.
+    /// Falls back to English if the language is not found, and says so through a trace warning -
+    /// the English recognizer cannot read another script, so its output would otherwise pass for a
+    /// result. <see cref="GetSupportedLanguages"/> lists the codes that resolve without falling back.
     /// Supports region codes (e.g., "en-US" resolves via "en").
     /// </summary>
     /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh-cn").</param>
@@ -72,7 +74,11 @@ public sealed class OcrRecognitionModelRegistry : ModelRegistryBase<RecognitionM
         if (TryResolve(langPart, out model) && model is not null)
             return FindPrimaryModel(model);
 
-        // Fall back to English
+        // Fall back to English - visibly. A recognizer that cannot read the script still returns text.
+        Trace.TraceWarning(
+            $"[OcrRecognitionModelRegistry] No recognition model for language '{languageCode}'; using the English " +
+            "recognizer instead. Text in another script will not be read correctly. " +
+            "GetSupportedLanguages() lists the codes that have a model.");
         return Resolve("crnn-en-v3");
     }
 

@@ -61,7 +61,7 @@ Console.WriteLine(result.FullText);
 ### Other Languages
 
 ```csharp
-// Japanese
+// Japanese (read by the Chinese/Japanese recognizer)
 await using var ocr = await LocalOcr.LoadForLanguageAsync("ja");
 
 // Chinese
@@ -70,8 +70,21 @@ await using var ocr = await LocalOcr.LoadForLanguageAsync("zh");
 // Or specify the recognition model explicitly
 await using var ocr = await LocalOcr.LoadAsync(
     detectionModel: "default",
-    recognitionModel: "crnn-japan-v3");
+    recognitionModel: "crnn-chinese-v3");
 ```
+
+### Which languages can be recognized
+
+Recognition is per script and the caller picks the language — the models have no script or language
+identification output, so there is no detection step. Ask the library which codes resolve to a model:
+
+```csharp
+IEnumerable<string> codes = LocalOcr.GetSupportedLanguages();   // "en", "ko", "ja", "tr", ...
+```
+
+Region subtags are ignored (`"tr-TR"` resolves as `"tr"`). A code with no model falls back to the English
+recognizer and raises a trace warning naming the code — the English model cannot read another script, so
+its output for such text would otherwise look like a result.
 
 ## Available Models
 
@@ -84,17 +97,20 @@ await using var ocr = await LocalOcr.LoadAsync(
 
 ### Recognition Models
 
-| Alias | Languages | Size |
-|-------|-----------|------|
-| `default` | English | ~7MB |
-| `crnn-en-v3` | English | ~7MB |
-| `crnn-korean-v3` | Korean | ~11MB |
-| `crnn-chinese-v3` | Chinese (Simplified/Traditional) | ~13MB |
-| `crnn-japan-v3` | Japanese | ~10MB |
-| `crnn-latin-v3` | Spanish, French, German, Italian, Portuguese, etc. | ~7MB |
-| `crnn-arabic-v3` | Arabic | ~7MB |
-| `crnn-cyrillic-v3` | Russian, Ukrainian, Bulgarian, etc. | ~7MB |
-| `crnn-devanagari-v3` | Hindi, Marathi, Nepali, Sanskrit | ~7MB |
+| Alias | Languages |
+|-------|-----------|
+| `default` | English |
+| `crnn-en-v3` | English |
+| `crnn-korean-v3` | Korean |
+| `crnn-chinese-v3` | Chinese (Simplified/Traditional), Japanese |
+| `crnn-latin-v3` | Spanish, French, German, Italian, Portuguese, Dutch, Polish, Czech, Slovak, Turkish, Hungarian, Nordic, Baltic, Indonesian, Malay, Filipino, and more |
+| `crnn-arabic-v3` | Arabic, Urdu, Persian |
+| `crnn-cyrillic-v3` | Russian, Ukrainian, Bulgarian, Belarusian, Serbian, Macedonian |
+| `crnn-devanagari-v3` | Hindi, Marathi, Nepali, Sanskrit |
+| `crnn-greek-v3` | Greek |
+| `crnn-thai-v3` | Thai |
+| `crnn-tamil-v3` | Tamil |
+| `crnn-telugu-v3` | Telugu |
 
 You can also use any HuggingFace PaddleOCR-compatible model by its full repository ID:
 
@@ -102,14 +118,7 @@ You can also use any HuggingFace PaddleOCR-compatible model by its full reposito
 // Use any PaddleOCR-style ONNX model from HuggingFace
 // The model must have detection model (det.onnx) and recognition model (rec.onnx + dict.txt)
 
-// Using deepghs/paddleocr for additional language support
-await using var ocr = await LocalOcr.LoadAsync(
-    detectionModel: "deepghs/paddleocr",
-    recognitionModel: "deepghs/paddleocr",
-    options: new OcrOptions { LanguageHint = "ja" }  // Japanese
-);
-
-// Using a custom PaddleOCR ONNX repository
+// Using a custom PaddleOCR ONNX repository; LanguageHint picks a languages/<name>/ subfolder
 await using var ocr = await LocalOcr.LoadAsync(
     detectionModel: "your-org/custom-paddleocr",
     recognitionModel: "your-org/custom-paddleocr"

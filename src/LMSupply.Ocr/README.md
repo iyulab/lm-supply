@@ -5,7 +5,7 @@ A simple .NET library for local OCR (Optical Character Recognition) with automat
 ## Features
 
 - **2-Stage Pipeline**: Text detection (DBNet) followed by text recognition (CRNN with CTC decoding)
-- **Multi-language Support**: 40+ languages including English, Korean, Chinese, Japanese, Arabic, and more
+- **Multi-language Support**: 11 script recognizers covering 50+ language codes, including English, Korean, Chinese, Japanese, Arabic, Cyrillic and most Latin-script languages
 - **Automatic Model Download**: Models are downloaded on-demand from HuggingFace (~10MB default)
 - **GPU Acceleration**: Supports CUDA, DirectML, and CoreML
 - **Pure C# Implementation**: No Python dependencies or external processes
@@ -47,16 +47,32 @@ await using var ocr = await LocalOcr.LoadAsync(
 
 ## Supported Languages
 
+Recognition is per script: each model reads one script's alphabet, and the caller picks the language.
+There is no script or language detection step — the models have no identification output to detect with.
+
 | Model | Languages |
 |-------|-----------|
 | `crnn-en-v3` | English |
 | `crnn-korean-v3` | Korean |
-| `crnn-chinese-v3` | Chinese (Simplified/Traditional) |
-| `crnn-japan-v3` | Japanese |
-| `crnn-latin-v3` | Spanish, French, German, Italian, Portuguese, etc. |
-| `crnn-arabic-v3` | Arabic |
-| `crnn-cyrillic-v3` | Russian, Ukrainian, Bulgarian, etc. |
+| `crnn-chinese-v3` | Chinese (Simplified/Traditional), Japanese |
+| `crnn-latin-v3` | Spanish, French, German, Italian, Portuguese, Dutch, Polish, Czech, Slovak, Turkish, Hungarian, Nordic, Baltic, Indonesian, Malay, Filipino, and more |
+| `crnn-arabic-v3` | Arabic, Urdu, Persian |
+| `crnn-cyrillic-v3` | Russian, Ukrainian, Bulgarian, Belarusian, Serbian, Macedonian |
 | `crnn-devanagari-v3` | Hindi, Marathi, Nepali, Sanskrit |
+| `crnn-greek-v3` | Greek |
+| `crnn-thai-v3` | Thai |
+| `crnn-tamil-v3` | Tamil |
+| `crnn-telugu-v3` | Telugu |
+
+Ask the library which codes it can resolve, rather than keeping your own list:
+
+```csharp
+IEnumerable<string> codes = LocalOcr.GetSupportedLanguages();   // "en", "ko", "ja", "tr", ...
+```
+
+Region subtags are ignored (`"tr-TR"` resolves as `"tr"`). A code with no model falls back to the English
+recognizer and raises a trace warning naming the code — the English model cannot read another script, so
+its output for such text would otherwise look like a result.
 
 ## Configuration Options
 

@@ -41,15 +41,16 @@ internal static class DefaultRecognitionModels
     };
 
     /// <summary>
-    /// PaddleOCR Chinese Recognition (CRNN).
+    /// PaddleOCR Chinese/Japanese Recognition (CRNN). One model reads both: its dictionary carries
+    /// hiragana and katakana alongside the CJK ideographs, and the upstream model card lists Japanese.
     /// </summary>
     public static RecognitionModelInfo CrnnChineseV3 { get; } = new(
         RepoId: DefaultRepoId,
         AliasName: "crnn-chinese-v3",
-        DisplayName: "PaddleOCR Chinese Recognition",
+        DisplayName: "PaddleOCR Chinese/Japanese Recognition",
         ModelFile: "rec.onnx",
         DictFile: "dict.txt",
-        LanguageCodes: ["zh", "zh-cn", "zh-tw"])
+        LanguageCodes: ["zh", "zh-cn", "zh-tw", "ja"])
     {
         Subfolder = "languages/chinese"
     };
@@ -64,7 +65,12 @@ internal static class DefaultRecognitionModels
         DisplayName: "PaddleOCR Latin Recognition",
         ModelFile: "rec.onnx",
         DictFile: "dict.txt",
-        LanguageCodes: ["la", "es", "fr", "de", "it", "pt", "nl", "pl", "ro", "cs", "sv", "da", "no", "fi"])
+        // Every code below is backed by the model's dictionary: it holds each of that language's
+        // letters beyond ASCII (Turkish ş ğ ı, Hungarian ő ű, Icelandic þ ð, ...). Latvian, Welsh,
+        // Afrikaans, Uzbek and Vietnamese are left out - the dictionary lacks some of their letters.
+        // nb/nn/fil are the codes an OS locale reports for Norwegian and Filipino.
+        LanguageCodes: ["la", "es", "fr", "de", "it", "pt", "nl", "pl", "ro", "cs", "sk", "sv", "da", "no", "nb", "nn",
+            "fi", "is", "et", "lt", "hu", "hr", "bs", "sl", "sq", "ga", "tr", "id", "ms", "sw", "tl", "fil"])
     {
         Subfolder = "languages/latin"
     };
