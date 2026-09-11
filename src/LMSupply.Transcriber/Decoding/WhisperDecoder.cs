@@ -183,6 +183,22 @@ internal sealed class WhisperDecoder
     }
 
     /// <summary>
+    /// The decode loop's bound on the token sequence (prompt included): the prompt plus
+    /// <see cref="TranscribeOptions.MaxTokens"/> generated tokens, capped by the model's text context.
+    /// </summary>
+    internal static int ComputeTokenLimit(int contextLength, int promptLength, TranscribeOptions? options)
+    {
+        var maxTokens = options?.MaxTokens ?? contextLength;
+        if (maxTokens < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options), maxTokens, "TranscribeOptions.MaxTokens must be at least 1.");
+        }
+
+        return (int)Math.Min(contextLength, (long)promptLength + maxTokens);
+    }
+
+    /// <summary>
     /// Decodes encoder output to text using greedy search. The language token in the prompt comes
     /// from <see cref="TranscribeOptions.Language"/>, else from <paramref name="detectedLanguage"/>
     /// (see <see cref="DetectLanguageAsync"/>), else the prompt carries no language token and the
@@ -229,7 +245,8 @@ internal sealed class WhisperDecoder
         }
 
         // Autoregressive generation loop
-        while (tokens.Count < _maxLength)
+        var tokenLimit = ComputeTokenLimit(_maxLength, initialTokens.Length, options);
+        while (tokens.Count < tokenLimit)
         {
             cancellationToken.ThrowIfCancellationRequested();
 

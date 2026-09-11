@@ -30,6 +30,23 @@ public sealed class WhisperTrailingSentenceConformanceTests
     }
 
     [Fact]
+    public async Task MaxTokens_ShortensTheTranscript()
+    {
+        // MaxTokens was declared but never read; every window decoded to the model's context.
+        await using var model = await LocalTranscriber.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
+
+        var full = await model.TranscribeAsync(s_fixture, cancellationToken: TestContext.Current.CancellationToken);
+        var capped = await model.TranscribeAsync(
+            s_fixture,
+            new TranscribeOptions { MaxTokens = 8 },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        capped.Text.Should().NotBeNullOrWhiteSpace();
+        capped.Text.Length.Should().BeLessThan(full.Text.Length / 2, "eight tokens cannot hold four sentences");
+        full.Text.Should().StartWith(capped.Text.TrimEnd('.', ' '));
+    }
+
+    [Fact]
     public async Task SegmentTimestamps_SplitTheClipIntoOrderedSegments_EndingWithItsLastSentence()
     {
         // Before the reference timestamp rules, timestamp mode returned one segment spanning the whole

@@ -88,7 +88,9 @@ public sealed class TranscribeOptions
     public string? InitialPrompt { get; set; }
 
     /// <summary>
-    /// Gets or sets the maximum number of tokens to generate.
+    /// Gets or sets the maximum number of tokens to generate for each 30-second window.
+    /// The model's text context (448 tokens, prompt included) caps it, so values above what the
+    /// context leaves after the prompt have no further effect. Must be at least 1.
     /// <para>Default: 448</para>
     /// </summary>
     public int MaxTokens { get; set; } = 448;
@@ -108,7 +110,8 @@ public sealed class TranscribeOptions
 
     /// <summary>
     /// Gets or sets the compression ratio threshold.
-    /// Segments above this threshold may be retried with higher temperature.
+    /// Segments whose text compresses above this ratio (highly repetitive text, a typical sign of a
+    /// hallucination loop) are dropped. They are not re-decoded: there is no temperature fallback.
     /// <para>Default: 2.4</para>
     /// </summary>
     public float CompressionRatioThreshold { get; set; } = 2.4f;
