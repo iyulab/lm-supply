@@ -49,13 +49,18 @@ jobs:
             echo "SKIP=false" >> $GITHUB_OUTPUT
             echo "Force publish enabled, skipping version check"
           else
-            CORE_EXISTS=$(dotnet nuget search LMSupply.Core --source https://api.nuget.org/v3/index.json | grep -c "${{ steps.version.outputs.VERSION }}" || true)
-            if [ "$CORE_EXISTS" -gt "0" ]; then
+            # Ask the flat container for the exact nupkg: 200 means this version is already published.
+            # (`dotnet nuget search` is not a command in the current SDK; its failure was swallowed by
+            # `|| true` and read as "not found", so this check never skipped.)
+            VERSION="${{ steps.version.outputs.VERSION }}"
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              "https://api.nuget.org/v3-flatcontainer/lmsupply.core/${VERSION}/lmsupply.core.${VERSION}.nupkg")
+            if [ "$HTTP_STATUS" = "200" ]; then
               echo "SKIP=true" >> $GITHUB_OUTPUT
               echo "Version ${{ steps.version.outputs.VERSION }} already exists on NuGet"
             else
               echo "SKIP=false" >> $GITHUB_OUTPUT
-              echo "Version ${{ steps.version.outputs.VERSION }} is new, will publish"
+              echo "Version ${{ steps.version.outputs.VERSION }} is new (HTTP $HTTP_STATUS), will publish"
             fi
           fi
 
