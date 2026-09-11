@@ -18,9 +18,22 @@ public sealed class ModelPathResolver : IDisposable
     /// </summary>
     /// <param name="cacheDirectory">The directory to cache downloaded models.</param>
     public ModelPathResolver(string? cacheDirectory = null)
+        : this(cacheDirectory, localFilesOnly: false)
+    {
+    }
+
+    /// <summary>
+    /// Creates a model path resolver that may be restricted to the local cache.
+    /// </summary>
+    /// <param name="cacheDirectory">The directory to cache downloaded models.</param>
+    /// <param name="localFilesOnly">
+    /// When true, a model that is not already cached throws <see cref="ModelNotFoundException"/> instead of
+    /// being downloaded (see <see cref="HuggingFaceDownloader.LocalFilesOnly"/>).
+    /// </param>
+    public ModelPathResolver(string? cacheDirectory, bool localFilesOnly)
     {
         cacheDirectory ??= CacheManager.GetDefaultCacheDirectory();
-        _downloader = new HuggingFaceDownloader(cacheDirectory);
+        _downloader = new HuggingFaceDownloader(cacheDirectory, localFilesOnly);
     }
 
     /// <summary>

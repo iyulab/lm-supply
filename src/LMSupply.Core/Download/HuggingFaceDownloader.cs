@@ -13,6 +13,10 @@ public sealed class HuggingFaceDownloader : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly string _cacheDir;
+    private readonly bool _localFilesOnly;
+    // Set only through the test seam, so that discovery goes through the same fake transport and a
+    // test can count every request the downloader causes.
+    private readonly HttpMessageHandler? _discoveryHandler;
     private bool _disposed;
 
     private const string HuggingFaceBaseUrl = "https://huggingface.co";
@@ -25,23 +29,51 @@ public sealed class HuggingFaceDownloader : IDisposable
     public string CacheDirectory => _cacheDir;
 
     /// <summary>
+    /// Gets whether this downloader only reads the local cache. When true it makes no network request:
+    /// a model already in the cache is returned as usual, and one that is not throws
+    /// <see cref="ModelNotFoundException"/>.
+    /// </summary>
+    public bool LocalFilesOnly => _localFilesOnly;
+
+    /// <summary>
     /// Initializes a new HuggingFace downloader.
     /// </summary>
     /// <param name="cacheDir">Custom cache directory, or null to use default HuggingFace cache location.</param>
     public HuggingFaceDownloader(string? cacheDir = null)
+        : this(cacheDir, localFilesOnly: false)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new HuggingFace downloader that may be restricted to the local cache.
+    /// </summary>
+    /// <param name="cacheDir">Custom cache directory, or null to use default HuggingFace cache location.</param>
+    /// <param name="localFilesOnly">
+    /// When true, never download — the <c>local_files_only</c> mode of <c>huggingface_hub</c>. Files and
+    /// the repository's file list come from the cache alone; anything missing throws
+    /// <see cref="ModelNotFoundException"/> without a network request.
+    /// </param>
+    public HuggingFaceDownloader(string? cacheDir, bool localFilesOnly)
         : this(cacheDir, new HttpClientHandler
         {
             AllowAutoRedirect = true,
             MaxAutomaticRedirections = 10,
             AutomaticDecompression = DecompressionMethods.All
-        })
+        }, localFilesOnly, discoveryUsesHandler: false)
     {
     }
 
-    /// <summary>Test seam: the same downloader over a caller-supplied transport.</summary>
-    internal HuggingFaceDownloader(string? cacheDir, HttpMessageHandler handler)
+    /// <summary>Test seam: the same downloader over a caller-supplied transport, discovery included.</summary>
+    internal HuggingFaceDownloader(string? cacheDir, HttpMessageHandler handler, bool localFilesOnly = false)
+        : this(cacheDir, handler, localFilesOnly, discoveryUsesHandler: true)
+    {
+    }
+
+    private HuggingFaceDownloader(string? cacheDir, HttpMessageHandler handler, bool localFilesOnly, bool discoveryUsesHandler)
     {
         _cacheDir = cacheDir ?? CacheManager.GetDefaultCacheDirectory();
+        _localFilesOnly = localFilesOnly;
+        _discoveryHandler = discoveryUsesHandler ? handler : null;
 
         _httpClient = new HttpClient(handler)
         {
@@ -71,7 +103,7 @@ public sealed class HuggingFaceDownloader : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
 
-        using var discoveryService = new ModelDiscoveryService(_cacheDir);
+        using var discoveryService = CreateDiscoveryService();
         var discovery = await discoveryService.DiscoverModelAsync(repoId, preferences, revision, cancellationToken);
 
         var modelDir = CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
@@ -102,6 +134,10 @@ public sealed class HuggingFaceDownloader : IDisposable
 
             if (!File.Exists(localPath) || CacheManager.IsLfsPointerFile(localPath))
             {
+                // Every discovered file is part of the model (graph, external weights, config).
+                if (_localFilesOnly)
+                    throw NotCached(repoId, file, modelDir);
+
                 // Wrap progress to include multi-file context
                 var wrappedProgress = WrapProgress(progress, fileIndex, totalFileCount);
 
@@ -183,6 +219,17 @@ public sealed class HuggingFaceDownloader : IDisposable
             var localPath = Path.Combine(modelDir, file);
             if (!File.Exists(localPath) || CacheManager.IsLfsPointerFile(localPath))
             {
+                if (_localFilesOnly)
+                {
+                    if (IsCriticalFile(file))
+                        throw NotCached(repoId, file, modelDir);
+
+                    Trace.TraceWarning(
+                        $"[HuggingFaceDownloader] Optional file '{file}' for '{repoId}' is not in the local cache " +
+                        "and downloads are disabled; skipping it.");
+                    continue;
+                }
+
                 var wrappedProgress = WrapProgress(progress, fileIndex, totalFileCount);
 
                 var downloaded = await TryDownloadFileWithFallbackAsync(
@@ -349,6 +396,10 @@ public sealed class HuggingFaceDownloader : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(filename);
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
 
+        // This method always goes to the network; with local files only there is nothing it may do.
+        if (_localFilesOnly)
+            throw NotCached(repoId, filename, Path.GetDirectoryName(destinationPath) ?? destinationPath);
+
         // Ensure directory exists
         var dir = Path.GetDirectoryName(destinationPath);
         if (!string.IsNullOrEmpty(dir))
@@ -503,6 +554,14 @@ public sealed class HuggingFaceDownloader : IDisposable
             });
         }
     }
+
+    private ModelDiscoveryService CreateDiscoveryService() =>
+        _discoveryHandler is null
+            ? new ModelDiscoveryService(_cacheDir) { LocalFilesOnly = _localFilesOnly }
+            : new ModelDiscoveryService(_cacheDir, hfToken: null, _discoveryHandler) { LocalFilesOnly = _localFilesOnly };
+
+    private static ModelNotFoundException NotCached(string repoId, string file, string directory) =>
+        new($"'{file}' of model '{repoId}' is not in the local cache ({directory}) and downloads are disabled.", repoId);
 
     internal static IEnumerable<string> GetDefaultModelFiles()
     {

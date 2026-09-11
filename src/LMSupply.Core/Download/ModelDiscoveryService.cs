@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using LMSupply.Download;
 using LMSupply.Exceptions;
 
 namespace LMSupply.Core.Download;
@@ -93,15 +94,21 @@ public sealed class ModelDiscoveryService : IDisposable
     /// <param name="cacheDir">Optional cache directory for storing discovery results.</param>
     /// <param name="hfToken">Optional HuggingFace API token for private repositories.</param>
     public ModelDiscoveryService(string? cacheDir = null, string? hfToken = null)
+        : this(cacheDir, hfToken, new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All }, disposeHandler: true)
+    {
+    }
+
+    /// <summary>Test seam: discovery over a caller-owned transport, which this service does not dispose.</summary>
+    internal ModelDiscoveryService(string? cacheDir, string? hfToken, HttpMessageHandler handler)
+        : this(cacheDir, hfToken, handler, disposeHandler: false)
+    {
+    }
+
+    private ModelDiscoveryService(string? cacheDir, string? hfToken, HttpMessageHandler handler, bool disposeHandler)
     {
         _cacheDir = cacheDir;
 
-        var handler = new HttpClientHandler
-        {
-            AutomaticDecompression = DecompressionMethods.All
-        };
-
-        _httpClient = new HttpClient(handler)
+        _httpClient = new HttpClient(handler, disposeHandler)
         {
             Timeout = TimeSpan.FromSeconds(30)
         };
@@ -132,8 +139,11 @@ public sealed class ModelDiscoveryService : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
 
+        if (LocalFilesOnly)
+            return await ListCachedFilesAsync(repoId, revision, cancellationToken);
+
         // Check cache first
-        var cached = await TryLoadFromCacheAsync(repoId, revision, cancellationToken);
+        var cached = await TryLoadFromCacheAsync(repoId, revision, ignoreExpiry: false, cancellationToken);
         if (cached is not null)
             return cached;
 
@@ -935,9 +945,39 @@ public sealed class ModelDiscoveryService : IDisposable
         return Path.Combine(_cacheDir, ".discovery-cache", $"{sanitizedRepo}_{revision}.json");
     }
 
+    /// <summary>
+    /// When true, the repository's file list comes from the local cache only and no request is made. Set
+    /// by a <see cref="HuggingFaceDownloader"/> created with <c>localFilesOnly</c>.
+    /// </summary>
+    internal bool LocalFilesOnly { get; init; }
+
+    // Local files only: the cached file list at any age — its 24-hour expiry exists to pick up changes to
+    // the repository, which cannot be fetched now — and failing that, the manifest the downloader wrote
+    // beside the files. With neither, the model was never downloaded into this cache.
+    private async Task<IReadOnlyList<RepoFile>> ListCachedFilesAsync(
+        string repoId,
+        string revision,
+        CancellationToken cancellationToken)
+    {
+        var cached = await TryLoadFromCacheAsync(repoId, revision, ignoreExpiry: true, cancellationToken);
+        if (cached is not null)
+            return cached;
+
+        if (_cacheDir is not null)
+        {
+            var manifest = await DownloadManifest.ReadAsync(CacheManager.GetModelDirectory(_cacheDir, repoId, revision));
+            if (manifest is { Files.Count: > 0 })
+                return [.. manifest.Files.Select(f => new RepoFile { Path = f.Path, Type = "file", Size = f.Size })];
+        }
+
+        throw new ModelNotFoundException(
+            $"Model '{repoId}' is not in the local cache and downloads are disabled.", repoId);
+    }
+
     private async Task<IReadOnlyList<RepoFile>?> TryLoadFromCacheAsync(
         string repoId,
         string revision,
+        bool ignoreExpiry,
         CancellationToken cancellationToken)
     {
         var cachePath = GetCachePath(repoId, revision);
@@ -948,7 +988,7 @@ public sealed class ModelDiscoveryService : IDisposable
         {
             var fileInfo = new FileInfo(cachePath);
             // Cache expires after 24 hours
-            if (DateTime.UtcNow - fileInfo.LastWriteTimeUtc > TimeSpan.FromHours(24))
+            if (!ignoreExpiry && DateTime.UtcNow - fileInfo.LastWriteTimeUtc > TimeSpan.FromHours(24))
                 return null;
 
             await using var stream = File.OpenRead(cachePath);
