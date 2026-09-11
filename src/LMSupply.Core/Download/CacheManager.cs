@@ -71,9 +71,61 @@ public static class CacheManager
     /// Checks if a model file exists in the cache.
     /// </summary>
     public static bool ModelFileExists(string cacheDir, string repoId, string fileName, string revision = "main")
+        => IsCachedFile(GetModelFilePath(cacheDir, repoId, fileName, revision));
+
+    /// <summary>
+    /// Lists which of <paramref name="files"/> a download of <paramref name="repoId"/> would still have to
+    /// fetch: the files that are not in the cache, or are cached only as Git LFS pointers.
+    /// </summary>
+    /// <remarks>
+    /// The answer comes from the directory layout and the presence test <see cref="HuggingFaceDownloader"/>
+    /// applies before it fetches a file, so an empty result means a load of these files makes no request.
+    /// It makes none itself.
+    /// </remarks>
+    /// <param name="cacheDir">The base cache directory.</param>
+    /// <param name="repoId">The HuggingFace repository ID.</param>
+    /// <param name="files">File names, relative to <paramref name="subfolder"/> when one is given.</param>
+    /// <param name="subfolder">Optional subfolder within the repository (e.g., "languages/korean").</param>
+    /// <param name="revision">The revision/branch (default: "main").</param>
+    /// <returns>The file names that are not cached, in the order given.</returns>
+    public static IReadOnlyList<string> GetMissingFiles(
+        string cacheDir,
+        string repoId,
+        IEnumerable<string> files,
+        string? subfolder = null,
+        string revision = "main")
     {
-        var filePath = GetModelFilePath(cacheDir, repoId, fileName, revision);
-        return File.Exists(filePath) && !IsLfsPointerFile(filePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(cacheDir);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
+        ArgumentNullException.ThrowIfNull(files);
+
+        var directory = GetSubfolderDirectory(GetModelDirectory(cacheDir, repoId, revision), subfolder);
+        return files.Where(file => !IsCachedFile(Path.Combine(directory, file))).ToList();
+    }
+
+    /// <summary>
+    /// Whether a file holds real content: present, and not a Git LFS pointer. The downloader fetches a
+    /// file exactly when this is false.
+    /// </summary>
+    internal static bool IsCachedFile(string filePath) => File.Exists(filePath) && !IsLfsPointerFile(filePath);
+
+    /// <summary>
+    /// The local directory for a repository subfolder: the snapshot root when there is none, otherwise
+    /// the subfolder's own directory beneath it. Refuses a subfolder that resolves outside the snapshot.
+    /// </summary>
+    internal static string GetSubfolderDirectory(string snapshotDir, string? subfolder)
+    {
+        if (string.IsNullOrEmpty(subfolder))
+            return snapshotDir;
+
+        var root = Path.GetFullPath(snapshotDir);
+        var dir = Path.GetFullPath(Path.Combine(root, subfolder.Replace('/', Path.DirectorySeparatorChar)));
+        var rootWithSeparator = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
+
+        if (!dir.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Path traversal detected in subfolder: {subfolder}");
+
+        return dir;
     }
 
     /// <summary>

@@ -106,7 +106,51 @@ public static class LocalOcr
         options.LanguageHint = languageCode;
 
         var recognitionModel = OcrRecognitionModelRegistry.Default.ResolveForLanguage(languageCode).AliasName;
-        return await LoadAsync("default", recognitionModel, options, progress, cancellationToken).ConfigureAwait(false);
+        return await LoadAsync(DefaultDetectionModel, recognitionModel, options, progress, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reports whether the model files <see cref="LoadForLanguageAsync"/> needs for a language are in the
+    /// local cache — whether loading it would download anything. Makes no network request.
+    /// </summary>
+    /// <remarks>
+    /// The files are the ones the loader fetches — the default detection model, plus the language's
+    /// recognizer and its dictionary — checked with the downloader's own cache test. A language shares its
+    /// recognizer with others of the same script, so it can be cached without having been loaded itself.
+    /// To make a load fail instead of downloading, set <see cref="OcrOptions.DisableAutoDownload"/>.
+    /// </remarks>
+    /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh", "ja").</param>
+    /// <param name="cacheDirectory">The cache directory; the default HuggingFace cache when null.</param>
+    /// <returns>Each needed file and whether it is cached.</returns>
+    public static OcrCacheStatus GetCacheStatusForLanguage(string languageCode, string? cacheDirectory = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageCode);
+        var cacheDir = cacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+
+        var detection = OcrDetectionModelRegistry.Default.Resolve(DefaultDetectionModel);
+        var recognition = OcrRecognitionModelRegistry.Default.ResolveForLanguage(languageCode);
+
+        OcrModelFile[] files =
+        [
+            .. Probe(cacheDir, detection.RepoId, detection.Subfolder, RequiredFiles(detection)),
+            .. Probe(cacheDir, recognition.RepoId, recognition.Subfolder, RequiredFiles(recognition)),
+        ];
+
+        return new OcrCacheStatus(languageCode, recognition.AliasName, files);
+    }
+
+    // The detection model a language load uses. The probe and the loader share it so they cannot disagree.
+    private const string DefaultDetectionModel = "default";
+
+    // The files a registered model is loaded from — what the loader downloads and what the probe checks.
+    private static string[] RequiredFiles(DetectionModelInfo model) => [model.ModelFile];
+
+    private static string[] RequiredFiles(RecognitionModelInfo model) => [model.ModelFile, model.DictFile];
+
+    private static IEnumerable<OcrModelFile> Probe(string cacheDir, string repoId, string? subfolder, string[] files)
+    {
+        var missing = CacheManager.GetMissingFiles(cacheDir, repoId, files, subfolder);
+        return files.Select(file => new OcrModelFile(repoId, subfolder, file, !missing.Contains(file)));
     }
 
     /// <summary>
@@ -148,11 +192,11 @@ public static class LocalOcr
         if (OcrDetectionModelRegistry.Default.TryResolve(modelIdOrPath, out var knownModel) && knownModel is not null)
         {
             var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-            using var downloader = new HuggingFaceDownloader(cacheDir);
+            using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
             var modelDir = await downloader.DownloadModelAsync(
                 knownModel.RepoId,
-                files: [knownModel.ModelFile],
+                files: RequiredFiles(knownModel),
                 subfolder: knownModel.Subfolder,
                 progress: progress,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -211,11 +255,11 @@ public static class LocalOcr
         if (OcrRecognitionModelRegistry.Default.TryResolve(modelIdOrPath, out var knownModel) && knownModel is not null)
         {
             var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-            using var downloader = new HuggingFaceDownloader(cacheDir);
+            using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
             var modelDir = await downloader.DownloadModelAsync(
                 knownModel.RepoId,
-                files: [knownModel.ModelFile, knownModel.DictFile],
+                files: RequiredFiles(knownModel),
                 subfolder: knownModel.Subfolder,
                 progress: progress,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -263,7 +307,7 @@ public static class LocalOcr
         CancellationToken cancellationToken)
     {
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-        using var downloader = new HuggingFaceDownloader(cacheDir);
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
         // Common detection model file patterns
         string[] detectionPatterns = ["det.onnx", "detection.onnx", "text_detection.onnx", "detector.onnx"];
@@ -306,7 +350,7 @@ public static class LocalOcr
         {
             throw new ModelNotFoundException(
                 $"No detection model found in HuggingFace repository '{repoId}'. " +
-                $"Expected one of: {string.Join(", ", detectionPatterns)}",
+                $"Expected one of: {string.Join(", ", detectionPatterns)}" + OfflineNote(options),
                 repoId);
         }
 
@@ -336,7 +380,7 @@ public static class LocalOcr
         CancellationToken cancellationToken)
     {
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-        using var downloader = new HuggingFaceDownloader(cacheDir);
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
         // Parse repo ID for language hint (e.g., "org/paddleocr-japanese" -> try japanese subfolder)
         var repoName = repoId.Split('/').Last().ToLowerInvariant();
@@ -399,7 +443,7 @@ public static class LocalOcr
         {
             throw new ModelNotFoundException(
                 $"No recognition model found in HuggingFace repository '{repoId}'. " +
-                $"Expected model file ({string.Join(", ", recognitionPatterns)}) and dictionary file ({string.Join(", ", dictPatterns)})",
+                $"Expected model file ({string.Join(", ", recognitionPatterns)}) and dictionary file ({string.Join(", ", dictPatterns)})" + OfflineNote(options),
                 repoId);
         }
 
@@ -417,6 +461,11 @@ public static class LocalOcr
 
         return (modelInfo, modelPath, dictPath);
     }
+
+    // Repository searches try many file names and swallow each miss; offline, "not found" means "not cached".
+    private static string OfflineNote(OcrOptions options) => options.DisableAutoDownload
+        ? ". Downloads are disabled (DisableAutoDownload), so only the local cache was searched."
+        : string.Empty;
 
     /// <summary>
     /// Gets possible subfolder names for a language code.

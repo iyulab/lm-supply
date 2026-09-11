@@ -86,11 +86,30 @@ var options = new OcrOptions
     UnclipRatio = 1.5f,             // Polygon expansion ratio
     UsePolygon = true,              // Use polygon coordinates
     Provider = ExecutionProvider.Auto,  // GPU acceleration
-    CacheDirectory = null           // Custom cache directory
+    CacheDirectory = null,          // Custom cache directory
+    DisableAutoDownload = false     // true: load only from the cache, throw if a file is missing
 };
 
 await using var ocr = await LocalOcr.LoadAsync(options: options);
 ```
+
+## Checking the Cache Before Loading
+
+Loading a language downloads whatever it needs that is not cached. To ask first — before a download
+the user has not agreed to — check the language's cache status. It makes no network request:
+
+```csharp
+var status = LocalOcr.GetCacheStatusForLanguage("ko");
+if (!status.IsCached)
+{
+    foreach (var file in status.Missing)
+        Console.WriteLine($"Would download {file.RepoId}/{file.Subfolder}/{file.FileName}");
+}
+```
+
+The files checked are the ones `LoadForLanguageAsync` loads: the detection model plus the language's
+recognizer and dictionary. Languages of one script share a recognizer, so having English cached says
+nothing about Korean. `DisableAutoDownload = true` makes a load throw instead of downloading.
 
 ## Detection Only
 

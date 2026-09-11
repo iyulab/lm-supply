@@ -12,6 +12,14 @@ public sealed class OcrOptions : LMSupplyOptionsBase
     public string LanguageHint { get; set; } = "en";
 
     /// <summary>
+    /// Gets or sets whether to disable automatic model download.
+    /// When true, loading uses only the local cache and throws <see cref="LMSupply.Exceptions.ModelNotFoundException"/>
+    /// if a model file is not there. <see cref="LocalOcr.GetCacheStatusForLanguage"/> tells in advance whether it is.
+    /// <para>Default: false</para>
+    /// </summary>
+    public bool DisableAutoDownload { get; set; }
+
+    /// <summary>
     /// Minimum confidence threshold for text detection.
     /// Detections below this threshold are discarded.
     /// Default is 0.5.

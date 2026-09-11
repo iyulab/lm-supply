@@ -132,7 +132,7 @@ public sealed class HuggingFaceDownloader : IDisposable
                 Directory.CreateDirectory(parentDir);
             }
 
-            if (!File.Exists(localPath) || CacheManager.IsLfsPointerFile(localPath))
+            if (!CacheManager.IsCachedFile(localPath))
             {
                 // Every discovered file is part of the model (graph, external weights, config).
                 if (_localFilesOnly)
@@ -205,7 +205,7 @@ public sealed class HuggingFaceDownloader : IDisposable
         // them all to the snapshot root let the second find the first's file, skip its own download,
         // and run the wrong model.
         var snapshotDir = CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
-        var modelDir = ResolveSubfolderDirectory(snapshotDir, subfolder);
+        var modelDir = CacheManager.GetSubfolderDirectory(snapshotDir, subfolder);
         Directory.CreateDirectory(modelDir);
 
         // Default files if not specified
@@ -217,7 +217,7 @@ public sealed class HuggingFaceDownloader : IDisposable
         {
             fileIndex++;
             var localPath = Path.Combine(modelDir, file);
-            if (!File.Exists(localPath) || CacheManager.IsLfsPointerFile(localPath))
+            if (!CacheManager.IsCachedFile(localPath))
             {
                 if (_localFilesOnly)
                 {
@@ -279,25 +279,6 @@ public sealed class HuggingFaceDownloader : IDisposable
         await DownloadManifest.WriteAsync(modelDir, downloadedManifest);
 
         return modelDir;
-    }
-
-    /// <summary>
-    /// The local directory for a repository subfolder: the snapshot root when there is none, otherwise
-    /// the subfolder's own directory beneath it. Refuses a subfolder that resolves outside the snapshot.
-    /// </summary>
-    private static string ResolveSubfolderDirectory(string snapshotDir, string? subfolder)
-    {
-        if (string.IsNullOrEmpty(subfolder))
-            return snapshotDir;
-
-        var root = Path.GetFullPath(snapshotDir);
-        var dir = Path.GetFullPath(Path.Combine(root, subfolder.Replace('/', Path.DirectorySeparatorChar)));
-        var rootWithSeparator = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
-
-        if (!dir.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException($"Path traversal detected in subfolder: {subfolder}");
-
-        return dir;
     }
 
     /// <summary>

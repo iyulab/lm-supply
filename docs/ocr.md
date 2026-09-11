@@ -150,7 +150,8 @@ var options = new OcrOptions
     UnclipRatio = 1.5f,             // Polygon expansion ratio
     UsePolygon = true,              // Use polygon coordinates
     Provider = ExecutionProvider.Auto,  // GPU acceleration
-    CacheDirectory = null           // Custom cache directory
+    CacheDirectory = null,          // Custom cache directory
+    DisableAutoDownload = false     // true: load only from the cache, throw if a file is missing
 };
 
 await using var ocr = await LocalOcr.LoadAsync(options: options);
@@ -234,3 +235,20 @@ Models are cached following HuggingFace Hub conventions:
 - Default: `~/.cache/huggingface/hub`
 - Override via: `HF_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME` environment variables
 - Or set `OcrOptions.CacheDirectory`
+
+Each recognizer lives in its own subfolder of the repository and is downloaded the first time a language
+of its script is loaded. To find out beforehand whether a load would download anything — without making a
+network request — ask for the language's cache status:
+
+```csharp
+var status = LocalOcr.GetCacheStatusForLanguage("ko", cacheDirectory: null);
+if (!status.IsCached)
+{
+    foreach (var file in status.Missing)
+        Console.WriteLine($"Would download {file.RepoId}/{file.Subfolder}/{file.FileName}");
+}
+```
+
+The status lists the files `LoadForLanguageAsync` loads (the detection model, the recognizer, its
+dictionary), checked the way the downloader checks them. Set `OcrOptions.DisableAutoDownload = true` to make
+a load throw `ModelNotFoundException` instead of downloading.
