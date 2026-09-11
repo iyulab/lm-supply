@@ -317,7 +317,7 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
     private async Task<string> ResolveModelPathAsync(CancellationToken cancellationToken)
     {
         // Use centralized ModelPathResolver for consistent subfolder handling
-        using var resolver = new ModelPathResolver(_options.CacheDirectory);
+        using var resolver = new ModelPathResolver(_options.CacheDirectory, localFilesOnly: _options.DisableAutoDownload);
 
         var result = await resolver.ResolveModelAsync(
             _modelInfo.Id,
