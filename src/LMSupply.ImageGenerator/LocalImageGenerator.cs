@@ -135,7 +135,7 @@ public static class LocalImageGenerator
         IProgress<float>? progress,
         CancellationToken cancellationToken)
     {
-        using var downloader = new HuggingFaceDownloader(options.CacheDirectory);
+        using var downloader = new HuggingFaceDownloader(options.CacheDirectory, localFilesOnly: options.DisableAutoDownload);
 
         // Track download progress
         var progressAdapter = progress != null

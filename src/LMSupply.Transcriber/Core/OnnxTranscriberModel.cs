@@ -528,7 +528,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
 
         // Download from HuggingFace using discovery for complete file set
         var cacheDir = _options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-        using var downloader = new HuggingFaceDownloader(cacheDir);
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: _options.DisableAutoDownload);
 
         // Build hardware-aware preferences with onnx subfolder for Whisper models
         var hwPrefs = ModelPreferences.ForCurrentHardware();

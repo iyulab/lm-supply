@@ -685,6 +685,15 @@ Models are cached following HuggingFace Hub conventions:
 - **Environment variables**: `HF_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME`
 - **Manual override**: `new EmbedderOptions { CacheDirectory = "/path/to/cache" }`
 
+### Offline / air-gapped use
+
+Set `DisableAutoDownload = true` on a package's options to serve models from the cache only: a model
+that is not cached throws `ModelNotFoundException`, and no network request is made — including for a
+model cached long ago, whose repository file list is read from the cache rather than fetched again.
+The same mode is available directly as `new HuggingFaceDownloader(cacheDir, localFilesOnly: true)` and
+`new ModelPathResolver(cacheDir, localFilesOnly: true)` (the `local_files_only` mode of `huggingface_hub`).
+Populate the cache once on a connected machine (e.g. `LocalReranker.DownloadModelAsync`) and copy it over.
+
 ### Non-HF Artifacts (runtimes, llama-server builds)
 
 Non-model artifacts — ONNX runtime packages and llama-server builds — are deliberately kept

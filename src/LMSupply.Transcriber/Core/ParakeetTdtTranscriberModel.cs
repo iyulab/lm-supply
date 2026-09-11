@@ -333,7 +333,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel
             return _modelInfo.Id;
 
         var cacheDir = _options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-        using var downloader = new HuggingFaceDownloader(cacheDir);
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: _options.DisableAutoDownload);
         // 파일을 명시한다 — 이 저장소는 저장소 루트에 두 양자화 변형을 나란히 두므로 discovery의 whisper용 «onnx 하위 폴더» 규칙이 맞지 않는다.
         return await downloader.DownloadModelAsync(
             _modelInfo.Id,

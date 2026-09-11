@@ -708,7 +708,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     {
         // Use centralized ModelPathResolver for consistent subfolder handling.
         // Variant suffix stripping (e.g., "owner/repo:variant") is handled by ModelPathResolver.
-        using var resolver = new ModelPathResolver(_options.CacheDirectory);
+        using var resolver = new ModelPathResolver(_options.CacheDirectory, localFilesOnly: _options.DisableAutoDownload);
 
         var result = await resolver.ResolveModelAsync(
             _modelInfo.Id,

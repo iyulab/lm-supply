@@ -32,14 +32,6 @@ public class OptionsReachabilityRosterTests
     // Each entry has an open issue draft: wire the option, or remove it as a deliberate decision.
     private static readonly Dictionary<string, string[]> KnownUnread = new(StringComparer.Ordinal)
     {
-        // DisableAutoDownload: the Core downloader has no offline mode to pass it to (issue draft
-        // "DisableAutoDownload ignored in five modules").
-        ["LMSupply.Detector.DetectorOptions"] = ["DisableAutoDownload"],
-        ["LMSupply.ImageGenerator.ImageGeneratorOptions"] = ["DisableAutoDownload"],
-        ["LMSupply.Segmenter.SegmenterOptions"] = ["DisableAutoDownload"],
-        ["LMSupply.Transcriber.TranscriberOptions"] = ["DisableAutoDownload"],
-        ["LMSupply.Translator.TranslatorOptions"] = ["DisableAutoDownload"],
-
         // No beam search and no prompt encoder (issue draft "TranscribeOptions knobs that do nothing").
         ["LMSupply.Transcriber.TranscribeOptions"] = ["BeamWidth", "InitialPrompt"],
 

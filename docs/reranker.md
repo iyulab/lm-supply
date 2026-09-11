@@ -127,7 +127,8 @@ var options = new RerankerOptions
     // Number of inference threads (null = auto)
     ThreadCount = null,
 
-    // Disable automatic model download
+    // Read the local cache only: a model that is not cached throws ModelNotFoundException
+    // instead of being downloaded, and no network request is made
     DisableAutoDownload = false,
 
     // Custom cache directory

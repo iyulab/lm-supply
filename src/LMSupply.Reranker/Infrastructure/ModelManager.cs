@@ -10,21 +10,23 @@ internal sealed class ModelManager : IDisposable
 {
     private readonly HuggingFaceDownloader _downloader;
     private readonly string _cacheDir;
-    private readonly bool _autoDownloadEnabled;
     private bool _disposed;
 
     /// <summary>
     /// Initializes a new ModelManager instance.
     /// </summary>
     /// <param name="cacheDirectory">Custom cache directory, or null for default.</param>
-    /// <param name="autoDownload">Whether to automatically download missing models.</param>
+    /// <param name="autoDownload">
+    /// Whether to download missing models. When false the downloader reads the local cache only
+    /// (<see cref="HuggingFaceDownloader.LocalFilesOnly"/>) and a missing model throws
+    /// <see cref="ModelNotFoundException"/>.
+    /// </param>
     public ModelManager(
         string? cacheDirectory = null,
         bool autoDownload = true)
     {
         _cacheDir = cacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-        _downloader = new HuggingFaceDownloader(_cacheDir);
-        _autoDownloadEnabled = autoDownload;
+        _downloader = new HuggingFaceDownloader(_cacheDir, localFilesOnly: !autoDownload);
     }
 
     /// <summary>
@@ -65,14 +67,8 @@ internal sealed class ModelManager : IDisposable
             return new ModelPaths(modelPath, tokenizerPath);
         }
 
-        if (!_autoDownloadEnabled)
-        {
-            throw new ModelNotFoundException(
-                $"Model '{modelInfo.Id}' not found in cache and auto-download is disabled.",
-                modelInfo.Id);
-        }
-
-        // Download required files
+        // Download required files — with auto-download disabled the downloader reads the cache only, so
+        // a missing graph throws ModelNotFoundException there and a missing tokenizer is caught below.
         var filesToDownload = new List<string>();
         if (!modelExists) filesToDownload.Add(modelInfo.OnnxFile);
         if (!tokenizerExists) filesToDownload.Add(modelInfo.TokenizerFile);
@@ -108,7 +104,13 @@ internal sealed class ModelManager : IDisposable
 
         if (!File.Exists(tokenizerPath))
         {
-            throw new ModelDownloadException($"Tokenizer file was not downloaded successfully.", modelInfo.Id);
+            // The downloader treats a tokenizer as optional (only graphs are required), but this model
+            // cannot run without one.
+            throw _downloader.LocalFilesOnly
+                ? new ModelNotFoundException(
+                    $"Tokenizer '{modelInfo.TokenizerFile}' of model '{modelInfo.Id}' is not in the local cache and downloads are disabled.",
+                    modelInfo.Id)
+                : new ModelDownloadException($"Tokenizer file was not downloaded successfully.", modelInfo.Id);
         }
 
         return new ModelPaths(modelPath, tokenizerPath);

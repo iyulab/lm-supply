@@ -364,8 +364,8 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
             return parentDir;
         }
 
-        // Download from HuggingFace
-        using var downloader = new HuggingFaceDownloader(_options.CacheDirectory);
+        // Download from HuggingFace — or, with DisableAutoDownload, read the cache only
+        using var downloader = new HuggingFaceDownloader(_options.CacheDirectory, localFilesOnly: _options.DisableAutoDownload);
 
         if (_modelInfo.UseAutoDiscovery)
         {

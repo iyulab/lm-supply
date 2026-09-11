@@ -226,6 +226,13 @@ public int BatchSize { get; set; } = 32;
 public bool DisableAutoDownload { get; set; } = false;
 ```
 
+`DisableAutoDownload = true` means the model is served from the local cache only: a model that is
+not cached throws `ModelNotFoundException`, and no network request is made. Implement it by passing
+the option to the shared downloader — `new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload)`
+(or `new ModelPathResolver(cacheDir, localFilesOnly: ...)`) — rather than checking the cache in the
+package. An option declared here and not passed on is caught by the options roster test
+(`tests/LMSupply.Integration.Tests/OptionsReachabilityRosterTests.cs`).
+
 ---
 
 ## 5. Model Aliases

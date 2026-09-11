@@ -233,7 +233,7 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
             return parentDir;
         }
 
-        using var downloader = new HuggingFaceDownloader(_options.CacheDirectory);
+        using var downloader = new HuggingFaceDownloader(_options.CacheDirectory, localFilesOnly: _options.DisableAutoDownload);
 
         var modelDir = await downloader.DownloadModelAsync(
             _modelInfo.Id,
