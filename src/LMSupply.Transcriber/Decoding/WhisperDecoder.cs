@@ -493,7 +493,120 @@ internal sealed class WhisperDecoder
             }
         }
 
+        if (options?.WordTimestamps == true)
+        {
+            ApplyTimestampRules(logits, tokens, initialTokens);
+        }
+
         return ArgMax(logits);
+    }
+
+    // The latest a transcript may start: the reference decoder's max_initial_timestamp (1.0 s), as a
+    // timestamp-token index (20 ms per token).
+    private const int MaxInitialTimestampIndex = 50;
+
+    /// <summary>
+    /// The reference decoder's timestamp rules (openai/whisper <c>ApplyTimestampRules</c>), applied when
+    /// segment timestamps are requested. A greedy decoder left alone almost never picks a timestamp after
+    /// the first one, so without these "timestamp mode" produced one segment spanning the whole window.
+    /// Rules: the no-timestamps token is never selected; timestamps come in pairs (after a pair, text;
+    /// after a closing timestamp, not text); timestamps never go backwards and a segment cannot be empty;
+    /// the first token is a timestamp within the first second; and when the timestamps together carry
+    /// more probability than the single best text token, a timestamp is taken.
+    /// </summary>
+    internal void ApplyTimestampRules(float[] logits, List<int> tokens, int[] initialTokens)
+    {
+        var timestampBegin = _tokenizer.TimestampBeginToken;
+        var eot = _tokenizer.EndOfTextToken;
+        if (timestampBegin >= logits.Length)
+        {
+            return;
+        }
+
+        var noTimestamps = _tokenizer.NoTimestampsToken;
+        if (noTimestamps < logits.Length)
+        {
+            logits[noTimestamps] = float.NegativeInfinity;
+        }
+
+        var sampleBegin = initialTokens.Length;
+        var sampled = tokens.Count - sampleBegin;
+        var lastWasTimestamp = sampled >= 1 && tokens[^1] >= timestampBegin;
+        var penultimateWasTimestamp = sampled < 2 || tokens[^2] >= timestampBegin;
+
+        if (lastWasTimestamp)
+        {
+            if (penultimateWasTimestamp)
+            {
+                SuppressRange(logits, timestampBegin, logits.Length); // after a pair: text (or end of text)
+            }
+            else
+            {
+                SuppressRange(logits, 0, eot); // after a closing timestamp: no text
+            }
+        }
+
+        var lastTimestamp = -1;
+        for (var i = tokens.Count - 1; i >= sampleBegin; i--)
+        {
+            if (tokens[i] >= timestampBegin)
+            {
+                lastTimestamp = tokens[i];
+                break;
+            }
+        }
+
+        if (lastTimestamp >= 0)
+        {
+            // Never backwards; and unless this timestamp closes a segment, strictly forwards, so a
+            // segment cannot have zero length (which would let the decoder loop on empty segments).
+            var floor = lastWasTimestamp && !penultimateWasTimestamp ? lastTimestamp : lastTimestamp + 1;
+            SuppressRange(logits, timestampBegin, Math.Min(floor, logits.Length));
+        }
+
+        if (sampled == 0)
+        {
+            SuppressRange(logits, 0, timestampBegin);
+            SuppressRange(logits, Math.Min(timestampBegin + MaxInitialTimestampIndex + 1, logits.Length), logits.Length);
+        }
+
+        // Probability mass. Both sides of the comparison share the softmax normaliser, so it cancels:
+        // compare log(sum(exp(timestamp logits))) with the best text logit directly.
+        var max = float.NegativeInfinity;
+        for (var i = 0; i < logits.Length; i++)
+        {
+            if (logits[i] > max) max = logits[i];
+        }
+
+        if (float.IsNegativeInfinity(max))
+        {
+            return;
+        }
+
+        double timestampSum = 0;
+        for (var i = timestampBegin; i < logits.Length; i++)
+        {
+            timestampSum += Math.Exp(logits[i] - max);
+        }
+
+        var maxText = float.NegativeInfinity;
+        for (var i = 0; i < timestampBegin; i++)
+        {
+            if (logits[i] > maxText) maxText = logits[i];
+        }
+
+        if (timestampSum > 0 && Math.Log(timestampSum) + max > maxText)
+        {
+            SuppressRange(logits, 0, timestampBegin);
+        }
+    }
+
+    private static void SuppressRange(float[] logits, int from, int to)
+    {
+        for (var i = Math.Max(0, from); i < to; i++)
+        {
+            logits[i] = float.NegativeInfinity;
+        }
     }
 
     /// <summary>

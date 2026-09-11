@@ -28,4 +28,31 @@ public sealed class WhisperTrailingSentenceConformanceTests
         result.Text.Should().Contain("the budget sheet",
             "an article repeated a few tokens later is not a hallucination loop");
     }
+
+    [Fact]
+    public async Task SegmentTimestamps_SplitTheClipIntoOrderedSegments_EndingWithItsLastSentence()
+    {
+        // Before the reference timestamp rules, timestamp mode returned one segment spanning the whole
+        // window — its end said nothing about where the speech in it stopped.
+        await using var model = await LocalTranscriber.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
+
+        var result = await model.TranscribeAsync(
+            s_fixture,
+            new TranscribeOptions { WordTimestamps = true },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.Segments.Should().HaveCountGreaterThanOrEqualTo(3, "the clip is four sentences");
+        for (var i = 0; i < result.Segments.Count; i++)
+        {
+            result.Segments[i].End.Should().BeGreaterThan(result.Segments[i].Start);
+            if (i > 0)
+            {
+                result.Segments[i].Start.Should().BeGreaterThanOrEqualTo(result.Segments[i - 1].End);
+            }
+        }
+
+        result.Segments[^1].Text.Should().Contain("Tuesday");
+        result.DurationSeconds.Should().NotBeNull();
+        result.Segments[^1].End.Should().BeLessThanOrEqualTo(result.DurationSeconds!.Value + 0.05);
+    }
 }
