@@ -104,6 +104,19 @@ exist — the prompt simply omitted the language token, which decoded non-Englis
 Trailing audio shorter than 500 ms after the last full 30-second window is not decoded on its own:
 zero-padded to a full window it is mostly silence, and Whisper hallucinates text into silence.
 
+### Initial prompt
+
+`InitialPrompt` is text the model reads as what came before the audio. Use it for names, terms and
+spelling the transcript should follow — the standard way to raise recognition of proper nouns and jargon:
+
+```csharp
+var options = new TranscribeOptions { InitialPrompt = "Attendees: Meena, Joon. Agenda: Q3 OKRs." };
+```
+
+It is encoded with the model's BPE merges and placed before the start-of-transcript token behind
+`<|startofprev|>`, as Whisper does, for every 30-second window; only its last 223 tokens are used. It
+guides rather than forces: the audio still decides. Before v0.64.0 the option was accepted and ignored.
+
 ### Temperature and fallback
 
 Each 30-second window is first decoded at `Temperature` — 0 (the default) is greedy, above 0 samples

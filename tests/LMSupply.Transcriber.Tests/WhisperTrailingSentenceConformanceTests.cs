@@ -47,6 +47,24 @@ public sealed class WhisperTrailingSentenceConformanceTests
     }
 
     [Fact]
+    public async Task InitialPrompt_SteersTheSpellingOfNames()
+    {
+        // InitialPrompt was accepted and ignored. A prompt is how Whisper learns how names are spelled:
+        // the clip says "Mina" and "June"; a prompt naming "Meena" and "Joon" should change the transcript.
+        await using var model = await LocalTranscriber.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
+
+        var plain = await model.TranscribeAsync(s_fixture, cancellationToken: TestContext.Current.CancellationToken);
+        var prompted = await model.TranscribeAsync(
+            s_fixture,
+            new TranscribeOptions { InitialPrompt = "Meeting notes. Attendees: Meena, Joon." },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        prompted.Text.Should().NotBe(plain.Text, "a prompt that names the speakers must reach the decoder");
+        prompted.Text.Should().ContainAny(["Meena", "Joon"]);
+        prompted.Text.Should().Contain("Tuesday", "the prompt guides spelling; it must not cost the rest of the clip");
+    }
+
+    [Fact]
     public async Task SegmentTimestamps_SplitTheClipIntoOrderedSegments_EndingWithItsLastSentence()
     {
         // Before the reference timestamp rules, timestamp mode returned one segment spanning the whole

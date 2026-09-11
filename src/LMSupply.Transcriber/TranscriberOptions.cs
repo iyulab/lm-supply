@@ -82,7 +82,11 @@ public sealed class TranscribeOptions
     public bool WordTimestamps { get; set; }
 
     /// <summary>
-    /// Gets or sets the initial prompt to guide the transcription style.
+    /// Gets or sets text the model reads as what came before the audio — names, terms, spelling and
+    /// punctuation style the transcript should follow (e.g. "Attendees: Meena, Joon. Agenda: Q3 OKRs.").
+    /// Placed before the start-of-transcript token behind <c>&lt;|startofprev|&gt;</c>, as Whisper does,
+    /// for every 30-second window; only its last 223 tokens are used. It guides; it does not force.
+    /// Needs the model's BPE merges (<c>merges.txt</c> or <c>tokenizer.json</c>), which Whisper models ship.
     /// <para>Default: null</para>
     /// </summary>
     public string? InitialPrompt { get; set; }

@@ -1,14 +1,16 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace LMSupply.Transcriber.Decoding;
 
 /// <summary>
-/// Whisper-specific tokenizer for decoding generated token IDs to text.
+/// Whisper-specific tokenizer: decodes generated token IDs to text and, when the model's BPE merges
+/// are available, encodes text (an initial prompt) to token IDs.
 /// Uses GPT-2 BPE tokenizer with Whisper's special tokens.
 /// </summary>
-internal sealed class WhisperTokenizer : IDisposable
+internal sealed partial class WhisperTokenizer : IDisposable
 {
     /// <summary>
     /// Supported Whisper language codes mapped to ISO 639-1 codes.
@@ -45,6 +47,11 @@ internal sealed class WhisperTokenizer : IDisposable
     private readonly Dictionary<string, int> _tokenToId;
     private readonly Dictionary<string, string> _bytesToUnicode;
 
+    // GPT-2 byte-level BPE, for encoding: each byte's stand-in character, and each merge's rank
+    // (lower merges first). Null ranks: the model directory had no merges, so text cannot be encoded.
+    private static readonly string[] s_byteToUnicode = CreateByteToUnicode();
+    private readonly Dictionary<(string Left, string Right), int>? _bpeRanks;
+
     // Default Whisper special token IDs (v1/v2 values, overridden by tokenizer.json)
     private const int DefaultEndOfTextToken = 50257;
     private const int DefaultStartOfTranscriptToken = 50258;
@@ -67,11 +74,13 @@ internal sealed class WhisperTokenizer : IDisposable
 
     private WhisperTokenizer(
         Dictionary<int, string> idToToken,
-        Dictionary<string, int> tokenToId)
+        Dictionary<string, int> tokenToId,
+        IEnumerable<(string Left, string Right)>? merges = null)
     {
         _idToToken = idToToken;
         _tokenToId = tokenToId;
         _bytesToUnicode = CreateBytesToUnicode();
+        _bpeRanks = merges is null ? null : RankMerges(merges);
         VocabSize = idToToken.Count;
     }
 
@@ -91,9 +100,10 @@ internal sealed class WhisperTokenizer : IDisposable
     /// </summary>
     internal static WhisperTokenizer CreateForTesting(
         Dictionary<int, string> idToToken,
-        Dictionary<string, int> tokenToId)
+        Dictionary<string, int> tokenToId,
+        IEnumerable<(string Left, string Right)>? merges = null)
     {
-        return new WhisperTokenizer(idToToken, tokenToId);
+        return new WhisperTokenizer(idToToken, tokenToId, merges);
     }
 
     /// <summary>
@@ -121,7 +131,7 @@ internal sealed class WhisperTokenizer : IDisposable
             idToToken[id] = token;
         }
 
-        var tokenizer = new WhisperTokenizer(idToToken, tokenToId);
+        var tokenizer = new WhisperTokenizer(idToToken, tokenToId, LoadMerges(modelDir));
 
         // Resolve special token IDs from tokenizer.json (handles v2 vs v3 differences)
         var tokenizerJsonPath = Path.Combine(modelDir, "tokenizer.json");
@@ -221,6 +231,195 @@ internal sealed class WhisperTokenizer : IDisposable
 
         // Convert GPT-2 BPE tokens back to text
         return DecodeBytes(sb.ToString());
+    }
+
+    /// <summary>
+    /// Whether this tokenizer can <see cref="Encode"/> text: the model directory held BPE merges.
+    /// </summary>
+    public bool CanEncode => _bpeRanks is not null;
+
+    /// <summary>
+    /// Encodes text to token IDs with GPT-2 byte-level BPE — the inverse of <see cref="Decode"/> for
+    /// ordinary text. Special-token markup such as <c>&lt;|en|&gt;</c> is not recognised; it is
+    /// encoded as the characters it is made of.
+    /// </summary>
+    /// <exception cref="NotSupportedException">The tokenizer was loaded without BPE merges.</exception>
+    public int[] Encode(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (_bpeRanks is null)
+        {
+            throw new NotSupportedException(
+                "This Whisper model's tokenizer has no BPE merges (merges.txt, or the merges in tokenizer.json), " +
+                "so it cannot encode text. TranscribeOptions.InitialPrompt needs them.");
+        }
+
+        var ids = new List<int>();
+        foreach (Match piece in PreTokenizer().Matches(text))
+        {
+            var bytes = Encoding.UTF8.GetBytes(piece.Value);
+            var symbols = new List<string>(bytes.Length);
+            foreach (var b in bytes)
+            {
+                symbols.Add(s_byteToUnicode[b]);
+            }
+
+            foreach (var symbol in Merge(symbols))
+            {
+                if (_tokenToId.TryGetValue(symbol, out var id))
+                {
+                    ids.Add(id);
+                    continue;
+                }
+
+                // A merge the vocabulary lacks: fall back to its bytes, which a byte-level vocabulary has.
+                foreach (var c in symbol)
+                {
+                    if (_tokenToId.TryGetValue(c.ToString(), out var byteId))
+                    {
+                        ids.Add(byteId);
+                    }
+                }
+            }
+        }
+
+        return [.. ids];
+    }
+
+    // Applies merges to one pre-tokenized piece, lowest rank first, until no adjacent pair has one.
+    private List<string> Merge(List<string> symbols)
+    {
+        while (symbols.Count > 1)
+        {
+            var bestRank = int.MaxValue;
+            var bestIndex = -1;
+            for (int i = 0; i < symbols.Count - 1; i++)
+            {
+                if (_bpeRanks!.TryGetValue((symbols[i], symbols[i + 1]), out var rank) && rank < bestRank)
+                {
+                    bestRank = rank;
+                    bestIndex = i;
+                }
+            }
+
+            if (bestIndex < 0)
+            {
+                break;
+            }
+
+            var left = symbols[bestIndex];
+            var right = symbols[bestIndex + 1];
+            var merged = new List<string>(symbols.Count - 1);
+            for (int i = 0; i < symbols.Count; i++)
+            {
+                if (i < symbols.Count - 1 && symbols[i] == left && symbols[i + 1] == right)
+                {
+                    merged.Add(left + right);
+                    i++;
+                }
+                else
+                {
+                    merged.Add(symbols[i]);
+                }
+            }
+
+            symbols = merged;
+        }
+
+        return symbols;
+    }
+
+    // GPT-2's pre-tokenization (the ByteLevel pre-tokenizer's regex): contractions, runs of letters,
+    // runs of digits and runs of other characters, each led by at most one space; then whitespace.
+    [GeneratedRegex(@"'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+")]
+    private static partial Regex PreTokenizer();
+
+    /// <summary>The character GPT-2's byte-level BPE uses to stand for <paramref name="b"/>.</summary>
+    internal static string ByteToUnicode(byte b) => s_byteToUnicode[b];
+
+    /// <summary>
+    /// Reads BPE merges from a model directory: <c>merges.txt</c> (one "left right" pair per line, after
+    /// a <c>#version</c> header), else <c>tokenizer.json</c>'s <c>model.merges</c> (strings or pairs).
+    /// Null when neither has any.
+    /// </summary>
+    internal static List<(string Left, string Right)>? LoadMerges(string modelDir)
+    {
+        var mergesPath = Path.Combine(modelDir, "merges.txt");
+        if (File.Exists(mergesPath))
+        {
+            var merges = new List<(string Left, string Right)>();
+            foreach (var line in File.ReadLines(mergesPath))
+            {
+                if (line.StartsWith("#version", StringComparison.Ordinal))
+                    continue;
+                if (SplitMerge(line) is { } pair)
+                    merges.Add(pair);
+            }
+
+            return merges.Count > 0 ? merges : null;
+        }
+
+        var tokenizerJsonPath = Path.Combine(modelDir, "tokenizer.json");
+        if (!File.Exists(tokenizerJsonPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var stream = File.OpenRead(tokenizerJsonPath);
+            using var doc = JsonDocument.Parse(stream);
+            if (!doc.RootElement.TryGetProperty("model", out var model)
+                || !model.TryGetProperty("merges", out var entries)
+                || entries.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            var merges = new List<(string Left, string Right)>();
+            foreach (var entry in entries.EnumerateArray())
+            {
+                if (entry.ValueKind == JsonValueKind.String && SplitMerge(entry.GetString()!) is { } pair)
+                    merges.Add(pair);
+                else if (entry.ValueKind == JsonValueKind.Array && entry.GetArrayLength() == 2)
+                    merges.Add((entry[0].GetString()!, entry[1].GetString()!));
+            }
+
+            return merges.Count > 0 ? merges : null;
+        }
+        catch (JsonException ex)
+        {
+            Trace.TraceWarning($"[WhisperTokenizer] Failed to read BPE merges from tokenizer.json: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static (string Left, string Right)? SplitMerge(string line)
+    {
+        var space = line.IndexOf(' ');
+        return space > 0 && space < line.Length - 1 ? (line[..space], line[(space + 1)..]) : null;
+    }
+
+    private static Dictionary<(string Left, string Right), int> RankMerges(IEnumerable<(string Left, string Right)> merges)
+    {
+        var ranks = new Dictionary<(string Left, string Right), int>();
+        foreach (var pair in merges)
+        {
+            ranks.TryAdd(pair, ranks.Count);
+        }
+
+        return ranks;
+    }
+
+    private static string[] CreateByteToUnicode()
+    {
+        var map = new string[256];
+        foreach (var (unicode, raw) in CreateBytesToUnicode())
+        {
+            map[raw[0]] = unicode;
+        }
+
+        return map;
     }
 
     /// <summary>

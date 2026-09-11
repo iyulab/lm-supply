@@ -194,6 +194,25 @@ internal sealed class WhisperDecoder
     }
 
     /// <summary>
+    /// The decoder's prefix: Whisper's prompt layout when <paramref name="initialPrompt"/> is set —
+    /// <c>&lt;|startofprev|&gt;</c>, the prompt's tokens (the last <c>n_ctx / 2 - 1</c> of them, as the
+    /// reference decoder keeps), then the start-of-transcript sequence — otherwise the sequence alone.
+    /// The prompt is encoded with a leading space and surrounding whitespace trimmed, as the reference does.
+    /// </summary>
+    internal static int[] BuildInitialTokens(
+        WhisperTokenizer tokenizer, string? initialPrompt, int[] sotSequence, int contextLength)
+    {
+        if (string.IsNullOrWhiteSpace(initialPrompt))
+        {
+            return sotSequence;
+        }
+
+        var promptTokens = tokenizer.Encode(" " + initialPrompt.Trim());
+        var keep = Math.Min(promptTokens.Length, Math.Max(0, contextLength / 2 - 1));
+        return [tokenizer.StartOfPrevToken, .. promptTokens.AsSpan(promptTokens.Length - keep), .. sotSequence];
+    }
+
+    /// <summary>
     /// The decode loop's bound on the token sequence (prompt included): the prompt plus
     /// <see cref="TranscribeOptions.MaxTokens"/> generated tokens, capped by the model's text context.
     /// </summary>
@@ -251,7 +270,8 @@ internal sealed class WhisperDecoder
         var useTimestamps = options?.WordTimestamps ?? false;
         var translate = options?.Translate ?? false;
         var language = options?.Language ?? detectedLanguage?.Language;
-        var initialTokens = _tokenizer.GetSotSequence(language, useTimestamps, translate);
+        var initialTokens = BuildInitialTokens(
+            _tokenizer, options?.InitialPrompt, _tokenizer.GetSotSequence(language, useTimestamps, translate), _maxLength);
         var tokens = new List<int>(initialTokens);
 
         var segments = new List<TranscriptionSegment>();

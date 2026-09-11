@@ -32,9 +32,6 @@ public class OptionsReachabilityRosterTests
     // Each entry has an open issue draft: wire the option, or remove it as a deliberate decision.
     private static readonly Dictionary<string, string[]> KnownUnread = new(StringComparer.Ordinal)
     {
-        // No beam search and no prompt encoder (issue draft "TranscribeOptions knobs that do nothing").
-        ["LMSupply.Transcriber.TranscribeOptions"] = ["InitialPrompt"],
-
         // Found by this roster's first run (issue draft "options nothing reads, across seven types").
         ["LMSupply.Runtime.RuntimeManagerOptions"] = ["MaxRetries", "ProxyPassword", "ProxyUrl", "ProxyUsername"],
         ["LMSupply.Captioner.CaptionerOptions"] = ["Prompt"],
