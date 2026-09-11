@@ -370,6 +370,11 @@ rm -rf ~/.local/share/LMSupply/cache/llama-server
   `LlamaServerUpdateOptions.IncludePrerelease = true` to follow the newest build release directly.
   Whichever path is taken, the resolved version is always a build tag — `PinnedVersion` may name either
   form (`"b10809"` or `"v0.4.0"`) and is normalized the same way.
+- **When a newer build is picked up**: by default a load starts on the cached build and a newer one is
+  downloaded in the background (`AutoDownloadUpdates`) for a later load. Set
+  `LlamaServerUpdateOptions.UpdateOnWarmup = true` to have each load check first and start on the newest
+  build — the load then waits for the check (each GitHub request bounded by `ApiTimeout`) and for any
+  download. A pinned version or an external binary is never updated either way.
 
 ### Minimum Version Requirements
 

@@ -23,11 +23,18 @@ public sealed class LlamaServerUpdateOptions
     public bool AutoDownloadUpdates { get; set; } = true;
 
     /// <summary>
-    /// Whether to apply updates during WarmupAsync.
-    /// If true, WarmupAsync will block until updates are applied.
-    /// Default: true.
+    /// Whether acquiring the server for a load first checks for a newer build and applies it before the
+    /// server starts.
+    /// <para>
+    /// False (default): the load uses the cached build at once; a newer build is fetched in the background
+    /// (see <see cref="AutoDownloadUpdates"/>) and used from a later load. True: the load waits for the
+    /// check — each GitHub request bounded by <see cref="ApiTimeout"/> — and for the download when a newer
+    /// build exists. When GitHub cannot be reached the cached build is used. Has no effect when
+    /// <see cref="PinnedVersion"/> or <see cref="ServerBinaryPath"/> is set.
+    /// </para>
+    /// Default: false.
     /// </summary>
-    public bool UpdateOnWarmup { get; set; } = true;
+    public bool UpdateOnWarmup { get; set; }
 
     /// <summary>
     /// Whether to follow llama.cpp's nightly build line instead of its versioned stable line.
@@ -58,12 +65,6 @@ public sealed class LlamaServerUpdateOptions
     /// Default: 10 seconds.
     /// </summary>
     public TimeSpan ApiTimeout { get; set; } = TimeSpan.FromSeconds(10);
-
-    /// <summary>
-    /// Whether to enable verbose logging.
-    /// Default: false.
-    /// </summary>
-    public bool Verbose { get; set; }
 
     /// <summary>
     /// Pins an exact llama-server release tag (e.g. "b7898"). When set, version resolution never

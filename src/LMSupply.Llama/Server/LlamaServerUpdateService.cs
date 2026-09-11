@@ -88,12 +88,36 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
 
     /// <summary>
     /// Gets the server path for the specified backend, downloading if necessary.
-    /// Uses cached version immediately, triggers background update check.
+    /// By default uses the cached version immediately and triggers a background update check; with
+    /// <see cref="LlamaServerUpdateOptions.UpdateOnWarmup"/> it first checks for a newer build and
+    /// applies it (<see cref="CheckAndApplyUpdateAsync"/>).
     /// </summary>
     public async Task<LlamaServerUpdateResult> GetServerPathAsync(
         LlamaServerBackend backend,
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
+    {
+        if (_options.UpdateOnWarmup && !IsPinned)
+        {
+            var updated = await CheckAndApplyUpdateAsync(backend, progress, cancellationToken);
+            await EnsureCudaRuntimeAsync(updated, progress, cancellationToken);
+            return updated;
+        }
+
+        return await AcquireAsync(backend, progress, cancellationToken);
+    }
+
+    // A pinned or externally supplied installation never checks for, or applies, a newer version.
+    private bool IsPinned => !string.IsNullOrEmpty(_options.ServerBinaryPath) || !string.IsNullOrEmpty(_options.PinnedVersion);
+
+    /// <summary>
+    /// Acquires the server without checking for a newer build first: the external binary, the pinned
+    /// version, the cached installation (with a background check), or a first download.
+    /// </summary>
+    private async Task<LlamaServerUpdateResult> AcquireAsync(
+        LlamaServerBackend backend,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
         if (!string.IsNullOrEmpty(_options.ServerBinaryPath))
         {
@@ -107,23 +131,29 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         }
 
         var result = await GetServerPathCoreAsync(backend, progress, cancellationToken);
-
-        // For a CUDA backend, ensure the cudart runtime is present next to the binary (it ships as a
-        // separate llama.cpp asset). Self-gating (no-op for non-CUDA) and best-effort. Runs on both
-        // cache-hit and fresh-download results, so binaries cached before this logic existed are
-        // backfilled. See LlamaServerDownloader.EnsureCudaRuntimeAsync.
-        if (result.Success && !string.IsNullOrEmpty(result.ServerPath))
-        {
-            var versionDir = Path.GetDirectoryName(result.ServerPath);
-            var version = result.NewVersion ?? result.PreviousVersion;
-            if (!string.IsNullOrEmpty(versionDir) && !string.IsNullOrEmpty(version))
-            {
-                await _downloader.EnsureCudaRuntimeAsync(
-                    versionDir, result.Backend, version, progress, cancellationToken);
-            }
-        }
-
+        await EnsureCudaRuntimeAsync(result, progress, cancellationToken);
         return result;
+    }
+
+    // For a CUDA backend, ensure the cudart runtime is present next to the binary (it ships as a
+    // separate llama.cpp asset). Self-gating (no-op for non-CUDA) and best-effort. Runs on both
+    // cache-hit and fresh-download results, so binaries cached before this logic existed are
+    // backfilled. See LlamaServerDownloader.EnsureCudaRuntimeAsync.
+    private async Task EnsureCudaRuntimeAsync(
+        LlamaServerUpdateResult result,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        if (!result.Success || string.IsNullOrEmpty(result.ServerPath))
+            return;
+
+        var versionDir = Path.GetDirectoryName(result.ServerPath);
+        var version = result.NewVersion ?? result.PreviousVersion;
+        if (!string.IsNullOrEmpty(versionDir) && !string.IsNullOrEmpty(version))
+        {
+            await _downloader.EnsureCudaRuntimeAsync(
+                versionDir, result.Backend, version, progress, cancellationToken);
+        }
     }
 
     private async Task<LlamaServerUpdateResult> GetServerPathCoreAsync(
@@ -250,8 +280,9 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Checks for updates and applies them immediately if available.
-    /// Used during WarmupAsync when UpdateOnWarmup is true.
+    /// Checks for updates and applies them immediately if available. <see cref="GetServerPathAsync"/>
+    /// calls it when <see cref="LlamaServerUpdateOptions.UpdateOnWarmup"/> is set; the generator calls it
+    /// when the cached build is too old for a model.
     /// </summary>
     public async Task<LlamaServerUpdateResult> CheckAndApplyUpdateAsync(
         LlamaServerBackend backend,
@@ -262,9 +293,9 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         // for or auto-applies a newer version — that is the whole point of pinning for an
         // offline/security-reviewed deployment (see LlamaServerUpdateOptions.PinnedVersion/
         // ServerBinaryPath). Route straight to the pinned/external resolution instead.
-        if (!string.IsNullOrEmpty(_options.ServerBinaryPath) || !string.IsNullOrEmpty(_options.PinnedVersion))
+        if (IsPinned)
         {
-            return await GetServerPathAsync(backend, progress, cancellationToken);
+            return await AcquireAsync(backend, progress, cancellationToken);
         }
 
         await _updateLock.WaitAsync(cancellationToken);
@@ -278,7 +309,7 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
             if (state == null)
             {
                 // No existing state, just get latest
-                return await GetServerPathAsync(backend, progress, cancellationToken);
+                return await AcquireAsync(backend, progress, cancellationToken);
             }
 
             // Check for new version

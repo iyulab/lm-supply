@@ -128,3 +128,7 @@ Reuse the same `LlamaServerUpdateOptions` instance across loads (rather than con
 each time) so they share one background-update timer and state file instead of each spawning its
 own. `EmbedderOptions.ServerUpdateOptions` and `RerankerOptions.ServerUpdateOptions` follow the same
 shape for the embedding and reranking GGUF paths.
+
+An unpinned load starts on the cached build and fetches a newer one in the background for a later
+load. `UpdateOnWarmup = true` makes each load check first and start on the newest build, at the cost of
+waiting for the check (and the download, when there is one).
