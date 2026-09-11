@@ -336,7 +336,8 @@ public class TranscriberFunctionalTests
         opts.Translate.Should().BeFalse("default Translate should be false");
         opts.Temperature.Should().BeApproximately(0f, 0.01f,
             "default temperature should be 0 (greedy)");
-        opts.BeamWidth.Should().Be(5, "default beam width should be 5");
+        opts.TemperatureIncrementOnFallback.Should().BeApproximately(0.2f, 0.01f,
+            "a failed window is decoded again at rising temperature by default");
     }
 
     [Fact]
@@ -399,8 +400,9 @@ public class TranscriberFunctionalTests
         opts.WordTimestamps.Should().BeFalse();
         opts.InitialPrompt.Should().BeNull();
         opts.MaxTokens.Should().Be(448);
-        opts.BeamWidth.Should().Be(5);
         opts.Temperature.Should().Be(0f);
+        opts.TemperatureIncrementOnFallback.Should().BeApproximately(0.2f, 0.01f);
+        opts.LogProbThreshold.Should().BeApproximately(-1.0f, 0.01f);
         opts.CompressionRatioThreshold.Should().BeApproximately(2.4f, 0.01f);
         opts.NoSpeechThreshold.Should().BeApproximately(0.6f, 0.01f);
     }

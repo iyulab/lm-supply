@@ -104,6 +104,31 @@ exist — the prompt simply omitted the language token, which decoded non-Englis
 Trailing audio shorter than 500 ms after the last full 30-second window is not decoded on its own:
 zero-padded to a full window it is mostly silence, and Whisper hallucinates text into silence.
 
+### Temperature and fallback
+
+Each 30-second window is first decoded at `Temperature` — 0 (the default) is greedy, above 0 samples
+from the token distribution. When the result looks like a failure, the window is decoded again at a
+temperature raised by `TemperatureIncrementOnFallback`, up to 1.0 — Whisper's reference fallback:
+
+- **too repetitive**: its text compresses above `CompressionRatioThreshold` (2.4), the typical shape of
+  a hallucination loop;
+- **too unsure**: its tokens average below `LogProbThreshold` (-1.0) log-probability.
+
+A window that looks like silence (no-speech probability above `NoSpeechThreshold` and low
+log-probability) is not decoded again. The first attempt that passes is kept, otherwise the last.
+Segments still above `CompressionRatioThreshold` after the last attempt are dropped.
+
+```csharp
+var options = new TranscribeOptions
+{
+    TemperatureIncrementOnFallback = 0f,  // decode every window once (fastest, no retries)
+    LogProbThreshold = null               // judge windows by compression ratio only
+};
+```
+
+Beam search is not offered: the decoder is greedy (or sampling, above temperature 0). Before v0.64.0
+`BeamWidth` existed but nothing read it, and `Temperature` changed nothing.
+
 ### Model Configuration
 
 ```csharp

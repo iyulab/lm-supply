@@ -33,7 +33,7 @@ public class OptionsReachabilityRosterTests
     private static readonly Dictionary<string, string[]> KnownUnread = new(StringComparer.Ordinal)
     {
         // No beam search and no prompt encoder (issue draft "TranscribeOptions knobs that do nothing").
-        ["LMSupply.Transcriber.TranscribeOptions"] = ["BeamWidth", "InitialPrompt"],
+        ["LMSupply.Transcriber.TranscribeOptions"] = ["InitialPrompt"],
 
         // Found by this roster's first run (issue draft "options nothing reads, across seven types").
         ["LMSupply.Runtime.RuntimeManagerOptions"] = ["MaxRetries", "ProxyPassword", "ProxyUrl", "ProxyUsername"],

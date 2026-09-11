@@ -22,6 +22,15 @@ internal sealed class WhisperDecoder
     private readonly WhisperTokenizer _tokenizer;
     private readonly int _maxLength;
 
+    // Draws for sampling above temperature 0. The decoder is used under the model's lock.
+    private readonly Random _random;
+
+    // Whisper's defaults: a window is re-decoded at rising temperature up to 1.0, and a window whose
+    // tokens average below -1.0 log-probability counts as failed.
+    private const float DefaultTemperatureIncrement = 0.2f;
+    private const float DefaultLogProbThreshold = -1.0f;
+    private const float MaxFallbackTemperature = 1.0f + 1e-6f;
+
     // Repetition-cycle detection (docket iyulab/lm-supply#59). A greedy decoder that has lost the
     // audio settles into a *periodic* token cycle, not a run of one identical token -- and the
     // three-identical-token guard in SelectNextToken cannot see it. Worse, a captured trace showed
@@ -61,15 +70,16 @@ internal sealed class WhisperDecoder
     /// <summary>
     /// Creates a decoder for testing probability computation only (no ONNX session).
     /// </summary>
-    internal static WhisperDecoder CreateForTesting(WhisperTokenizer tokenizer)
+    internal static WhisperDecoder CreateForTesting(WhisperTokenizer tokenizer, Random? random = null)
     {
-        return new WhisperDecoder(tokenizer);
+        return new WhisperDecoder(tokenizer, random ?? new Random(0));
     }
 
-    private WhisperDecoder(WhisperTokenizer tokenizer)
+    private WhisperDecoder(WhisperTokenizer tokenizer, Random random)
     {
         _decoderSession = null!;
         _tokenizer = tokenizer;
+        _random = random;
         _maxLength = 0;
         _actualTokenInputName = "";
         _actualEncoderInputName = "";
@@ -84,6 +94,7 @@ internal sealed class WhisperDecoder
         _decoderSession = decoderSession;
         _tokenizer = tokenizer;
         _maxLength = maxLength;
+        _random = Random.Shared;
 
         // Detect input/output names from session metadata (identical on every provider, so reading
         // it from the current underlying session once is safe across later recoveries)
@@ -199,12 +210,14 @@ internal sealed class WhisperDecoder
     }
 
     /// <summary>
-    /// Decodes encoder output to text using greedy search. The language token in the prompt comes
+    /// Decodes encoder output to text. The language token in the prompt comes
     /// from <see cref="TranscribeOptions.Language"/>, else from <paramref name="detectedLanguage"/>
     /// (see <see cref="DetectLanguageAsync"/>), else the prompt carries no language token and the
     /// model falls back to its training bias (English on the multilingual checkpoints).
+    /// The first decode runs at <see cref="TranscribeOptions.Temperature"/> (0 = greedy); a result that
+    /// fails the quality checks is decoded again at a higher temperature (<see cref="DecodeWithFallbackAsync"/>).
     /// </summary>
-    public async Task<DecodingResult> DecodeAsync(
+    public Task<DecodingResult> DecodeAsync(
         float[] encoderOutput,
         int encoderSequenceLength,
         int hiddenSize,
@@ -212,6 +225,27 @@ internal sealed class WhisperDecoder
         TranscribeOptions? options = null,
         LanguageDetection? detectedLanguage = null,
         CancellationToken cancellationToken = default)
+    {
+        ValidateSamplingOptions(options);
+
+        return DecodeWithFallbackAsync(
+            (temperature, ct) => DecodeOnceAsync(
+                encoderOutput, encoderSequenceLength, hiddenSize, chunkDurationSeconds,
+                options, detectedLanguage, temperature, ct),
+            options,
+            cancellationToken);
+    }
+
+    // One decode of the window at one temperature.
+    private async Task<DecodingResult> DecodeOnceAsync(
+        float[] encoderOutput,
+        int encoderSequenceLength,
+        int hiddenSize,
+        double chunkDurationSeconds,
+        TranscribeOptions? options,
+        LanguageDetection? detectedLanguage,
+        float temperature,
+        CancellationToken cancellationToken)
     {
         // Initialize tokens with SOT sequence
         var useTimestamps = options?.WordTimestamps ?? false;
@@ -235,6 +269,10 @@ internal sealed class WhisperDecoder
         var currentSegmentLogProbs = new List<float>();
         float? chunkNoSpeechProb = null;
 
+        // Window-level log probability over every selected token, for the fallback check.
+        double sumLogProb = 0;
+        var selectedCount = 0;
+
         // For merged models, we'll track KV cache state
         Dictionary<string, DenseTensor<float>>? kvCache = null;
 
@@ -252,13 +290,19 @@ internal sealed class WhisperDecoder
 
             var lastLogits = await RunDecoderStepAsync(tokens, encoderTensor, kvCache, cancellationToken);
 
-            // Greedy selection: argmax, after repetition-penalty/temperature/hallucination-guard
-            var nextToken = SelectNextToken(lastLogits, tokens, initialTokens, options);
+            // Argmax at temperature 0, a draw above it -- after the hallucination guard and the
+            // timestamp rules have filtered the logits.
+            var nextToken = SelectNextToken(lastLogits, tokens, initialTokens, options, temperature);
 
-            // Compute log probability of selected token for AvgLogProb metric
+            // Log probability from the filtered, unscaled logits (as the reference decoder takes it):
+            // per segment over text tokens for AvgLogProb, and over every selected token for the
+            // window's fallback check.
+            var logProb = ComputeLogProb(lastLogits, nextToken);
+            sumLogProb += logProb;
+            selectedCount++;
             if (!_tokenizer.IsSpecialToken(nextToken))
             {
-                currentSegmentLogProbs.Add(ComputeLogProb(lastLogits, nextToken));
+                currentSegmentLogProbs.Add(logProb);
             }
 
             // No-speech probability is read at the first decoder step. (Language is NOT read here:
@@ -368,8 +412,93 @@ internal sealed class WhisperDecoder
             Language = language ?? "en",
             LanguageProbability = options?.Language is null ? detectedLanguage?.Probability : null,
             Segments = segments,
-            TokenCount = tokens.Count - initialTokens.Length
+            TokenCount = tokens.Count - initialTokens.Length,
+            Temperature = temperature,
+            AvgLogProb = selectedCount > 0 ? (float)(sumLogProb / selectedCount) : null,
+            NoSpeechProb = chunkNoSpeechProb,
+            CompressionRatio = SegmentPostProcessor.ComputeCompressionRatio(fullTranscription)
         };
+    }
+
+    /// <summary>
+    /// Whisper's temperature fallback: decodes at <see cref="TranscribeOptions.Temperature"/>, and while
+    /// the result fails <see cref="NeedsFallback"/> decodes again at a temperature raised by
+    /// <see cref="TranscribeOptions.TemperatureIncrementOnFallback"/>, up to 1.0. Returns the first result
+    /// that passes, or the last attempt's. Takes the single decode as a delegate so the loop can be
+    /// exercised without an ONNX session.
+    /// </summary>
+    internal static async Task<DecodingResult> DecodeWithFallbackAsync(
+        Func<float, CancellationToken, Task<DecodingResult>> decodeAt,
+        TranscribeOptions? options,
+        CancellationToken cancellationToken)
+    {
+        var start = options?.Temperature ?? 0f;
+        var increment = options?.TemperatureIncrementOnFallback ?? DefaultTemperatureIncrement;
+
+        for (var attempt = 0; ; attempt++)
+        {
+            // From the start value each time, so rounding does not accumulate across attempts.
+            var temperature = start + attempt * increment;
+            var result = await decodeAt(temperature, cancellationToken).ConfigureAwait(false);
+
+            var next = start + (attempt + 1) * increment;
+            if (!NeedsFallback(result, options) || increment <= 0 || next > MaxFallbackTemperature)
+            {
+                return result;
+            }
+
+            Trace.TraceInformation(
+                $"[WhisperDecoder] Window failed the quality checks at temperature {temperature:0.0#} " +
+                $"(compression {result.CompressionRatio:0.00}, avg log-prob {result.AvgLogProb:0.00}); " +
+                $"decoding again at {next:0.0#}.");
+        }
+    }
+
+    /// <summary>
+    /// Whether a window's result should be decoded again: its text compresses above
+    /// <see cref="TranscribeOptions.CompressionRatioThreshold"/>, or its tokens average below
+    /// <see cref="TranscribeOptions.LogProbThreshold"/> — unless it is silence (no-speech probability
+    /// above <see cref="TranscribeOptions.NoSpeechThreshold"/> and low log-probability), which the
+    /// reference decoder does not re-decode.
+    /// </summary>
+    internal static bool NeedsFallback(DecodingResult result, TranscribeOptions? options)
+    {
+        var compressionThreshold = options?.CompressionRatioThreshold ?? 2.4f;
+        var logProbThreshold = options is null ? DefaultLogProbThreshold : options.LogProbThreshold;
+        var noSpeechThreshold = options?.NoSpeechThreshold ?? 0.6f;
+
+        var tooRepetitive = result.CompressionRatio > compressionThreshold;
+        var tooUnsure = logProbThreshold is { } threshold && result.AvgLogProb < threshold;
+        if (!tooRepetitive && !tooUnsure)
+        {
+            return false;
+        }
+
+        var silence = logProbThreshold is { } silenceThreshold
+            && result.NoSpeechProb > noSpeechThreshold
+            && result.AvgLogProb < silenceThreshold;
+        return !silence;
+    }
+
+    internal static void ValidateSamplingOptions(TranscribeOptions? options)
+    {
+        if (options is null)
+        {
+            return;
+        }
+
+        if (options.Temperature is not (>= 0f and <= 1f))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options), options.Temperature, "TranscribeOptions.Temperature must be between 0 and 1.");
+        }
+
+        if (!(options.TemperatureIncrementOnFallback >= 0f))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options), options.TemperatureIncrementOnFallback,
+                "TranscribeOptions.TemperatureIncrementOnFallback must be 0 or more.");
+        }
     }
 
     /// <summary>
@@ -451,13 +580,16 @@ internal sealed class WhisperDecoder
     }
 
     /// <summary>
-    /// Applies temperature scaling and the hallucination-suppression guard to one decode step's raw
-    /// logits, then selects the next token via greedy argmax. Mutates
-    /// <paramref name="logits"/> in place. Extracted from the decode loop (same reasoning as
+    /// Applies the hallucination-suppression guard and (in timestamp mode) the timestamp rules to one
+    /// decode step's raw logits, then selects the next token: the argmax at temperature 0, otherwise a
+    /// draw from the distribution scaled by <paramref name="temperature"/>. Mutates
+    /// <paramref name="logits"/> in place — the filtering, never the temperature scaling, so the caller's
+    /// log-probability is taken from the filtered logits. Extracted from the decode loop (same reasoning as
     /// <see cref="FinalizeSegments"/>) so a captured decode-step logit vector can exercise this
     /// exact selection logic directly, without a real ONNX session.
     /// </summary>
-    internal int SelectNextToken(float[] logits, List<int> tokens, int[] initialTokens, TranscribeOptions? options)
+    internal int SelectNextToken(
+        float[] logits, List<int> tokens, int[] initialTokens, TranscribeOptions? options, float temperature = 0f)
     {
         // No blanket repetition penalty. The reference decoder applies none, and neither do the
         // mainstream Whisper runtimes: speech legitimately reuses short tokens within a few tokens
@@ -469,15 +601,6 @@ internal sealed class WhisperDecoder
         // pushed "the" out mid-sentence ("update The budget sheet" on base, "update budget sheet" on
         // small). Degenerate loops are handled by the targeted guard below and by
         // TryDetectRepetitionCycle, which look at the shape of the tail instead of at every token.
-
-        // Apply temperature if specified
-        if (options is { Temperature: > 0 and < 1 })
-        {
-            for (int i = 0; i < logits.Length; i++)
-            {
-                logits[i] /= options.Temperature;
-            }
-        }
 
         // Suppress specific tokens that cause hallucination loops
         if (tokens.Count > initialTokens.Length + 3)
@@ -515,6 +638,47 @@ internal sealed class WhisperDecoder
             ApplyTimestampRules(logits, tokens, initialTokens);
         }
 
+        return temperature > 0f ? Sample(logits, temperature) : ArgMax(logits);
+    }
+
+    /// <summary>
+    /// Draws a token from softmax(<paramref name="logits"/> / <paramref name="temperature"/>). A token the
+    /// filters set to negative infinity has probability zero and is never drawn.
+    /// </summary>
+    private int Sample(float[] logits, float temperature)
+    {
+        var max = float.NegativeInfinity;
+        foreach (var logit in logits)
+        {
+            if (logit > max) max = logit;
+        }
+
+        if (float.IsNegativeInfinity(max))
+        {
+            return ArgMax(logits);
+        }
+
+        var weights = new double[logits.Length];
+        double total = 0;
+        for (int i = 0; i < logits.Length; i++)
+        {
+            var weight = float.IsNegativeInfinity(logits[i]) ? 0 : Math.Exp((logits[i] - max) / temperature);
+            weights[i] = weight;
+            total += weight;
+        }
+
+        var target = _random.NextDouble() * total;
+        double cumulative = 0;
+        for (int i = 0; i < weights.Length; i++)
+        {
+            cumulative += weights[i];
+            if (weights[i] > 0 && target < cumulative)
+            {
+                return i;
+            }
+        }
+
+        // Only reachable through rounding at the very top of the range.
         return ArgMax(logits);
     }
 
@@ -869,6 +1033,18 @@ internal sealed class DecodingResult
     public float? LanguageProbability { get; init; }
     public required List<TranscriptionSegment> Segments { get; init; }
     public int TokenCount { get; init; }
+
+    /// <summary>The temperature this result was decoded at.</summary>
+    public float Temperature { get; init; }
+
+    /// <summary>Mean log-probability over every selected token of the window (end-of-text included).</summary>
+    public float? AvgLogProb { get; init; }
+
+    /// <summary>No-speech probability read at the window's first decoder step.</summary>
+    public float? NoSpeechProb { get; init; }
+
+    /// <summary>Compression ratio of the window's full text.</summary>
+    public float? CompressionRatio { get; init; }
 }
 
 /// <summary>

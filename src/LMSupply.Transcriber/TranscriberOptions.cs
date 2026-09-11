@@ -96,29 +96,50 @@ public sealed class TranscribeOptions
     public int MaxTokens { get; set; } = 448;
 
     /// <summary>
-    /// Gets or sets the beam width for beam search decoding.
-    /// <para>Default: 5</para>
-    /// </summary>
-    public int BeamWidth { get; set; } = 5;
-
-    /// <summary>
-    /// Gets or sets the temperature for sampling.
-    /// Lower values make output more deterministic.
+    /// Gets or sets the temperature of the first decode of each 30-second window.
+    /// At 0 the decoder is greedy: it takes the most likely token at every step. Above 0 it samples
+    /// from the token distribution scaled by this temperature — higher is more varied.
+    /// <para>
+    /// A window whose result fails the quality checks (<see cref="CompressionRatioThreshold"/>,
+    /// <see cref="LogProbThreshold"/>) is decoded again at a temperature raised by
+    /// <see cref="TemperatureIncrementOnFallback"/>, up to 1.0 — Whisper's temperature fallback. Must be
+    /// between 0 and 1.
+    /// </para>
     /// <para>Default: 0.0 (greedy)</para>
     /// </summary>
     public float Temperature { get; set; }
 
     /// <summary>
+    /// Gets or sets how much the temperature rises each time a window is decoded again after failing
+    /// the quality checks. Attempts continue while the temperature stays at or below 1.0; the last
+    /// attempt's result is kept. Set to 0 to decode every window once.
+    /// <para>Default: 0.2 (0.0, 0.2, 0.4, 0.6, 0.8, 1.0 — up to six attempts)</para>
+    /// </summary>
+    public float TemperatureIncrementOnFallback { get; set; } = 0.2f;
+
+    /// <summary>
     /// Gets or sets the compression ratio threshold.
-    /// Segments whose text compresses above this ratio (highly repetitive text, a typical sign of a
-    /// hallucination loop) are dropped. They are not re-decoded: there is no temperature fallback.
+    /// A window whose text compresses above this ratio (highly repetitive text, a typical sign of a
+    /// hallucination loop) is decoded again at a higher temperature (see
+    /// <see cref="TemperatureIncrementOnFallback"/>). Segments still above it after the last attempt
+    /// are dropped.
     /// <para>Default: 2.4</para>
     /// </summary>
     public float CompressionRatioThreshold { get; set; } = 2.4f;
 
     /// <summary>
+    /// Gets or sets the average log-probability threshold. A window whose tokens average a lower
+    /// log-probability than this — the decoder was unsure of what it produced — is decoded again at a
+    /// higher temperature. Set to null to judge windows by <see cref="CompressionRatioThreshold"/> only.
+    /// <para>Default: -1.0</para>
+    /// </summary>
+    public float? LogProbThreshold { get; set; } = -1.0f;
+
+    /// <summary>
     /// Gets or sets the no-speech probability threshold.
-    /// Segments with no-speech probability above this are skipped.
+    /// Segments with no-speech probability above this are skipped. A window above it whose average
+    /// log-probability is also below <see cref="LogProbThreshold"/> is taken as silence and is not
+    /// decoded again.
     /// <para>Default: 0.6</para>
     /// </summary>
     public float NoSpeechThreshold { get; set; } = 0.6f;
