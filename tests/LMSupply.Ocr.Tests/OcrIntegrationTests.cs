@@ -166,20 +166,40 @@ public class OcrIntegrationTests : IDisposable
     }
 
     [Fact]
-    public async Task LoadForLanguage_Japanese_ShouldFallbackToEnglish()
+    public async Task LoadForLanguage_Japanese_LoadsTheChineseJapaneseModel_AndReadsKana()
     {
-        // Note: Japanese is not available in monkt/paddleocr-onnx repository
-        // It falls back to English recognition
-        // To use Japanese, load from deepghs/paddleocr with language hint
+        // This test used to assert that Japanese fell back to English, on the belief that the repository
+        // had no Japanese model. It does: languages/chinese is PaddleOCR's Chinese/Japanese recognizer,
+        // and its dictionary holds every hiragana and katakana. The English one holds none, so the old
+        // fallback could only ever return garbage for Japanese text.
+        var font = TryGetFont(48, "Yu Gothic", "Meiryo", "MS Gothic", "Noto Sans CJK JP", "Noto Sans JP");
+        Assert.SkipWhen(font is null, "No Japanese-capable font is installed to render the fixture.");
 
-        // Arrange & Act
+        var testImagePath = Path.Combine(_testImagesDir, "japanese_test.png");
+        CreateTestImage(testImagePath, "こんにちは カタカナ", 700, 150, font!);
+
         await using var ocr = await LocalOcr.LoadForLanguageAsync("ja", cancellationToken: TestContext.Current.CancellationToken);
+        var result = await ocr.RecognizeAsync(testImagePath, TestContext.Current.CancellationToken);
 
-        // Assert - Falls back to English since Japanese model not available
-        ocr.Should().NotBeNull();
-        ocr.RecognitionModelId.Should().NotBeNullOrEmpty();
-        // Note: This will be English model as fallback
-        ocr.SupportedLanguages.Should().Contain("en");
+        ocr.SupportedLanguages.Should().Contain("ja");
+        result.FullText.Should().MatchRegex("[\u3040-\u30ff]", "the recognizer must read kana, not map them onto Latin letters");
+    }
+
+    [Fact]
+    public async Task LoadForLanguage_Turkish_LoadsTheLatinModel_AndReadsTurkishLetters()
+    {
+        // Turkish used to fall through to the English recognizer, whose dictionary has no letter beyond
+        // ASCII - it could only ever answer "SISLI GUZEL". The Latin recognizer reads the diacritics.
+        // Measured: it reads Ü reliably but often reads capital Ş and İ as S and I, so this asserts the
+        // model change (a letter English cannot produce), not perfect Turkish.
+        var testImagePath = Path.Combine(_testImagesDir, "turkish_test.png");
+        CreateTestImage(testImagePath, "ŞİŞLİ ĞÜZEL", 700, 150);
+
+        await using var ocr = await LocalOcr.LoadForLanguageAsync("tr", cancellationToken: TestContext.Current.CancellationToken);
+        var result = await ocr.RecognizeAsync(testImagePath, TestContext.Current.CancellationToken);
+
+        ocr.SupportedLanguages.Should().Contain("tr");
+        result.FullText.Should().MatchRegex("[ÇçĞğİıÖöŞşÜü]", "the Latin recognizer carries the letters the English one lacks");
     }
 
     [Fact]
@@ -441,15 +461,28 @@ public class OcrIntegrationTests : IDisposable
         throw new InvalidOperationException("No system fonts available");
     }
 
+    private static Font? TryGetFont(float size, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (SystemFonts.TryGet(name, out var family))
+            {
+                return family.CreateFont(size, FontStyle.Regular);
+            }
+        }
+
+        return null;
+    }
+
     private static void CreateTestImage(string path, string text, int width, int height)
+        => CreateTestImage(path, text, width, height, GetDefaultFont(48)); // Larger font for better detection
+
+    private static void CreateTestImage(string path, string text, int width, int height, Font font)
     {
         using var image = new Image<Rgba32>(width, height);
 
         // White background
         image.Mutate(ctx => ctx.Fill(Color.White));
-
-        // Get font
-        var font = GetDefaultFont(48); // Larger font for better detection
 
         // Draw text with good contrast
         var textOptions = new RichTextOptions(font)

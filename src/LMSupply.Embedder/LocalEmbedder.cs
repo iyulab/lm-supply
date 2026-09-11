@@ -129,8 +129,8 @@ public static class LocalEmbedder
                 cancellationToken: cancellationToken);
 
             modelPath = Path.Combine(modelDir, "model.onnx");
-            // DownloadModelAsync flattens all files into modelDir (subfolder only affects HTTP path),
-            // so tokenizer assets fetched via root-fallback already live alongside model.onnx.
+            // modelDir is the subfolder's own directory; DownloadModelAsync puts tokenizer assets it had
+            // to fetch from the repository root there too, so they live alongside model.onnx.
             tokenizerPrimaryDir = modelDir;
             tokenizerFallbackDir = null;
             modelId = modelIdOrPath;

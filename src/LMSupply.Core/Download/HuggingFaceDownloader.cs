@@ -29,15 +29,19 @@ public sealed class HuggingFaceDownloader : IDisposable
     /// </summary>
     /// <param name="cacheDir">Custom cache directory, or null to use default HuggingFace cache location.</param>
     public HuggingFaceDownloader(string? cacheDir = null)
-    {
-        _cacheDir = cacheDir ?? CacheManager.GetDefaultCacheDirectory();
-
-        var handler = new HttpClientHandler
+        : this(cacheDir, new HttpClientHandler
         {
             AllowAutoRedirect = true,
             MaxAutomaticRedirections = 10,
             AutomaticDecompression = DecompressionMethods.All
-        };
+        })
+    {
+    }
+
+    /// <summary>Test seam: the same downloader over a caller-supplied transport.</summary>
+    internal HuggingFaceDownloader(string? cacheDir, HttpMessageHandler handler)
+    {
+        _cacheDir = cacheDir ?? CacheManager.GetDefaultCacheDirectory();
 
         _httpClient = new HttpClient(handler)
         {
@@ -139,10 +143,17 @@ public sealed class HuggingFaceDownloader : IDisposable
     /// <param name="repoId">The HuggingFace repository ID (e.g., "sentence-transformers/all-MiniLM-L6-v2").</param>
     /// <param name="files">List of files to download. If null, downloads common model files.</param>
     /// <param name="revision">The revision/branch (default: "main").</param>
-    /// <param name="subfolder">Optional subfolder within the repository (e.g., "onnx").</param>
+    /// <param name="subfolder">
+    /// Optional subfolder within the repository (e.g., "onnx"). Its files are stored under the same
+    /// subfolder locally. Tokenizer and config files missing from the subfolder are fetched from the
+    /// repository root into that same directory, so it holds everything requested.
+    /// </param>
     /// <param name="progress">Optional progress reporter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The local directory path containing the downloaded model files.</returns>
+    /// <returns>
+    /// The local directory containing the requested files — the subfolder's own directory when
+    /// <paramref name="subfolder"/> is given, otherwise the snapshot root.
+    /// </returns>
     public async Task<string> DownloadModelAsync(
         string repoId,
         IEnumerable<string>? files = null,
@@ -153,7 +164,12 @@ public sealed class HuggingFaceDownloader : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
 
-        var modelDir = CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
+        // A subfolder's files are stored under that subfolder. Repositories keep several models under
+        // the same file names (one recognizer per script, one variant per execution provider); writing
+        // them all to the snapshot root let the second find the first's file, skip its own download,
+        // and run the wrong model.
+        var snapshotDir = CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
+        var modelDir = ResolveSubfolderDirectory(snapshotDir, subfolder);
         Directory.CreateDirectory(modelDir);
 
         // Default files if not specified
@@ -216,6 +232,25 @@ public sealed class HuggingFaceDownloader : IDisposable
         await DownloadManifest.WriteAsync(modelDir, downloadedManifest);
 
         return modelDir;
+    }
+
+    /// <summary>
+    /// The local directory for a repository subfolder: the snapshot root when there is none, otherwise
+    /// the subfolder's own directory beneath it. Refuses a subfolder that resolves outside the snapshot.
+    /// </summary>
+    private static string ResolveSubfolderDirectory(string snapshotDir, string? subfolder)
+    {
+        if (string.IsNullOrEmpty(subfolder))
+            return snapshotDir;
+
+        var root = Path.GetFullPath(snapshotDir);
+        var dir = Path.GetFullPath(Path.Combine(root, subfolder.Replace('/', Path.DirectorySeparatorChar)));
+        var rootWithSeparator = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
+
+        if (!dir.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Path traversal detected in subfolder: {subfolder}");
+
+        return dir;
     }
 
     /// <summary>
