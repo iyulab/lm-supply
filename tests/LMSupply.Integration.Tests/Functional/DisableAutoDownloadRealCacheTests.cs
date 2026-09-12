@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using LMSupply.Captioner;
 using LMSupply.Detector;
 using LMSupply.Download;
 using LMSupply.Exceptions;
@@ -13,7 +14,7 @@ namespace LMSupply.Integration.Tests.Functional;
 
 /// <summary>
 /// <c>DisableAutoDownload</c> against this machine's real model cache. Until 0.64.0 five of these modules
-/// ignored the option and downloaded anyway. The unit tests count requests through a test transport; this
+/// ignored the option and downloaded anyway, and until 0.65.0 the captioner did not have it. The unit tests count requests through a test transport; this
 /// loads each module's default model the way a consumer does and checks the cache afterwards: an offline
 /// load either opens a cached model or fails with <see cref="ModelNotFoundException"/>, and in both cases
 /// leaves the cache exactly as it found it — nothing downloaded, nothing written. Needs the real cache,
@@ -24,7 +25,7 @@ namespace LMSupply.Integration.Tests.Functional;
 public sealed class DisableAutoDownloadRealCacheTests
 {
     public static TheoryData<string> Modules =>
-        ["transcriber", "translator", "reranker", "segmenter", "detector", "imagegenerator", "ocr"];
+        ["transcriber", "translator", "reranker", "segmenter", "detector", "imagegenerator", "ocr", "captioner"];
 
     [Theory]
     [MemberData(nameof(Modules))]
@@ -65,6 +66,7 @@ public sealed class DisableAutoDownloadRealCacheTests
         "detector" => await LocalDetector.LoadAsync("default", new DetectorOptions { DisableAutoDownload = true }, cancellationToken: ct),
         "imagegenerator" => await LocalImageGenerator.LoadAsync("default", new ImageGeneratorOptions { DisableAutoDownload = true }, cancellationToken: ct),
         "ocr" => await LocalOcr.LoadForLanguageAsync("en", new OcrOptions { DisableAutoDownload = true }, cancellationToken: ct),
+        "captioner" => await LocalCaptioner.LoadAsync("default", new CaptionerOptions { DisableAutoDownload = true }, cancellationToken: ct),
         _ => throw new ArgumentOutOfRangeException(nameof(module), module, null),
     };
 

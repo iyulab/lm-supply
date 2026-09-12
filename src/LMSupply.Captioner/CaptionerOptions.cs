@@ -27,4 +27,12 @@ public sealed class CaptionerOptions : LMSupplyOptionsBase
     /// Optional text prompt to start caption generation.
     /// </summary>
     public string? Prompt { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether to disable automatic model download.
+    /// When true, loading uses only the local cache and throws <see cref="LMSupply.Exceptions.ModelNotFoundException"/>
+    /// if a model file is not there, writing nothing to the cache.
+    /// <para>Default: false</para>
+    /// </summary>
+    public bool DisableAutoDownload { get; set; }
 }

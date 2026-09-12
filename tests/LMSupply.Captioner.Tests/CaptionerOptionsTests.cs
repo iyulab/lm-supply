@@ -18,6 +18,7 @@ public class CaptionerOptionsTests
         options.Prompt.Should().BeNull();
         options.Provider.Should().Be(ExecutionProvider.Auto);
         options.CacheDirectory.Should().BeNull();
+        options.DisableAutoDownload.Should().BeFalse();
     }
 
     [Fact]

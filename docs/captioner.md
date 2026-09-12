@@ -64,7 +64,8 @@ var options = new CaptionerOptions
 {
     MaxLength = 50,                        // Maximum caption length
     Provider = ExecutionProvider.DirectML, // Force specific GPU provider
-    CacheDirectory = "/custom/cache"       // Custom model cache directory
+    CacheDirectory = "/custom/cache",      // Custom model cache directory
+    DisableAutoDownload = false            // true: load only from the cache, throw if a file is missing
 };
 
 var captioner = await LocalCaptioner.LoadAsync("default", options);
@@ -118,3 +119,8 @@ Models are cached following HuggingFace Hub conventions:
 - Default: `~/.cache/huggingface/hub`
 - Override via: `HF_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME` environment variables
 - Or set `CaptionerOptions.CacheDirectory`
+
+Set `CaptionerOptions.DisableAutoDownload = true` to load from the cache only: a model file that is not
+there throws `ModelNotFoundException`, no network request is made, and nothing is written to the cache.
+Use it behind a download-consent boundary — the consenting call loads with downloads on, every later
+call with the flag set — so a model that is not installed fails instead of downloading.

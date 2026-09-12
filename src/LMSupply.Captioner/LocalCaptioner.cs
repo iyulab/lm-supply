@@ -30,7 +30,11 @@ public static class LocalCaptioner
     /// Either a model ID (e.g., "default", "vit-gpt2") for auto-download,
     /// or a local path to a model directory.
     /// </param>
-    /// <param name="options">Optional configuration options.</param>
+    /// <param name="options">
+    /// Optional configuration options. With <see cref="CaptionerOptions.DisableAutoDownload"/> set, a model
+    /// id is served from the cache only: a file that is not there throws <see cref="ModelNotFoundException"/>
+    /// and nothing is downloaded or written.
+    /// </param>
     /// <param name="progress">Optional progress reporting for downloads.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A loaded captioning model ready for inference.</returns>
@@ -70,7 +74,7 @@ public static class LocalCaptioner
         {
             // Download model from HuggingFace
             var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-            using var downloader = new HuggingFaceDownloader(cacheDir);
+            using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
             // Build model-specific file list
             var modelFiles = GetRequiredFiles(modelInfo!);
@@ -86,7 +90,7 @@ public static class LocalCaptioner
         else if (modelIdOrPath.Contains('/'))
         {
             var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-            using var downloader = new HuggingFaceDownloader(cacheDir);
+            using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
             // Use auto-discovery to find ONNX files and config
             var hwPrefs = ModelPreferences.ForCurrentHardware();
