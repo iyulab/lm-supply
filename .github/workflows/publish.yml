@@ -74,37 +74,10 @@ jobs:
 
       - name: Test
         if: steps.check.outputs.SKIP != 'true' && hashFiles('tests/**/*.csproj') != ''
-        # See ci.yml's Test step for why this isn't a plain `dotnet test` invocation: MTP exits
-        # non-zero when a filter matches zero tests in one assembly of a solution-wide run
-        # (LMSupply.Integration.Tests here), where VSTest exited 0 (xunit/xunit#3077).
-        run: |
-          set +e
-          output=$(dotnet test --configuration Release --no-build --verbosity normal --filter-not-trait "Category=Integration" --filter-not-trait "Category=Functional" --filter-not-trait "Category=LocalOnly" --hangdump --hangdump-timeout 5m --no-ansi 2>&1)
-          code=$?
-          echo "$output"
-          if [ "$code" -eq 0 ]; then exit 0; fi
-          failed=$(echo "$output" | grep -oP '(?<=^\s{2}failed:\s)\d+' | tail -1)
-          succeeded=$(echo "$output" | grep -oP '(?<=^\s{2}succeeded:\s)\d+' | tail -1)
-          # A zero failed count is NOT on its own evidence that the quirk is what happened: a run
-          # where every project filtered to nothing also reports "failed: 0", and translating that
-          # to success is how a suite that vanished - a deleted file, an over-applied trait, a
-          # mistyped filter - reports green. Requiring a non-zero pass count is what separates
-          # "one known assembly matched nothing" from "nothing ran at all".
-          if [ -n "$failed" ] && [ "$failed" -eq 0 ] && [ -n "$succeeded" ] && [ "$succeeded" -gt 0 ]; then
-            echo "::notice::dotnet test exited $code with $succeeded passed and 0 failed -- MTP's zero-tests-matched-a-filter quirk, not a real failure."
-            exit 0
-          fi
-          if [ -z "$succeeded" ]; then
-            # "I could not read the counts" is not "the counts were zero", and only the second one
-            # says anything about the tests. MTP colours its summary and colours only the non-zero
-            # numbers, so a parser that reads the human-facing output can come back empty on a run
-            # that passed - say so here rather than letting the reason go unrecorded.
-            echo "::error::Could not read a pass count out of the test output. Do not read this as a"
-            echo "::error::vanished suite: check MTP's summary format against the parser above first."
-          elif [ "$succeeded" -eq 0 ]; then
-            echo "::error::dotnet test exited $code and NO tests ran. This is not the zero-tests-matched-a-filter quirk; the suite itself contributed nothing."
-          fi
-          exit $code
+        # Same script as ci.yml, deliberately: one definition of what "the tests pass" means, used
+        # by both workflows and by a local run. See that file's Test step for why this is not a
+        # plain solution-wide `dotnet test`.
+        run: pwsh ./scripts/test.ps1 -Verbosity normal -Configuration Release -NoBuild
 
       - name: Pack
         if: steps.check.outputs.SKIP != 'true'
