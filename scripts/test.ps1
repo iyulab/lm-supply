@@ -67,7 +67,7 @@ if ($testProjects.Count -eq 0) {
 # under this filter or it does not. Adding one means asserting that every test in it needs hardware
 # or a service - check before you do.
 $hardwareOnlyProjects = @(
-    "TranscriberGpuTest"   # every test needs a GPU execution provider
+    "TranscriberGpuTest"   # needs a GPU execution provider; deliberately outside the solution build
 )
 
 # A name that matches nothing is rot: the project was renamed or deleted and the entry now excuses a
@@ -183,9 +183,32 @@ foreach ($project in $testProjects) {
     # MTP treats an assembly whose filter matches zero tests as a non-success exit (observed: 8,
     # where VSTest exited 0 - xunit/xunit#3077). $total is the ground truth for "did anything
     # actually fail" regardless of exit code here.
+    # "The test host never ran" and "the filter matched nothing" are different facts, and only the
+    # second one says anything about the tests. MTP prints a run summary whenever it actually ran an
+    # assembly - even for zero matches, where it reports total: 0 - so the absence of a summary is
+    # what separates them. Do not test for a particular message here: the wording differs by what is
+    # missing (an unrestored project and an unbuilt one fail with different text on different
+    # platforms), and a check keyed to one wording silently stops working when the other appears.
+    #
+    # This is the case that hid 108 tests in one assembly: the project was not in the solution, so
+    # the build step never produced it, and a solution-wide dotnet test cannot mention an assembly it
+    # was never given. A development machine hides it too - an earlier build leaves bin/ behind and
+    # the project runs - so it only surfaces on a clean checkout, which is to say in CI.
+    $neverRan = -not $sawSummary
+
     if ($total -eq 0) {
-        if ($hardwareOnlyProjects -contains $projectName) {
-            Write-Status "Result: no tests matched the category filter (hardware-only project)" "Yellow"
+        $exempt = $hardwareOnlyProjects -contains $projectName
+        if ($neverRan -and -not $exempt) {
+            Write-Status "Result: THE TEST HOST NEVER RAN" "Red"
+            Write-Output "dotnet test produced no run summary for $projectName, which is not the same as finding"
+            Write-Output "no matching tests. The usual cause is that the project is missing from the solution, so"
+            Write-Output "the build step never produced its assembly. Add it to the solution, or - if it is meant"
+            Write-Output "to stay out - add it to `$hardwareOnlyProjects in this script and say why."
+            $failedProjects += $projectName
+        }
+        elseif ($exempt) {
+            $why = if ($neverRan) { "never built - outside the solution" } else { "filtered to nothing" }
+            Write-Status "Result: no tests ran - $why (declared hardware-only)" "Yellow"
         }
         else {
             Write-Status "Result: NO TESTS RAN" "Red"

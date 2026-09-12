@@ -52,6 +52,7 @@
     <Project Path="tests/LMSupply.Synthesizer.Tests/LMSupply.Synthesizer.Tests.csproj" />
     <Project Path="tests/LMSupply.Text.Core.Tests/LMSupply.Text.Core.Tests.csproj" />
     <Project Path="tests/LMSupply.Transcriber.Tests/LMSupply.Transcriber.Tests.csproj" />
+    <Project Path="tests/LMSupply.Translator.Tests/LMSupply.Translator.Tests.csproj" />
     <Project Path="tests/LMSupply.Vision.Core.Tests/LMSupply.Vision.Core.Tests.csproj" />
   </Folder>
 </Solution>
