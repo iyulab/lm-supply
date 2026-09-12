@@ -38,6 +38,7 @@ public sealed class SegmenterOptions : LMSupplyOptionsBase
         ModelId = ModelId,
         CacheDirectory = CacheDirectory,
         Provider = Provider,
+        LogLevel = LogLevel,
         DisableAutoDownload = DisableAutoDownload,
         ThreadCount = ThreadCount,
         ResizeToOriginal = ResizeToOriginal,

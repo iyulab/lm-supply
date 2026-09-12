@@ -81,6 +81,7 @@ public sealed class DetectorOptions : LMSupplyOptionsBase
         MaxDetections = MaxDetections,
         CacheDirectory = CacheDirectory,
         Provider = Provider,
+        LogLevel = LogLevel,
         DisableAutoDownload = DisableAutoDownload,
         ThreadCount = ThreadCount,
         ClassFilter = ClassFilter is not null ? new HashSet<int>(ClassFilter) : null,

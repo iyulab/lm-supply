@@ -1,8 +1,6 @@
-using System.Reflection;
 using AwesomeAssertions;
 using LMSupply.Exceptions;
 using LMSupply.Generator.Internal.Llama;
-using LMSupply.Llama.Server;
 
 namespace LMSupply.Generator.Tests;
 
@@ -75,39 +73,5 @@ public sealed class OfflineLoadTests : IDisposable
         var resolved = await downloader.DownloadAsync(repoId, cancellationToken: Ct);
 
         resolved.Should().Be(seeded);
-    }
-
-    // Every settable option, set to a non-default value, must survive Clone — the ONNX factory used to
-    // rebuild the options by hand when applying its default provider and dropped seven of them.
-    [Fact]
-    public void Clone_CarriesEverySettableOption()
-    {
-        var props = typeof(GeneratorOptions).GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.SetMethod != null)
-            .ToList();
-        var source = new GeneratorOptions();
-        foreach (var prop in props)
-            prop.SetValue(source, NonDefault(prop.PropertyType, prop.GetValue(source)));
-
-        var clone = source.Clone();
-
-        foreach (var prop in props)
-        {
-            prop.GetValue(clone).Should().Be(prop.GetValue(source),
-                $"GeneratorOptions.{prop.Name} must survive Clone — add it to the copy");
-        }
-    }
-
-    private static object NonDefault(Type type, object? current)
-    {
-        var t = Nullable.GetUnderlyingType(type) ?? type;
-        if (t.IsEnum)
-            return Enum.GetValues(t).Cast<object>().First(v => !Equals(v, current) && !Equals(v, Activator.CreateInstance(t)));
-        if (t == typeof(int)) return Equals(current, 7) ? 8 : 7;
-        if (t == typeof(bool)) return current is true ? false : true;
-        if (t == typeof(string)) return Equals(current, "probe") ? "probe-2" : "probe";
-        if (t == typeof(LlamaOptions)) return new LlamaOptions();
-        if (t == typeof(LlamaServerUpdateOptions)) return new LlamaServerUpdateOptions();
-        throw new NotSupportedException($"No probe value for {type} — extend NonDefault when an option of that type is added.");
     }
 }

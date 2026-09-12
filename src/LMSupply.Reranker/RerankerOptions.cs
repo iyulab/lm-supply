@@ -57,6 +57,7 @@ public sealed class RerankerOptions : LMSupplyOptionsBase
         MaxSequenceLength = MaxSequenceLength,
         CacheDirectory = CacheDirectory,
         Provider = Provider,
+        LogLevel = LogLevel,
         DisableAutoDownload = DisableAutoDownload,
         ThreadCount = ThreadCount,
         BatchSize = BatchSize,

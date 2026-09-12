@@ -4,6 +4,7 @@ using LMSupply.Detector;
 using LMSupply.Download;
 using LMSupply.Embedder;
 using LMSupply.Exceptions;
+using LMSupply.Generator;
 using LMSupply.ImageGenerator;
 using LMSupply.Ocr;
 using LMSupply.Reranker;
@@ -16,7 +17,7 @@ namespace LMSupply.Integration.Tests.Functional;
 
 /// <summary>
 /// <c>DisableAutoDownload</c> against this machine's real model cache. Until 0.64.0 five of these modules
-/// ignored the option and downloaded anyway, and until 0.65.0 the captioner, embedder, synthesizer and generator did not have it (the generator is covered by unit tests — an offline hit here would start llama-server). The unit tests count requests through a test transport; this
+/// ignored the option and downloaded anyway, and until 0.65.0 the captioner, embedder, synthesizer and generator did not have it (the generator row uses the download half only — an offline hit through LoadAsync would start llama-server). The unit tests count requests through a test transport; this
 /// loads each module's default model the way a consumer does and checks the cache afterwards: an offline
 /// load either opens a cached model or fails with <see cref="ModelNotFoundException"/>, and in both cases
 /// leaves the cache exactly as it found it — nothing downloaded, nothing written. Needs the real cache,
@@ -27,7 +28,7 @@ namespace LMSupply.Integration.Tests.Functional;
 public sealed class DisableAutoDownloadRealCacheTests
 {
     public static TheoryData<string> Modules =>
-        ["transcriber", "translator", "reranker", "segmenter", "detector", "imagegenerator", "ocr", "captioner", "embedder", "synthesizer"];
+        ["transcriber", "translator", "reranker", "segmenter", "detector", "imagegenerator", "ocr", "captioner", "embedder", "synthesizer", "generator"];
 
     [Theory]
     [MemberData(nameof(Modules))]
@@ -40,7 +41,9 @@ public sealed class DisableAutoDownloadRealCacheTests
         string outcome;
         try
         {
-            await using var model = await LoadAsync(module, ct);
+            var model = await LoadAsync(module, ct);
+            if (model is not null)
+                await model.DisposeAsync();
             outcome = "loaded from the cache";
         }
         catch (ModelNotFoundException ex)
@@ -59,7 +62,9 @@ public sealed class DisableAutoDownloadRealCacheTests
             $"{string.Join('\n', added)}\nand removed or changed:\n{string.Join('\n', removed)}");
     }
 
-    private static async Task<IAsyncDisposable> LoadAsync(string module, CancellationToken ct) => module switch
+    // The generator goes through its download half only (LocalGenerator.DownloadModelAsync): the same
+    // resolution and the same cache rule, without starting llama-server on a hit. Returns null.
+    private static async Task<IAsyncDisposable?> LoadAsync(string module, CancellationToken ct) => module switch
     {
         "transcriber" => await LocalTranscriber.LoadAsync("default", new TranscriberOptions { DisableAutoDownload = true }, cancellationToken: ct),
         "translator" => await LocalTranslator.LoadAsync("default", new TranslatorOptions { DisableAutoDownload = true }, cancellationToken: ct),
@@ -71,8 +76,15 @@ public sealed class DisableAutoDownloadRealCacheTests
         "captioner" => await LocalCaptioner.LoadAsync("default", new CaptionerOptions { DisableAutoDownload = true }, cancellationToken: ct),
         "embedder" => await LocalEmbedder.LoadAsync("default", new EmbedderOptions { DisableAutoDownload = true }, cancellationToken: ct),
         "synthesizer" => await LocalSynthesizer.LoadAsync("default", new SynthesizerOptions { DisableAutoDownload = true }, cancellationToken: ct),
+        "generator" => await Download(LocalGenerator.DownloadModelAsync("default", new GeneratorOptions { DisableAutoDownload = true }, cancellationToken: ct)),
         _ => throw new ArgumentOutOfRangeException(nameof(module), module, null),
     };
+
+    private static async Task<IAsyncDisposable?> Download(Task<string> download)
+    {
+        await download;
+        return null;
+    }
 
     // Every file under the model directories, with size and write time: a download adds files, a manifest
     // rewrite changes a write time, and a miss that creates an empty directory adds a directory entry.

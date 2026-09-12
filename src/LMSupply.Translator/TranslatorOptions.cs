@@ -65,6 +65,7 @@ public sealed class TranslatorOptions : LMSupplyOptionsBase
         ModelId = ModelId,
         CacheDirectory = CacheDirectory,
         Provider = Provider,
+        LogLevel = LogLevel,
         DisableAutoDownload = DisableAutoDownload,
         ThreadCount = ThreadCount,
         MaxLength = MaxLength,

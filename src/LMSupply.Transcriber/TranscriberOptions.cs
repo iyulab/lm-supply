@@ -32,6 +32,7 @@ public sealed class TranscriberOptions : LMSupplyOptionsBase
         ModelId = ModelId,
         CacheDirectory = CacheDirectory,
         Provider = Provider,
+        LogLevel = LogLevel,
         DisableAutoDownload = DisableAutoDownload,
         ThreadCount = ThreadCount,
         QuantizationHint = QuantizationHint
