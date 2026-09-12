@@ -108,7 +108,7 @@ LMSupply automatically selects the **best quantization file that fits your avail
 
 - Measures available VRAM and RAM (subtracts 2GB GPU overhead and 4GB OS overhead)
 - Among files that fit in memory, picks the highest-quality quantization (Q8 > Q6 > Q5 > Q4 …)
-- To specify a file explicitly: `new GeneratorOptions { GgufFileName = "model-Q4_K_M.gguf" }`
+- To pin one file: download it by name with `GgufModelDownloader.DownloadAsync(repoId, "model-Q4_K_M.gguf")` and load the returned path with `LocalGenerator.LoadFromPathAsync` (see `generator.md`)
 
 **Recommended:**
 - 💡 **Low Memory (4-8GB)**: `gguf:fast` (Ministral 3 3B Q4_K_M)

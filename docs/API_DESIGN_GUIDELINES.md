@@ -231,7 +231,10 @@ not cached throws `ModelNotFoundException`, and no network request is made. Impl
 the option to the shared downloader — `new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload)`
 (or `new ModelPathResolver(cacheDir, localFilesOnly: ...)`) — rather than checking the cache in the
 package. An option declared here and not passed on is caught by the options roster test
-(`tests/LMSupply.Integration.Tests/OptionsReachabilityRosterTests.cs`).
+(`tests/LMSupply.Integration.Tests/OptionsReachabilityRosterTests.cs`). The mirror image — a
+document naming an option that does not exist — is caught by the docs snippet roster beside it
+(`DocsOptionsSnippetRosterTests.cs`): every `new <T>Options { … }` in `README.md` and `docs/*.md` must set
+real public properties of that type.
 
 ---
 

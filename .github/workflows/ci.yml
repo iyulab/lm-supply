@@ -56,10 +56,10 @@ jobs:
         # MTP exits non-zero (observed: 8) when a filter matches zero tests in one assembly of a
         # solution-wide run, where VSTest exited 0 (xunit/xunit#3077, confirmed in this ecosystem's
         # rollout via FluxIndex's Cache.Redis.Tests/Storage.Neo4j.Tests, cycle-371).
-        # LMSupply.Integration.Tests is entirely Category=Integration/Functional/LocalOnly, so it
-        # always filters to zero here — treat that as success by checking the aggregate "failed:"
-        # count rather than trusting dotnet test's own exit code for this specific shape
-        # (BD-20260829-xunit-v3-pilot, cycle-372).
+        # Some assemblies filter to zero here (TranscriberGpuTest; LMSupply.Integration.Tests did until
+        # its roster tests — options reachability, docs option snippets — started running in CI without a
+        # category trait) — treat that as success by checking the aggregate "failed:" count rather than
+        # trusting dotnet test's own exit code for this specific shape (BD-20260829-xunit-v3-pilot, cycle-372).
         run: |
           set +e
           output=$(dotnet test --configuration Release --no-build --verbosity normal --filter-not-trait "Category=Integration" --filter-not-trait "Category=Functional" --filter-not-trait "Category=LocalOnly" --hangdump --hangdump-timeout 5m --no-ansi 2>&1)
