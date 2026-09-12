@@ -61,10 +61,11 @@ internal static class GeneratorModelLoader
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
-        // Ensure GenAI runtime binaries are available before loading the model
-        await OnnxGeneratorBackendRegistry.Require().EnsureRuntimeAsync(options.Provider, progress, cancellationToken);
-
+        // The backend check is cheap and comes first; the runtime binaries come after the model files,
+        // so a load that DisableAutoDownload refuses has not pulled the GenAI runtime on its way to the refusal.
+        var backend = OnnxGeneratorBackendRegistry.Require();
         var (modelPath, configBasePath) = await DownloadOnnxAsync(modelId, options, progress, cancellationToken);
+        await backend.EnsureRuntimeAsync(options.Provider, progress, cancellationToken);
         return await LoadFromPathAsync(modelPath, options, modelId, configBasePath);
     }
 
@@ -80,7 +81,7 @@ internal static class GeneratorModelLoader
         CancellationToken cancellationToken)
     {
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-        using var downloader = new HuggingFaceDownloader(cacheDir);
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
         // Look up model in registry to get subfolder preference
         GeneratorModelRegistry.Default.TryResolve(modelId, out var modelInfo);
@@ -172,7 +173,7 @@ internal static class GeneratorModelLoader
         if (registryInfo != null)
         {
             // Download from registry
-            using var downloader = new GgufModelDownloader(cacheDir);
+            using var downloader = new GgufModelDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
             modelPath = await downloader.DownloadFromRegistryAsync(
                 registryInfo,
                 provider: options.Provider,
@@ -195,7 +196,7 @@ internal static class GeneratorModelLoader
             }
 
             // Assume it's a HuggingFace repo ID
-            using var downloader = new GgufModelDownloader(cacheDir);
+            using var downloader = new GgufModelDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
             modelPath = await downloader.DownloadAsync(
                 modelId,
                 filename: null,

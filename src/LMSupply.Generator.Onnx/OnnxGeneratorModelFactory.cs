@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using LMSupply.Core.Download;
 using LMSupply.Download;
+using LMSupply.Exceptions;
 using LMSupply.Generator.Abstractions;
 using LMSupply.Generator.ChatFormatters;
 
@@ -60,21 +61,15 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
     {
         options ??= new GeneratorOptions();
 
-        var (modelPath, configBasePath) = await ResolveModelPathWithBaseAsync(modelId, cancellationToken);
+        var (modelPath, configBasePath) = await ResolveModelPathWithBaseAsync(modelId, options.DisableAutoDownload, cancellationToken);
         var chatFormatter = ResolveChatFormatter(modelId, options.ChatFormat);
 
-        // Merge default provider if not specified
+        // Merge default provider if not specified — on a copy that keeps every other option.
         if (options.Provider == ExecutionProvider.Auto && _defaultProvider != ExecutionProvider.Auto)
         {
-            options = new GeneratorOptions
-            {
-                CacheDirectory = options.CacheDirectory ?? _cacheDirectory,
-                Provider = _defaultProvider,
-                ChatFormat = options.ChatFormat,
-                Verbose = options.Verbose,
-                MaxContextLength = options.MaxContextLength,
-                MaxConcurrentRequests = options.MaxConcurrentRequests
-            };
+            options = options.Clone();
+            options.CacheDirectory ??= _cacheDirectory;
+            options.Provider = _defaultProvider;
         }
 
         return new Internal.OnnxGeneratorModel(modelId, modelPath, chatFormatter, options, configBasePath);
@@ -213,7 +208,7 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
     /// when the model is in a subfolder, or null when model is at the root.
     /// </summary>
     private async Task<(string modelPath, string? configBasePath)> ResolveModelPathWithBaseAsync(
-        string modelId, CancellationToken cancellationToken)
+        string modelId, bool localFilesOnly, CancellationToken cancellationToken)
     {
         var snapshotPath = GetModelCachePath(modelId);
         var triedPaths = new List<string> { snapshotPath };
@@ -257,7 +252,14 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
             return (foundPath, snapshotPath);
         }
 
-        // Model not found — attempt download and retry
+        // Model not found — offline that is the answer; otherwise download and retry
+        if (localFilesOnly)
+        {
+            throw new ModelNotFoundException(
+                $"Model '{modelId}' is not in the local cache ({snapshotPath}) and downloads are disabled.",
+                modelId);
+        }
+
         Trace.TraceInformation($"[OnnxGenerator] Path resolution: no cached layout found, attempting download for {modelId}");
         await DownloadModelAsync(modelId, null, cancellationToken);
 

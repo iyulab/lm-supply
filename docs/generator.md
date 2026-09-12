@@ -422,9 +422,10 @@ await using var model = await LocalGenerator.LoadAsync("unsloth/Qwen3-32B-GGUF")
 await using var model = await LocalGenerator.LoadAsync("mistralai/Ministral-3-3B-Instruct-2512-GGUF");
 
 // Specify a particular quantization file
-await using var model = await LocalGenerator.LoadAsync(
-    "bartowski/Qwen2.5-7B-Instruct-GGUF",
-    new GeneratorOptions { GgufFileName = "Qwen2.5-7B-Instruct-Q5_K_M.gguf" });
+// One specific file: download it by name, then load the path.
+using var downloader = new GgufModelDownloader();
+var path = await downloader.DownloadAsync("bartowski/Qwen2.5-7B-Instruct-GGUF", "Qwen2.5-7B-Instruct-Q5_K_M.gguf");
+await using var pinned = await LocalGenerator.LoadFromPathAsync(path);
 ```
 
 The system automatically:
@@ -432,7 +433,9 @@ The system automatically:
 - Selects the optimal quantization file based on available memory (VRAM + RAM), choosing the largest quantization that fits
 - Downloads and caches the model for reuse
 
-> **Hardware-aware selection:** LMSupply measures available VRAM and RAM, then picks the highest-quality quantization (e.g., Q8 over Q4) that fits in memory. Use `GeneratorOptions.GgufFileName` to override with a specific file.
+> **Hardware-aware selection:** LMSupply measures available VRAM and RAM, then picks the highest-quality quantization (e.g., Q8 over Q4) that fits in memory. To pin one file, download it by name with `GgufModelDownloader.DownloadAsync(repoId, filename)` and load the returned path (above).
+
+> **Offline / consent boundary:** `new GeneratorOptions { DisableAutoDownload = true }` loads from the cache only — GGUF and ONNX alike. A model (or the quantization it would pick) that is not cached throws `ModelNotFoundException` before any runtime binary is fetched, and nothing is written to the cache. Warm the cache with `LocalGenerator.DownloadModelAsync` on the consenting call.
 
 ### GGUF Configuration Options
 

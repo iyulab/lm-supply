@@ -156,7 +156,7 @@ public static class LocalReranker
             var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
 
             // Download the GGUF file from HuggingFace
-            using var downloader = new GgufDownloader(cacheDir);
+            using var downloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
             modelPath = await downloader.DownloadAsync(
                 cleanPath,
                 preferredQuantization: "Q4_K_M",

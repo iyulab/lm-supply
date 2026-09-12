@@ -15,6 +15,7 @@ public sealed class GgufModelDownloader : IDisposable
     private readonly HttpClient _httpClient;
     private readonly ModelDiscoveryService _discoveryService;
     private readonly string _cacheDirectory;
+    private readonly bool _localFilesOnly;
     private bool _disposed;
 
     private const string HuggingFaceFileBase = "https://huggingface.co";
@@ -49,9 +50,14 @@ public sealed class GgufModelDownloader : IDisposable
     /// Deliberately NOT copied from the sibling: its 30-second timeout and automatic decompression.
     /// Those are tuned for small JSON responses; this client streams multi-gigabyte files.
     /// </remarks>
-    public GgufModelDownloader(string? cacheDirectory, string? hfToken = null)
+    /// <param name="localFilesOnly">
+    /// True: serve from the cache only — no repository listing, no download; a file that is not cached fails
+    /// with <see cref="ModelNotFoundException"/>. <c>GeneratorOptions.DisableAutoDownload</c> maps here.
+    /// </param>
+    public GgufModelDownloader(string? cacheDirectory, string? hfToken = null, bool localFilesOnly = false)
     {
         _cacheDirectory = cacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        _localFilesOnly = localFilesOnly;
         _httpClient = new HttpClient
         {
             Timeout = TimeSpan.FromMinutes(30)
@@ -94,10 +100,13 @@ public sealed class GgufModelDownloader : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
 
-        // Determine the file to download
+        // Determine the file to download — offline, only a cached file can be chosen.
         if (string.IsNullOrEmpty(filename))
         {
-            filename = await SelectBestGgufFileAsync(repoId, preferredQuantization, cancellationToken);
+            filename = _localFilesOnly
+                ? TrySelectFromLocalCache(repoId, preferredQuantization)
+                    ?? throw NotCached(repoId, preferredQuantization is null ? "*.gguf" : $"*{preferredQuantization}*.gguf")
+                : await SelectBestGgufFileAsync(repoId, preferredQuantization, cancellationToken);
         }
 
         // Check cache
@@ -112,6 +121,9 @@ public sealed class GgufModelDownloader : IDisposable
             });
             return cachedPath;
         }
+
+        if (_localFilesOnly)
+            throw NotCached(repoId, filename);
 
         // Download the file
         progress?.Report(new DownloadProgress
@@ -142,9 +154,10 @@ public sealed class GgufModelDownloader : IDisposable
         if (!string.IsNullOrEmpty(preferredQuantization) &&
             !modelInfo.DefaultFile.Contains(preferredQuantization, StringComparison.OrdinalIgnoreCase))
         {
-            // Explicit quantization request: try to find that file.
-            var alternateFile = await TryFindQuantizedFileAsync(
-                modelInfo.RepoId, preferredQuantization, cancellationToken);
+            // Explicit quantization request: try to find that file — in the cache only when offline.
+            var alternateFile = _localFilesOnly
+                ? TrySelectFromLocalCache(modelInfo.RepoId, preferredQuantization)
+                : await TryFindQuantizedFileAsync(modelInfo.RepoId, preferredQuantization, cancellationToken);
 
             if (alternateFile != null)
             {
@@ -194,6 +207,14 @@ public sealed class GgufModelDownloader : IDisposable
             var cachedDecision = DecideRegistryFile(modelInfo, cachedGroups, budget, vramOnly);
             if (cachedDecision.Reason is RegistryFileReason.DefaultFits or RegistryFileReason.Downscaled)
                 return cachedDecision.FileName;
+        }
+
+        // Offline: whatever is cached is the choice (DownloadAsync fails the load if nothing is); never list.
+        if (_localFilesOnly)
+        {
+            return cachedGroups.Count > 0
+                ? DecideRegistryFile(modelInfo, cachedGroups, budget, vramOnly).FileName
+                : modelInfo.DefaultFile;
         }
 
         IReadOnlyList<GgufFileGroup> groups;
@@ -552,6 +573,9 @@ public sealed class GgufModelDownloader : IDisposable
     {
         return _discoveryService.ListRepositoryFilesAsync(repoId, "main", cancellationToken);
     }
+
+    private ModelNotFoundException NotCached(string repoId, string file) =>
+        new($"'{file}' of model '{repoId}' is not in the local cache ({Path.GetDirectoryName(GetCachedPath(repoId, "model.gguf"))}) and downloads are disabled.", repoId);
 
     /// <summary>
     /// Downloads a single file with resume support.

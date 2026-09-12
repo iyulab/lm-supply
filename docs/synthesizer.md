@@ -117,7 +117,8 @@ var options = new SynthesizerOptions
 {
     Provider = ExecutionProvider.Cuda,  // Use GPU
     CacheDirectory = "/custom/cache",   // Custom cache location
-    ThreadCount = 4                     // CPU threads
+    ThreadCount = 4,                    // CPU threads
+    DisableAutoDownload = false         // true: load only from the cache, throw if a file is missing
 };
 
 var synthesizer = await LocalSynthesizer.LoadAsync("quality", options);

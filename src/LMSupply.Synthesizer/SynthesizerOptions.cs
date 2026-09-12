@@ -16,13 +16,27 @@ public sealed class SynthesizerOptions : LMSupplyOptionsBase
     /// Creates a deep copy of these options.
     /// </summary>
     /// <returns>A new instance with the same values.</returns>
+    /// <summary>
+    /// Gets or sets whether to disable automatic model download.
+    /// When true, loading uses only the local cache and throws <see cref="LMSupply.Exceptions.ModelNotFoundException"/>
+    /// if a model file is not there, writing nothing to the cache.
+    /// <para>Default: false</para>
+    /// </summary>
+    public bool DisableAutoDownload { get; set; }
+
+    /// <summary>
+    /// A copy with every option carried over — the loader keeps its own copy so a caller's later edits
+    /// do not reach a running model.
+    /// </summary>
     public SynthesizerOptions Clone() => new()
     {
         ModelId = ModelId,
         Provider = Provider,
         CacheDirectory = CacheDirectory,
         ThreadCount = ThreadCount,
-        QuantizationHint = QuantizationHint
+        LogLevel = LogLevel,
+        QuantizationHint = QuantizationHint,
+        DisableAutoDownload = DisableAutoDownload
     };
 }
 

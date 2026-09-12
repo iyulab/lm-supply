@@ -38,6 +38,14 @@ public sealed class EmbedderOptions : LMSupplyOptionsBase
     /// unpinned "latest" resolution) is used. Only applies to GGUF models.
     /// </summary>
     public LlamaServerUpdateOptions? ServerUpdateOptions { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether to disable automatic model download.
+    /// When true, loading uses only the local cache and throws <see cref="LMSupply.Exceptions.ModelNotFoundException"/>
+    /// if a model file is not there, writing nothing to the cache.
+    /// <para>Default: false</para>
+    /// </summary>
+    public bool DisableAutoDownload { get; set; }
 }
 
 /// <summary>

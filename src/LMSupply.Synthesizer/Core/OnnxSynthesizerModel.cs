@@ -307,7 +307,7 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
 
         // Download from HuggingFace
         var cacheDir = _options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-        using var downloader = new HuggingFaceDownloader(cacheDir);
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: _options.DisableAutoDownload);
 
         var modelPath = await downloader.DownloadModelAsync(
             _modelInfo.Id,

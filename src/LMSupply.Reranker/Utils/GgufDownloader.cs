@@ -13,13 +13,20 @@ internal sealed class GgufDownloader : IDisposable
     private readonly HttpClient _httpClient;
     private readonly ModelDiscoveryService _discoveryService;
     private readonly string _cacheDirectory;
+    private readonly bool _localFilesOnly;
     private bool _disposed;
 
     private const string HuggingFaceFileBase = "https://huggingface.co";
 
-    public GgufDownloader(string cacheDirectory)
+    /// <param name="cacheDirectory">Where downloaded GGUF files are kept.</param>
+    /// <param name="localFilesOnly">
+    /// True: serve from the cache only — no repository listing, no download; a repository with no cached
+    /// GGUF file fails with <see cref="ModelNotFoundException"/>. The <c>DisableAutoDownload</c> option maps here.
+    /// </param>
+    public GgufDownloader(string cacheDirectory, bool localFilesOnly = false)
     {
         _cacheDirectory = cacheDirectory;
+        _localFilesOnly = localFilesOnly;
         _httpClient = new HttpClient
         {
             Timeout = TimeSpan.FromMinutes(30)
@@ -37,6 +44,23 @@ internal sealed class GgufDownloader : IDisposable
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        // Offline: the cache is the only source. Read it, never list the repository, never write.
+        if (_localFilesOnly)
+        {
+            var cached = TrySelectFromLocalCache(repoId, preferredQuantization)
+                ?? throw new ModelNotFoundException(
+                    $"No GGUF file of model '{repoId}' is in the local cache ({GetCacheDirectory(repoId)}) and downloads are disabled.",
+                    repoId);
+
+            progress?.Report(new DownloadProgress
+            {
+                FileName = Path.GetFileName(cached),
+                BytesDownloaded = 1,
+                TotalBytes = 1
+            });
+            return cached;
+        }
+
         // List files in the repository
         var files = await ListRepoFilesAsync(repoId, cancellationToken);
         var ggufFiles = files.Where(f => f.IsFile && f.Path.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)).ToList();
@@ -119,6 +143,35 @@ internal sealed class GgufDownloader : IDisposable
             "No single-file GGUF model found in repository. " +
             "The reranker does not support split GGUF files (e.g., -00001-of-00003.gguf). " +
             "Please use a repository that provides a single-file GGUF model.");
+    }
+
+    private string GetCacheDirectory(string repoId) => Path.GetDirectoryName(GetCachePath(repoId, "model.gguf"))!;
+
+    /// <summary>
+    /// The cached GGUF file an offline load opens: the one matching the preferred quantization when
+    /// there is one, otherwise the first by name. Null when nothing of the repository is cached.
+    /// </summary>
+    private string? TrySelectFromLocalCache(string repoId, string? preferredQuantization)
+    {
+        var dir = GetCacheDirectory(repoId);
+        if (!Directory.Exists(dir))
+            return null;
+
+        var files = Directory.EnumerateFiles(dir, "*.gguf", SearchOption.AllDirectories)
+            .OrderBy(f => f, StringComparer.Ordinal)
+            .ToList();
+        if (files.Count == 0)
+            return null;
+
+        if (!string.IsNullOrEmpty(preferredQuantization))
+        {
+            var preferred = files.FirstOrDefault(f =>
+                Path.GetFileName(f).Contains(preferredQuantization, StringComparison.OrdinalIgnoreCase));
+            if (preferred != null)
+                return preferred;
+        }
+
+        return files[0];
     }
 
     private string GetCachePath(string repoId, string filename)

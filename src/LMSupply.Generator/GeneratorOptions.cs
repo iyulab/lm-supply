@@ -60,4 +60,34 @@ public sealed class GeneratorOptions : LMSupplyOptionsBase
     /// unpinned "latest" resolution) is used. Only applies to GGUF models.
     /// </summary>
     public LlamaServerUpdateOptions? ServerUpdateOptions { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether to disable automatic model download.
+    /// When true, loading uses only the local cache and throws <see cref="LMSupply.Exceptions.ModelNotFoundException"/>
+    /// if a model file is not there, writing nothing to the cache.
+    /// <para>Default: false</para>
+    /// </summary>
+    public bool DisableAutoDownload { get; set; }
+
+    /// <summary>
+    /// A copy with every option carried over (<see cref="LlamaOptions"/> and <see cref="ServerUpdateOptions"/>
+    /// are shared, not copied). Load paths that need to adjust one option — a factory applying its default
+    /// provider — copy first so the caller's instance is left alone and no option is dropped on the way.
+    /// </summary>
+    public GeneratorOptions Clone() => new()
+    {
+        CacheDirectory = CacheDirectory,
+        Provider = Provider,
+        ThreadCount = ThreadCount,
+        LogLevel = LogLevel,
+        QuantizationHint = QuantizationHint,
+        ChatFormat = ChatFormat,
+        Verbose = Verbose,
+        MaxContextLength = MaxContextLength,
+        MaxConcurrentRequests = MaxConcurrentRequests,
+        LlamaOptions = LlamaOptions,
+        PreferredAutoModelId = PreferredAutoModelId,
+        ServerUpdateOptions = ServerUpdateOptions,
+        DisableAutoDownload = DisableAutoDownload
+    };
 }

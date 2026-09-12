@@ -120,7 +120,7 @@ public static class LocalEmbedder
 
             // Download model
             var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-            using var downloader = new HuggingFaceDownloader(cacheDir);
+            using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
             var modelDir = await downloader.DownloadModelAsync(
                 modelInfo.RepoId,
@@ -139,7 +139,7 @@ public static class LocalEmbedder
         else if (modelIdOrPath.Contains('/'))
         {
             var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-            using var downloader = new HuggingFaceDownloader(cacheDir);
+            using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
             // Use auto-discovery to find ONNX files and config
             var hwPrefs = ModelPreferences.ForCurrentHardware();
@@ -306,7 +306,7 @@ public static class LocalEmbedder
         options.QuantizationHint ??= qualifier;
 
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-        using var downloader = new HuggingFaceDownloader(cacheDir);
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
         // Known model alias / registered model
         if (EmbedderModelRegistry.Default.TryResolve(modelId, out var modelInfo))
@@ -489,7 +489,7 @@ public static class LocalEmbedder
             var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
 
             // Download the GGUF file from HuggingFace
-            using var downloader = new GgufDownloader(cacheDir);
+            using var downloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
             modelPath = await downloader.DownloadAsync(
                 cleanPath,
                 preferredQuantization: "Q4_K_M",

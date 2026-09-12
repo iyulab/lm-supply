@@ -145,7 +145,10 @@ var options = new EmbedderOptions
     DoLowerCase = true,
 
     // Custom cache directory
-    CacheDirectory = null  // Uses ~/.cache/huggingface/hub by default
+    CacheDirectory = null,  // Uses ~/.cache/huggingface/hub by default
+
+    // true: load only from the cache, throw ModelNotFoundException if a file is missing, write nothing
+    DisableAutoDownload = false
 };
 
 var model = await LocalEmbedder.LoadAsync("default", options);
