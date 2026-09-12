@@ -77,7 +77,7 @@ internal sealed class FakeEmbeddingModel : IEmbeddingModel
 
     public ValueTask<float[]> EmbedAsync(string text, CancellationToken ct = default)
     {
-        var rng = new Random(text.GetHashCode());
+        var rng = new Random(TestHash.Fnv1a(text));
         var v = Enumerable.Range(0, _dims).Select(_ => (float)rng.NextDouble()).ToArray();
         NormalizeL2(v);
         return ValueTask.FromResult(v);
@@ -87,7 +87,7 @@ internal sealed class FakeEmbeddingModel : IEmbeddingModel
     {
         var result = texts.Select(t =>
         {
-            var rng = new Random(t.GetHashCode());
+            var rng = new Random(TestHash.Fnv1a(t));
             var v = Enumerable.Range(0, _dims).Select(_ => (float)rng.NextDouble()).ToArray();
             NormalizeL2(v);
             return v;
