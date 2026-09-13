@@ -201,8 +201,6 @@ internal sealed class GgufDownloader : IDisposable
             DestinationPath = destinationPath,
             FileName = fileName,
             ExpectedSize = totalBytes > 0 ? totalBytes : null,
-            IsTransient = ex => ex.StatusCode is System.Net.HttpStatusCode.TooManyRequests or System.Net.HttpStatusCode.InternalServerError
-                or System.Net.HttpStatusCode.BadGateway or System.Net.HttpStatusCode.ServiceUnavailable or System.Net.HttpStatusCode.GatewayTimeout,
             Progress = progress,
         }, cancellationToken);
 

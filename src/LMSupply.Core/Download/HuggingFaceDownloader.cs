@@ -465,7 +465,6 @@ public sealed class HuggingFaceDownloader : IDisposable
             FileName = filePath,
             ModelId = repoId,
             ExpectedSize = expectedSize,
-            IsTransient = IsTransientError,
             MaxRetries = MaxRetries,
             Progress = progress,
             InspectResponse = async (response, ct) =>
@@ -582,20 +581,6 @@ public sealed class HuggingFaceDownloader : IDisposable
                filename.Equals("special_tokens_map.json", StringComparison.OrdinalIgnoreCase) ||
                filename.Equals("config.json", StringComparison.OrdinalIgnoreCase) ||
                filename.Equals("sentencepiece.bpe.model", StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// Determines if an HTTP error is transient and should be retried.
-    /// </summary>
-    private static bool IsTransientError(HttpRequestException ex)
-    {
-        return ex.StatusCode is
-            HttpStatusCode.RequestTimeout or
-            HttpStatusCode.TooManyRequests or
-            HttpStatusCode.InternalServerError or
-            HttpStatusCode.BadGateway or
-            HttpStatusCode.ServiceUnavailable or
-            HttpStatusCode.GatewayTimeout;
     }
 
     public void Dispose()

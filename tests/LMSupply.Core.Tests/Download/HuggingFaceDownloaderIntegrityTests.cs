@@ -175,6 +175,20 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
         Assert.True(ModelDirectoryValidator.Validate(ModelDir).IsValid);
     }
 
+    [Fact]
+    public async Task ATransientStatus_IsRetried_ByDefault()
+    {
+        // 503 on the first resolve, then the file: the library-wide transient rule applies without any
+        // caller naming it.
+        var hub = new Hub { StatusesBeforeBody = new Queue<HttpStatusCode>([HttpStatusCode.ServiceUnavailable]) };
+        using var downloader = new HuggingFaceDownloader(_cacheDir, hub);
+
+        await downloader.DownloadModelAsync(Repo, ["model.onnx"], cancellationToken: Ct);
+
+        Assert.Equal(Model, await File.ReadAllBytesAsync(ModelPath, Ct));
+        Assert.Equal(2, hub.ResolveRequests);
+    }
+
     /// <summary>A hub with one file, "model.onnx" (4000 bytes), whose transport misbehaves on request.</summary>
     private sealed class Hub : HttpMessageHandler
     {
@@ -187,6 +201,9 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
 
         /// <summary>Per response, after how many bytes the body stream throws <see cref="IOException"/>.</summary>
         public Queue<int> ThrowAfter { get; init; } = new();
+
+        /// <summary>Per resolve request, a failure status to answer with instead of a body.</summary>
+        public Queue<HttpStatusCode> StatusesBeforeBody { get; init; } = new();
 
         /// <summary>Whether a Range request is honoured with 206; when false the server sends the whole file again.</summary>
         public bool ResumeFromRange { get; init; } = true;
@@ -214,6 +231,11 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
 
             Interlocked.Increment(ref _resolveRequests);
+            lock (StatusesBeforeBody)
+            {
+                if (StatusesBeforeBody.TryDequeue(out var status))
+                    return Task.FromResult(new HttpResponseMessage(status));
+            }
             var from = 0L;
             if (request.Headers.Range?.Ranges.FirstOrDefault() is { From: { } f })
             {

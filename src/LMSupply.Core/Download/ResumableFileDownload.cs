@@ -67,8 +67,21 @@ internal static class ResumableFileDownload
         /// </summary>
         public Func<HttpResponseMessage, CancellationToken, Task>? InspectResponse { get; init; }
 
-        /// <summary>Whether a failed HTTP status is worth retrying (rate limits, gateway errors).</summary>
-        public Func<HttpRequestException, bool>? IsTransient { get; init; }
+        /// <summary>
+        /// Whether a failed HTTP status is worth retrying. The default retries the statuses every source
+        /// in this library treats as transient — a request timeout, a rate limit, and the gateway family —
+        /// so a caller overrides it only to narrow or widen that set.
+        /// </summary>
+        public Func<HttpRequestException, bool> IsTransient { get; init; } = IsTransientStatus;
+
+        /// <summary>The library-wide transient rule: 408, 429, 500, 502, 503, 504.</summary>
+        public static bool IsTransientStatus(HttpRequestException ex) => ex.StatusCode is
+            HttpStatusCode.RequestTimeout or
+            HttpStatusCode.TooManyRequests or
+            HttpStatusCode.InternalServerError or
+            HttpStatusCode.BadGateway or
+            HttpStatusCode.ServiceUnavailable or
+            HttpStatusCode.GatewayTimeout;
 
         /// <summary>Total attempts for transient HTTP failures and timeouts.</summary>
         public int MaxRetries { get; init; } = 3;
@@ -101,7 +114,7 @@ internal static class ResumableFileDownload
                     await AttemptAsync(httpClient, request, cancellationToken).ConfigureAwait(false);
                     return;
                 }
-                catch (HttpRequestException ex) when (request.IsTransient?.Invoke(ex) == true && attempt < request.MaxRetries)
+                catch (HttpRequestException ex) when (request.IsTransient(ex) && attempt < request.MaxRetries)
                 {
                     // Exponential backoff below.
                 }
