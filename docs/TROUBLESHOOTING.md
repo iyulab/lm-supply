@@ -84,6 +84,15 @@ await LocalEmbedder.LoadAsync("default", progress: progress);
 // Models are cached at: ~/.cache/lm-supply/
 ```
 
+**Interrupted downloads resume.** A download that stops part-way (network drop, process exit, sleep)
+leaves a `<file>.part` in the cache; the next load continues from that offset with an HTTP range
+request instead of starting over. A download is only accepted as the file when it is as long as the
+server announced and as the repository listing says — a body that ends early is retried, and a cached
+file whose length differs from the listing is discarded and fetched again. So a model that once failed
+with `[ErrorCode:InvalidProtobuf] Load model from ... failed:Protobuf parsing failed.` repairs itself on
+the next load. (Before 0.65.1 a truncated file could be accepted as complete; delete that model's
+directory under the cache to recover.)
+
 ### 2.3 ModelLoadException
 
 **Symptom:**

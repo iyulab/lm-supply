@@ -335,7 +335,11 @@ public sealed class ModelDiscoveryService : IDisposable
             Architecture = architecture,
             EncoderFiles = encoderFiles,
             DecoderFiles = decoderFiles,
-            DetectedDecoderVariant = decoderVariant
+            DetectedDecoderVariant = decoderVariant,
+            FileSizes = allFiles
+                .Where(f => f.IsFile && f.Size > 0)
+                .GroupBy(f => f.Path, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First().Size, StringComparer.Ordinal)
         };
     }
 

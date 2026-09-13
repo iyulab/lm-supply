@@ -15,6 +15,13 @@ public sealed class DownloadManifest
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
+    /// <summary>
+    /// Manifests at this version or later record the length the repository listed for each file, so a
+    /// file whose length differs is known to be wrong. Version 1 manifests recorded whatever was on disk
+    /// and certify nothing; the downloader re-verifies them against the listing.
+    /// </summary>
+    public const int VerifiedVersion = 2;
+
     public int Version { get; set; } = 1;
     public DateTimeOffset CompletedAt { get; set; }
     public string? RepoId { get; set; }

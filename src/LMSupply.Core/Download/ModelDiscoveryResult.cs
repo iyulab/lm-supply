@@ -56,6 +56,12 @@ public sealed class ModelDiscoveryResult
     public DecoderVariant DetectedDecoderVariant { get; init; } = DecoderVariant.Standard;
 
     /// <summary>
+    /// Byte length of every file the repository listed, keyed by repository path — the length a download
+    /// of each of <see cref="GetAllFiles"/> must produce. Empty when the listing carried no sizes.
+    /// </summary>
+    internal IReadOnlyDictionary<string, long> FileSizes { get; init; } = new Dictionary<string, long>(StringComparer.Ordinal);
+
+    /// <summary>
     /// Gets the primary encoder file, or null if not an encoder-decoder model.
     /// </summary>
     public string? PrimaryEncoderFile => EncoderFiles.Count > 0 ? EncoderFiles[0] : null;

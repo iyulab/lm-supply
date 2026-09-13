@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
@@ -22,6 +23,12 @@ public sealed class HuggingFaceDownloader : IDisposable
     private const string HuggingFaceBaseUrl = "https://huggingface.co";
     private const int BufferSize = 81920; // 80KB
     private const int MaxRetries = 3;
+    // A resume that keeps making progress may take many attempts on a link that drops every few tens of
+    // megabytes; this caps the total so a server that always answers with one short body cannot loop.
+    private const int MaxResumeAttempts = 20;
+    // One gate per destination path: same-process callers loading the same model wait for one another
+    // instead of racing for the ".part" (see DownloadFileWithRetryAsync).
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> s_fileGates = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets the cache directory being used.
@@ -116,6 +123,7 @@ public sealed class HuggingFaceDownloader : IDisposable
         var allFiles = discovery.GetAllFiles().ToList();
         var totalFileCount = allFiles.Count;
         var fileIndex = 0;
+        var manifestFiles = new List<ManifestFileEntry>();
 
         foreach (var file in allFiles)
         {
@@ -128,7 +136,10 @@ public sealed class HuggingFaceDownloader : IDisposable
             if (!localPath.StartsWith(modelDir, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException($"Path traversal detected in file path: {file}");
 
-            if (!CacheManager.IsCachedFile(localPath))
+            // The listing discovery just fetched says how long every file must be.
+            var expectedSize = discovery.FileSizes.TryGetValue(file, out var listed) && listed > 0 ? listed : (long?)null;
+
+            if (!IsUsableCachedFile(localPath, expectedSize, repoId))
             {
                 // Every discovered file is part of the model (graph, external weights, config).
                 if (_localFilesOnly)
@@ -146,30 +157,22 @@ public sealed class HuggingFaceDownloader : IDisposable
 
                 // Download using the full file path (includes subfolder)
                 await DownloadFileWithRetryAsync(
-                    repoId, file, localPath, revision, subfolder: null,
+                    repoId, file, localPath, revision, subfolder: null, expectedSize,
                     wrappedProgress, cancellationToken);
             }
+
+            if (File.Exists(localPath))
+                manifestFiles.Add(new ManifestFileEntry { Path = file, Size = expectedSize ?? new FileInfo(localPath).Length });
         }
 
         if (_localFilesOnly)
             return (modelDir, discovery);
 
-        // After all files downloaded, write manifest
-        var manifestFiles = allFiles
-            .Select(file =>
-            {
-                var localPath = Path.GetFullPath(Path.Combine(modelDir, file.Replace('/', Path.DirectorySeparatorChar)));
-                return new ManifestFileEntry
-                {
-                    Path = file,
-                    Size = File.Exists(localPath) ? new FileInfo(localPath).Length : 0
-                };
-            })
-            .Where(e => e.Size > 0)
-            .ToList();
-
+        // The manifest records what the repository listed, not what landed on disk — a length the
+        // validator can hold the files to. Without a listing it records the disk and says so (version 1).
         var manifest = new DownloadManifest
         {
+            Version = discovery.FileSizes.Count > 0 ? DownloadManifest.VerifiedVersion : 1,
             RepoId = repoId,
             Revision = revision,
             Files = manifestFiles
@@ -222,11 +225,35 @@ public sealed class HuggingFaceDownloader : IDisposable
         var totalFileCount = fileList.Count;
         var fileIndex = 0;
 
+        // How long each file must be. A manifest written from the repository listing (version 2) answers
+        // for cached files without a request; when a file is missing, or the manifest is absent or
+        // predates verification, the listing is fetched once — it is cached by the discovery service, so
+        // a warm load still makes no request. Unknown lengths only mean the byte-count check in
+        // DownloadFileCoreAsync stands alone.
+        var manifest = await DownloadManifest.ReadAsync(modelDir);
+        var manifestSizes = manifest is { Version: >= DownloadManifest.VerifiedVersion }
+            ? manifest.Files.Where(f => f.Size > 0).ToDictionary(f => f.Path, f => f.Size, StringComparer.Ordinal)
+            : new Dictionary<string, long>(StringComparer.Ordinal);
+        var needsListing = !_localFilesOnly && fileList.Any(f =>
+            !manifestSizes.ContainsKey(f) || !CacheManager.IsCachedFile(Path.Combine(modelDir, f)));
+        var listing = needsListing
+            ? await TryListRepositoryFileSizesAsync(repoId, revision, cancellationToken)
+            : null;
+
+        long? ListedAt(string? location, string file) =>
+            listing is not null && listing.TryGetValue(string.IsNullOrEmpty(location) ? file : $"{location}/{file}", out var size)
+                ? size
+                : null;
+
+        // A cached file came from the subfolder when the repository has it there, else from the root.
+        long? ExpectedOnDisk(string file) =>
+            manifestSizes.TryGetValue(file, out var recorded) ? recorded : ListedAt(subfolder, file) ?? ListedAt(null, file);
+
         foreach (var file in fileList)
         {
             fileIndex++;
             var localPath = Path.Combine(modelDir, file);
-            if (!CacheManager.IsCachedFile(localPath))
+            if (!IsUsableCachedFile(localPath, ExpectedOnDisk(file), repoId))
             {
                 if (_localFilesOnly)
                 {
@@ -243,6 +270,7 @@ public sealed class HuggingFaceDownloader : IDisposable
 
                 var downloaded = await TryDownloadFileWithFallbackAsync(
                     repoId, file, localPath, revision, subfolder,
+                    expectedInSubfolder: ListedAt(subfolder, file), expectedInRoot: ListedAt(null, file),
                     wrappedProgress, cancellationToken);
 
                 if (!downloaded)
@@ -268,7 +296,10 @@ public sealed class HuggingFaceDownloader : IDisposable
         if (_localFilesOnly)
             return modelDir;
 
-        // Write manifest from actually downloaded files (not directory scan)
+        // Write manifest from the requested files that exist, at the length the repository listed
+        // (or the manifest already held). When neither was available the entry records the disk and the
+        // manifest stays version 1, so the next load verifies against the listing.
+        var verified = listing is not null || manifestSizes.Count > 0;
         var downloadedFiles = fileList
             .Select(file =>
             {
@@ -276,7 +307,7 @@ public sealed class HuggingFaceDownloader : IDisposable
                 return new ManifestFileEntry
                 {
                     Path = file,
-                    Size = File.Exists(filePath) ? new FileInfo(filePath).Length : 0
+                    Size = File.Exists(filePath) ? ExpectedOnDisk(file) ?? new FileInfo(filePath).Length : 0
                 };
             })
             .Where(e => e.Size > 0)
@@ -284,6 +315,7 @@ public sealed class HuggingFaceDownloader : IDisposable
 
         var downloadedManifest = new DownloadManifest
         {
+            Version = verified ? DownloadManifest.VerifiedVersion : 1,
             RepoId = repoId,
             Revision = revision,
             Files = downloadedFiles
@@ -291,6 +323,59 @@ public sealed class HuggingFaceDownloader : IDisposable
         await DownloadManifest.WriteAsync(modelDir, downloadedManifest);
 
         return modelDir;
+    }
+
+    /// <summary>
+    /// A cached file is usable when it holds real content and — when the repository listing or a verified
+    /// manifest says how long it must be — is exactly that long. A final file of any other length has no
+    /// known provenance (an interrupted copy, another revision, a rename that clobbered a complete file),
+    /// so it is not a prefix to resume from: only a ".part" is. It is deleted so the download starts over.
+    /// With local files only nothing is deleted; the file is simply not cached.
+    /// </summary>
+    private bool IsUsableCachedFile(string localPath, long? expectedSize, string repoId)
+    {
+        if (!CacheManager.IsCachedFile(localPath))
+            return false;
+        if (expectedSize is not { } expected)
+            return true;
+
+        var actual = new FileInfo(localPath).Length;
+        if (actual == expected)
+            return true;
+
+        Trace.TraceWarning(
+            $"[HuggingFaceDownloader] '{localPath}' of '{repoId}' is {actual} bytes but the repository lists {expected}; " +
+            (_localFilesOnly ? "treating it as not cached." : "discarding it and downloading again."));
+        if (!_localFilesOnly)
+            File.Delete(localPath);
+        return false;
+    }
+
+    /// <summary>
+    /// The byte length of every file the repository lists, keyed by repository path. Empty when the
+    /// listing cannot be fetched — the download then proceeds as before, checked against the server's
+    /// own content length only.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, long>> TryListRepositoryFileSizesAsync(
+        string repoId, string revision, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var discoveryService = CreateDiscoveryService();
+            var files = await discoveryService.ListRepositoryFilesAsync(repoId, revision, cancellationToken);
+            return files
+                .Where(f => f.IsFile && f.Size > 0)
+                .GroupBy(f => f.Path, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First().Size, StringComparer.Ordinal);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or ModelNotFoundException or IOException
+                                      or InvalidOperationException or UnauthorizedAccessException)
+        {
+            Trace.TraceWarning(
+                $"[HuggingFaceDownloader] Could not list '{repoId}' ({ex.GetType().Name}: {ex.Message}); " +
+                "file lengths are unknown for this download.");
+            return new Dictionary<string, long>(StringComparer.Ordinal);
+        }
     }
 
     /// <summary>
@@ -303,13 +388,18 @@ public sealed class HuggingFaceDownloader : IDisposable
         string localPath,
         string revision,
         string? subfolder,
+        long? expectedInSubfolder,
+        long? expectedInRoot,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
         // First, try downloading from the specified location (subfolder or root)
         try
         {
-            await DownloadFileWithRetryAsync(repoId, filename, localPath, revision, subfolder, progress, cancellationToken);
+            await DownloadFileWithRetryAsync(
+                repoId, filename, localPath, revision, subfolder,
+                string.IsNullOrEmpty(subfolder) ? expectedInRoot : expectedInSubfolder,
+                progress, cancellationToken);
             return true;
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
@@ -319,7 +409,9 @@ public sealed class HuggingFaceDownloader : IDisposable
             {
                 try
                 {
-                    await DownloadFileWithRetryAsync(repoId, filename, localPath, revision, subfolder: null, progress, cancellationToken);
+                    await DownloadFileWithRetryAsync(
+                        repoId, filename, localPath, revision, subfolder: null, expectedInRoot,
+                        progress, cancellationToken);
                     return true;
                 }
                 catch (HttpRequestException rootEx) when (rootEx.StatusCode == HttpStatusCode.NotFound)
@@ -329,12 +421,15 @@ public sealed class HuggingFaceDownloader : IDisposable
                 }
             }
 
+            // Not found and no fallback applicable
             return false;
         }
     }
 
     /// <summary>
-    /// Downloads a file with automatic retry on transient failures.
+    /// Downloads a file with automatic retry on transient failures, and resumes a body that ended early.
+    /// Callers in the same process that want the same file wait here for one another; the one that
+    /// arrives second finds the file complete and returns.
     /// </summary>
     private async Task DownloadFileWithRetryAsync(
         string repoId,
@@ -342,41 +437,73 @@ public sealed class HuggingFaceDownloader : IDisposable
         string destinationPath,
         string revision,
         string? subfolder,
+        long? expectedSize,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
-        Exception? lastException = null;
-
-        for (var attempt = 1; attempt <= MaxRetries; attempt++)
+        var gate = s_fileGates.GetOrAdd(Path.GetFullPath(destinationPath), _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
         {
-            try
-            {
-                await DownloadFileAsync(repoId, filename, destinationPath, revision, subfolder, progress, cancellationToken);
+            if (IsCompleteFile(destinationPath, expectedSize))
                 return;
-            }
-            catch (HttpRequestException ex) when (IsTransientError(ex) && attempt < MaxRetries)
+
+            var tempPath = destinationPath + ".part";
+            var lastLength = PartLength(tempPath);
+            var stalls = 0;
+
+            for (var attempt = 1; ; attempt++)
             {
-                lastException = ex;
-                var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt)); // Exponential backoff
-                await Task.Delay(delay, cancellationToken);
-            }
-            catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested && attempt < MaxRetries)
-            {
-                // Timeout, not user cancellation
-                lastException = ex;
-                var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt));
+                try
+                {
+                    await DownloadFileCoreAsync(repoId, filename, destinationPath, revision, subfolder, expectedSize, progress, cancellationToken);
+                    return;
+                }
+                catch (HttpRequestException ex) when (IsTransientError(ex) && attempt < MaxRetries)
+                {
+                    // Exponential backoff below.
+                }
+                catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested && attempt < MaxRetries)
+                {
+                    // Timeout, not user cancellation.
+                }
+                catch (Exception ex) when (ex is IOException or TruncatedDownloadException)
+                {
+                    // A body that ended early — EOF before the announced length, or a dropped connection —
+                    // leaves a valid prefix in the ".part", and so does another process still writing it.
+                    // Resuming that prefix is progress, so the budget counts stalls rather than attempts: an
+                    // attempt after which the ".part" is no longer than before is a stall, and MaxRetries
+                    // stalls in a row (or MaxResumeAttempts attempts overall) give up.
+                    var length = PartLength(tempPath);
+                    stalls = length > lastLength ? 0 : stalls + 1;
+                    lastLength = length;
+                    if (stalls >= MaxRetries || attempt >= MaxResumeAttempts)
+                        throw;
+                }
+
+                var delay = TimeSpan.FromSeconds(Math.Pow(2, Math.Min(attempt, 4)));
                 await Task.Delay(delay, cancellationToken);
             }
         }
-
-        // If we get here, all retries failed
-        throw lastException ?? new InvalidOperationException("Download failed after retries");
+        finally
+        {
+            gate.Release();
+        }
     }
+
+    private static bool IsCompleteFile(string path, long? expectedSize) =>
+        expectedSize is { } expected
+        && File.Exists(path)
+        && new FileInfo(path).Length == expected
+        && !CacheManager.IsLfsPointerFile(path);
+
+    private static long PartLength(string tempPath) =>
+        File.Exists(tempPath) ? new FileInfo(tempPath).Length : 0;
 
     /// <summary>
     /// Downloads a single file with resume support.
     /// </summary>
-    public async Task DownloadFileAsync(
+    public Task DownloadFileAsync(
         string repoId,
         string filename,
         string destinationPath,
@@ -384,6 +511,22 @@ public sealed class HuggingFaceDownloader : IDisposable
         string? subfolder = null,
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
+        => DownloadFileCoreAsync(repoId, filename, destinationPath, revision, subfolder, expectedSize: null, progress, cancellationToken);
+
+    /// <summary>
+    /// One attempt at one file. Resumes from the ".part" it owns, and treats the result as the file only
+    /// when it is as long as the server announced (and as the repository listed, when known): a body that
+    /// ends early leaves the ".part" for the next attempt and throws <see cref="TruncatedDownloadException"/>.
+    /// </summary>
+    private async Task DownloadFileCoreAsync(
+        string repoId,
+        string filename,
+        string destinationPath,
+        string revision,
+        string? subfolder,
+        long? expectedSize,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
         ArgumentException.ThrowIfNullOrWhiteSpace(filename);
@@ -405,12 +548,60 @@ public sealed class HuggingFaceDownloader : IDisposable
         var url = $"{HuggingFaceBaseUrl}/{repoId}/resolve/{revision}/{filePath}";
 
         var tempPath = destinationPath + ".part";
-        long startPosition = 0;
 
-        // Check for partial download
-        if (File.Exists(tempPath))
+        // Own the ".part" before measuring it: its length is the resume offset, and a caller that measured
+        // it while another was still writing would ask the server for a range it does not hold. With
+        // FileShare.None the second caller waits in FileIoRetry (two callers racing to acquire the same
+        // ".part" — a caller bypassing the model pool's lock, or a genuinely concurrent second process —
+        // hit this as IOException) and, once it gets in, finds the finished file or an honest offset.
+        await using var fileStream = await FileIoRetry.ExecuteAsync(
+            () => new FileStream(tempPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, BufferSize, true),
+            cancellationToken);
+
+        try
         {
-            startPosition = new FileInfo(tempPath).Length;
+            await DownloadIntoPartAsync(fileStream, tempPath, repoId, filename, filePath, url, destinationPath, revision, expectedSize, progress, cancellationToken);
+        }
+        catch
+        {
+            // Nothing landed (a 404, a refused request, a body that never started): an empty ".part" is
+            // not a resume point, and the directory validator reads any ".part" as an unfinished download.
+            if (fileStream.Length == 0)
+            {
+                fileStream.Close();
+                File.Delete(tempPath);
+            }
+            throw;
+        }
+    }
+
+    private async Task DownloadIntoPartAsync(
+        FileStream fileStream,
+        string tempPath,
+        string repoId,
+        string filename,
+        string filePath,
+        string url,
+        string destinationPath,
+        string revision,
+        long? expectedSize,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        // Whoever held the ".part" before us may have finished the download we came for.
+        if (IsCompleteFile(destinationPath, expectedSize))
+        {
+            fileStream.Close();
+            File.Delete(tempPath);
+            return;
+        }
+
+        var startPosition = fileStream.Length;
+        if (expectedSize is { } listedLength && startPosition >= listedLength)
+        {
+            // A ".part" at least as long as the file cannot be a prefix of it.
+            fileStream.SetLength(0);
+            startPosition = 0;
         }
 
         // Create request with optional range header for resume
@@ -425,18 +616,23 @@ public sealed class HuggingFaceDownloader : IDisposable
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
 
-        // Handle 416 (Range Not Satisfiable) - file already complete
+        // 416 (Range Not Satisfiable): the server has nothing past our offset. That is completion only
+        // when the listing says we hold the whole file; otherwise the ".part" is not a prefix of this
+        // file, and the next attempt starts over.
         if (response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
         {
-            if (File.Exists(tempPath))
+            if (expectedSize is { } whole && startPosition == whole)
             {
-                // Retry: the destination may be transiently held open by another process/AV
-                // scanner right after a previous attempt renamed it into place.
-                await FileIoRetry.ExecuteAsync(
-                    () => File.Move(tempPath, destinationPath, overwrite: true),
-                    cancellationToken);
+                fileStream.Close();
+                await MoveIntoPlaceAsync(tempPath, destinationPath, cancellationToken);
+                return;
             }
-            return;
+
+            fileStream.SetLength(0);
+            throw new TruncatedDownloadException(
+                $"Server has no bytes past offset {startPosition} of '{filePath}' in '{repoId}' (HTTP 416), " +
+                "but the file is not known to be complete; restarting the download.",
+                repoId);
         }
 
         if (!response.IsSuccessStatusCode)
@@ -468,6 +664,16 @@ public sealed class HuggingFaceDownloader : IDisposable
         if (response.StatusCode == HttpStatusCode.PartialContent)
         {
             var contentRange = response.Content.Headers.ContentRange;
+            if (contentRange?.From is { } from && from != startPosition)
+            {
+                // The server resumed somewhere else; appending its bytes after ours would interleave two
+                // offsets into one file.
+                fileStream.SetLength(0);
+                throw new TruncatedDownloadException(
+                    $"Server resumed '{filePath}' in '{repoId}' at offset {from} while {startPosition} bytes were held; restarting the download.",
+                    repoId);
+            }
+
             if (contentRange?.Length.HasValue == true)
             {
                 totalBytes = contentRange.Length.Value;
@@ -479,19 +685,17 @@ public sealed class HuggingFaceDownloader : IDisposable
         }
         else
         {
-            // Full download, reset position
+            // Full body (the server ignored the range, or none was sent): write from the start.
+            fileStream.SetLength(0);
             startPosition = 0;
         }
 
+        // The length the file must reach: what the server announced, else what the repository listed.
+        var expectedTotal = totalBytes > 0 ? totalBytes : expectedSize ?? 0;
+
         // Download with progress
         await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        var fileMode = startPosition > 0 ? FileMode.Append : FileMode.Create;
-
-        // Retry: two callers racing to acquire the same ".part" file (a caller bypassing the
-        // model pool's lock, or a genuinely concurrent second process) hit this as IOException.
-        await using var fileStream = await FileIoRetry.ExecuteAsync(
-            () => new FileStream(tempPath, fileMode, FileAccess.Write, FileShare.None, BufferSize, true),
-            cancellationToken);
+        fileStream.Seek(0, SeekOrigin.End);
 
         var buffer = new byte[BufferSize];
         long bytesDownloaded = startPosition;
@@ -510,17 +714,47 @@ public sealed class HuggingFaceDownloader : IDisposable
             {
                 FileName = filename,
                 BytesDownloaded = bytesDownloaded,
-                TotalBytes = totalBytes
+                TotalBytes = expectedTotal
             });
         }
 
-        // Move to final location atomically. Retry: the destination path may be transiently
-        // held open by another process/AV scanner immediately after this rename.
+        await fileStream.FlushAsync(cancellationToken);
+        var length = fileStream.Length;
+
+        // The body ended (end of stream, not an exception) before the announced length. The ".part" is a
+        // valid prefix — keep it for the resume — but it is not the file.
+        if (expectedTotal > 0 && length != expectedTotal)
+        {
+            throw new TruncatedDownloadException(
+                $"Download of '{filePath}' from '{repoId}' ended after {length} of {expectedTotal} bytes " +
+                $"(HTTP {(int)response.StatusCode}, content-length {response.Content.Headers.ContentLength?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "absent"}, " +
+                $"content-range {response.Content.Headers.ContentRange?.ToString() ?? "absent"}, resumed from {startPosition}); " +
+                "the partial file is kept for a resume.",
+                repoId);
+        }
+
+        // The server delivered everything it announced, but that is not the file the repository listed —
+        // a stale listing or a revision that moved between the two requests. Not a prefix of anything.
+        if (expectedSize is { } expected && length != expected)
+        {
+            fileStream.Close();
+            File.Delete(tempPath);
+            throw new ModelDownloadException(
+                $"'{filePath}' from '{repoId}' is {length} bytes but the repository listing says {expected} " +
+                $"(revision '{revision}'); the listing may be stale.",
+                repoId);
+        }
+
         fileStream.Close();
-        await FileIoRetry.ExecuteAsync(
+        await MoveIntoPlaceAsync(tempPath, destinationPath, cancellationToken);
+    }
+
+    // Move to final location atomically. Retry: the destination path may be transiently held open by
+    // another process/AV scanner immediately after this rename.
+    private static Task MoveIntoPlaceAsync(string tempPath, string destinationPath, CancellationToken cancellationToken) =>
+        FileIoRetry.ExecuteAsync(
             () => File.Move(tempPath, destinationPath, overwrite: true),
             cancellationToken);
-    }
 
     /// <summary>
     /// Wraps a progress reporter to include multi-file context (file index and total count).
