@@ -21,11 +21,17 @@ public sealed class OnnxNuGetDownloader : IDisposable
     }
 
     public OnnxNuGetDownloader(string? cacheDirectory)
+        : this(cacheDirectory, handler: null)
+    {
+    }
+
+    /// <summary>Test seam: the same downloader over a caller-supplied transport.</summary>
+    internal OnnxNuGetDownloader(string? cacheDirectory, HttpMessageHandler? handler)
     {
         _cacheDirectory = cacheDirectory ?? LMSupplyCachePaths.GetRuntimesDirectory();
 
         // Create HttpClient first, then wrap in try-catch to ensure cleanup on failure
-        var httpClient = new HttpClient();
+        var httpClient = handler is null ? new HttpClient() : new HttpClient(handler);
         try
         {
             httpClient.DefaultRequestHeaders.Add("User-Agent", "LMSupply/1.0");
@@ -339,41 +345,23 @@ public sealed class OnnxNuGetDownloader : IDisposable
         return Directory.EnumerateFiles(path, expectedLib + "*").Any();
     }
 
-    private async Task DownloadFileAsync(
+    // A package archive is only the archive at the length the feed announced; a body that ends early is
+    // resumed from its ".part" rather than handed to the extractor as a corrupt zip.
+    private Task DownloadFileAsync(
         string url,
         string destinationPath,
         string fileName,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
-    {
-        using var response = await _httpClient.GetAsync(
-            url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-
-        response.EnsureSuccessStatusCode();
-
-        var totalBytes = response.Content.Headers.ContentLength ?? 0;
-        var downloadedBytes = 0L;
-
-        await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        await using var fileStream = new FileStream(
-            destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
-
-        var buffer = new byte[8192];
-        int bytesRead;
-
-        while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
+        => LMSupply.Download.ResumableFileDownload.DownloadAsync(_httpClient, new LMSupply.Download.ResumableFileDownload.Request
         {
-            await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
-            downloadedBytes += bytesRead;
-
-            progress?.Report(new DownloadProgress
-            {
-                FileName = fileName,
-                TotalBytes = totalBytes,
-                BytesDownloaded = downloadedBytes
-            });
-        }
-    }
+            Url = url,
+            DestinationPath = destinationPath,
+            FileName = fileName,
+            IsTransient = ex => ex.StatusCode is System.Net.HttpStatusCode.TooManyRequests or System.Net.HttpStatusCode.InternalServerError
+                or System.Net.HttpStatusCode.BadGateway or System.Net.HttpStatusCode.ServiceUnavailable or System.Net.HttpStatusCode.GatewayTimeout,
+            Progress = progress,
+        }, cancellationToken);
 
     private static async Task SetExecutableAsync(string path, CancellationToken cancellationToken)
     {

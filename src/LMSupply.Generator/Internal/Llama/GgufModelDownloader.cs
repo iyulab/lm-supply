@@ -55,13 +55,18 @@ public sealed class GgufModelDownloader : IDisposable
     /// with <see cref="ModelNotFoundException"/>. <c>GeneratorOptions.DisableAutoDownload</c> maps here.
     /// </param>
     public GgufModelDownloader(string? cacheDirectory, string? hfToken = null, bool localFilesOnly = false)
+        : this(cacheDirectory, hfToken, localFilesOnly, handler: null)
+    {
+    }
+
+    /// <summary>Test seam: the same downloader over a caller-supplied transport, listing included.</summary>
+    internal GgufModelDownloader(string? cacheDirectory, string? hfToken, bool localFilesOnly, HttpMessageHandler? handler)
     {
         _cacheDirectory = cacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         _localFilesOnly = localFilesOnly;
-        _httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromMinutes(30)
-        };
+        _httpClient = handler is null
+            ? new HttpClient { Timeout = TimeSpan.FromMinutes(30) }
+            : new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(30) };
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "LMSupply/1.0");
 
         var token = hfToken ?? Environment.GetEnvironmentVariable("HF_TOKEN");
@@ -71,7 +76,9 @@ public sealed class GgufModelDownloader : IDisposable
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         }
 
-        _discoveryService = new ModelDiscoveryService(_cacheDirectory, hfToken);
+        _discoveryService = handler is null
+            ? new ModelDiscoveryService(_cacheDirectory, hfToken)
+            : new ModelDiscoveryService(_cacheDirectory, hfToken, handler);
     }
 
     /// <summary>
@@ -109,9 +116,11 @@ public sealed class GgufModelDownloader : IDisposable
                 : await SelectBestGgufFileAsync(repoId, preferredQuantization, cancellationToken);
         }
 
-        // Check cache
+        // Check cache: a cached file counts only at the length the repository lists (when the listing is
+        // available); one of another length is not this file and is fetched again.
         var cachedPath = GetCachedPath(repoId, filename);
-        if (File.Exists(cachedPath))
+        var expectedSize = _localFilesOnly ? null : await TryGetListedSizeAsync(repoId, filename, cancellationToken);
+        if (ResumableFileDownload.IsUsableCachedFile(cachedPath, expectedSize, readOnly: _localFilesOnly))
         {
             progress?.Report(new DownloadProgress
             {
@@ -133,9 +142,28 @@ public sealed class GgufModelDownloader : IDisposable
             TotalBytes = 0
         });
 
-        await DownloadFileAsync(repoId, filename, cachedPath, progress, cancellationToken);
+        await DownloadFileAsync(repoId, filename, cachedPath, expectedSize, progress, cancellationToken);
 
         return cachedPath;
+    }
+
+    /// <summary>
+    /// The length the repository lists for <paramref name="filename"/>, or null when the listing cannot be
+    /// fetched or does not carry it. The listing is cached by the discovery service.
+    /// </summary>
+    private async Task<long?> TryGetListedSizeAsync(string repoId, string filename, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var files = await ListRepositoryFilesAsync(repoId, cancellationToken);
+            var match = files.FirstOrDefault(f => f.IsFile && string.Equals(Path.GetFileName(f.Path), filename, StringComparison.Ordinal));
+            return match is { Size: > 0 } ? match.Size : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or ModelNotFoundException or IOException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            Trace.TraceWarning($"[GgufModelDownloader] Could not list '{repoId}' ({ex.GetType().Name}: {ex.Message}); the file length is unknown for this download.");
+            return null;
+        }
     }
 
     /// <summary>
@@ -580,132 +608,26 @@ public sealed class GgufModelDownloader : IDisposable
     /// <summary>
     /// Downloads a single file with resume support.
     /// </summary>
-    private async Task DownloadFileAsync(
+    private Task DownloadFileAsync(
         string repoId,
         string filename,
         string destinationPath,
+        long? expectedSize,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
-        // Ensure directory exists
-        var dir = Path.GetDirectoryName(destinationPath);
-        if (!string.IsNullOrEmpty(dir))
+        Trace.TraceInformation($"[GgufModelDownloader] Download started: {filename} from {repoId}");
+        return ResumableFileDownload.DownloadAsync(_httpClient, new ResumableFileDownload.Request
         {
-            Directory.CreateDirectory(dir);
-        }
-
-        // Build download URL
-        var url = $"{HuggingFaceFileBase}/{repoId}/resolve/main/{filename}";
-
-        var tempPath = destinationPath + ".part";
-        long startPosition = 0;
-
-        // Check for partial download
-        if (File.Exists(tempPath))
-        {
-            startPosition = new FileInfo(tempPath).Length;
-        }
-
-        // Create request with optional range header
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        if (startPosition > 0)
-        {
-            request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(startPosition, null);
-        }
-
-        using var response = await _httpClient.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
-
-        // Handle 416 (Range Not Satisfiable) - file already complete
-        if (response.StatusCode == System.Net.HttpStatusCode.RequestedRangeNotSatisfiable)
-        {
-            if (File.Exists(tempPath))
-            {
-                // Retry: the destination may be transiently held open by another process/AV
-                // scanner right after a previous attempt renamed it into place.
-                await FileIoRetry.ExecuteAsync(
-                    () => File.Move(tempPath, destinationPath, overwrite: true),
-                    cancellationToken);
-            }
-            return;
-        }
-
-        response.EnsureSuccessStatusCode();
-
-        // Determine total size
-        long totalBytes = response.Content.Headers.ContentLength ?? 0;
-        if (response.StatusCode == System.Net.HttpStatusCode.PartialContent)
-        {
-            var contentRange = response.Content.Headers.ContentRange;
-            if (contentRange?.Length.HasValue == true)
-            {
-                totalBytes = contentRange.Length.Value;
-            }
-            else
-            {
-                totalBytes = startPosition + (response.Content.Headers.ContentLength ?? 0);
-            }
-        }
-        else
-        {
-            startPosition = 0; // Full download
-        }
-
-        // Download with progress - use explicit block to ensure streams are closed before File.Move
-        {
-            var downloadStarted = DateTimeOffset.UtcNow;
-            Trace.TraceInformation($"[GgufModelDownloader] Download started: {filename} ({totalBytes / (1024.0 * 1024 * 1024):F2} GB from {url})");
-
-            await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            var fileMode = startPosition > 0 ? FileMode.Append : FileMode.Create;
-
-            // Retry: two callers racing to acquire the same ".part" file (a caller bypassing
-            // the model pool's lock, or a genuinely concurrent second process) hit this as
-            // IOException.
-            await using var fileStream = await FileIoRetry.ExecuteAsync(
-                () => new FileStream(tempPath, fileMode, FileAccess.Write, FileShare.None, 81920, true),
-                cancellationToken);
-
-            var buffer = new byte[81920];
-            long bytesDownloaded = startPosition;
-            int bytesRead;
-            var lastLoggedAt = DateTimeOffset.UtcNow;
-
-            while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
-            {
-                await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
-                bytesDownloaded += bytesRead;
-
-                progress?.Report(new DownloadProgress
-                {
-                    FileName = filename,
-                    BytesDownloaded = bytesDownloaded,
-                    TotalBytes = totalBytes
-                });
-
-                var now = DateTimeOffset.UtcNow;
-                if (totalBytes > 0 && (now - lastLoggedAt).TotalSeconds >= 30)
-                {
-                    var pct = bytesDownloaded * 100.0 / totalBytes;
-                    Trace.TraceInformation($"[GgufModelDownloader] Downloading {filename}: {pct:F1}% ({bytesDownloaded / (1024.0 * 1024):F0} MB / {totalBytes / (1024.0 * 1024):F0} MB)");
-                    lastLoggedAt = now;
-                }
-            }
-
-            var elapsed = DateTimeOffset.UtcNow - downloadStarted;
-            Trace.TraceInformation($"[GgufModelDownloader] Download complete: {filename} ({elapsed.TotalSeconds:F0}s)");
-
-            // Ensure data is flushed to disk
-            await fileStream.FlushAsync(cancellationToken);
-        }
-
-        // Move to final location (streams are now closed). Retry: the destination path may be
-        // transiently held open by another process/AV scanner immediately after this rename.
-        await FileIoRetry.ExecuteAsync(
-            () => File.Move(tempPath, destinationPath, overwrite: true),
-            cancellationToken);
+            Url = $"{HuggingFaceFileBase}/{repoId}/resolve/main/{filename}",
+            DestinationPath = destinationPath,
+            FileName = filename,
+            ModelId = repoId,
+            ExpectedSize = expectedSize,
+            IsTransient = ex => ex.StatusCode is System.Net.HttpStatusCode.TooManyRequests or System.Net.HttpStatusCode.InternalServerError
+                or System.Net.HttpStatusCode.BadGateway or System.Net.HttpStatusCode.ServiceUnavailable or System.Net.HttpStatusCode.GatewayTimeout,
+            Progress = progress,
+        }, cancellationToken);
     }
 
     private string GetCachedPath(string repoId, string filename)

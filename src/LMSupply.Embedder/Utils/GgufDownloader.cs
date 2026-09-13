@@ -24,15 +24,22 @@ internal sealed class GgufDownloader : IDisposable
     /// GGUF file fails with <see cref="ModelNotFoundException"/>. The <c>DisableAutoDownload</c> option maps here.
     /// </param>
     public GgufDownloader(string cacheDirectory, bool localFilesOnly = false)
+        : this(cacheDirectory, localFilesOnly, handler: null)
+    {
+    }
+
+    /// <summary>Test seam: the same downloader over a caller-supplied transport, listing included.</summary>
+    internal GgufDownloader(string cacheDirectory, bool localFilesOnly, HttpMessageHandler? handler)
     {
         _cacheDirectory = cacheDirectory;
         _localFilesOnly = localFilesOnly;
-        _httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromMinutes(30)
-        };
+        _httpClient = handler is null
+            ? new HttpClient { Timeout = TimeSpan.FromMinutes(30) }
+            : new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(30) };
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "LMSupply/1.0");
-        _discoveryService = new ModelDiscoveryService(cacheDirectory);
+        _discoveryService = handler is null
+            ? new ModelDiscoveryService(cacheDirectory)
+            : new ModelDiscoveryService(cacheDirectory, hfToken: null, handler);
     }
 
     /// <summary>
@@ -75,9 +82,10 @@ internal sealed class GgufDownloader : IDisposable
         // Select best file based on quantization preference
         var selectedFile = SelectBestFile(ggufFiles, preferredQuantization);
 
-        // Check cache
+        // Check cache: a cached file counts only at the length the repository lists; one of another
+        // length is not this file and is fetched again.
         var cachePath = GetCachePath(repoId, selectedFile.Path);
-        if (File.Exists(cachePath))
+        if (ResumableFileDownload.IsUsableCachedFile(cachePath, selectedFile.Size > 0 ? selectedFile.Size : null))
         {
             progress?.Report(new DownloadProgress
             {
@@ -180,39 +188,23 @@ internal sealed class GgufDownloader : IDisposable
         return Path.Combine(_cacheDirectory, "gguf-embeddings", safeRepoId, filename);
     }
 
-    private async Task DownloadFileAsync(
+    private Task DownloadFileAsync(
         string url,
         string destinationPath,
         string fileName,
         long totalBytes,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
-    {
-        using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        var contentLength = response.Content.Headers.ContentLength ?? totalBytes;
-        var downloadedBytes = 0L;
-
-        await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        await using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
-
-        var buffer = new byte[81920]; // 80KB buffer
-        int bytesRead;
-
-        while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
+        => ResumableFileDownload.DownloadAsync(_httpClient, new ResumableFileDownload.Request
         {
-            await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
-            downloadedBytes += bytesRead;
-
-            progress?.Report(new DownloadProgress
-            {
-                FileName = fileName,
-                TotalBytes = contentLength,
-                BytesDownloaded = downloadedBytes
-            });
-        }
-    }
+            Url = url,
+            DestinationPath = destinationPath,
+            FileName = fileName,
+            ExpectedSize = totalBytes > 0 ? totalBytes : null,
+            IsTransient = ex => ex.StatusCode is System.Net.HttpStatusCode.TooManyRequests or System.Net.HttpStatusCode.InternalServerError
+                or System.Net.HttpStatusCode.BadGateway or System.Net.HttpStatusCode.ServiceUnavailable or System.Net.HttpStatusCode.GatewayTimeout,
+            Progress = progress,
+        }, cancellationToken);
 
     public void Dispose()
     {
