@@ -866,7 +866,18 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                     tc.Id ?? string.Empty,
                     tc.Function?.Name ?? string.Empty,
                     tc.Function?.Arguments ?? string.Empty
-                )).ToList()
+                )).ToList(),
+                // reasoning_content is carried as-is: a bridge that wants to show or drop it decides,
+                // and an empty Content with finish=length is explainable only when this is visible.
+                Reasoning = string.IsNullOrEmpty(message?.ReasoningContent) ? null : message.ReasoningContent,
+                Usage = response.Usage is { } usage
+                    ? new ChatTokenUsage
+                    {
+                        PromptTokens = usage.PromptTokens,
+                        CompletionTokens = usage.CompletionTokens,
+                        TotalTokens = usage.TotalTokens,
+                    }
+                    : null
             };
         }
         finally

@@ -1064,6 +1064,26 @@ public sealed class ChatStreamData
 public sealed class ChatCompletionFullResponse
 {
     public List<ChatCompletionFullChoice>? Choices { get; set; }
+
+    /// <summary>
+    /// Token accounting the server reports for the completion (OpenAI-compatible <c>usage</c> object).
+    /// </summary>
+    public ChatCompletionUsage? Usage { get; set; }
+}
+
+/// <summary>
+/// OpenAI-compatible <c>usage</c> object of a chat completion response.
+/// </summary>
+public sealed class ChatCompletionUsage
+{
+    [JsonPropertyName("prompt_tokens")]
+    public int PromptTokens { get; set; }
+
+    [JsonPropertyName("completion_tokens")]
+    public int CompletionTokens { get; set; }
+
+    [JsonPropertyName("total_tokens")]
+    public int TotalTokens { get; set; }
 }
 
 /// <summary>

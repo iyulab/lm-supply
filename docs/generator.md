@@ -800,7 +800,7 @@ await foreach (var token in model.GenerateChatAsync(messages, options))
 }
 ```
 
-When `Thinking = ThinkingMode.On`, LMSupply prepends `<|think|>` to the first system message before sending the request to llama-server. The server (b8994+) separates internal reasoning into a `reasoning_content` field; LMSupply transparently skips those tokens, so the caller only receives the final response.
+When `Thinking = ThinkingMode.On`, LMSupply prepends `<|think|>` to the first system message before sending the request to llama-server. The server (b8994+) separates internal reasoning into a `reasoning_content` field. On the streaming text path LMSupply skips those tokens, so the caller only receives the final response; `GenerateChatStreamAsync` exposes them as `ChatStreamChunk.ReasoningDelta` when `ExtractReasoningTokens = true`. The non-streaming `GenerateChatWithToolsAsync` (0.66.0+) always carries them as `ChatCompletionResult.Reasoning`, next to `ChatCompletionResult.Usage` (the server's `prompt_tokens` / `completion_tokens`), so a bridge can show or drop the reasoning itself — and an empty `Content` with `FinishReason == "length"` is explainable (the budget went to reasoning; see `ThinkingMode.Off` for a tight budget).
 
 **Thinking + tool calling:** When `Thinking = ThinkingMode.On` and tools are provided, the Gemma 4 tool prompt fragment (see note above) is automatically reduced to compact required-params hints. This avoids doubling the tool schema (Jinja2 structured schema + text fragment) in the system prompt, which would increase context pressure on small models.
 
