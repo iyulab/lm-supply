@@ -23,10 +23,12 @@ internal static class ModelFormatDetector
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
 
-        // 0. Handle "auto" — platform-based routing
+        // 0. "auto" is GGUF on every host (0.67.0). The ONNX branch existed for Windows + discrete
+        //    AMD/Intel GPUs via the DirectML provider, which ONNX Runtime 1.25+ no longer ships;
+        //    those GPUs are served by llama-server's Vulkan backend on the GGUF path instead.
         if (modelIdOrPath.Equals("auto", StringComparison.OrdinalIgnoreCase))
         {
-            return ShouldPreferOnnx() ? ModelFormat.Onnx : ModelFormat.Gguf;
+            return ModelFormat.Gguf;
         }
 
         // 1. Check if it's a GGUF registry alias (e.g., "gguf:gemma4-default", "gguf:gemma4-fast")
@@ -198,17 +200,6 @@ internal static class ModelFormatDetector
         return value.Contains(Path.DirectorySeparatorChar) ||
                value.Contains(Path.AltDirectorySeparatorChar) ||
                Path.IsPathRooted(value);
-    }
-
-    /// <summary>
-    /// Determines if ONNX should be preferred based on hardware.
-    /// ONNX is only preferred for Windows DirectML (non-NVIDIA) or NPU environments.
-    /// </summary>
-    private static bool ShouldPreferOnnx()
-    {
-        var profile = HardwareProfile.Current;
-        // Shared policy: ONNX/DirectML only for a discrete non-NVIDIA GPU; integrated GPUs use GGUF.
-        return GeneratorRoutingPolicy.ShouldUseOnnx(profile.GpuInfo, profile.RecommendedProvider);
     }
 
     /// <summary>

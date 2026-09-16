@@ -13,7 +13,7 @@ namespace LMSupply.Embedder.Tests;
 ///
 /// Background: the run-time fallback chain only ever triggered on <c>OnnxRuntimeException</c>. The
 /// timeout guard introduced for cold-GPU kernel hangs throws <see cref="InferenceTimeoutException"/>
-/// instead, which never entered that chain — so a first-run DirectML hang surfaced to the caller
+/// instead, which never entered that chain — so a first-run GPU hang surfaced to the caller
 /// as a hard failure with no CPU fallback, exactly on the path a new user hits first. These tests
 /// pin the recovery entry conditions; the positive path (session actually swapped and the retry
 /// succeeding) requires a real model and is exercised by the live sample instead.
@@ -67,7 +67,7 @@ public class OnnxInferenceEngineTimeoutRecoveryTests
     private static InferenceTimeoutException Timeout() => new(TimeSpan.FromSeconds(60));
 
     [Fact]
-    public void TryRecoverAfterTimeout_DirectMLActiveUnderAuto_EntersFallbackAndLogsTimeout()
+    public void TryRecoverAfterTimeout_CoreMLActiveUnderAuto_EntersFallbackAndLogsTimeout()
     {
         var capture = new WarningCapture();
         Trace.Listeners.Add(capture);
@@ -75,7 +75,7 @@ public class OnnxInferenceEngineTimeoutRecoveryTests
         {
             var engine = CreateEngineViaReflection(
                 ExecutionProvider.Auto,
-                ["DmlExecutionProvider", "CPUExecutionProvider"]);
+                ["CoreMLExecutionProvider", "CPUExecutionProvider"]);
 
             var recovered = engine.TryRecoverAfterTimeout(Timeout());
 
@@ -83,7 +83,7 @@ public class OnnxInferenceEngineTimeoutRecoveryTests
             // fallback must have been entered, and the log must name the timeout, not a crash.
             recovered.Should().BeFalse("session recreation fails on a nonexistent model path");
             capture.Warnings.Should().Contain(
-                w => w.Contains("[OnnxInferenceEngine]") && w.Contains("timed out on DirectML"),
+                w => w.Contains("[OnnxInferenceEngine]") && w.Contains("timed out on CoreML"),
                 "a GPU timeout under Auto must enter the provider fallback chain");
         }
         finally
@@ -144,14 +144,14 @@ public class OnnxInferenceEngineTimeoutRecoveryTests
         try
         {
             var engine = CreateEngineViaReflection(
-                ExecutionProvider.DirectML,
-                ["DmlExecutionProvider", "CPUExecutionProvider"]);
+                ExecutionProvider.CoreML,
+                ["CoreMLExecutionProvider", "CPUExecutionProvider"]);
 
             engine.TryRecoverAfterTimeout(Timeout()).Should().BeFalse();
-            var attemptsAfterFirst = capture.Warnings.Count(w => w.Contains("timed out on DirectML"));
+            var attemptsAfterFirst = capture.Warnings.Count(w => w.Contains("timed out on CoreML"));
 
             engine.TryRecoverAfterTimeout(Timeout()).Should().BeFalse();
-            var attemptsAfterSecond = capture.Warnings.Count(w => w.Contains("timed out on DirectML"));
+            var attemptsAfterSecond = capture.Warnings.Count(w => w.Contains("timed out on CoreML"));
 
             attemptsAfterFirst.Should().Be(1);
             attemptsAfterSecond.Should().Be(1,

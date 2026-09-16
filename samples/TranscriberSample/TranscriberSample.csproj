@@ -16,10 +16,6 @@
     <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(EnableDirectML)' == 'true'">
-    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" />
-  </ItemGroup>
-
   <ItemGroup>
     <None Update="sample-audio.wav" CopyToOutputDirectory="PreserveNewest" Condition="Exists('sample-audio.wav')" />
   </ItemGroup>

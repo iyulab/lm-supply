@@ -184,7 +184,7 @@ public sealed class RecoverableOnnxSession : IDisposable
         try
         {
             // Terminate is checked between operators; it cannot preempt a hang inside a single
-            // kernel (e.g. cold DirectML init) — that is what RunWithRecoveryAsync's bound is for.
+            // kernel (e.g. a cold GPU kernel init) — that is what RunWithRecoveryAsync's bound is for.
             using var runOptions = new RunOptions();
             using var ctRegistration = cancellationToken.CanBeCanceled
                 ? cancellationToken.Register(static state => ((RunOptions)state!).Terminate = true, runOptions)
@@ -418,8 +418,6 @@ public sealed class RecoverableOnnxSession : IDisposable
         {
             if (p.Contains("CUDA", StringComparison.OrdinalIgnoreCase))
                 return ExecutionProvider.Cuda;
-            if (p.Contains("DML", StringComparison.OrdinalIgnoreCase) || p.Contains("DirectML", StringComparison.OrdinalIgnoreCase))
-                return ExecutionProvider.DirectML;
             if (p.Contains("CoreML", StringComparison.OrdinalIgnoreCase))
                 return ExecutionProvider.CoreML;
         }

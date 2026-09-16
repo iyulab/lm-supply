@@ -22,7 +22,7 @@ namespace LMSupply.Llama;
 /// because zero GPU layers consume no VRAM and never floor the context.
 /// </para>
 /// <para>
-/// An explicit GPU pin (<see cref="ExecutionProvider.Cuda"/>/<see cref="ExecutionProvider.DirectML"/>/
+/// An explicit GPU pin (<see cref="ExecutionProvider.Cuda"/>/
 /// <see cref="ExecutionProvider.CoreML"/>) is honored as requested and never demoted — the caller
 /// asked for it, so it surfaces honestly (and downstream load may fail fast) rather than being
 /// silently swapped.
@@ -45,11 +45,12 @@ public static class LlamaBackendSelector
     /// </summary>
     public static LlamaServerBackend MapProvider(ExecutionProvider provider, GpuInfo gpu)
     {
+        // Same refusal as every ONNX path: an explicit DirectML pin is not quietly mapped to Vulkan.
+        ExecutionProviderSupport.ThrowIfUnsupported(provider);
         return provider switch
         {
             ExecutionProvider.Cpu => LlamaServerBackend.Cpu,
             ExecutionProvider.Cuda => LlamaServerBackend.Cuda12,
-            ExecutionProvider.DirectML => LlamaServerBackend.Vulkan,
             ExecutionProvider.CoreML => LlamaServerBackend.Metal,
             ExecutionProvider.Auto => SelectAutoBackend(gpu),
             _ => LlamaServerBackend.Cpu
@@ -120,7 +121,7 @@ public static class LlamaBackendSelector
     /// <summary>
     /// Vendor-driven backend selection (no VRAM gate). NVIDIA → CUDA, Apple → Metal,
     /// AMD → ROCm/HIP on Linux else Vulkan, modern Intel iGPU → Vulkan (legacy → CPU),
-    /// any other DirectML-capable GPU → Vulkan, otherwise CPU.
+    /// any other Direct3D 12 capable GPU → Vulkan, otherwise CPU.
     /// </summary>
     private static LlamaServerBackend SelectVendorBackend(GpuInfo gpu) => gpu.Vendor switch
     {
@@ -141,7 +142,7 @@ public static class LlamaBackendSelector
         // Apple: Metal.
         GpuVendor.Apple => LlamaServerBackend.Metal,
 
-        // Unknown vendor but DirectML-capable (D3D12) → Vulkan is the cross-platform GPU path.
+        // Unknown vendor but Direct3D 12 capable → Vulkan is the cross-platform GPU path.
         _ when gpu.DirectMLSupported => LlamaServerBackend.Vulkan,
 
         // Fallback to CPU.

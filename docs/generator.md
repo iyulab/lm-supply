@@ -17,7 +17,7 @@ using LMSupply.Generator;
 
 // Using the builder pattern
 var generator = await TextGeneratorBuilder.Create()
-    .WithDefaultModel()        // Platform-aware: GGUF on NVIDIA/CPU/Mac/Linux/integrated-GPU, Phi-4 Mini ONNX on discrete DirectML+non-NVIDIA
+    .WithDefaultModel()        // Hardware-aware: a GGUF model sized to the host (CUDA / Metal / Vulkan / CPU)
     .BuildAsync();
 
 // Generate text
@@ -67,7 +67,10 @@ await foreach (var token in generator.GenerateAsync("Write a short story about a
 | Apple Silicon | GGUF (llama.cpp Metal) | Qwen3 via `gguf:auto` |
 | CPU-only / integrated GPU (any OS) | GGUF (llama.cpp CPU) | Qwen3 via `gguf:auto` (RAM-aware) |
 | Linux + discrete GPU | GGUF (llama.cpp) | Qwen3 via `gguf:auto` |
-| Windows + **discrete** AMD/Intel GPU (Arc, Radeon) | ONNX (DirectML) | Phi-4 Mini (FC-capable, MIT) |
+| Windows + AMD/Intel GPU (Arc, Radeon) | GGUF (llama.cpp Vulkan) | Qwen3 via `gguf:auto` (VRAM-aware) |
+
+> v0.67.0: the ONNX (DirectML) row for Windows discrete AMD/Intel GPUs is gone — ONNX Runtime 1.25+ has no
+> DirectML provider. `auto`/`default` is GGUF on every host; ONNX models are explicit-only (CUDA or CPU).
 
 `gguf:auto` selects the largest Qwen3 model (`qwen3-fast/default/balanced/quality` pool) that fits the
 VRAM budget, or — when VRAM is insufficient — the largest that fits the system RAM budget (CPU). On an
@@ -80,7 +83,7 @@ budget: a capable host keeps the registry default quant (e.g. `Q4_K_M`), a tight
 ### Explicit model selection
 
 ```csharp
-// Pin a specific ONNX model (DirectML + non-NVIDIA users)
+// Pin a specific ONNX model (explicit only; CUDA or CPU)
 await using var onnx = await LocalGenerator.LoadAsync("microsoft/Phi-4-mini-instruct-onnx");
 await using var onnxAlias = await LocalGenerator.LoadAsync("phi-4-mini");
 
@@ -88,7 +91,7 @@ await using var onnxAlias = await LocalGenerator.LoadAsync("phi-4-mini");
 await using var gguf = await LocalGenerator.LoadAsync("gguf:gemma4-default"); // Gemma 4 E4B
 await using var ggufXL = await LocalGenerator.LoadAsync("gguf:gemma4-large"); // Gemma 4 31B
 
-// Let the hardware decide (GGUF on most platforms, ONNX on DirectML+non-NVIDIA)
+// Let the hardware decide (GGUF, sized to the host)
 await using var auto = await LocalGenerator.LoadAsync("auto");
 await using var def  = await LocalGenerator.LoadAsync("default"); // same as "auto"
 ```
@@ -149,7 +152,6 @@ var generator = await TextGeneratorBuilder.Create()
     .WithDefaultModel()
     .WithProvider(ExecutionProvider.Auto)      // Auto-detect best provider
     .WithProvider(ExecutionProvider.Cuda)      // NVIDIA GPU
-    .WithProvider(ExecutionProvider.DirectML)  // Windows GPU (AMD, Intel, NVIDIA)
     .WithProvider(ExecutionProvider.CoreML)    // macOS Apple Silicon
     .WithProvider(ExecutionProvider.Cpu)       // CPU only
     .BuildAsync();
@@ -318,7 +320,7 @@ var generator = await TextGeneratorBuilder.Create()
 GPU acceleration is **automatic** — LMSupply detects your hardware and downloads appropriate runtime binaries on first use:
 
 - **NVIDIA CUDA**: Automatically detected and used
-- **Windows DirectML**: AMD, Intel, NVIDIA via Direct3D
+- **AMD / Intel GPUs on Windows**: Vulkan on the GGUF/llama-server path (no ONNX provider on ONNX Runtime 1.25+)
 - **macOS CoreML**: Apple Silicon optimization
 
 No additional packages required. Use `ExecutionProvider.Auto` (default) or force specific provider in options.
@@ -400,7 +402,7 @@ Auto-selection pool: `qwen3-fast`, `qwen3-default`, `qwen3-balanced`, `qwen3-qua
 | 10 GB | ~8.5 GB | `gguf:qwen3-balanced` (Qwen3 8B) | Fits (~7.25 GB) |
 | 24 GB | ~20.4 GB | `gguf:qwen3-quality` (Qwen 3.6 35B MoE) | Fits (~19.0 GB); thinking ON |
 
-> **Low-VRAM laptop guidance.** On Windows laptops with ≤4 GB NVIDIA VRAM (RTX 4050/4060 Laptop, etc.), the auto path will still select `gguf:qwen3-fast` and emit a `FallbackToSmallest` warning to `Trace`. Even the 2B model may exceed budget once Windows compositor + driver reserve their share. For these hosts, prefer the ONNX path explicitly: `LocalGenerator.LoadAsync("phi-4-mini")` (DirectML or CPU). The Trace line `[LocalGenerator.auto] WARNING: ...` indicates this fallback so downstream consumers can intercept it.
+> **Low-VRAM laptop guidance.** On Windows laptops with ≤4 GB NVIDIA VRAM (RTX 4050/4060 Laptop, etc.), the auto path will still select `gguf:qwen3-fast` and emit a `FallbackToSmallest` warning to `Trace`. Even the 2B model may exceed budget once Windows compositor + driver reserve their share. For these hosts, prefer the ONNX path explicitly: `LocalGenerator.LoadAsync("phi-4-mini")` (CUDA or CPU). The Trace line `[LocalGenerator.auto] WARNING: ...` indicates this fallback so downstream consumers can intercept it.
 
 ```csharp
 // Let LMSupply choose the optimal model for your hardware
@@ -884,7 +886,7 @@ if (info.GpuLayers.HasValue)
 | Model availability | Extensive | Limited |
 | Quantization options | Many (Q2-Q8) | FP16, INT4 |
 | Setup complexity | Simple | Simple |
-| GPU support | CUDA, Vulkan, Metal, ROCm | CUDA, DirectML, CoreML |
+| GPU support | CUDA, Vulkan, Metal, ROCm | CUDA, CoreML |
 | Server pooling | Yes (reuses servers) | N/A |
 | Memory efficiency | Good | Good |
 | Inference speed | Fast | Fast |
@@ -923,7 +925,7 @@ OGA Error: 1 instances of struct Generators::Model were leaked.
 OGA Error: 1 instances of struct Generators::Tokenizer were leaked.
 ```
 
-**This is a known upstream issue** in Microsoft's ONNX Runtime GenAI library, particularly affecting the DirectML backend. The warnings indicate internal resource tracking but **do not affect functionality**.
+**This is a known upstream issue** in Microsoft's ONNX Runtime GenAI library, historically most visible on the DirectML backend (no longer shipped). The warnings indicate internal resource tracking but **do not affect functionality**.
 
 **Relevant upstream issues:**
 - [microsoft/onnxruntime-genai#590](https://github.com/microsoft/onnxruntime-genai/issues/590) - Memory leak during back-to-back inferences

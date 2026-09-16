@@ -31,7 +31,6 @@ public class LlamaServerGeneratorModelFlooredContextTests
     // ─── Explicit GPU pin: floored ctx → fail fast (no silent CPU swap) ───
 
     [Theory]
-    [InlineData(ExecutionProvider.DirectML)]
     [InlineData(ExecutionProvider.Cuda)]
     [InlineData(ExecutionProvider.CoreML)]
     public void ExplicitGpuPin_FlooredCtx_FailsFast(ExecutionProvider pinned)

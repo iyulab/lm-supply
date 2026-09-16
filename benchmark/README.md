@@ -65,12 +65,6 @@ Benchmark results are saved to the `BenchmarkResults` directory:
 dotnet run -c Release -p:EnableCuda=true
 ```
 
-### DirectML
-
-```bash
-dotnet run -c Release -p:EnableDirectML=true
-```
-
 ## Interpreting Results
 
 - **Mean**: Average execution time

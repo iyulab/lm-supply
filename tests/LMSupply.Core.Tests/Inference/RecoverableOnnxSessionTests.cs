@@ -45,12 +45,12 @@ public class RecoverableOnnxSessionTests
         Trace.Listeners.Add(capture);
         try
         {
-            using var session = Create(ExecutionProvider.Auto, "DmlExecutionProvider", "CPUExecutionProvider");
+            using var session = Create(ExecutionProvider.Auto, "CoreMLExecutionProvider", "CPUExecutionProvider");
 
             session.TryRecoverAfterTimeout(new InferenceTimeoutException(TimeSpan.FromSeconds(60)))
                 .Should().BeFalse("replacement creation fails on a nonexistent model");
 
-            capture.Warnings.Should().Contain(w => w.StartsWith("[TestEngine]", StringComparison.Ordinal) && w.Contains("timed out on DirectML"));
+            capture.Warnings.Should().Contain(w => w.StartsWith("[TestEngine]", StringComparison.Ordinal) && w.Contains("timed out on CoreML"));
         }
         finally { Trace.Listeners.Remove(capture); }
     }
@@ -79,10 +79,10 @@ public class RecoverableOnnxSessionTests
         Trace.Listeners.Add(capture);
         try
         {
-            using var session = Create(ExecutionProvider.DirectML, "DmlExecutionProvider", "CPUExecutionProvider");
+            using var session = Create(ExecutionProvider.CoreML, "CoreMLExecutionProvider", "CPUExecutionProvider");
 
             session.TryFallback(OnnxCrash("simulated DML crash")).Should().BeFalse();
-            capture.Warnings.Should().Contain(w => w.StartsWith("[TestEngine]", StringComparison.Ordinal) && w.Contains("Inference failed on DirectML"));
+            capture.Warnings.Should().Contain(w => w.StartsWith("[TestEngine]", StringComparison.Ordinal) && w.Contains("Inference failed on CoreML"));
 
             // The same provider is not retried by the other recovery path either — one blacklist.
             session.TryRecoverAfterTimeout(new InferenceTimeoutException(TimeSpan.FromSeconds(60))).Should().BeFalse();
@@ -94,7 +94,7 @@ public class RecoverableOnnxSessionTests
     [Fact]
     public void Run_CancelledToken_ThrowsOperationCanceled_WithoutFallback()
     {
-        using var session = Create(ExecutionProvider.Auto, "DmlExecutionProvider", "CPUExecutionProvider");
+        using var session = Create(ExecutionProvider.Auto, "CoreMLExecutionProvider", "CPUExecutionProvider");
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -200,7 +200,7 @@ public class RecoverableOnnxSessionTests
         Trace.Listeners.Add(capture);
         try
         {
-            using var session = Create(ExecutionProvider.Auto, "DmlExecutionProvider", "CPUExecutionProvider");
+            using var session = Create(ExecutionProvider.Auto, "CoreMLExecutionProvider", "CPUExecutionProvider");
             var crash = OnnxCrash("simulated DML crash");
             var ct = TestContext.Current.CancellationToken;
 
@@ -209,7 +209,7 @@ public class RecoverableOnnxSessionTests
             // The fallback path is entered (replacement creation fails on the nonexistent model), and
             // the original exception — not a wrapper — reaches the caller.
             act.Should().Throw<OnnxRuntimeException>().Which.Should().BeSameAs(crash);
-            capture.Warnings.Should().Contain(w => w.StartsWith("[TestEngine]", StringComparison.Ordinal) && w.Contains("Inference failed on DirectML"));
+            capture.Warnings.Should().Contain(w => w.StartsWith("[TestEngine]", StringComparison.Ordinal) && w.Contains("Inference failed on CoreML"));
 
             // The gate was released on the way out: a second run on the same session must not deadlock.
             var runsAgain = Task.Run(() => session.Run((_, _) => 42, ct), ct);
@@ -228,18 +228,18 @@ public class RecoverableOnnxSessionTests
         try
         {
             var shared = new ProviderBlacklist();
-            using var encoder = new RecoverableOnnxSession(null!, ["DmlExecutionProvider", "CPUExecutionProvider"], true,
+            using var encoder = new RecoverableOnnxSession(null!, ["CoreMLExecutionProvider", "CPUExecutionProvider"], true,
                 ExecutionProvider.Auto, "/nonexistent/encoder.onnx", logPrefix: "[Encoder]", blacklist: shared);
-            using var decoder = new RecoverableOnnxSession(null!, ["DmlExecutionProvider", "CPUExecutionProvider"], true,
+            using var decoder = new RecoverableOnnxSession(null!, ["CoreMLExecutionProvider", "CPUExecutionProvider"], true,
                 ExecutionProvider.Auto, "/nonexistent/decoder.onnx", logPrefix: "[Decoder]", blacklist: shared);
 
-            // The encoder fails on DirectML. Replacement creation fails (nonexistent model), but the
+            // The encoder fails on CoreML. Replacement creation fails (nonexistent model), but the
             // provider is now on the blacklist both sessions consult.
             encoder.TryFallback(OnnxCrash("simulated DML crash")).Should().BeFalse();
-            shared.Contains(ExecutionProvider.DirectML).Should().BeTrue();
+            shared.Contains(ExecutionProvider.CoreML).Should().BeTrue();
             decoder.Blacklist.Should().BeSameAs(shared);
 
-            // The decoder has not failed itself, yet its next run first tries to leave DirectML
+            // The decoder has not failed itself, yet its next run first tries to leave CoreML
             // because a sibling blacklisted it — observable as the [Decoder] fallback attempt. With
             // no replacement available it runs where it is rather than failing the caller.
             var ran = false;
@@ -260,25 +260,25 @@ public class RecoverableOnnxSessionTests
             Session = null!,
             RequestedProvider = ExecutionProvider.Auto,
             ActiveProviders = ["CPUExecutionProvider"],
-            FailedProviders = [ExecutionProvider.DirectML]
+            FailedProviders = [ExecutionProvider.CoreML]
         };
 
         using var encoder = RecoverableOnnxSession.FromResult(loadedOnCpuAfterDmlRefusedIt, "/nonexistent/encoder.onnx", blacklist: shared);
 
-        // A sibling created afterwards consults the same blacklist, so it will not try DirectML.
-        shared.Contains(ExecutionProvider.DirectML).Should().BeTrue();
-        encoder.Blacklist.Contains(ExecutionProvider.DirectML).Should().BeTrue();
+        // A sibling created afterwards consults the same blacklist, so it will not try CoreML.
+        shared.Contains(ExecutionProvider.CoreML).Should().BeTrue();
+        encoder.Blacklist.Contains(ExecutionProvider.CoreML).Should().BeTrue();
     }
 
     [Fact]
     public void PrivateBlacklist_IsPerSession_ByDefault()
     {
-        using var a = Create(ExecutionProvider.Auto, "DmlExecutionProvider", "CPUExecutionProvider");
-        using var b = Create(ExecutionProvider.Auto, "DmlExecutionProvider", "CPUExecutionProvider");
+        using var a = Create(ExecutionProvider.Auto, "CoreMLExecutionProvider", "CPUExecutionProvider");
+        using var b = Create(ExecutionProvider.Auto, "CoreMLExecutionProvider", "CPUExecutionProvider");
 
         a.TryFallback(OnnxCrash("simulated DML crash")).Should().BeFalse();
 
-        a.Blacklist.Contains(ExecutionProvider.DirectML).Should().BeTrue();
-        b.Blacklist.Contains(ExecutionProvider.DirectML).Should().BeFalse("sessions created without a shared blacklist do not influence each other");
+        a.Blacklist.Contains(ExecutionProvider.CoreML).Should().BeTrue();
+        b.Blacklist.Contains(ExecutionProvider.CoreML).Should().BeFalse("sessions created without a shared blacklist do not influence each other");
     }
 }

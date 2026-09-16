@@ -52,13 +52,6 @@ dotnet run --project EmbedderSample -- default cuda
 dotnet run --project TranscriberSample -p:EnableCuda=true -- audio.wav default cuda
 ```
 
-### DirectML (Windows)
-
-```bash
-# Enable DirectML package
-dotnet run --project TranscriberSample -p:EnableDirectML=true -- audio.wav default directml
-```
-
 ## Troubleshooting GPU Usage
 
 If GPU is not being utilized:
@@ -66,6 +59,6 @@ If GPU is not being utilized:
 1. Check the console output for "GPU Active" status
 2. Verify GPU drivers are installed
 3. For CUDA: Ensure CUDA toolkit is installed
-4. For DirectML: Ensure Windows is up to date
+4. AMD / Intel GPUs on Windows: no ONNX provider on ONNX Runtime 1.25+ (DirectML removed in 0.67.0) — these samples run on CPU there
 
 The samples will display active providers in the console output to help diagnose GPU utilization issues.

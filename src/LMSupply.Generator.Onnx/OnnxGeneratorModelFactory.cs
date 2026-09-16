@@ -148,7 +148,6 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
             return _defaultProvider switch
             {
                 ExecutionProvider.Cuda => "cuda/cuda-int4-rtn-block-32",
-                ExecutionProvider.DirectML => "directml/directml-int4-awq-block-128",
                 _ => "cpu_and_mobile/cpu-int4-rtn-block-32-acc-level-4"
             };
         }
@@ -171,9 +170,6 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
                 // For CUDA, try to find cuda variant
                 ExecutionProvider.Cuda when subfolder.Contains("cpu", StringComparison.OrdinalIgnoreCase)
                     => subfolder.Replace("cpu_and_mobile", "cuda").Replace("cpu-", "cuda-"),
-                // For DirectML, try to find directml variant
-                ExecutionProvider.DirectML when subfolder.Contains("cpu", StringComparison.OrdinalIgnoreCase)
-                    => subfolder.Replace("cpu_and_mobile", "directml").Replace("cpu-", "directml-"),
                 _ => subfolder
             };
         }
@@ -288,7 +284,6 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
         var variantPatterns = _defaultProvider switch
         {
             ExecutionProvider.Cuda => new[] { "cuda", "gpu", "cpu" },
-            ExecutionProvider.DirectML => new[] { "directml", "gpu", "cpu" },
             _ => new[] { "cpu", "gpu" }
         };
 

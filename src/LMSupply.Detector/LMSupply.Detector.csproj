@@ -4,7 +4,7 @@
     <!-- Package Metadata -->
     <PackageId>LMSupply.Detector</PackageId>
     <Description>A lightweight, zero-configuration object detector for .NET. Supports RT-DETR models with automatic download, GPU acceleration, and HuggingFace caching. NMS-free architecture for fast inference.</Description>
-    <PackageTags>object-detection;detector;yolo;rt-detr;computer-vision;ml;machine-learning;onnx;gpu;cuda;directml;coco</PackageTags>
+    <PackageTags>object-detection;detector;yolo;rt-detr;computer-vision;ml;machine-learning;onnx;gpu;cuda;coco</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!-- Build Settings -->

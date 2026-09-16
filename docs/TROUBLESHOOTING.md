@@ -142,18 +142,19 @@ Console.WriteLine($"Provider: {profile.RecommendedProvider}");
 | Low VRAM | Need 4GB+ for CUDA selection |
 | WSL2 | Ensure CUDA WSL support is enabled |
 
-### 3.2 DirectML Errors
+### 3.2 `NotSupportedException: The DirectML execution provider is not available`
 
-**Symptom:** DirectML initialization fails on Windows.
+**Cause:** `ExecutionProvider.DirectML` was requested. Since 0.67.0 no build can provision it — ONNX
+Runtime 1.25+ ships no DirectML provider and the `Microsoft.ML.OnnxRuntime.DirectML` package line ends
+at 1.24.4.
 
 **Solutions:**
-1. Update GPU driver
-2. Ensure Windows 10 1903+ or Windows 11
-3. Check DirectX 12 support:
-```powershell
-dxdiag
-# Check "Feature Levels" includes 12_0
-```
+1. Use `ExecutionProvider.Auto` — CUDA / CoreML / CPU for ONNX sessions, Vulkan for llama-server on AMD/Intel GPUs
+2. Or pin `ExecutionProvider.Cpu`
+
+**Symptom:** ONNX-backed modules run on CPU on a Windows machine with an AMD/Intel GPU. This is
+expected on 0.67.0+; the library says so once per process in `Trace`
+(`[ExecutionProvider] A Direct3D 12 capable GPU was detected ... ONNX sessions run on CPU`).
 
 ### 3.3 Out of Memory (OOM)
 

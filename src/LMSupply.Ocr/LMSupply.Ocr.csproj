@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <PackageId>LMSupply.Ocr</PackageId>
-    <Description>A simple .NET library for local OCR with automatic model downloading from HuggingFace. Features 2-stage detection+recognition pipeline using PaddleOCR models. Supports CUDA, DirectML, and CoreML GPU acceleration.</Description>
-    <PackageTags>ocr;text-recognition;paddle-ocr;dbnet;crnn;ai;ml;onnx;huggingface;gpu;cuda;directml</PackageTags>
+    <Description>A simple .NET library for local OCR with automatic model downloading from HuggingFace. Features 2-stage detection+recognition pipeline using PaddleOCR models. Supports CUDA and CoreML GPU acceleration.</Description>
+    <PackageTags>ocr;text-recognition;paddle-ocr;dbnet;crnn;ai;ml;onnx;huggingface;gpu;cuda</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!-- Build Settings -->

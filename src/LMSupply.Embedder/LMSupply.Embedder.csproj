@@ -3,8 +3,8 @@
   <PropertyGroup>
     <!-- Package Metadata -->
     <PackageId>LMSupply.Embedder</PackageId>
-    <Description>A simple .NET library for local text embeddings with automatic model downloading from HuggingFace. Supports CUDA, DirectML, and CoreML GPU acceleration.</Description>
-    <PackageTags>embeddings;ai;ml;onnx;bert;nlp;vector;semantic-search;huggingface;gpu;cuda;directml</PackageTags>
+    <Description>A simple .NET library for local text embeddings with automatic model downloading from HuggingFace. Supports CUDA and CoreML GPU acceleration.</Description>
+    <PackageTags>embeddings;ai;ml;onnx;bert;nlp;vector;semantic-search;huggingface;gpu;cuda</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!-- Build Settings -->

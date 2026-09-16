@@ -49,7 +49,7 @@ public sealed class OnnxNuGetDownloader : IDisposable
     /// <summary>
     /// Downloads runtime binaries for the specified package type and provider.
     /// </summary>
-    /// <param name="provider">The execution provider (cpu, directml, cuda12, etc.).</param>
+    /// <param name="provider">The execution provider (cpu, cuda12, etc.).</param>
     /// <param name="platform">The target platform info.</param>
     /// <param name="version">Optional version. If null, uses the latest stable version.</param>
     /// <param name="progress">Optional progress reporter.</param>
@@ -89,7 +89,7 @@ public sealed class OnnxNuGetDownloader : IDisposable
         }
 
         // If specific version not cached, check any existing valid cached version before downloading.
-        // The requested version may not exist for this specific package (e.g. DirectML has fewer
+        // The requested version may not exist for this specific package (e.g. a provider package with fewer
         // patch releases than the base OnnxRuntime assembly version).
         var existingCache = FindExistingCache(packageType, provider, platform, config);
         if (existingCache is not null)
@@ -136,7 +136,7 @@ public sealed class OnnxNuGetDownloader : IDisposable
         if (!string.IsNullOrEmpty(assemblyVersion))
         {
             // Verify this version exists for the specific package
-            // (e.g., DirectML may have different version than base ONNX Runtime)
+            // (e.g., a provider package on a different version line than base ONNX Runtime)
             var availableVersions = await _packageResolver.GetVersionsAsync(packageId, cancellationToken);
             if (availableVersions.Contains(assemblyVersion, StringComparer.OrdinalIgnoreCase))
             {

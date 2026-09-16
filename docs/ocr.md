@@ -14,9 +14,6 @@ For GPU acceleration:
 # NVIDIA CUDA
 dotnet add package Microsoft.ML.OnnxRuntime.Gpu
 
-# Windows DirectML
-dotnet add package Microsoft.ML.OnnxRuntime.DirectML
-
 # macOS CoreML
 dotnet add package Microsoft.ML.OnnxRuntime.CoreML
 ```
@@ -215,9 +212,10 @@ foreach (var region in result.Regions)
 
 GPU acceleration is automatic when available. Priority order:
 1. CUDA (NVIDIA GPUs)
-2. DirectML (Windows - AMD, Intel, NVIDIA)
-3. CoreML (macOS)
-4. CPU (fallback)
+2. CoreML (macOS)
+3. CPU (fallback)
+
+AMD / Intel GPUs on Windows have no ONNX provider on ONNX Runtime 1.25+ (DirectML was removed in 0.67.0); this module runs on CPU there.
 
 ## Model Architecture
 

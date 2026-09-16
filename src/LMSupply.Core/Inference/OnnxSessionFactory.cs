@@ -38,7 +38,7 @@ public sealed class SessionCreationResult
     public IReadOnlyList<ExecutionProvider> FailedProviders { get; init; } = Array.Empty<ExecutionProvider>();
 
     /// <summary>
-    /// GPU device index the session was created for (CUDA/DirectML). 0 unless the caller asked for a
+    /// GPU device index the session was created for (CUDA). 0 unless the caller asked for a
     /// specific device. Carried so a replacement session created at run time targets the same device.
     /// </summary>
     public int DeviceId { get; init; }
@@ -48,8 +48,6 @@ public sealed class SessionCreationResult
     /// </summary>
     public bool IsGpuActive => ActiveProviders.Any(p =>
         p.Contains("CUDA", StringComparison.OrdinalIgnoreCase) ||
-        p.Contains("DML", StringComparison.OrdinalIgnoreCase) ||
-        p.Contains("DirectML", StringComparison.OrdinalIgnoreCase) ||
         p.Contains("CoreML", StringComparison.OrdinalIgnoreCase) ||
         p.Contains("TensorRT", StringComparison.OrdinalIgnoreCase));
 }
@@ -63,7 +61,7 @@ public static class OnnxSessionFactory
     /// <summary>
     /// Creates an ONNX Runtime inference session asynchronously, ensuring runtime binaries are available.
     /// This is the recommended method as it downloads required binaries on first use.
-    /// When provider is Auto, uses fallback chain: CUDA → DirectML → CoreML → CPU.
+    /// When provider is Auto, uses fallback chain: CUDA → CoreML → CPU.
     /// </summary>
     /// <param name="modelPath">Path to the ONNX model file.</param>
     /// <param name="provider">The execution provider to use.</param>
@@ -86,7 +84,7 @@ public static class OnnxSessionFactory
     /// <summary>
     /// Creates an ONNX Runtime inference session with detailed information about active providers.
     /// Use this when you need to verify GPU acceleration is actually working.
-    /// When provider is Auto, uses fallback chain: CUDA → DirectML → CoreML → CPU.
+    /// When provider is Auto, uses fallback chain: CUDA → CoreML → CPU.
     /// </summary>
     /// <param name="modelPath">Path to the ONNX model file.</param>
     /// <param name="provider">The execution provider to use.</param>
@@ -115,7 +113,7 @@ public static class OnnxSessionFactory
     /// <param name="skipProviders">Providers to exclude from the Auto fallback chain (already known to fail for this model).</param>
     /// <param name="configureOptions">Optional callback to configure additional session options.</param>
     /// <param name="progress">Optional progress reporter for binary downloads.</param>
-    /// <param name="deviceId">GPU device index for CUDA/DirectML (ignored by CPU and CoreML).</param>
+    /// <param name="deviceId">GPU device index for CUDA (ignored by CPU and CoreML).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<SessionCreationResult> CreateWithInfoAsync(
         string modelPath,
@@ -131,27 +129,28 @@ public static class OnnxSessionFactory
 
         if (provider == ExecutionProvider.Auto)
         {
-            // Use fallback chain: CUDA → DirectML → CoreML → CPU
+            // Use fallback chain: CUDA → CoreML → CPU
             return await CreateWithFallbackChainAsync(modelPath, skipProviders, configureOptions, progress, deviceId, cancellationToken);
         }
 
-        // Explicit provider specified
+        // Explicit provider specified. A provider this build cannot serve is refused here, before any
+        // provisioning -- never quietly turned into a CPU session.
+        ExecutionProviderSupport.ThrowIfUnsupported(provider);
         var providerString = provider switch
         {
             ExecutionProvider.Cuda => "cuda12",  // Try CUDA 12 first
-            ExecutionProvider.DirectML => "directml",
             ExecutionProvider.CoreML => "coreml",
             _ => "cpu"
         };
-        var isGpuRequested = provider is ExecutionProvider.Cuda or ExecutionProvider.DirectML or ExecutionProvider.CoreML;
+        var isGpuRequested = provider is ExecutionProvider.Cuda or ExecutionProvider.CoreML;
 
         // Download runtime binaries if needed. This is provisioning, not session construction --
-        // a platform that cannot provision the requested provider at all (e.g. DirectML has no
-        // native binaries for linux-x64/osx-*) fails loud here with an actionable message. The
-        // CPU-fallback catch below is reserved for a narrower failure class: the runtime WAS
-        // successfully provisioned but session construction itself failed transiently (a missing
-        // DX12 device, a CUDA driver mismatch). Conflating the two would let a caller silently run
-        // on CPU while believing an explicitly-requested GPU provider is active.
+        // a platform that cannot provision the requested provider at all (e.g. CUDA has no native
+        // binaries for osx-*) fails loud here with an actionable message. The CPU-fallback catch
+        // below is reserved for a narrower failure class: the runtime WAS successfully provisioned
+        // but session construction itself failed transiently (a CUDA driver mismatch). Conflating
+        // the two would let a caller silently run on CPU while believing an explicitly-requested
+        // GPU provider is active.
         try
         {
             await RuntimeManager.Instance.EnsureRuntimeAsync(
@@ -194,8 +193,8 @@ public static class OnnxSessionFactory
         }
         catch (Exception ex) when (isGpuRequested)
         {
-            // GPU session initialization failed (e.g., DirectML DX12 device unavailable,
-            // CUDA driver mismatch). Fall back to CPU so the caller gets a working session.
+            // GPU session initialization failed (e.g., a CUDA driver mismatch). Fall back to CPU
+            // so the caller gets a working session.
             var msg = ex.Message.Length > 100 ? ex.Message[..100] + "..." : ex.Message;
             Trace.TraceWarning($"[OnnxSessionFactory] {provider} session init failed: {msg}. Falling back to CPU.");
 
@@ -239,7 +238,6 @@ public static class OnnxSessionFactory
     /// <summary>
     /// Creates a session using the fallback chain until one succeeds.
     /// For CUDA, verifies runtime libraries are available before attempting.
-    /// For DirectML, trusts the session creation result (Windows manages DirectML).
     /// </summary>
     /// <remarks>
     /// Does not call <see cref="EnsureOnnxRuntimeAvailable"/> itself — <see cref="Create(string,
@@ -260,6 +258,7 @@ public static class OnnxSessionFactory
     {
         var fallbackChain = RuntimeManager.Instance.Gpu?.GetFallbackProviders()
             ?? new[] { ExecutionProvider.Cpu };
+        ExecutionProviderSupport.TraceDirectMLUnavailableOnce(RuntimeManager.Instance.Gpu, fallbackChain);
 
         Exception? lastException = null;
         var triedProviders = new List<string>();
@@ -299,7 +298,6 @@ public static class OnnxSessionFactory
                 var providerString = providerToTry switch
                 {
                     ExecutionProvider.Cuda => "cuda12",  // Try CUDA 12 first
-                    ExecutionProvider.DirectML => "directml",
                     ExecutionProvider.CoreML => "coreml",
                     _ => "cpu"
                 };
@@ -338,13 +336,6 @@ public static class OnnxSessionFactory
                         session.Dispose();
                         continue;
                     }
-                }
-                else if (providerToTry == ExecutionProvider.DirectML)
-                {
-                    // DirectML is managed by Windows - trust the session creation
-                    // If it fails, ONNX Runtime would have thrown or fallen back internally
-                    activeProviders.Add("DmlExecutionProvider");
-                    Trace.TraceInformation($"[Fallback] DirectML: success");
                 }
                 else if (providerToTry == ExecutionProvider.CoreML)
                 {
@@ -631,7 +622,7 @@ public static class OnnxSessionFactory
 
     /// <summary>
     /// Same as <see cref="Create(string, ExecutionProvider, Action{SessionOptions}?, out bool)"/> for a
-    /// specific GPU device index (CUDA/DirectML; ignored by CPU and CoreML).
+    /// specific GPU device index (CUDA; ignored by CPU and CoreML).
     /// </summary>
     public static InferenceSession Create(
         string modelPath,
@@ -665,14 +656,14 @@ public static class OnnxSessionFactory
     /// </summary>
     /// <param name="options">Session options to append the provider to.</param>
     /// <param name="provider">The execution provider to configure.</param>
-    /// <param name="deviceId">GPU device index for CUDA/DirectML (ignored by CPU and CoreML).</param>
+    /// <param name="deviceId">GPU device index for CUDA (ignored by CPU and CoreML).</param>
     public static bool ConfigureExecutionProvider(SessionOptions options, ExecutionProvider provider, int deviceId = 0)
     {
+        ExecutionProviderSupport.ThrowIfUnsupported(provider);
         return provider switch
         {
             ExecutionProvider.Auto => TryAddBestAvailableProvider(options, deviceId),
             ExecutionProvider.Cuda => TryAddCuda(options, deviceId),
-            ExecutionProvider.DirectML => TryAddDirectML(options, deviceId),
             ExecutionProvider.CoreML => TryAddCoreML(options),
             ExecutionProvider.Cpu => false, // CPU is always available as fallback; no GPU EP appended
             _ => throw new ArgumentOutOfRangeException(nameof(provider), provider, "Unknown execution provider")
@@ -687,7 +678,6 @@ public static class OnnxSessionFactory
     {
         // Try providers in order of preference
         if (TryAddCuda(options, deviceId)) return true;
-        if (TryAddDirectML(options, deviceId)) return true;
         if (TryAddCoreML(options)) return true;
         // CPU fallback is automatic
         return false;
@@ -714,9 +704,6 @@ public static class OnnxSessionFactory
                 case ExecutionProvider.Cuda:
                     // Appended but the CUDA provider DLL is not in the process — not actually active.
                     break;
-                case ExecutionProvider.DirectML:
-                    providers.Add("DmlExecutionProvider");
-                    break;
                 case ExecutionProvider.CoreML:
                     providers.Add("CoreMLExecutionProvider");
                     break;
@@ -738,26 +725,6 @@ public static class OnnxSessionFactory
         catch (Exception ex)
         {
             Trace.TraceWarning($"[OnnxSessionFactory] Failed to add CUDA provider: {ex.Message}");
-            return false;
-        }
-    }
-
-    private static bool TryAddDirectML(SessionOptions options, int deviceId = 0)
-    {
-        try
-        {
-            // DirectML requires these settings to work properly and avoid hangs
-            // See: https://onnxruntime.ai/docs/execution-providers/DirectML-ExecutionProvider.html
-            options.EnableMemoryPattern = false;
-            options.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
-
-            options.AppendExecutionProvider_DML(deviceId);
-            Trace.TraceInformation("[OnnxSessionFactory] DirectML provider added successfully");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Trace.TraceWarning($"[OnnxSessionFactory] Failed to add DirectML provider: {ex.Message}");
             return false;
         }
     }
@@ -797,10 +764,6 @@ public static class OnnxSessionFactory
 
         if (TryAddCuda(testOptions))
             yield return ExecutionProvider.Cuda;
-
-        testOptions = new SessionOptions();
-        if (TryAddDirectML(testOptions))
-            yield return ExecutionProvider.DirectML;
 
         testOptions = new SessionOptions();
         if (TryAddCoreML(testOptions))

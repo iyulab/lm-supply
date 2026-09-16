@@ -32,7 +32,7 @@ dotnet add package LMSupply.Synthesizer
 - **Fast Inference**: Optimized ONNX models for real-time synthesis
 - **Streaming**: Generate audio chunks progressively
 - **Multiple Formats**: WAV, raw PCM16, and float32 output
-- **GPU Acceleration**: CUDA, DirectML, and CoreML support
+- **GPU Acceleration**: CUDA and CoreML support
 
 ## Available Models
 
@@ -239,7 +239,6 @@ var options = new SynthesizerOptions { Provider = ExecutionProvider.Auto };
 
 // Force specific GPU backend
 var options = new SynthesizerOptions { Provider = ExecutionProvider.Cuda };     // NVIDIA
-var options = new SynthesizerOptions { Provider = ExecutionProvider.DirectML }; // Windows/AMD
 var options = new SynthesizerOptions { Provider = ExecutionProvider.CoreML };   // macOS
 ```
 

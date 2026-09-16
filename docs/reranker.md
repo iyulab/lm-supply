@@ -102,7 +102,7 @@ var results = await reranker.RerankAsync(
 
 | Feature | ONNX | GGUF |
 |---------|------|------|
-| GPU Support | CUDA, DirectML, CoreML | CUDA, Metal, Vulkan |
+| GPU Support | CUDA, CoreML | CUDA, Metal, Vulkan |
 | Quantization | FP32/FP16/INT8 | Q4/Q5/Q8/F16 |
 | Context Length | Model-dependent | Often longer (8K+) |
 | Best For | Standard cross-encoders | Large context, quantized |

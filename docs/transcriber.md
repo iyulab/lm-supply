@@ -30,7 +30,7 @@ dotnet add package LMSupply.Transcriber
 - **Multilingual**: Support for 99+ languages with auto-detection
 - **Timestamps**: Segment-level timestamps (word-level timestamps are not produced)
 - **Streaming**: Real-time transcription as audio is processed
-- **GPU Acceleration**: CUDA, DirectML, and CoreML support
+- **GPU Acceleration**: CUDA and CoreML support
 
 ## Available Models
 
@@ -279,7 +279,6 @@ var options = new TranscriberOptions { Provider = ExecutionProvider.Auto };
 
 // Force specific GPU backend
 var options = new TranscriberOptions { Provider = ExecutionProvider.Cuda };     // NVIDIA
-var options = new TranscriberOptions { Provider = ExecutionProvider.DirectML }; // Windows/AMD
 var options = new TranscriberOptions { Provider = ExecutionProvider.CoreML };   // macOS
 ```
 

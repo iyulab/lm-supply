@@ -130,7 +130,7 @@ BGE-M3 produces 1024-dimensional embeddings and supports passages up to 8192 tok
 var options = new EmbedderOptions
 {
     // GPU/CPU execution provider
-    Provider = ExecutionProvider.Auto,  // Auto, Cpu, Cuda, DirectML, CoreML
+    Provider = ExecutionProvider.Auto,  // Auto, Cpu, Cuda, CoreML
 
     // Maximum sequence length (tokens)
     MaxSequenceLength = 512,
@@ -287,7 +287,7 @@ blocking native call, the model enforces two guarantees:
 
 1. **Control return (guaranteed).** When the token is cancelled, the `await` returns control to the
    caller within bound and throws `OperationCanceledException` — even if a native call (for example
-   a cold DirectML initialization) is still blocked internally.
+   a cold GPU kernel initialization) is still blocked internally.
 2. **Native termination (best-effort).** The cancelled token also asks the running ONNX graph to
    terminate cooperatively (`RunOptions.Terminate`). This is honored *between operators*, so it
    frees the worker thread in most cases but cannot preempt a hang inside a single kernel.
@@ -341,7 +341,7 @@ The directory should contain:
 | Feature | ONNX | GGUF |
 |---------|------|------|
 | Format | ONNX Runtime | llama-server |
-| GPU Support | CUDA, DirectML, CoreML | CUDA, Metal, Vulkan |
+| GPU Support | CUDA, CoreML | CUDA, Metal, Vulkan |
 | Quantization | FP32/FP16/INT8 | Q4/Q5/Q8/F16 |
 | Model Sources | HuggingFace ONNX repos | HuggingFace GGUF repos |
 | Best For | Standard transformers | Long context, quantized models |

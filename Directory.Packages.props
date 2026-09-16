@@ -38,7 +38,6 @@
     <PackageVersion Include="ChildProcessGuard" Version="1.1.1" />
     <!-- GPU Providers (optional, user installs separately) -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.30.0" />
-    <PackageVersion Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" />
     <!-- Testing (xUnit v3 / Microsoft.Testing.Platform — BD-20260829-xunit-v3-pilot rollout) -->
     <PackageVersion Include="xunit.v3" Version="4.0.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />

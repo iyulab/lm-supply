@@ -14,9 +14,6 @@ For GPU acceleration:
 # NVIDIA CUDA
 dotnet add package Microsoft.ML.OnnxRuntime.Gpu
 
-# Windows DirectML
-dotnet add package Microsoft.ML.OnnxRuntime.DirectML
-
 # macOS CoreML
 dotnet add package Microsoft.ML.OnnxRuntime.CoreML
 ```
@@ -84,8 +81,8 @@ conversion happens inside the library.
 **Measured cost** (1280x1177 JPEG, 4-core CPU): about **19 ms per frame** end to end, of which roughly half
 is JPEG decoding - the model itself runs in about 2.4 ms. Detection is therefore comfortably inside a 30 fps
 budget, and JPEG decoding is the thing to avoid paying twice for if frames arrive already decoded.
-DirectML rejects one of this model's operators, so it runs on CPU even on a machine where the RT-DETR
-aliases get a GPU; the provider fallback handles this without configuration.
+(Measured on the 1.24.x DirectML line, before 0.67.0: DirectML rejected one of this model's operators, so
+it ran on CPU even where the RT-DETR aliases got a GPU. On 0.67.0+ there is no DirectML provider at all.)
 
 The defaults suit it: `ConfidenceThreshold` 0.25 and `IouThreshold` 0.45. A stricter `IouThreshold` of 0.3
 matches the reference implementation and merges one more duplicate in a dense crowd; the difference measured
@@ -108,8 +105,8 @@ foreach (var plate in await detector.DetectAsync("photo.jpg"))
 }
 ```
 
-**Measured cost** (960x631 JPEG, DirectML on an integrated GPU): about **7 ms per frame** end to end; on CPU
-the model alone is 5.3 ms. Unlike `face`, this one does run on DirectML.
+**Measured cost** (960x631 JPEG; measured on the 1.24.x DirectML line, not reachable on 0.67.0+): about
+**7 ms per frame** end to end on an integrated GPU; on CPU the model alone is 5.3 ms.
 
 The library defaults (`ConfidenceThreshold` 0.25, `IouThreshold` 0.45) are usable: measured plates scored
 0.63-0.99 while a cat photograph and a crowded street scene both produced nothing at all, the highest score
@@ -134,7 +131,7 @@ var options = new DetectorOptions
     ConfidenceThreshold = 0.5f,            // Only return detections above 50%
     IouThreshold = 0.45f,                  // NMS IoU threshold (for non-RT-DETR models)
     MaxDetections = 50,                    // Maximum detections to return
-    Provider = ExecutionProvider.DirectML, // Force specific GPU provider
+    Provider = ExecutionProvider.Cuda,     // Force specific GPU provider
     CacheDirectory = "/custom/cache"       // Custom model cache directory
 };
 
@@ -239,9 +236,10 @@ convention when loading a model the built-in registry does not describe.
 
 GPU acceleration is automatic when available. Priority order:
 1. CUDA (NVIDIA GPUs)
-2. DirectML (Windows - AMD, Intel, NVIDIA)
-3. CoreML (macOS)
-4. CPU (fallback)
+2. CoreML (macOS)
+3. CPU (fallback)
+
+AMD / Intel GPUs on Windows have no ONNX provider on ONNX Runtime 1.25+ (DirectML was removed in 0.67.0); this module runs on CPU there.
 
 Force a specific provider:
 

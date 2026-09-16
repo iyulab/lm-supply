@@ -242,7 +242,8 @@ public class ExecutionProviderEnumTests
     [Theory]
     [InlineData(ExecutionProvider.Auto, 0)]
     [InlineData(ExecutionProvider.Cuda, 1)]
-    [InlineData(ExecutionProvider.DirectML, 2)]
+    // 2 is ExecutionProvider.DirectML — obsolete since 0.67.0 (the provider left ONNX Runtime 1.25+); the
+    // slot stays reserved so a numerically bound setting keeps meaning what it meant.
     [InlineData(ExecutionProvider.CoreML, 3)]
     [InlineData(ExecutionProvider.Cpu, 4)]
     public void ShouldHaveExpectedIntValues(ExecutionProvider p, int expected)

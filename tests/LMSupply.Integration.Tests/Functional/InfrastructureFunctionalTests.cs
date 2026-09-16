@@ -246,7 +246,6 @@ public class InfrastructureFunctionalTests
         provider.Should().BeOneOf(
             ExecutionProvider.Auto,
             ExecutionProvider.Cuda,
-            ExecutionProvider.DirectML,
             ExecutionProvider.CoreML,
             ExecutionProvider.Cpu);
     }
@@ -360,7 +359,7 @@ public class InfrastructureFunctionalTests
         values.Should().HaveCount(5, "ExecutionProvider should have exactly 5 values");
         values.Should().Contain(ExecutionProvider.Auto);
         values.Should().Contain(ExecutionProvider.Cuda);
-        values.Should().Contain(ExecutionProvider.DirectML);
+        // DirectML (2) is still a member — obsolete since 0.67.0 — so the count above stays 5.
         values.Should().Contain(ExecutionProvider.CoreML);
         values.Should().Contain(ExecutionProvider.Cpu);
     }

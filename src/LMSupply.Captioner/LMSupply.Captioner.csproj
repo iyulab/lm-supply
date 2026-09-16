@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <PackageId>LMSupply.Captioner</PackageId>
-    <Description>A simple .NET library for local image captioning with automatic model downloading from HuggingFace. Supports CUDA, DirectML, and CoreML GPU acceleration.</Description>
-    <PackageTags>image-captioning;vlm;vision;ai;ml;onnx;huggingface;gpu;cuda;directml</PackageTags>
+    <Description>A simple .NET library for local image captioning with automatic model downloading from HuggingFace. Supports CUDA and CoreML GPU acceleration.</Description>
+    <PackageTags>image-captioning;vlm;vision;ai;ml;onnx;huggingface;gpu;cuda</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!-- Build Settings -->

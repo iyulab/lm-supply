@@ -21,7 +21,6 @@ public static class RuntimePackageRegistry
     public static class Providers
     {
         public const string Cpu = "cpu";
-        public const string DirectML = "directml";
         public const string Cuda = "cuda";
         public const string Cuda11 = "cuda11";
         public const string Cuda12 = "cuda12";
@@ -42,10 +41,16 @@ public static class RuntimePackageRegistry
     // ONNX Runtime package mappings
     // Note: CUDA packages use platform-specific overrides via CudaPackagesByPlatform,
     // but entries here are needed for GetSupportedProviders() to return cuda11/cuda12
+    //
+    // No DirectML entry (0.67.0): Microsoft.ML.OnnxRuntime.DirectML ends at 1.24.4 and the runtime
+    // version is taken from the loaded ONNX Runtime assembly (1.30.0), so the entry could only ever
+    // ask nuget.org for a package that does not exist. The GenAI registry below has none either --
+    // Microsoft.ML.OnnxRuntimeGenAI.DirectML is still published, but OnnxGeneratorBackend provisions
+    // the base "onnxruntime" package for the provider first, so a DirectML request dies there before
+    // GenAI is consulted. See ExecutionProviderSupport.
     private static readonly Dictionary<string, PackageConfig> OnnxRuntimePackages = new(StringComparer.OrdinalIgnoreCase)
     {
         [Providers.Cpu] = new("Microsoft.ML.OnnxRuntime", "onnxruntime"),
-        [Providers.DirectML] = new("Microsoft.ML.OnnxRuntime.DirectML", "onnxruntime"),
         [Providers.Cuda] = new("Microsoft.ML.OnnxRuntime.Gpu", "onnxruntime", ["onnxruntime_providers_cuda", "onnxruntime_providers_shared"]),
         [Providers.Cuda11] = new("Microsoft.ML.OnnxRuntime.Gpu", "onnxruntime", ["onnxruntime_providers_cuda", "onnxruntime_providers_shared"]),
         [Providers.Cuda12] = new("Microsoft.ML.OnnxRuntime.Gpu", "onnxruntime", ["onnxruntime_providers_cuda", "onnxruntime_providers_shared"]),
@@ -55,7 +60,6 @@ public static class RuntimePackageRegistry
     private static readonly Dictionary<string, PackageConfig> GenAiPackages = new(StringComparer.OrdinalIgnoreCase)
     {
         [Providers.Cpu] = new("Microsoft.ML.OnnxRuntimeGenAI", "onnxruntime-genai"),
-        [Providers.DirectML] = new("Microsoft.ML.OnnxRuntimeGenAI.DirectML", "onnxruntime-genai"),
         [Providers.Cuda] = new("Microsoft.ML.OnnxRuntimeGenAI.Cuda", "onnxruntime-genai", ["onnxruntime-genai-cuda"]),
         [Providers.Cuda11] = new("Microsoft.ML.OnnxRuntimeGenAI.Cuda", "onnxruntime-genai", ["onnxruntime-genai-cuda"]),
         [Providers.Cuda12] = new("Microsoft.ML.OnnxRuntimeGenAI.Cuda", "onnxruntime-genai", ["onnxruntime-genai-cuda"]),
@@ -74,7 +78,7 @@ public static class RuntimePackageRegistry
     /// Gets the package configuration for a runtime type and provider.
     /// </summary>
     /// <param name="packageType">The package type (e.g., "onnxruntime", "onnxruntime-genai").</param>
-    /// <param name="provider">The execution provider (e.g., "cpu", "directml", "cuda12").</param>
+    /// <param name="provider">The execution provider (e.g., "cpu", "cuda12").</param>
     /// <param name="runtimeIdentifier">Optional RID for platform-specific package selection.</param>
     /// <returns>The package configuration, or null if not found.</returns>
     public static PackageConfig? GetPackageConfig(

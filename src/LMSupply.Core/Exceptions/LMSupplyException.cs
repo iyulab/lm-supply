@@ -200,8 +200,8 @@ public class ContextLengthExceededException : InferenceException
 }
 
 /// <summary>
-/// Exception thrown when inference does not complete within the allotted time. A cold DirectML (or
-/// other GPU provider) kernel initialization is the most common cause -- ONNX Runtime's
+/// Exception thrown when inference does not complete within the allotted time. A cold GPU
+/// provider kernel initialization is the most common cause -- ONNX Runtime's
 /// <c>RunOptions.Terminate</c> is only checked between operators, so it cannot preempt a hang
 /// inside a single kernel, and the underlying native call keeps running on its own thread even
 /// after this exception reaches the caller.
@@ -220,7 +220,7 @@ public class InferenceTimeoutException : InferenceException
     public InferenceTimeoutException(TimeSpan timeout)
         : base(
             $"Inference did not complete within {timeout.TotalSeconds:F0}s. This is often caused by " +
-            "a cold GPU execution provider (e.g. DirectML) kernel initialization hang, which cannot " +
+            "a cold GPU execution provider kernel initialization hang, which cannot " +
             "be cancelled cooperatively -- try ExecutionProvider.Cpu, or retry (a warmed-up GPU " +
             "session usually does not reproduce the hang).")
     {

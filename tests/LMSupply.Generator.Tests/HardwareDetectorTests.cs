@@ -31,14 +31,12 @@ public class HardwareDetectorTests
         provider.Should().BeOneOf(
             ExecutionProvider.Cpu,
             ExecutionProvider.Cuda,
-            ExecutionProvider.DirectML,
             ExecutionProvider.CoreML);
     }
 
     [Theory]
     [InlineData(ExecutionProvider.Cpu)]
     [InlineData(ExecutionProvider.Cuda)]
-    [InlineData(ExecutionProvider.DirectML)]
     [InlineData(ExecutionProvider.CoreML)]
     public void ResolveProvider_WithExplicitProvider_ReturnsSameProvider(ExecutionProvider provider)
     {

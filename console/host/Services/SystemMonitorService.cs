@@ -174,7 +174,6 @@ public sealed partial class SystemMonitorService : IDisposable
         return provider switch
         {
             ExecutionProvider.Cuda => "NVIDIA GPU (CUDA)",
-            ExecutionProvider.DirectML => "GPU (DirectML)",
             ExecutionProvider.CoreML => "Apple Silicon (CoreML)",
             _ => "Unknown"
         };

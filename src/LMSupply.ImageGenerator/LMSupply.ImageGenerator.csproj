@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <PackageId>LMSupply.ImageGenerator</PackageId>
-    <Description>A simple .NET library for local text-to-image generation using Latent Consistency Models (LCM). Supports CUDA, DirectML, and CoreML GPU acceleration with 2-4 step fast inference.</Description>
-    <PackageTags>text-to-image;image-generation;stable-diffusion;lcm;ai;ml;onnx;huggingface;gpu;cuda;directml</PackageTags>
+    <Description>A simple .NET library for local text-to-image generation using Latent Consistency Models (LCM). Supports CUDA and CoreML GPU acceleration with 2-4 step fast inference.</Description>
+    <PackageTags>text-to-image;image-generation;stable-diffusion;lcm;ai;ml;onnx;huggingface;gpu;cuda</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!-- Build Settings -->

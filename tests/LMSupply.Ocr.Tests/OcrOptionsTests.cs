@@ -67,7 +67,6 @@ public class OcrOptionsTests
     [InlineData(ExecutionProvider.Auto)]
     [InlineData(ExecutionProvider.Cpu)]
     [InlineData(ExecutionProvider.Cuda)]
-    [InlineData(ExecutionProvider.DirectML)]
     [InlineData(ExecutionProvider.CoreML)]
     public void Provider_ShouldSupportAllValues(ExecutionProvider provider)
     {

@@ -94,7 +94,7 @@ public class CancellableInferenceTests
                 hang, CancellationToken.None, TimeSpan.FromMilliseconds(200));
 
             await act.Should().ThrowAsync<InferenceTimeoutException>()
-                .WithMessage("*DirectML*");
+                .WithMessage("*GPU execution provider*");
             sw.Stop();
             sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(5),
                 "control must return to the caller once the default timeout elapses, " +

@@ -371,7 +371,6 @@ public sealed class ModelDiscoveryService : IDisposable
         var deviceKeywords = preferences.PreferredProvider switch
         {
             ExecutionProvider.Cuda => new[] { "cuda", "gpu" },
-            ExecutionProvider.DirectML => new[] { "directml", "dml" },
             ExecutionProvider.CoreML => new[] { "coreml" },
             _ => new[] { "cpu" }
         };

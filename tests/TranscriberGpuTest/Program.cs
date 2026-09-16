@@ -16,7 +16,6 @@ if (providerArg != null)
     requestedProvider = providerName switch
     {
         "cuda" => ExecutionProvider.Cuda,
-        "directml" or "dml" => ExecutionProvider.DirectML,
         "cpu" => ExecutionProvider.Cpu,
         _ => ExecutionProvider.Auto
     };

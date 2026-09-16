@@ -441,8 +441,9 @@ internal static class NvmlDetector
 }
 
 /// <summary>
-/// DirectML support detection for Windows.
-/// DirectML requires Windows 10 1903 (build 18362) or later with D3D12 support.
+/// Direct3D 12 capability detection for Windows (surfaces as <see cref="GpuInfo.DirectMLSupported"/>).
+/// Requires Windows 10 1903 (build 18362) or later. Hardware information only since 0.67.0 -- it drives
+/// the Vulkan llama-server backend, not an ONNX execution provider.
 /// </summary>
 internal static class DirectMLDetector
 {

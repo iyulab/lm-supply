@@ -167,7 +167,7 @@ public sealed class RuntimeManager : IAsyncDisposable
 
     /// <summary>
     /// Ensures a runtime binary is available, downloading from NuGet if necessary.
-    /// When provider is null (Auto mode), uses the fallback chain: CUDA → DirectML → CoreML → CPU.
+    /// When provider is null (Auto mode), uses the fallback chain: CUDA → CoreML → CPU.
     /// </summary>
     /// <param name="package">The package name (e.g., "onnxruntime").</param>
     /// <param name="version">Optional version. If null, auto-detects from assembly.</param>
@@ -251,6 +251,10 @@ public sealed class RuntimeManager : IAsyncDisposable
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
+        // A provider this build cannot serve fails here, loud, before any lookup -- the registry falls back
+        // to the CPU package for an unknown name, which would otherwise turn "directml" into a silent CPU run.
+        ExecutionProviderSupport.ThrowIfUnsupported(provider);
+
         // Get package configuration
         var config = RuntimePackageRegistry.GetPackageConfig(packageType, provider, _platform!.RuntimeIdentifier);
         if (config is null)
@@ -382,7 +386,7 @@ public sealed class RuntimeManager : IAsyncDisposable
     /// <summary>
     /// Gets a prioritized list of providers to try based on detected hardware.
     /// The fallback chain ensures zero-configuration GPU acceleration:
-    /// CUDA (cuda12/cuda11) → DirectML → CoreML → CPU
+    /// CUDA (cuda12/cuda11) → CoreML → CPU
     /// </summary>
     public IReadOnlyList<string> GetProviderFallbackChain()
     {
@@ -418,10 +422,6 @@ public sealed class RuntimeManager : IAsyncDisposable
                         chain.Add("cuda11");
                 }
             }
-
-            // DirectML (Windows with D3D12 support - works with AMD, Intel, NVIDIA)
-            if (_gpu.DirectMLSupported && supportedProviders.Contains("directml"))
-                chain.Add("directml");
 
             // CoreML (macOS/iOS)
             if (_gpu.CoreMLSupported && supportedProviders.Contains("coreml"))

@@ -30,7 +30,7 @@ public interface IModelRuntimeInfo
 
     /// <summary>
     /// Gets whether GPU acceleration is actually being used.
-    /// True if any GPU provider (CUDA, DirectML, CoreML) is active.
+    /// True if any GPU provider (CUDA, CoreML) is active.
     /// </summary>
     bool IsGpuActive { get; }
 

@@ -134,7 +134,6 @@ public static class Program
         {
             "cpu" => ExecutionProvider.Cpu,
             "cuda" => ExecutionProvider.Cuda,
-            "directml" => ExecutionProvider.DirectML,
             "coreml" => ExecutionProvider.CoreML,
             _ => ExecutionProvider.Auto
         };

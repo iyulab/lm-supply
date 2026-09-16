@@ -14,9 +14,6 @@ For GPU acceleration:
 # NVIDIA CUDA
 dotnet add package Microsoft.ML.OnnxRuntime.Gpu
 
-# Windows DirectML
-dotnet add package Microsoft.ML.OnnxRuntime.DirectML
-
 # macOS CoreML
 dotnet add package Microsoft.ML.OnnxRuntime.CoreML
 ```
@@ -67,7 +64,7 @@ var segmenter = await LocalSegmenter.LoadAsync("nvidia/segformer-b0-finetuned-ad
 var options = new SegmenterOptions
 {
     ResizeToOriginal = true,               // Resize output to match input dimensions
-    Provider = ExecutionProvider.DirectML, // Force specific GPU provider
+    Provider = ExecutionProvider.Cuda,     // Force specific GPU provider
     CacheDirectory = "/custom/cache"       // Custom model cache directory
 };
 
@@ -152,9 +149,10 @@ var modelLabels = segmenter.ClassLabels;
 
 GPU acceleration is automatic when available. Priority order:
 1. CUDA (NVIDIA GPUs)
-2. DirectML (Windows - AMD, Intel, NVIDIA)
-3. CoreML (macOS)
-4. CPU (fallback)
+2. CoreML (macOS)
+3. CPU (fallback)
+
+AMD / Intel GPUs on Windows have no ONNX provider on ONNX Runtime 1.25+ (DirectML was removed in 0.67.0); this module runs on CPU there.
 
 Force a specific provider:
 

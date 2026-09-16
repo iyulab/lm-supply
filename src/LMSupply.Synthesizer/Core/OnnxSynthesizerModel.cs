@@ -171,7 +171,7 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
                 inputs.Add(NamedOnnxValue.CreateFromTensor("sid", speakerId));
             }
 
-            // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the
+            // Bounded run: if the native call hangs (e.g. a cold GPU kernel init) or the
             // provider crashes, the session moves to the next provider and the run is retried once.
             return await _session!.RunWithRecoveryAsync((session, runOptions) =>
             {

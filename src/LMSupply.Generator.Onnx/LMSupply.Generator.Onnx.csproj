@@ -3,8 +3,8 @@
   <PropertyGroup>
     <!-- Package Metadata -->
     <PackageId>LMSupply.Generator.Onnx</PackageId>
-    <Description>ONNX Runtime GenAI backend for LMSupply.Generator. Adds local text generation on ONNX models (Phi, etc.) with CUDA/DirectML GPU acceleration. Optional — LMSupply.Generator works with GGUF/llama-server alone without this package.</Description>
-    <PackageTags>llm;ai;ml;onnx;text-generation;chatbot;phi;gpu;cuda;directml;streaming</PackageTags>
+    <Description>ONNX Runtime GenAI backend for LMSupply.Generator. Adds local text generation on ONNX models (Phi, etc.) with CUDA GPU acceleration. Optional — LMSupply.Generator works with GGUF/llama-server alone without this package.</Description>
+    <PackageTags>llm;ai;ml;onnx;text-generation;chatbot;phi;gpu;cuda;streaming</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!-- Build Settings -->

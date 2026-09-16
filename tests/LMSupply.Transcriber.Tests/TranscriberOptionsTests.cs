@@ -52,7 +52,6 @@ public class TranscriberOptionsTests
     [InlineData(ExecutionProvider.Auto)]
     [InlineData(ExecutionProvider.Cpu)]
     [InlineData(ExecutionProvider.Cuda)]
-    [InlineData(ExecutionProvider.DirectML)]
     public void Provider_ShouldAcceptAllValidValues(ExecutionProvider provider)
     {
         var options = new TranscriberOptions { Provider = provider };

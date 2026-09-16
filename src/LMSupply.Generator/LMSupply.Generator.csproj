@@ -4,7 +4,7 @@
     <!-- Package Metadata -->
     <PackageId>LMSupply.Generator</PackageId>
     <Description>A .NET library for local LLM text generation via GGUF/llama-server, with streaming, chat templates, and automatic hardware-aware backend selection. Add LMSupply.Generator.Onnx for ONNX Runtime GenAI models (Phi, etc.).</Description>
-    <PackageTags>llm;ai;ml;gguf;llama;text-generation;chatbot;phi;gpu;cuda;directml;streaming</PackageTags>
+    <PackageTags>llm;ai;ml;gguf;llama;text-generation;chatbot;phi;gpu;cuda;streaming</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!-- Build Settings -->

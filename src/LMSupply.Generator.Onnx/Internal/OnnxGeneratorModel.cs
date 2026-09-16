@@ -103,7 +103,6 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
     public IReadOnlyList<string> ActiveProviders => _resolvedProvider switch
     {
         ExecutionProvider.Cuda => new[] { "CUDAExecutionProvider", "CPUExecutionProvider" },
-        ExecutionProvider.DirectML => new[] { "DmlExecutionProvider", "CPUExecutionProvider" },
         ExecutionProvider.CoreML => new[] { "CoreMLExecutionProvider", "CPUExecutionProvider" },
         _ => new[] { "CPUExecutionProvider" }
     };
@@ -472,7 +471,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
     public Task WarmupAsync(CancellationToken cancellationToken = default)
     {
         // Perform a minimal generation to warm up the model
-        // Note: MaxTokens must be > 1 for DirectML compatibility (shape mismatch bug with MaxTokens=1)
+        // Note: MaxTokens > 1 -- a MaxTokens=1 warmup hit a GenAI shape-mismatch bug on some backends
         return GenerateCompleteAsync(
             "Hi",
             new GenerationOptions { MaxTokens = 5 },

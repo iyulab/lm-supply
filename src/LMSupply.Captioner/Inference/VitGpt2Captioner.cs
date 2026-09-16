@@ -190,7 +190,7 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
             NamedOnnxValue.CreateFromTensor("pixel_values", imageTensor)
         };
 
-        // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the provider
+        // Bounded run: if the native call hangs (e.g. a cold GPU kernel init) or the provider
         // crashes, the session moves to the next provider and the run is retried once.
         return _encoder.RunWithRecoveryAsync((session, runOptions) =>
         {

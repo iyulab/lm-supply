@@ -98,8 +98,9 @@ public class GpuInfoTests
     }
 
     [Fact]
-    public void RecommendedProvider_NvidiaOldDriver_WithDirectML_ShouldBeDirectML()
+    public void RecommendedProvider_NvidiaOldDriver_WithDirect3D12_ShouldBeCpu()
     {
+        // A Direct3D 12 capable GPU no longer recommends DirectML (gone from ONNX Runtime 1.25+, 0.67.0).
         var gpu = new GpuInfo
         {
             Vendor = GpuVendor.Nvidia,
@@ -107,7 +108,7 @@ public class GpuInfoTests
             DirectMLSupported = true
         };
 
-        gpu.RecommendedProvider.Should().Be(ExecutionProvider.DirectML);
+        gpu.RecommendedProvider.Should().Be(ExecutionProvider.Cpu);
     }
 
     [Fact]
@@ -131,15 +132,16 @@ public class GpuInfoTests
     }
 
     [Fact]
-    public void RecommendedProvider_AmdWithDirectML_ShouldBeDirectML()
+    public void RecommendedProvider_AmdWithDirect3D12_ShouldBeCpu()
     {
+        // AMD on Windows: the ONNX recommendation is CPU; the GPU is still used by llama-server via Vulkan.
         var gpu = new GpuInfo
         {
             Vendor = GpuVendor.Amd,
             DirectMLSupported = true
         };
 
-        gpu.RecommendedProvider.Should().Be(ExecutionProvider.DirectML);
+        gpu.RecommendedProvider.Should().Be(ExecutionProvider.Cpu);
     }
 
     [Fact]
@@ -163,7 +165,9 @@ public class GpuInfoTests
         var providers = gpu.GetFallbackProviders();
 
         providers.Should().StartWith(ExecutionProvider.Cuda);
-        providers.Should().Contain(ExecutionProvider.DirectML);
+#pragma warning disable CS0618 // the assertion is that the obsolete member is absent
+        providers.Should().NotContain(ExecutionProvider.DirectML);
+#pragma warning restore CS0618
         providers.Should().EndWith(ExecutionProvider.Cpu);
     }
 

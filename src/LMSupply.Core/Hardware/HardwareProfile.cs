@@ -88,12 +88,6 @@ public sealed class HardwareProfile
             return ExecutionProvider.Cuda;
         }
 
-        // DirectML for Windows with compatible GPU
-        if (gpuInfo.DirectMLSupported)
-        {
-            return ExecutionProvider.DirectML;
-        }
-
         // CoreML for Apple Silicon
         if (gpuInfo.CoreMLSupported)
         {

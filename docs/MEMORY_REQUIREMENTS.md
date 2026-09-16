@@ -218,7 +218,7 @@ OCR combines two models:
 
 ## GPU VRAM vs System RAM
 
-### With GPU (CUDA/DirectML/CoreML)
+### With GPU (CUDA/CoreML)
 
 | VRAM | Recommended Models |
 |------|-------------------|
@@ -365,10 +365,7 @@ Console.WriteLine($"Recommended Provider: {profile.RecommendedProvider}");
 ### CUDA Out of Memory
 
 ```csharp
-// Switch to DirectML (Windows)
-var options = new EmbedderOptions { Provider = ExecutionProvider.DirectML };
-
-// Or use CPU
+// Use CPU
 var options = new EmbedderOptions { Provider = ExecutionProvider.Cpu };
 ```
 

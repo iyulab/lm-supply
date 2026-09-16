@@ -8,7 +8,7 @@ namespace LMSupply.Inference;
 /// <remarks>
 /// A provider that crashes or hangs on one part of a model is not going to behave on the other
 /// parts — the failure is a property of the provider/kernel combination, not of one session. Sharing
-/// the blacklist means that once the encoder has moved off DirectML, the decoder leaves it too before
+/// the blacklist means that once the encoder has moved off a GPU provider, the decoder leaves it too before
 /// its next run instead of paying the same crash (or the same 60 s hang) a second time. A session
 /// created without an explicit blacklist gets a private one, which is the single-session behaviour.
 /// </remarks>

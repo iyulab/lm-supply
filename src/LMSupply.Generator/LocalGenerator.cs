@@ -40,8 +40,8 @@ public static class LocalGenerator
     /// <remarks>
     /// For <c>"default"</c> and <c>"auto"</c>, the backend and model are selected from the host:
     /// <list type="bullet">
-    ///   <item>NVIDIA GPU / CPU / macOS / Linux → GGUF via llama.cpp (Gemma 4 by default, VRAM-aware).</item>
-    ///   <item>Windows with DirectML and a non-NVIDIA GPU → ONNX (Phi-4 Mini).</item>
+    ///   <item>Every host → GGUF via llama.cpp (Gemma 4 by default, VRAM-aware; Vulkan on AMD/Intel GPUs).</item>
+    ///   <item>ONNX models (Phi-4 Mini) are explicit-only: <c>"phi-4-mini"</c> or a repo id, CUDA or CPU.</item>
     /// </list>
     /// The selection is logged via <c>Trace.TraceInformation</c> with a <c>[LocalGenerator.auto]</c> prefix.
     /// </remarks>
@@ -261,9 +261,8 @@ public static class LocalGenerator
     }
 
     /// <summary>
-    /// Auto-selects the optimal model based on hardware platform.
-    /// GGUF for most environments (CPU, CUDA, Metal).
-    /// ONNX only for Windows DirectML (non-NVIDIA) or NPU.
+    /// Auto-selects the optimal model based on hardware platform -- always GGUF (CPU, CUDA, Metal,
+    /// Vulkan), sized to the VRAM/RAM budget.
     /// </summary>
     private static async Task<IGeneratorModel> LoadAutoAsync(
         GeneratorOptions options,
@@ -302,16 +301,6 @@ public static class LocalGenerator
         return loaded;
     }
 
-    private static SelectionDiagnostics BuildOnnxDiagnostics(HardwareProfile profile)
-        => new()
-        {
-            TotalVramBytes = profile.GpuInfo.TotalMemoryBytes,
-            FreeVramBytes = profile.GpuInfo.FreeMemoryBytes,
-            BudgetVramBytes = VramBudget.GetAvailableBytes(profile.GpuInfo),
-            SafetyMargin = VramBudget.GetRecommendedSafetyMargin(profile.GpuInfo),
-            EnvOverrideApplied = VramBudget.TryGetEnvOverrideBytes(out _)
-        };
-
     private static SelectionDiagnostics BuildGgufDiagnostics(
         HardwareProfile profile, Internal.Llama.ModelSelectionResult selection)
         => new()
@@ -325,24 +314,14 @@ public static class LocalGenerator
         };
 
     /// <summary>
-    /// Hardware-aware model selection behind <c>"default"</c>/<c>"auto"</c>: the backend decision
-    /// (ONNX vs GGUF) and the model within it, with the diagnostics a loaded model reports. Shared by
+    /// Hardware-aware model selection behind <c>"default"</c>/<c>"auto"</c>: the GGUF model that fits
+    /// the budget, with the diagnostics a loaded model reports. Shared by
     /// <see cref="LoadAutoAsync"/> and <see cref="DownloadModelAsync"/> so warming and loading agree.
     /// Logs the selection with the <c>[LocalGenerator.auto]</c> prefix.
     /// </summary>
     private static (string ModelId, SelectionDiagnostics Diagnostics) SelectAutoModel(GeneratorOptions options)
     {
         var profile = HardwareProfile.Current;
-        var useOnnx = Internal.GeneratorRoutingPolicy.ShouldUseOnnx(
-            profile.GpuInfo, profile.RecommendedProvider);
-
-        if (useOnnx)
-        {
-            var model = GeneratorModelRegistry.Default.Resolve("auto");
-            LogOnnxAutoSelection(profile, model.ModelId);
-            return (model.ModelId, BuildOnnxDiagnostics(profile));
-        }
-
         var selection = Internal.Llama.GgufModelRegistry.GetAutoSelection(profile.GpuInfo);
         // Pass the alias (e.g. "gguf:gemma4-fast") rather than RepoId so the downstream
         // loader can re-resolve the registry entry and use its DefaultFile. Passing
@@ -353,15 +332,6 @@ public static class LocalGenerator
             : selection.Selected.RepoId;
         LogGgufAutoSelection(profile, selection);
         return (selectedModelId, BuildGgufDiagnostics(profile, selection));
-    }
-
-    private static void LogOnnxAutoSelection(HardwareProfile profile, string modelId)
-    {
-        var vramMb = VramBudget.GetAvailableBytes(profile.GpuInfo) / (1024 * 1024);
-        System.Diagnostics.Trace.TraceInformation(
-            $"[LocalGenerator.auto] Provider={profile.RecommendedProvider}, " +
-            $"GPU={profile.GpuInfo.Vendor} {profile.GpuInfo.DeviceName ?? "n/a"}, " +
-            $"VRAM={vramMb}MB → ONNX path, selected={modelId}");
     }
 
     private static void LogGgufAutoSelection(

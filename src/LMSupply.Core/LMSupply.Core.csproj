@@ -3,7 +3,7 @@
   <PropertyGroup>
     <PackageId>LMSupply.Core</PackageId>
     <Description>Core components for LMSupply libraries: HuggingFace model downloading, caching, GPU execution providers, and common utilities.</Description>
-    <PackageTags>LMSupply;huggingface;onnx;ml;ai;gpu;cuda;directml</PackageTags>
+    <PackageTags>LMSupply;huggingface;onnx;ml;ai;gpu;cuda</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

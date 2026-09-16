@@ -13,8 +13,8 @@ public static class WellKnownModels
     {
         /// <summary>
         /// Default — routes through <see cref="LocalGenerator.LoadAsync(string, GeneratorOptions?, IProgress{DownloadProgress}?, CancellationToken)"/>
-        /// hardware-aware auto selection. Resolves to Gemma 4 GGUF on NVIDIA/CPU/macOS/Linux
-        /// and Phi-4 Mini ONNX on Windows DirectML + non-NVIDIA.
+        /// hardware-aware auto selection. Resolves to a GGUF model sized to the host on every
+        /// platform (CUDA, Metal, Vulkan or CPU).
         /// </summary>
         public const string Default = "default";
 

@@ -101,7 +101,6 @@ internal sealed class OnnxInferenceEngine : IDisposable
     private static bool IsGpuProvider(ExecutionProvider provider)
     {
         return provider is ExecutionProvider.Cuda
-            or ExecutionProvider.DirectML
             or ExecutionProvider.CoreML
             or ExecutionProvider.Auto; // Auto may select GPU, so treat as GPU for safety
     }
@@ -164,7 +163,7 @@ internal sealed class OnnxInferenceEngine : IDisposable
     /// <param name="cancellationToken">
     /// Cancellation token. When cancelled, the native ONNX run is asked to terminate
     /// cooperatively via <see cref="RunOptions.Terminate"/> (best-effort — honored only between
-    /// operators, so an intra-kernel hang such as a cold DirectML init may not be preempted).
+    /// operators, so an intra-kernel hang such as a cold GPU kernel init may not be preempted).
     /// </param>
     public float[] RunInference(long[] inputIds, long[] attentionMask, CancellationToken cancellationToken = default)
     {

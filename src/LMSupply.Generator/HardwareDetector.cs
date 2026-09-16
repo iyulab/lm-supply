@@ -48,7 +48,7 @@ public static class HardwareDetector
             // GPU scenarios
             (>= 16, _, ExecutionProvider.Cuda) => (14_000_000_000L, "FP16", 16384),
             (>= 8, _, ExecutionProvider.Cuda) => (7_000_000_000L, "Quant8", 8192),
-            (>= 4, _, ExecutionProvider.Cuda or ExecutionProvider.DirectML) => (3_000_000_000L, "Quant4", 4096),
+            (>= 4, _, ExecutionProvider.Cuda) => (3_000_000_000L, "Quant4", 4096),
 
             // CPU-only scenarios
             (_, >= 32, ExecutionProvider.Cpu) => (7_000_000_000L, "Quant4", 8192),

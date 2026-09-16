@@ -60,7 +60,7 @@ macOS (Apple):       Metal
 NVIDIA GPU:          CUDA 12
 AMD GPU:             Hip (Linux) / Vulkan (Windows)
 Intel GPU:           Vulkan (modern: Iris/Arc/Xe/UHD)  |  CPU (legacy HD Graphics)
-Other DirectML GPU:  Vulkan
+Other Direct3D 12 GPU: Vulkan
 No GPU:              CPU
 ```
 
@@ -69,7 +69,7 @@ small for any meaningful offload (`< LlamaBackendSelector.MinVramForGpuOffloadBy
 avoids downloading/initializing a GPU binary that would offload zero layers. **Integrated GPUs**
 (Intel Iris Xe, AMD APUs — detected via `GpuInfo.IsIntegrated`) are routed to CPU regardless of their
 unreliable reported dedicated-VRAM size. Metal is exempt (Apple unified memory). An explicit GPU pin
-(`Cuda`/`DirectML`/`CoreML`) is honored and never demoted; set `LMSUPPLY_VRAM_BUDGET_MB` to force a
+(`Cuda`/`CoreML`) is honored and never demoted; set `LMSUPPLY_VRAM_BUDGET_MB` to force a
 budget and keep a GPU backend on an integrated/low-VRAM machine.
 
 ## Usage

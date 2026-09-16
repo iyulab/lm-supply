@@ -46,7 +46,7 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
         ImageGeneratorOptions options,
         CancellationToken cancellationToken = default)
     {
-        // Provider selection (Auto chain, DirectML settings, runtime provisioning) is the shared
+        // Provider selection (Auto chain, runtime provisioning) is the shared
         // OnnxSessionFactory's job; this callback only carries the caller's log level and threads.
         var pipeline = await LcmPipeline.LoadAsync(
             modelPath,

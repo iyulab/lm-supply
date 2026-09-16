@@ -78,7 +78,9 @@ public sealed record GpuInfo
     public int? CudaDriverVersionMinor { get; init; }
 
     /// <summary>
-    /// Gets whether DirectML is supported (Windows only).
+    /// Gets whether a Direct3D 12 capable GPU is present (Windows only). Hardware information only:
+    /// it selects the Vulkan llama-server backend on AMD/Intel GPUs, but no ONNX execution provider --
+    /// the DirectML provider is gone from ONNX Runtime 1.25+ (see <see cref="ExecutionProviderSupport"/>).
     /// </summary>
     public bool DirectMLSupported { get; init; }
 
@@ -94,14 +96,13 @@ public sealed record GpuInfo
     {
         GpuVendor.Nvidia when CudaDriverVersionMajor >= 11 => ExecutionProvider.Cuda,
         GpuVendor.Apple => ExecutionProvider.CoreML,
-        _ when DirectMLSupported => ExecutionProvider.DirectML,
         _ => ExecutionProvider.Cpu
     };
 
     /// <summary>
     /// Gets a prioritized list of execution providers to try based on GPU capabilities.
     /// The fallback chain ensures zero-configuration GPU acceleration:
-    /// CUDA → DirectML → CoreML → CPU
+    /// CUDA → CoreML → CPU
     /// </summary>
     public IReadOnlyList<ExecutionProvider> GetFallbackProviders()
     {
@@ -110,10 +111,6 @@ public sealed record GpuInfo
         // CUDA first (if NVIDIA with sufficient driver)
         if (Vendor == GpuVendor.Nvidia && CudaDriverVersionMajor >= 11)
             providers.Add(ExecutionProvider.Cuda);
-
-        // DirectML (Windows with D3D12)
-        if (DirectMLSupported)
-            providers.Add(ExecutionProvider.DirectML);
 
         // CoreML (macOS/iOS)
         if (CoreMLSupported)

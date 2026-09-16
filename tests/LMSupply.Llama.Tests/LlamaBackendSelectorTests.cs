@@ -27,13 +27,26 @@ public class LlamaBackendSelectorTests
     [Theory]
     [InlineData(ExecutionProvider.Cpu, LlamaServerBackend.Cpu)]
     [InlineData(ExecutionProvider.Cuda, LlamaServerBackend.Cuda12)]
-    [InlineData(ExecutionProvider.DirectML, LlamaServerBackend.Vulkan)]
     [InlineData(ExecutionProvider.CoreML, LlamaServerBackend.Metal)]
     public void MapProvider_ExplicitPin_MapsDirectly_NoDemotion(ExecutionProvider provider, LlamaServerBackend expected)
     {
         // Even a 128MB iGPU must not change an explicit pin — the caller asked for it.
         var gpu = Gpu(GpuVendor.Intel, "Intel(R) Iris(R) Xe Graphics", total: 128 * MB);
         LlamaBackendSelector.MapProvider(provider, gpu).Should().Be(expected);
+    }
+
+    [Fact]
+    public void MapProvider_DirectML_Throws_NotSilentlyVulkan()
+    {
+        // 0.67.0: DirectML is refused on every path. It used to map to Vulkan here while the ONNX paths
+        // could not serve it at all — the same pin meaning two different things depending on the model
+        // format. Auto still picks Vulkan for this GPU; the caller is told to use it.
+        var gpu = Gpu(GpuVendor.Amd, "AMD Radeon RX 7800 XT", total: 16 * GB, directMl: true);
+#pragma warning disable CS0618
+        var act = () => LlamaBackendSelector.MapProvider(ExecutionProvider.DirectML, gpu);
+#pragma warning restore CS0618
+        act.Should().Throw<NotSupportedException>().WithMessage("*DirectML*Vulkan*");
+        LlamaBackendSelector.MapProvider(ExecutionProvider.Auto, gpu).Should().Be(LlamaServerBackend.Vulkan);
     }
 
     // ─── Auto: dedicated-VRAM GPU with sufficient budget keeps the GPU backend ───

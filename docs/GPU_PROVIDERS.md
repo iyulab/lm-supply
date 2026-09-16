@@ -6,6 +6,16 @@ This guide explains execution providers in LMSupply and how to optimize GPU acce
 
 LMSupply uses ONNX Runtime for inference, which supports multiple execution providers for hardware acceleration.
 
+> **DirectML removed (0.67.0).** ONNX Runtime 1.25+ ships no DirectML execution provider and the
+> `Microsoft.ML.OnnxRuntime.DirectML` package line ends at 1.24.4, so no build of LMSupply on the
+> current runtime (1.30.0) can provision it. `ExecutionProvider.DirectML` is obsolete: an explicit
+> request throws `NotSupportedException` on every path (ONNX session, GenAI, llama-server), and `Auto`
+> no longer tries it — on a Windows machine without CUDA, ONNX sessions run on CPU and the library
+> says so once per process in `Trace`. GGUF/llama-server paths still use the GPU through Vulkan
+> (`LlamaBackendSelector`). A machine that had cached the 1.24.4 native from an older release was
+> running a managed 1.30.0 runtime against a 1.24.4 provider binary, which is not a supported
+> combination; it moves to CPU for ONNX sessions on upgrade.
+
 ---
 
 ## 1. Available Providers
@@ -13,7 +23,6 @@ LMSupply uses ONNX Runtime for inference, which supports multiple execution prov
 | Provider | Platform | GPU Vendor | Notes |
 |----------|----------|------------|-------|
 | **CUDA** | Windows/Linux | NVIDIA | Best performance for NVIDIA GPUs |
-| **DirectML** | Windows | Any (NVIDIA/AMD/Intel) | Universal Windows GPU support |
 | **CoreML** | macOS | Apple Silicon | Native Apple acceleration |
 | **CPU** | All | N/A | Fallback, always available |
 
@@ -32,9 +41,8 @@ await using var model = await LocalEmbedder.LoadAsync("default");
 
 **Auto-detection priority:**
 1. **CUDA** - If NVIDIA GPU with 4GB+ VRAM detected
-2. **DirectML** - If Windows with compatible GPU
-3. **CoreML** - If macOS with Apple Silicon
-4. **CPU** - Fallback
+2. **CoreML** - If macOS with Apple Silicon
+3. **CPU** - Fallback
 
 ### 2.2 Explicit Provider Selection
 
@@ -52,7 +60,6 @@ await using var model = await LocalEmbedder.LoadAsync("default", options);
 Available values:
 - `ExecutionProvider.Auto` (default)
 - `ExecutionProvider.Cuda`
-- `ExecutionProvider.DirectML`
 - `ExecutionProvider.CoreML`
 - `ExecutionProvider.Cpu`
 
@@ -83,22 +90,12 @@ if (profile.GpuInfo.Vendor == GpuVendor.Nvidia)
 }
 ```
 
-### 3.2 DirectML (Windows)
+### 3.2 AMD / Intel GPUs on Windows
 
-**Requirements:**
-- Windows 10 version 1903+
-- DirectX 12 compatible GPU
-- Updated GPU drivers
-
-**Performance Characteristics:**
-- Good performance across vendors
-- Slightly slower than CUDA for NVIDIA
-- Best option for AMD GPUs on Windows
-
-**When to use:**
-- AMD GPU on Windows
-- Intel integrated/discrete GPU
-- NVIDIA without CUDA toolkit
+There is no ONNX execution provider for these GPUs on ONNX Runtime 1.25+ (DirectML was it — see the
+note at the top). ONNX-backed modules (embedder, reranker, transcriber, OCR, …) run on CPU there;
+the GGUF/llama-server modules (generator, and the embedder/reranker GGUF paths) use the GPU through
+**Vulkan**, selected automatically under `ExecutionProvider.Auto` (see [llama.md](llama.md)).
 
 ### 3.3 CoreML (macOS)
 
@@ -165,9 +162,8 @@ Requested Provider → Available? → Use
 ```
 
 **Fallback chain:**
-1. CUDA → DirectML → CPU (Windows)
-2. CUDA → CPU (Linux)
-3. CoreML → CPU (macOS)
+1. CUDA → CPU (Windows, Linux)
+2. CoreML → CPU (macOS)
 
 ### 5.1 Runtime Recovery (after the session is loaded)
 
@@ -184,7 +180,7 @@ an ONNX session (`RecoverableOnnxSession` in `LMSupply.Core`) handle both the sa
 | `Provider = ExecutionProvider.Cpu` was requested | Recovery is off — you asked for CPU and get exactly that. |
 
 Each recovery writes a `Trace` warning of the form
-`[<Module>] Inference failed on DirectML (...)` / `[<Module>] Inference timed out on DirectML after 60s ...`
+`[<Module>] Inference failed on Cuda (...)` / `[<Module>] Inference timed out on Cuda after 60s ...`
 followed by `[<Module>] Recovered: now running on CPUExecutionProvider.` Attach a
 `TraceListener` (see `samples/EmbedderSample`) if you want to see them. After a recovery,
 `IsGpuActive` / `ActiveProviders` on the model reflect the provider actually in use.
@@ -233,7 +229,7 @@ var info = model.GetModelInfo();
 
 if (info.RequestedProvider != ExecutionProvider.Cpu &&
     !info.ActiveProviders.Contains("CUDAExecutionProvider") &&
-    !info.ActiveProviders.Contains("DmlExecutionProvider"))
+    !info.ActiveProviders.Contains("CoreMLExecutionProvider"))
 {
     Console.WriteLine("Warning: Running on CPU fallback");
 }
@@ -259,13 +255,13 @@ await using (var generator = await LocalGenerator.LoadAsync("auto"))
 
 ## 7. Comparison
 
-| Aspect | CUDA | DirectML | CoreML | CPU |
-|--------|------|----------|--------|-----|
-| **Speed** | Fastest | Fast | Fast | Slowest |
-| **Latency** | Lowest | Low | Low | Highest |
-| **Batch Perf** | Excellent | Good | Good | Moderate |
-| **Memory** | GPU VRAM | GPU VRAM | Unified | System RAM |
-| **Setup** | Driver only | Auto | Auto | None |
+| Aspect | CUDA | CoreML | CPU |
+|--------|------|--------|-----|
+| **Speed** | Fastest | Fast | Slowest |
+| **Latency** | Lowest | Low | Highest |
+| **Batch Perf** | Excellent | Good | Moderate |
+| **Memory** | GPU VRAM | Unified | System RAM |
+| **Setup** | Driver only | Auto | None |
 
 ---
 
@@ -273,7 +269,7 @@ await using (var generator = await LocalGenerator.LoadAsync("auto"))
 
 - **Auto-detection** handles most cases correctly
 - **CUDA** is best for NVIDIA GPUs
-- **DirectML** is the universal Windows option
+- **AMD / Intel GPUs on Windows** accelerate the GGUF/llama-server paths (Vulkan); ONNX sessions run on CPU
 - **CoreML** is optimal for Apple Silicon
 - **CPU** is always available as fallback
 - Use `HardwareProfile.Current` to check detected hardware

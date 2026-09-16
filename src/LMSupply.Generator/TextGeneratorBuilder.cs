@@ -46,7 +46,7 @@ public sealed class TextGeneratorBuilder
 
     /// <summary>
     /// Uses the platform-aware default — hardware-aware auto selection.
-    /// Resolves to Gemma 4 GGUF on NVIDIA/CPU/macOS/Linux and Phi-4 Mini ONNX on Windows DirectML + non-NVIDIA.
+    /// Resolves to a GGUF model sized to the host on every platform (CUDA, Metal, Vulkan or CPU).
     /// </summary>
     /// <remarks>
     /// At <see cref="BuildAsync"/> time the builder delegates to
@@ -81,7 +81,7 @@ public sealed class TextGeneratorBuilder
     /// <summary>
     /// Sets the execution provider.
     /// </summary>
-    /// <param name="provider">Execution provider (Auto, Cpu, Cuda, DirectML, CoreML).</param>
+    /// <param name="provider">Execution provider (Auto, Cpu, Cuda, CoreML).</param>
     public TextGeneratorBuilder WithProvider(ExecutionProvider provider)
     {
         _modelOptions.Provider = provider;

@@ -7,9 +7,9 @@ namespace LMSupply.Generator.Onnx;
 
 /// <summary>
 /// Entry point for enabling ONNX Runtime GenAI model loading in LMSupply.Generator. Call
-/// <see cref="Register"/> once at startup (before loading an ONNX model, or before using the
-/// hardware-aware "auto" model selection on a DirectML-only GPU) after adding a
-/// PackageReference to this package.
+/// <see cref="Register"/> once at startup (before loading an ONNX model) after adding a
+/// PackageReference to this package. The "auto" model selection never picks this backend -- it is
+/// GGUF on every host -- so registering it only matters for explicit ONNX model ids.
 /// </summary>
 public static class OnnxGeneratorBackend
 {
@@ -37,6 +37,8 @@ public static class OnnxGeneratorBackend
             IProgress<DownloadProgress>? progress,
             CancellationToken cancellationToken)
         {
+            ExecutionProviderSupport.ThrowIfUnsupported(provider);
+
             // Initialize RuntimeManager to detect hardware
             await RuntimeManager.Instance.InitializeAsync(cancellationToken);
 
@@ -49,7 +51,6 @@ public static class OnnxGeneratorBackend
             var providerString = actualProvider switch
             {
                 ExecutionProvider.Cuda => RuntimeManager.Instance.GetDefaultProvider(), // cuda11 or cuda12
-                ExecutionProvider.DirectML => "directml",
                 ExecutionProvider.CoreML => "cpu", // CoreML uses CPU binaries
                 _ => "cpu"
             };

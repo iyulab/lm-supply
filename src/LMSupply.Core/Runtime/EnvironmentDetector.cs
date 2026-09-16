@@ -89,10 +89,6 @@ public static class EnvironmentDetector
         if (gpu.Vendor == GpuVendor.Nvidia && gpu.CudaDriverVersionMajor >= 11)
             yield return ExecutionProvider.Cuda;
 
-        // DirectML for Windows with D3D12 support
-        if (platform.IsWindows && gpu.DirectMLSupported)
-            yield return ExecutionProvider.DirectML;
-
         // CoreML for macOS
         if (platform.IsMacOS && gpu.CoreMLSupported)
             yield return ExecutionProvider.CoreML;

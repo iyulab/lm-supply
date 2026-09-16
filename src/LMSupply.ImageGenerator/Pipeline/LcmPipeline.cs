@@ -44,7 +44,7 @@ internal sealed class LcmPipeline : IAsyncDisposable
     /// </summary>
     /// <param name="modelDir">Path to model directory.</param>
     /// <param name="provider">Execution provider for the three sessions (text encoder, UNet, VAE).</param>
-    /// <param name="deviceId">GPU device index for CUDA/DirectML.</param>
+    /// <param name="deviceId">GPU device index for CUDA.</param>
     /// <param name="configureOptions">Session options to apply to every session (log level, threads).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<LcmPipeline> LoadAsync(

@@ -340,7 +340,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
             NamedOnnxValue.CreateFromTensor("input_features", inputTensor)
         };
 
-        // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the provider
+        // Bounded run: if the native call hangs (e.g. a cold GPU kernel init) or the provider
         // crashes, the session moves to the next provider and the run is retried once.
         return _encoderSession!.RunWithRecoveryAsync((session, runOptions) =>
         {
@@ -459,7 +459,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
             if (_options.Provider != ExecutionProvider.Cpu && !encoderSessionInfo.IsGpuActive)
             {
                 Trace.TraceInformation("[OnnxTranscriberModel] WARNING: GPU provider was requested but only CPU is active. " +
-                    "Check CUDA/DirectML installation and GPU availability.");
+                    "Check CUDA installation and GPU availability.");
             }
 
             // Load decoder if available - use same provider as encoder

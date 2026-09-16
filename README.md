@@ -152,9 +152,9 @@ await foreach (var token in model.GenerateChatAsync(messages))
     Console.Write(token);
 }
 
-// ONNX models (for DirectML/NPU environments)
+// Builder form
 var generator = await TextGeneratorBuilder.Create()
-    .WithDefaultModel()  // Platform-aware: Gemma 4 GGUF on NVIDIA/CPU/Mac/Linux, Phi-4 Mini ONNX on DirectML+non-NVIDIA
+    .WithDefaultModel()  // Hardware-aware: a GGUF model sized to the host (CUDA / Metal / Vulkan / CPU)
     .BuildAsync();
 
 string response = await generator.GenerateCompleteAsync("What is machine learning?");
@@ -275,14 +275,14 @@ GGUF reranker models are auto-detected by `-GGUF` or `_gguf` in repo name.
 | Platform | Selected backend | Selected model |
 |----------|------------------|----------------|
 | Windows + NVIDIA | GGUF (llama.cpp CUDA) | Qwen3 via `gguf:auto` (VRAM-aware) |
-| Windows + **discrete** AMD/Intel GPU (Arc, Radeon) | ONNX (DirectML) | Phi-4 Mini (MIT, FC-capable) |
+| Windows + AMD/Intel GPU (Arc, Radeon) | GGUF (llama.cpp Vulkan) | Qwen3 via `gguf:auto` (VRAM-aware) |
 | Windows / Linux CPU-only / **integrated GPU** (Iris Xe, APU) | GGUF (llama.cpp CPU) | Qwen3 via `gguf:auto` (RAM-aware) |
 | Linux + discrete GPU | GGUF (llama.cpp; CUDA on NVIDIA, CPU/ROCm on AMD) | Qwen3 via `gguf:auto` |
 | macOS (Apple Silicon) | GGUF (llama.cpp Metal) | Qwen3 via `gguf:auto` |
 
 > `LoadAsync("default")` and `LoadAsync("auto")` both route through this matrix. For explicit selection, use `gguf:*` aliases, ONNX aliases, or a direct HuggingFace repo ID.
 
-**ONNX aliases** (recommended for Windows DirectML + non-NVIDIA):
+**ONNX aliases** (explicit only — `auto`/`default` never select ONNX; CUDA or CPU):
 
 | Alias | Model | Params | Context | License | Notes |
 |-------|-------|--------|---------|---------|-------|
@@ -403,7 +403,7 @@ Low-end/quantized models (the `FallbackToSmallest` tier below) are prone to *deg
 | **High** | 6-10GB | `gguf:qwen3-balanced` (Qwen3 8B) | |
 | **Ultra** | 20-24GB | `gguf:qwen3-quality` (Qwen 3.6 35B MoE) | thinking ON |
 
-> **Platform-based routing (v0.28.0+):** `LoadAsync("default")` and `LoadAsync("auto")` both select the optimal backend+model for the current host: GGUF via llama.cpp on CPU / NVIDIA / Apple Silicon / Linux / **integrated GPUs**, and ONNX via DirectML only on Windows with a **discrete** AMD/Intel GPU. Use `gguf:*` aliases or ONNX aliases for explicit control.
+> **Platform-based routing:** `LoadAsync("default")` and `LoadAsync("auto")` both select the model for the current host on the GGUF/llama.cpp backend — CUDA on NVIDIA, Metal on Apple Silicon, Vulkan on AMD/Intel GPUs, CPU otherwise (v0.67.0: the ONNX/DirectML branch for Windows discrete AMD/Intel GPUs is gone with the DirectML provider; those GPUs use Vulkan). Use `gguf:*` aliases or ONNX aliases for explicit control.
 
 **Key benefits:**
 - **Zero configuration** - Just use `"auto"`, no hardware research needed
@@ -418,8 +418,18 @@ Low-end/quantized models (the `FallbackToSmallest` tier below) are prone to *deg
 GPU acceleration is **automatic** — LMSupply detects your hardware and downloads appropriate runtime binaries on first use:
 
 ```
-Detection priority: CUDA → DirectML → CoreML → CPU
+Detection priority: CUDA → CoreML → CPU
 ```
+
+> **DirectML removed (0.67.0).** ONNX Runtime 1.25+ ships no DirectML execution provider and the
+> `Microsoft.ML.OnnxRuntime.DirectML` package line ends at 1.24.4, so no build of LMSupply on the
+> current runtime (1.30.0) can provision it. `ExecutionProvider.DirectML` is obsolete: an explicit
+> request throws `NotSupportedException` on every path (ONNX session, GenAI, llama-server), and `Auto`
+> no longer tries it — on a Windows machine without CUDA, ONNX sessions run on CPU and the library
+> says so once per process in `Trace`. GGUF/llama-server paths still use the GPU through Vulkan
+> (`LlamaBackendSelector`). A machine that had cached the 1.24.4 native from an older release was
+> running a managed 1.30.0 runtime against a 1.24.4 provider binary, which is not a supported
+> combination; it moves to CPU for ONNX sessions on upgrade.
 
 ```csharp
 // Auto-detect (default) - uses GPU if available, falls back to CPU
@@ -427,7 +437,6 @@ var options = new EmbedderOptions { Provider = ExecutionProvider.Auto };
 
 // Force specific provider
 var options = new EmbedderOptions { Provider = ExecutionProvider.Cuda };     // NVIDIA
-var options = new EmbedderOptions { Provider = ExecutionProvider.DirectML }; // Windows GPU
 var options = new EmbedderOptions { Provider = ExecutionProvider.CoreML };   // macOS
 ```
 
@@ -445,7 +454,7 @@ var provider = EnvironmentDetector.GetRecommendedProvider();
 
 Console.WriteLine($"Provider: {provider}");
 Console.WriteLine($"CUDA Available: {gpu.Vendor == GpuVendor.Nvidia && gpu.CudaDriverVersionMajor >= 11}");
-Console.WriteLine($"DirectML Available: {gpu.DirectMLSupported}");
+Console.WriteLine($"Direct3D 12 GPU: {gpu.DirectMLSupported}"); // hardware only — drives Vulkan for llama-server, not an ONNX provider
 ```
 
 ### Troubleshooting GPU Issues
@@ -545,14 +554,14 @@ LMSUPPLY_SYSTEM_RAM_MB=6000   # treat the host as having 6 GB RAM for model/quan
 
 ### Integrated-GPU / low-VRAM auto backend demotion
 
-Under `ExecutionProvider.Auto` the llama-server backend is chosen by `LlamaBackendSelector` (shared by the generator, embedder, and reranker, so all three agree). Vendor decides the GPU backend (NVIDIA→CUDA, Apple→Metal, AMD→ROCm/Vulkan, modern Intel iGPU→Vulkan), but a **dedicated-VRAM backend is demoted to CPU when the VRAM budget is below `LlamaBackendSelector.MinVramForGpuOffloadBytes` (2 GB)** — at that point zero model layers would offload, so spinning up a GPU `llama-server` binary only pays initialization cost for no acceleration. This is the common case on integrated GPUs (e.g. Intel Iris Xe, where DXGI reports ~128 MB of dedicated VRAM for a shared-memory adapter): Auto now picks CPU directly instead of downloading/initializing Vulkan for a 0-layer offload. Metal is exempt (Apple Silicon uses unified memory). Set `LMSUPPLY_VRAM_BUDGET_MB` to override the budget and keep the GPU backend; an explicit GPU pin (`Cuda`/`DirectML`/`CoreML`) is never demoted.
+Under `ExecutionProvider.Auto` the llama-server backend is chosen by `LlamaBackendSelector` (shared by the generator, embedder, and reranker, so all three agree). Vendor decides the GPU backend (NVIDIA→CUDA, Apple→Metal, AMD→ROCm/Vulkan, modern Intel iGPU→Vulkan), but a **dedicated-VRAM backend is demoted to CPU when the VRAM budget is below `LlamaBackendSelector.MinVramForGpuOffloadBytes` (2 GB)** — at that point zero model layers would offload, so spinning up a GPU `llama-server` binary only pays initialization cost for no acceleration. This is the common case on integrated GPUs (e.g. Intel Iris Xe, where DXGI reports ~128 MB of dedicated VRAM for a shared-memory adapter): Auto now picks CPU directly instead of downloading/initializing Vulkan for a 0-layer offload. Metal is exempt (Apple Silicon uses unified memory). Set `LMSUPPLY_VRAM_BUDGET_MB` to override the budget and keep the GPU backend; an explicit GPU pin (`Cuda`/`CoreML`) is never demoted.
 
 ### Unusable-context CPU fallback (GGUF generator)
 
 On a low-VRAM box the llama-server context can be clamped down to the 512-token floor — too small to be usable, which downstream consumers reject (chat bricks). How the generator handles this depends on `GeneratorOptions.Provider`:
 
-- **`ExecutionProvider.Auto` (default)** — Auto promises a *working* provider, so when the GPU backend can only offer the floored context it **transparently falls back to CPU** (RAM-bound, no VRAM clamp), re-acquiring the CPU `llama-server` binary and keeping the full requested context. The switch emits a `Trace.TraceWarning` and is visible via `GetModelInfo()` (`IsGpuActive == false`). This matches the embedder's existing CUDA→DirectML→CPU fallback chain.
-- **Explicit GPU pin (`Cuda` / `DirectML` / `CoreML`)** — no silent provider swap: the load **fails fast** with an `InvalidOperationException` naming the floored context and VRAM cause, so the unusable configuration surfaces honestly instead of bricking later. Pin `ExecutionProvider.Cpu` or free VRAM to proceed.
+- **`ExecutionProvider.Auto` (default)** — Auto promises a *working* provider, so when the GPU backend can only offer the floored context it **transparently falls back to CPU** (RAM-bound, no VRAM clamp), re-acquiring the CPU `llama-server` binary and keeping the full requested context. The switch emits a `Trace.TraceWarning` and is visible via `GetModelInfo()` (`IsGpuActive == false`). This matches the embedder's existing CUDA→CPU fallback chain.
+- **Explicit GPU pin (`Cuda` / `CoreML`)** — no silent provider swap: the load **fails fast** with an `InvalidOperationException` naming the floored context and VRAM cause, so the unusable configuration surfaces honestly instead of bricking later. Pin `ExecutionProvider.Cpu` or free VRAM to proceed.
 
 **VRAM-budget telemetry** — `GetModelInfo()` exposes the figures behind the decision so a consumer can classify *why* the context was floored (accurately-small VRAM vs an under-reported budget) without scraping log magic numbers:
 

@@ -122,7 +122,7 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
         await _sessionLock.WaitAsync(cancellationToken);
         try
         {
-            // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the
+            // Bounded run: if the native call hangs (e.g. a cold GPU kernel init) or the
             // provider crashes, the session moves to the next provider and the run is retried once.
             imageEmbedding = await _encoderSession!.RunWithRecoveryAsync((session, runOptions) =>
             {
@@ -389,7 +389,7 @@ internal sealed class MobileSamSession : IInteractiveSession
         await _sessionLock.WaitAsync(cancellationToken);
         try
         {
-            // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the
+            // Bounded run: if the native call hangs (e.g. a cold GPU kernel init) or the
             // provider crashes, the session moves to the next provider and the run is retried once.
             return await _decoderSession.RunWithRecoveryAsync((session, runOptions) =>
             {

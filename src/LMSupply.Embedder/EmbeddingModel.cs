@@ -83,7 +83,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         var encoded = _tokenizer.EncodeSequence(text, _options.MaxSequenceLength);
 
         // Run inference. CancellableInference guarantees control returns to the caller if the
-        // token is cancelled, even when the native ONNX call (e.g. cold DirectML init) ignores it.
+        // token is cancelled, even when the native ONNX call (e.g. a cold GPU kernel init) ignores it.
         var tokenEmbeddings = await RunWithTimeoutRecoveryAsync(
             () => _engine.RunInference(encoded.InputIds, encoded.AttentionMask, cancellationToken),
             cancellationToken);

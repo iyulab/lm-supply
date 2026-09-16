@@ -41,7 +41,7 @@ public static class Program
             await ShowSystemInfoAsync(modelAlias, provider);
             Console.WriteLine("\nUsage: TranscriberSample <audio-file> [model-alias] [provider]");
             Console.WriteLine("  model-alias: default, fast, quality, large, turbo");
-            Console.WriteLine("  provider: auto, cpu, cuda, directml");
+            Console.WriteLine("  provider: auto, cpu, cuda, coreml");
             return;
         }
 
@@ -82,7 +82,6 @@ public static class Program
                 Console.WriteLine("\nWARNING: GPU provider was requested but only CPU is active.");
                 Console.WriteLine("Possible causes:");
                 Console.WriteLine("  - CUDA toolkit not installed (for CUDA provider)");
-                Console.WriteLine("  - DirectML not available (for DirectML provider)");
                 Console.WriteLine("  - GPU driver issues");
                 Console.WriteLine("  - Incompatible GPU");
             }
@@ -207,7 +206,6 @@ public static class Program
         {
             "cpu" => ExecutionProvider.Cpu,
             "cuda" => ExecutionProvider.Cuda,
-            "directml" => ExecutionProvider.DirectML,
             "coreml" => ExecutionProvider.CoreML,
             _ => ExecutionProvider.Auto
         };

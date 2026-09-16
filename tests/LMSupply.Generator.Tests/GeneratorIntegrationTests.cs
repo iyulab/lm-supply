@@ -24,12 +24,12 @@ public class GeneratorIntegrationTests
     #region Phi-3.5 Tests
 
     [Fact]
-    public async Task Phi35_DirectML_LoadAndGenerate_ShouldWork()
+    public async Task Phi35_Cuda_LoadAndGenerate_ShouldWork()
     {
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.DirectML,
+            Provider = ExecutionProvider.Cuda,
             Verbose = true
         };
 
@@ -41,7 +41,7 @@ public class GeneratorIntegrationTests
         model.ModelId.Should().Be(Phi35Model);
 
         var info = model.GetModelInfo();
-        info.ExecutionProvider.Should().Be("DirectML");
+        info.ExecutionProvider.Should().Be("Cuda");
 
         // Act - Generate
         var result = await model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
@@ -78,12 +78,12 @@ public class GeneratorIntegrationTests
     }
 
     [Fact]
-    public async Task Phi35_DirectML_WarmupAsync_ShouldNotThrow()
+    public async Task Phi35_Cuda_WarmupAsync_ShouldNotThrow()
     {
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.DirectML,
+            Provider = ExecutionProvider.Cuda,
             Verbose = true
         };
 
@@ -100,12 +100,12 @@ public class GeneratorIntegrationTests
     #region Phi-4 Tests
 
     [Fact]
-    public async Task Phi4_DirectML_LoadAndGenerate_ShouldWork()
+    public async Task Phi4_Cuda_LoadAndGenerate_ShouldWork()
     {
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.DirectML,
+            Provider = ExecutionProvider.Cuda,
             Verbose = true
         };
 
@@ -117,7 +117,7 @@ public class GeneratorIntegrationTests
         model.ModelId.Should().Be(Phi4Model);
 
         var info = model.GetModelInfo();
-        info.ExecutionProvider.Should().Be("DirectML");
+        info.ExecutionProvider.Should().Be("Cuda");
 
         // Act - Generate
         var result = await model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
@@ -154,12 +154,12 @@ public class GeneratorIntegrationTests
     }
 
     [Fact]
-    public async Task Phi4_DirectML_WarmupAsync_ShouldNotThrow()
+    public async Task Phi4_Cuda_WarmupAsync_ShouldNotThrow()
     {
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.DirectML,
+            Provider = ExecutionProvider.Cuda,
             Verbose = true
         };
 
@@ -176,15 +176,15 @@ public class GeneratorIntegrationTests
     #region Comparison Tests
 
     [Fact]
-    public async Task Phi35_vs_Phi4_DirectML_BothShouldGenerateValidResponse()
+    public async Task Phi35_vs_Phi4_Cuda_BothShouldGenerateValidResponse()
     {
         // Phi-3.5
-        var phi35Options = new GeneratorOptions { Provider = ExecutionProvider.DirectML };
+        var phi35Options = new GeneratorOptions { Provider = ExecutionProvider.Cuda };
         await using var phi35Model = await LocalGenerator.LoadAsync(Phi35Model, phi35Options, cancellationToken: TestContext.Current.CancellationToken);
         var phi35Result = await phi35Model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
 
         // Phi-4
-        var phi4Options = new GeneratorOptions { Provider = ExecutionProvider.DirectML };
+        var phi4Options = new GeneratorOptions { Provider = ExecutionProvider.Cuda };
         await using var phi4Model = await LocalGenerator.LoadAsync(Phi4Model, phi4Options, cancellationToken: TestContext.Current.CancellationToken);
         var phi4Result = await phi4Model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
 
@@ -252,14 +252,12 @@ public class GeneratorIntegrationTests
         await using var model = await LocalGenerator.LoadAsync(Phi35Model, options, cancellationToken: TestContext.Current.CancellationToken);
         var info = model.GetModelInfo();
 
-        // Assert - On Windows with GPU, should select CUDA or DirectML, not CPU
+        // Assert - On Windows with GPU, should select CUDA, not CPU
         // Note: This test may need adjustment based on actual hardware
         var provider = info.ExecutionProvider.ToUpperInvariant();
 
         // The provider should be one of the GPU options if available
-        var isGpuProvider = provider.Contains("CUDA") ||
-                            provider.Contains("DIRECTML") ||
-                            provider.Contains("DML");
+        var isGpuProvider = provider.Contains("CUDA");
 
         var isCpuProvider = provider.Contains("CPU");
 
@@ -276,12 +274,12 @@ public class GeneratorIntegrationTests
     #region Streaming Tests
 
     [Fact]
-    public async Task Phi35_DirectML_StreamingGeneration_ShouldWork()
+    public async Task Phi35_Cuda_StreamingGeneration_ShouldWork()
     {
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.DirectML
+            Provider = ExecutionProvider.Cuda
         };
 
         await using var model = await LocalGenerator.LoadAsync(Phi35Model, options, cancellationToken: TestContext.Current.CancellationToken);
@@ -299,12 +297,12 @@ public class GeneratorIntegrationTests
     }
 
     [Fact]
-    public async Task Phi4_DirectML_StreamingGeneration_ShouldWork()
+    public async Task Phi4_Cuda_StreamingGeneration_ShouldWork()
     {
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.DirectML
+            Provider = ExecutionProvider.Cuda
         };
 
         await using var model = await LocalGenerator.LoadAsync(Phi4Model, options, cancellationToken: TestContext.Current.CancellationToken);
@@ -326,7 +324,7 @@ public class GeneratorIntegrationTests
     #region Direct Path Loading Tests (Using Cached Models)
 
     [Fact]
-    public async Task Phi4_FromPath_DirectML_LoadAndGenerate_ShouldWork()
+    public async Task Phi4_FromPath_Cuda_LoadAndGenerate_ShouldWork()
     {
         // Require cached model
         Assert.True(Directory.Exists(Phi4CachedPath), $"Phi-4 model not cached at {Phi4CachedPath}. Run `huggingface-cli download microsoft/Phi-4-mini-instruct-onnx` first.");
@@ -334,7 +332,7 @@ public class GeneratorIntegrationTests
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.DirectML,
+            Provider = ExecutionProvider.Cuda,
             Verbose = true
         };
 
@@ -345,8 +343,8 @@ public class GeneratorIntegrationTests
         model.Should().NotBeNull();
 
         var info = model.GetModelInfo();
-        // DirectML provider name varies - just check it's not CPU
-        info.ExecutionProvider.Should().NotBe("Cpu", "Should be using DirectML, not CPU");
+        // Provider name varies - just check it's not CPU
+        info.ExecutionProvider.Should().NotBe("Cpu", "Should be using CUDA, not CPU");
 
         // Act - Generate
         var result = await model.GenerateCompleteAsync(TestPrompt, new Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
@@ -385,7 +383,7 @@ public class GeneratorIntegrationTests
     }
 
     [Fact]
-    public async Task Phi4_FromPath_DirectML_WarmupAsync_ShouldNotThrow()
+    public async Task Phi4_FromPath_Cuda_WarmupAsync_ShouldNotThrow()
     {
         // Require cached model
         Assert.True(Directory.Exists(Phi4CachedPath), $"Phi-4 model not cached at {Phi4CachedPath}. Run `huggingface-cli download microsoft/Phi-4-mini-instruct-onnx` first.");
@@ -393,7 +391,7 @@ public class GeneratorIntegrationTests
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.DirectML,
+            Provider = ExecutionProvider.Cuda,
             Verbose = true
         };
 

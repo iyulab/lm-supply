@@ -14,9 +14,6 @@ For GPU acceleration:
 # NVIDIA CUDA
 dotnet add package Microsoft.ML.OnnxRuntime.Gpu
 
-# Windows DirectML
-dotnet add package Microsoft.ML.OnnxRuntime.DirectML
-
 # macOS CoreML
 dotnet add package Microsoft.ML.OnnxRuntime.CoreML
 ```
@@ -61,7 +58,7 @@ var options = new TranslatorOptions
     BeamWidth = 4,                         // Beam search width (higher = better quality)
     LengthPenalty = 1.0f,                  // Favor longer (>1) or shorter (<1) translations
     RepetitionPenalty = 1.2f,              // Penalize repeated tokens
-    Provider = ExecutionProvider.DirectML, // Force specific GPU provider
+    Provider = ExecutionProvider.Cuda,     // Force specific GPU provider
     CacheDirectory = "/custom/cache"       // Custom model cache directory
 };
 
@@ -163,9 +160,10 @@ Console.WriteLine(korean.TranslatedText); // "안녕하세요"
 
 GPU acceleration is automatic when available. Priority order:
 1. CUDA (NVIDIA GPUs)
-2. DirectML (Windows - AMD, Intel, NVIDIA)
-3. CoreML (macOS)
-4. CPU (fallback)
+2. CoreML (macOS)
+3. CPU (fallback)
+
+AMD / Intel GPUs on Windows have no ONNX provider on ONNX Runtime 1.25+ (DirectML was removed in 0.67.0); this module runs on CPU there.
 
 Force a specific provider:
 

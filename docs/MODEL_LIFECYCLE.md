@@ -38,7 +38,7 @@ await using var model = await LocalEmbedder.LoadFromPathAsync("/path/to/model");
 3. **Download** (if not cached): Fetch from HuggingFace Hub — an interrupted download leaves a `.part`
    file and resumes from it on the next load
 4. **ONNX Runtime Init**: Initialize inference session with GPU detection
-5. **Provider Selection**: Auto-detect best execution provider (CUDA → DirectML → CoreML → CPU)
+5. **Provider Selection**: Auto-detect best execution provider (CUDA → CoreML → CPU)
 
 ### 1.3 Load Options
 
@@ -49,7 +49,7 @@ var options = new EmbedderOptions
     CacheDirectory = "/custom/cache/path",
 
     // Force specific execution provider
-    Provider = ExecutionProvider.Cuda,  // or DirectML, CoreML, Cpu, Auto
+    Provider = ExecutionProvider.Cuda,  // or CoreML, Cpu, Auto
 };
 
 await using var model = await LocalEmbedder.LoadAsync("default", options);
@@ -74,7 +74,7 @@ await using var model = await LocalEmbedder.LoadAsync("default", progress: progr
 
 The first inference call may be slower due to:
 - JIT compilation of ONNX operators
-- GPU kernel compilation (CUDA/DirectML)
+- GPU kernel compilation (CUDA)
 - Memory allocation
 
 ### 2.2 Warmup Pattern

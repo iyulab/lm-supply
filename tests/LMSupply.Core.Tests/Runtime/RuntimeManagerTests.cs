@@ -40,27 +40,35 @@ public class RuntimeManagerTests
     }
 
     [Fact]
-    public async Task GetProviderFallbackChain_OnWindows_ShouldIncludeDirectML()
+    public async Task GetProviderFallbackChain_NeverIncludesDirectML()
     {
-        // Skip on non-Windows
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        // Arrange
+        // 0.67.0: no build can provision the DirectML provider (Microsoft.ML.OnnxRuntime.DirectML ends at
+        // 1.24.4; the runtime version comes from the loaded 1.30.0 assembly), so the chain must not name it
+        // even on a Direct3D 12 capable Windows GPU — that used to cost a 404 per Auto session.
         var manager = new RuntimeManager();
         await manager.InitializeAsync(TestContext.Current.CancellationToken);
 
-        // Act
         var chain = manager.GetProviderFallbackChain();
 
-        // Assert - On Windows with D3D12 GPU, DirectML should be in the chain
-        // Note: This may fail on machines without DirectML support (e.g., very old GPUs)
-        if (manager.Gpu.DirectMLSupported)
-        {
-            chain.Should().Contain("directml", "DirectML should be available on Windows with D3D12 GPU");
-        }
+        chain.Should().NotContain("directml");
+        manager.GetProviderFallbackChain(RuntimePackageRegistry.PackageTypes.OnnxRuntimeGenAI).Should().NotContain("directml");
+    }
+
+    [Fact]
+    public async Task EnsureRuntimeAsync_DirectML_ThrowsNotSupported_InsteadOfLandingOnCpu()
+    {
+        // The registry falls back to the CPU package for a provider it does not know, so without an
+        // explicit refusal "directml" would silently provision CPU binaries. The refusal is thrown before
+        // any package lookup or network access.
+        var manager = new RuntimeManager();
+        await manager.InitializeAsync(TestContext.Current.CancellationToken);
+
+        var act = async () => await manager.EnsureRuntimeAsync(
+            "onnxruntime", provider: "directml", cancellationToken: TestContext.Current.CancellationToken);
+
+        (await act.Should().ThrowAsync<NotSupportedException>())
+            .WithMessage("*DirectML*1.24.4*");
+        manager.ActiveProvider.Should().BeNull("nothing was provisioned");
     }
 
     [Fact]
@@ -77,20 +85,11 @@ public class RuntimeManagerTests
         if (manager.Gpu.Vendor == GpuVendor.Nvidia && manager.Gpu.CudaDriverVersionMajor >= 11)
         {
             chain.Should().Contain(p => p.StartsWith("cuda", StringComparison.Ordinal), "CUDA should be available on NVIDIA GPU");
-
-            // CUDA should come before DirectML in priority
-            var cudaIndex = chain.ToList().FindIndex(p => p.StartsWith("cuda", StringComparison.Ordinal));
-            var directmlIndex = chain.ToList().IndexOf("directml");
-
-            if (directmlIndex >= 0)
-            {
-                cudaIndex.Should().BeLessThan(directmlIndex, "CUDA should have higher priority than DirectML");
-            }
         }
     }
 
     [Fact]
-    public async Task GetProviderFallbackChain_PriorityOrder_ShouldBeCudaDirectMLCoreMLCpu()
+    public async Task GetProviderFallbackChain_PriorityOrder_ShouldBeCudaCoreMLCpu()
     {
         // Arrange
         var manager = new RuntimeManager();
@@ -101,23 +100,16 @@ public class RuntimeManagerTests
 
         // Assert - Verify order based on what's available
         var cudaIndex = chain.FindIndex(p => p.StartsWith("cuda", StringComparison.Ordinal));
-        var directmlIndex = chain.IndexOf("directml");
         var coremlIndex = chain.IndexOf("coreml");
         var cpuIndex = chain.IndexOf("cpu");
 
         // CPU should always be last
         cpuIndex.Should().Be(chain.Count - 1, "CPU should always be the last provider");
 
-        // If CUDA exists, it should come before DirectML
-        if (cudaIndex >= 0 && directmlIndex >= 0)
+        // If CUDA exists, it should come before CoreML
+        if (cudaIndex >= 0 && coremlIndex >= 0)
         {
-            cudaIndex.Should().BeLessThan(directmlIndex, "CUDA should come before DirectML");
-        }
-
-        // If DirectML exists, it should come before CoreML
-        if (directmlIndex >= 0 && coremlIndex >= 0)
-        {
-            directmlIndex.Should().BeLessThan(coremlIndex, "DirectML should come before CoreML");
+            cudaIndex.Should().BeLessThan(coremlIndex, "CUDA should come before CoreML");
         }
 
         // If CoreML exists, it should come before CPU

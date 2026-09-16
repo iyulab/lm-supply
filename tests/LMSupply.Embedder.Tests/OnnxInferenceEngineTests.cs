@@ -12,7 +12,7 @@ namespace LMSupply.Embedder.Tests;
 /// ISSUE: lmsupply-embedder-onnx-dml-inference-fallback-20260510
 /// Fix: RunInferenceInternal catch clause condition changed from
 ///      `_requestedProvider == Auto` to `_requestedProvider != Cpu`
-///      so explicit GPU providers (DirectML, CUDA, CoreML) also attempt fallback.
+///      so explicit GPU providers (CUDA, CoreML) also attempt fallback.
 /// </summary>
 public class OnnxInferenceEngineTests
 {
@@ -68,16 +68,16 @@ public class OnnxInferenceEngineTests
     }
 
     [Fact]
-    public void TryFallback_WithExplicitDirectMLProvider_EmitsWarningAndAttemptsProviderRecovery()
+    public void TryFallback_WithExplicitCoreMLProvider_EmitsWarningAndAttemptsProviderRecovery()
     {
-        // Scenario (post-0.34.8): engine was requested with DirectML but initialised on CPU
+        // Scenario (post-0.34.8): engine was requested with CoreML but initialised on CPU
         // due to init-stage fallback. An OnnxRuntimeException during inference should enter
         // TryFallback (warning emitted) and attempt session recreation.
         //
         // Before inference-stage fix (_requestedProvider == Auto):
-        //   catch clause guard blocks DirectML → TryFallback never called → exception propagates.
+        //   catch clause guard blocks CoreML → TryFallback never called → exception propagates.
         // After fix (_requestedProvider != Cpu):
-        //   catch clause guard passes for DirectML → TryFallback called → warning emitted.
+        //   catch clause guard passes for CoreML → TryFallback called → warning emitted.
         //
         // This test calls TryFallback directly via reflection to isolate the fallback mechanism
         // from the ONNX inference path (which requires a real model file).
@@ -88,7 +88,7 @@ public class OnnxInferenceEngineTests
         try
         {
             var engine = CreateEngineViaReflection(
-                requestedProvider: ExecutionProvider.DirectML,
+                requestedProvider: ExecutionProvider.CoreML,
                 activeProviders: ["CPUExecutionProvider"],
                 modelPath: "/nonexistent/test_model_fallback.onnx");
 
@@ -135,7 +135,6 @@ public class OnnxInferenceEngineTests
         // enter the inference-time fallback path.
         var gpuProviders = new[]
         {
-            ExecutionProvider.DirectML,
             ExecutionProvider.Cuda,
             ExecutionProvider.CoreML,
             ExecutionProvider.Auto

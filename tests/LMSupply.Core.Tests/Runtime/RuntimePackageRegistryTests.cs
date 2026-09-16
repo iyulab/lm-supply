@@ -21,13 +21,14 @@ public class RuntimePackageRegistryTests
     }
 
     [Fact]
-    public void GetPackageConfig_OnnxRuntime_DirectML_ReturnsCorrectPackage()
+    public void DirectML_IsNotARegisteredProvider_ForEitherPackageType()
     {
-        var config = RuntimePackageRegistry.GetPackageConfig(
-            RuntimePackageRegistry.PackageTypes.OnnxRuntime, "directml");
-
-        config.Should().NotBeNull();
-        config!.PackageId.Should().Be("Microsoft.ML.OnnxRuntime.DirectML");
+        // 0.67.0: the DirectML package line ends at 1.24.4; the registry must not offer a package the
+        // runtime manager would then request at the loaded assembly's version (1.30.0 — a 404).
+        RuntimePackageRegistry.GetSupportedProviders(RuntimePackageRegistry.PackageTypes.OnnxRuntime)
+            .Should().NotContain("directml");
+        RuntimePackageRegistry.GetSupportedProviders(RuntimePackageRegistry.PackageTypes.OnnxRuntimeGenAI)
+            .Should().NotContain("directml");
     }
 
     [Fact]
@@ -86,16 +87,6 @@ public class RuntimePackageRegistryTests
     }
 
     [Fact]
-    public void GetPackageConfig_GenAI_DirectML_ReturnsCorrectPackage()
-    {
-        var config = RuntimePackageRegistry.GetPackageConfig(
-            RuntimePackageRegistry.PackageTypes.OnnxRuntimeGenAI, "directml");
-
-        config.Should().NotBeNull();
-        config!.PackageId.Should().Be("Microsoft.ML.OnnxRuntimeGenAI.DirectML");
-    }
-
-    [Fact]
     public void GetPackageConfig_GenAI_Cuda_ReturnsCudaPackage()
     {
         var config = RuntimePackageRegistry.GetPackageConfig(
@@ -134,10 +125,10 @@ public class RuntimePackageRegistryTests
     public void GetPackageConfig_CaseInsensitive()
     {
         var config = RuntimePackageRegistry.GetPackageConfig(
-            RuntimePackageRegistry.PackageTypes.OnnxRuntime, "DIRECTML");
+            RuntimePackageRegistry.PackageTypes.OnnxRuntime, "CUDA12");
 
         config.Should().NotBeNull();
-        config!.PackageId.Should().Be("Microsoft.ML.OnnxRuntime.DirectML");
+        config!.PackageId.Should().Be("Microsoft.ML.OnnxRuntime.Gpu");
     }
 
     [Fact]
@@ -184,7 +175,7 @@ public class RuntimePackageRegistryTests
             RuntimePackageRegistry.PackageTypes.OnnxRuntime).ToList();
 
         providers.Should().Contain("cpu");
-        providers.Should().Contain("directml");
+        providers.Should().NotContain("directml");
         providers.Should().Contain("cuda");
     }
 
@@ -195,7 +186,7 @@ public class RuntimePackageRegistryTests
             RuntimePackageRegistry.PackageTypes.OnnxRuntimeGenAI).ToList();
 
         providers.Should().Contain("cpu");
-        providers.Should().Contain("directml");
+        providers.Should().NotContain("directml");
         providers.Should().Contain("cuda");
     }
 

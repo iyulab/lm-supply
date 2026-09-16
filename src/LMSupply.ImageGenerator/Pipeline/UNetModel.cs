@@ -52,7 +52,7 @@ internal sealed class UNetModel : IAsyncDisposable
     /// </summary>
     /// <param name="modelDir">Path to model directory.</param>
     /// <param name="provider">Execution provider to create the session with.</param>
-    /// <param name="deviceId">GPU device index for CUDA/DirectML.</param>
+    /// <param name="deviceId">GPU device index for CUDA.</param>
     /// <param name="configureOptions">Session options to apply (log level, threads).</param>
     /// <param name="blacklist">Provider blacklist shared with the pipeline's other sessions.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -141,7 +141,7 @@ internal sealed class UNetModel : IAsyncDisposable
             inputs.Add(NamedOnnxValue.CreateFromTensor(_timestepCondInput, condTensor));
         }
 
-        // Bounded run: if the native call hangs (e.g. a cold DirectML kernel init) or the provider
+        // Bounded run: if the native call hangs (e.g. a cold GPU kernel init) or the provider
         // crashes, the session moves to the next provider and the run is retried once.
         return _session.RunWithRecoveryAsync((session, runOptions) =>
         {
