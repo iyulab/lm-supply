@@ -455,8 +455,10 @@ public class EmbedderFunctionalTests
     {
         var models = LocalEmbedder.GetAvailableModels().ToList();
 
-        models.Should().Contain("bge-small-en-v1.5",
-            "default alias maps to bge-small-en-v1.5");
+        // The default alias is bge-m3 (multilingual, 1024-d); it used to be bge-small-en-v1.5 and this
+        // fact still said so. Assert the alias exists and what backs it, not a retired model name.
+        models.Should().Contain("default");
+        LocalEmbedder.GetAllModels().Should().Contain(m => m.RepoId == "BAAI/bge-m3", "the default alias resolves to bge-m3");
     }
 
     [Fact]
@@ -600,8 +602,10 @@ public class EmbedderFunctionalTests
         models.Should().Contain("fast");
         models.Should().Contain("quality");
         models.Should().Contain("large");
-        models.Should().Contain("multilingual");
         models.Should().Contain("auto");
+        // There is no "multilingual" alias: "default"/"quality" (bge-m3) and "large" (multilingual-e5-large)
+        // are the multilingual entries. This fact used to expect one and rotted unseen (LocalOnly).
+        models.Should().NotContain("multilingual");
     }
 
     [Fact]
@@ -610,8 +614,10 @@ public class EmbedderFunctionalTests
     {
         var models = LocalEmbedder.GetAvailableModels().ToList();
 
-        models.Should().Contain("bge-m3", "multilingual BGE-M3 should be registered");
+        // bge-m3 is registered under the "default" and "quality" aliases, not under its own name.
         models.Should().Contain("multilingual-e5-small", "multilingual E5 small should be registered");
+        models.Should().Contain("multilingual-e5-base", "multilingual E5 base should be registered");
+        LocalEmbedder.GetAllModels().Should().Contain(m => m.RepoId == "BAAI/bge-m3", "bge-m3 backs the default and quality aliases");
     }
 
     [Fact]
@@ -620,10 +626,14 @@ public class EmbedderFunctionalTests
     {
         var models = LocalEmbedder.GetAvailableModels().ToList();
 
-        // 6 aliases (auto, default, fast, quality, large, multilingual)
-        // + 14 model names = 20 total
-        models.Count.Should().BeGreaterThanOrEqualTo(18,
-            "registry should have at least 18 entries (aliases + models)");
+        // Every registry entry is listed by its alias name, plus the "auto" selector the registry adds.
+        // Counting against the registry rather than a literal is what keeps this fact from rotting
+        // when models are added or retired (it had expected 18 from a registry that holds 14).
+        var registered = LocalEmbedder.GetAllModels().Select(m => m.AliasName).Distinct().ToList();
+        models.Should().OnlyHaveUniqueItems();
+        models.Should().Contain(registered, "every registered model is available under its own name");
+        models.Should().Contain(["auto", "default", "fast", "quality", "large"],
+            "the four standard aliases and the auto selector are always available");
     }
 
     // ── Model-Loading Tests: Quality/Large/Multilingual Aliases ──
@@ -634,18 +644,18 @@ public class EmbedderFunctionalTests
     {
         await using var model = await LocalEmbedder.LoadAsync("large", cancellationToken: TestContext.Current.CancellationToken);
 
-        model.Dimensions.Should().Be(768,
-            "large alias (nomic-embed-text-v1.5) should have 768 dimensions");
+        model.Dimensions.Should().Be(1024,
+            "large alias (multilingual-e5-large) has 1024 dimensions");
     }
 
     [Fact]
     [Trait("Axis", "Loading")]
-    public async Task L_MultilingualAlias_LoadsWithHighDimensions()
+    public async Task L_DefaultAlias_IsMultilingualWithHighDimensions()
     {
-        await using var model = await LocalEmbedder.LoadAsync("multilingual", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
 
         model.Dimensions.Should().Be(1024,
-            "multilingual alias (bge-m3) should have 1024 dimensions");
+            "default alias (bge-m3, multilingual) has 1024 dimensions");
     }
 
     [Fact]
@@ -665,7 +675,8 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_MultilingualModel_CrossLanguageSimilarity()
     {
-        await using var model = await LocalEmbedder.LoadAsync("multilingual", cancellationToken: TestContext.Current.CancellationToken);
+        // "default" is bge-m3, the registry's multilingual model (there is no "multilingual" alias).
+        await using var model = await LocalEmbedder.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
 
         var engEmb = await model.EmbedAsync("hello", TestContext.Current.CancellationToken);
         var korEmb = await model.EmbedAsync("안녕하세요", TestContext.Current.CancellationToken);
