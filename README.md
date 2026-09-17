@@ -415,10 +415,20 @@ Low-end/quantized models (the `FallbackToSmallest` tier below) are prone to *deg
 
 ## GPU Acceleration
 
-GPU acceleration is **automatic** — LMSupply detects your hardware and downloads appropriate runtime binaries on first use:
+GPU acceleration is **automatic for GGUF models** — LMSupply detects your hardware and downloads the
+matching `llama-server` build *and* its CUDA runtime on first use, so a machine with only the NVIDIA driver
+installed gets the GPU for generation, GGUF embedders and GGUF rerankers.
+
+**ONNX sessions (the default embedder, reranker, OCR, Whisper transcriber, captioner, …) are different:**
+LMSupply provisions the ONNX Runtime binaries, but the CUDA execution provider also needs the **CUDA 12
+runtime and cuDNN 9 installed on the machine** (`CUDA_PATH`), which LMSupply does not download. Without them
+`ExecutionProvider.Auto` runs those sessions on **CPU** and says so once per process in `Trace`
+(`CUDA skipped (missing: …)` / `Active=CPUExecutionProvider`). A driver-only NVIDIA laptop is the common
+case — check `Trace` before assuming the GPU is in use.
 
 ```
-Detection priority: CUDA → CoreML → CPU
+Detection priority (ONNX sessions): CUDA (if the CUDA runtime is installed) → CoreML → CPU
+Detection priority (GGUF/llama-server): CUDA → Metal → Vulkan → CPU, runtime bundled
 ```
 
 > **DirectML removed (0.67.0).** ONNX Runtime 1.25+ ships no DirectML execution provider and the
