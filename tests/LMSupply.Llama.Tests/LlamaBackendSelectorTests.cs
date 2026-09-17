@@ -40,8 +40,9 @@ public class LlamaBackendSelectorTests
     {
         // 0.67.0: DirectML is refused on every path. It used to map to Vulkan here while the ONNX paths
         // could not serve it at all — the same pin meaning two different things depending on the model
-        // format. Auto still picks Vulkan for this GPU; the caller is told to use it.
-        var gpu = Gpu(GpuVendor.Amd, "AMD Radeon RX 7800 XT", total: 16 * GB, directMl: true);
+        // format. Auto still picks Vulkan for this GPU (Intel Arc: Vulkan on every OS — an AMD GPU would be HIP
+        // on Linux, which is a vendor question, not the one this test asks); the caller is told to use it.
+        var gpu = Gpu(GpuVendor.Intel, "Intel(R) Arc(TM) A770", total: 12 * GB, directMl: true);
 #pragma warning disable CS0618
         var act = () => LlamaBackendSelector.MapProvider(ExecutionProvider.DirectML, gpu);
 #pragma warning restore CS0618
