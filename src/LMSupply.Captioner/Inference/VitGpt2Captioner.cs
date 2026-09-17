@@ -207,8 +207,18 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
         float totalLogProb = 0f;
         int tokenCount = 0;
 
-        // Start with BOS token
-        var currentTokenIds = new long[] { _modelInfo.BosTokenId };
+        // Start with BOS, then the prompt when one is set: the decoder continues the caption from it (conditional
+        // captioning — the prompt's tokens become the start of the caption, as with decoder_input_ids in Transformers).
+        var promptTokens = string.IsNullOrWhiteSpace(_options.Prompt)
+            ? []
+            : _tokenizer.Encode(_options.Prompt.Trim(), addSpecialTokens: false);
+        var currentTokenIds = new long[1 + promptTokens.Length];
+        currentTokenIds[0] = _modelInfo.BosTokenId;
+        for (var i = 0; i < promptTokens.Length; i++)
+        {
+            currentTokenIds[i + 1] = promptTokens[i];
+            generatedTokens.Add(promptTokens[i]);
+        }
 
         // Get embedding dimensions from encoder output metadata (identical on every provider).
         // For ViT-GPT2, typical shape is [1, seq_len, hidden_size]

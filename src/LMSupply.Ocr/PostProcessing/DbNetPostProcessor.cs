@@ -11,6 +11,7 @@ internal sealed class DbNetPostProcessor
     private readonly int _maxCandidates;
     private readonly float _unclipRatio;
     private readonly int _minBoxArea;
+    private readonly bool _usePolygon;
 
     public DbNetPostProcessor(OcrOptions options)
     {
@@ -19,6 +20,7 @@ internal sealed class DbNetPostProcessor
         _maxCandidates = options.MaxCandidates;
         _unclipRatio = options.UnclipRatio;
         _minBoxArea = options.MinBoxArea;
+        _usePolygon = options.UsePolygon;
     }
 
     /// <summary>
@@ -74,7 +76,7 @@ internal sealed class DbNetPostProcessor
             // Filter by minimum area
             if (boundingBox.Area < _minBoxArea) continue;
 
-            regions.Add(new DetectedRegion(boundingBox, score, scaledPolygon));
+            regions.Add(new DetectedRegion(boundingBox, score, _usePolygon ? scaledPolygon : null));
         }
 
         // Sort by position (top-to-bottom, left-to-right)

@@ -70,6 +70,15 @@ var result = await captioner.CaptionAsync("image.jpg");
 
 Console.WriteLine($"Caption: {result.Caption}");
 Console.WriteLine($"Confidence: {result.Confidence:P1}");
+```
+
+### Conditional captioning
+
+`Prompt` sets the words the caption starts with; the model continues from them:
+
+```csharp
+await using var captioner = await LocalCaptioner.LoadAsync("default", new CaptionerOptions { Prompt = "a painting of" });
+var result = await captioner.CaptionAsync("image.jpg");   // "a painting of a colorful wall with ..."
 Console.WriteLine($"Processing time: {result.ProcessingTimeMs}ms");
 ```
 

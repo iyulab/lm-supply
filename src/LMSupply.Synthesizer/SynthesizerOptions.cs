@@ -53,12 +53,6 @@ public sealed class SynthesizeOptions
     public float Speed { get; set; } = 1.0f;
 
     /// <summary>
-    /// Gets or sets the pitch shift in semitones.
-    /// <para>Default: 0.0</para>
-    /// </summary>
-    public float Pitch { get; set; }
-
-    /// <summary>
     /// Gets or sets the speaker ID for multi-speaker models.
     /// <para>Default: 0</para>
     /// </summary>

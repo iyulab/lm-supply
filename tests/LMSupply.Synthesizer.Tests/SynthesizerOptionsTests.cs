@@ -68,7 +68,6 @@ public class SynthesizeOptionsTests
 
         // Assert
         options.Speed.Should().Be(1.0f);
-        options.Pitch.Should().Be(0.0f);
         options.SpeakerId.Should().Be(0);
         options.NoiseScale.Should().BeApproximately(0.667f, 0.001f);
         options.NoiseWidth.Should().BeApproximately(0.8f, 0.001f);
@@ -82,7 +81,6 @@ public class SynthesizeOptionsTests
         var options = new SynthesizeOptions
         {
             Speed = 1.5f,
-            Pitch = 2.0f,
             SpeakerId = 5,
             NoiseScale = 0.5f,
             NoiseWidth = 0.6f,
@@ -91,7 +89,6 @@ public class SynthesizeOptionsTests
 
         // Assert
         options.Speed.Should().Be(1.5f);
-        options.Pitch.Should().Be(2.0f);
         options.SpeakerId.Should().Be(5);
         options.NoiseScale.Should().Be(0.5f);
         options.NoiseWidth.Should().Be(0.6f);

@@ -100,7 +100,6 @@ await foreach (var chunk in synthesizer.SynthesizeStreamingAsync("Hello. How are
 var options = new SynthesizeOptions
 {
     Speed = 1.2f,           // Faster speech (1.0 = normal)
-    Pitch = 0.0f,           // Pitch shift in semitones
     SpeakerId = 0,          // Speaker ID for multi-speaker models
     NoiseScale = 0.667f,    // Variability/expressiveness
     NoiseWidth = 0.8f,      // Duration variability

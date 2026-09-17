@@ -34,9 +34,6 @@ public class OptionsReachabilityRosterTests
     {
         // Found by this roster's first run (issue draft "options nothing reads, across seven types").
         ["LMSupply.Runtime.RuntimeManagerOptions"] = ["MaxRetries", "ProxyPassword", "ProxyUrl", "ProxyUsername"],
-        ["LMSupply.Captioner.CaptionerOptions"] = ["Prompt"],
-        ["LMSupply.Ocr.OcrOptions"] = ["UsePolygon"],
-        ["LMSupply.Synthesizer.SynthesizeOptions"] = ["Pitch"],
     };
 
     private static readonly Lazy<Scan> Result = new(Run);

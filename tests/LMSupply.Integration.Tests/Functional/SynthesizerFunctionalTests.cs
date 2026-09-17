@@ -384,7 +384,6 @@ public class SynthesizerFunctionalTests
         var opts = new SynthesizeOptions();
 
         opts.Speed.Should().BeApproximately(1.0f, 0.01f);
-        opts.Pitch.Should().Be(0f);
         opts.SpeakerId.Should().Be(0);
         opts.NoiseScale.Should().BeApproximately(0.667f, 0.01f);
         opts.NoiseWidth.Should().BeApproximately(0.8f, 0.01f);

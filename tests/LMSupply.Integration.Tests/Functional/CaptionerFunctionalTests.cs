@@ -356,4 +356,23 @@ public class CaptionerFunctionalTests
         // The captions should differ — scene has distinct regions vs. blank
         // (This is a soft check — same caption is not a bug, just less interesting)
     }
+
+    // ── Prompt (conditional captioning) ─────────────────────────────
+
+    [Fact]
+    [Trait("Axis", "Quality")]
+    public async Task Q_Prompt_TheCaptionContinuesFromThePrompt()
+    {
+        await using var free = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var prompted = await LocalCaptioner.LoadAsync(
+            "fast", new CaptionerOptions { Prompt = "a painting of" }, cancellationToken: TestContext.Current.CancellationToken);
+        var image = TestDataHelper.CreateHighContrastBmp();
+
+        var freeCaption = (await free.CaptionAsync(image, TestContext.Current.CancellationToken)).Caption;
+        var promptedCaption = (await prompted.CaptionAsync(image, TestContext.Current.CancellationToken)).Caption;
+
+        System.Console.WriteLine($"CAPTION free='{freeCaption}' prompted='{promptedCaption}'");
+        promptedCaption.Should().StartWith("a painting of");
+        promptedCaption.Length.Should().BeGreaterThan("a painting of".Length, "the decoder continues past the prompt");
+    }
 }

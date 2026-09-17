@@ -60,9 +60,10 @@ public sealed class OcrOptions : LMSupplyOptionsBase
     public int MinBoxArea { get; set; } = 10;
 
     /// <summary>
-    /// Whether to use polygon coordinates instead of rectangular bounding boxes.
-    /// Polygons provide more accurate text region boundaries.
-    /// Default is true.
+    /// Whether detected and recognized regions carry their polygon (<see cref="DetectedRegion.Polygon"/>,
+    /// <see cref="TextRegion.Polygon"/>) — the rotated quadrilateral around the text — in addition to the axis-aligned
+    /// <c>BoundingBox</c> every region always has. <c>false</c> leaves <c>Polygon</c> null. Detection and recognition
+    /// are the same either way. Default is true.
     /// </summary>
     public bool UsePolygon { get; set; } = true;
 }

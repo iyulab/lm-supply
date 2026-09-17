@@ -24,7 +24,9 @@ public sealed class CaptionerOptions : LMSupplyOptionsBase
     public float Temperature { get; set; } = 1.0f;
 
     /// <summary>
-    /// Optional text prompt to start caption generation.
+    /// Optional text the caption starts with (conditional captioning). The decoder continues from it, so the returned
+    /// caption begins with the prompt — e.g. <c>"a photo of"</c> yields <c>"a photo of a dog on a couch"</c>. Null or
+    /// whitespace captions freely.
     /// </summary>
     public string? Prompt { get; set; }
 
