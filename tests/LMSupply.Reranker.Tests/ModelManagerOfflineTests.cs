@@ -71,6 +71,77 @@ public sealed class ModelManagerOfflineTests : IDisposable
         Assert.True(File.Exists(paths.TokenizerPath));
     }
 
+    private static readonly ModelInfo ExternalWeightsModel = Model with { OnnxFile = "onnx/model.onnx", OnnxDataFile = "onnx/model.onnx_data" };
+
+    [Fact]
+    public async Task GraphAndTokenizerCached_ButDeclaredExternalWeightsMissing_IsNotACachedModel()
+    {
+        // A cache a release that did not fetch external weights left behind: the graph shell loads nothing on its own.
+        Cache(ExternalWeightsModel.OnnxFile, "graph");
+        Cache(ExternalWeightsModel.TokenizerFile, "{}");
+        using var manager = new ModelManager(_cacheDir, autoDownload: false);
+
+        Assert.Null(manager.GetCachedModel(ExternalWeightsModel));
+        var ex = await Assert.ThrowsAsync<ModelNotFoundException>(() =>
+            manager.EnsureModelAsync(ExternalWeightsModel, cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Contains("model.onnx_data", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GraphTokenizerAndExternalWeightsCached_ReturnsThePaths()
+    {
+        Cache(ExternalWeightsModel.OnnxFile, "graph");
+        Cache(ExternalWeightsModel.OnnxDataFile!, "weights");
+        Cache(ExternalWeightsModel.TokenizerFile, "{}");
+        using var manager = new ModelManager(_cacheDir, autoDownload: false);
+
+        Assert.NotNull(manager.GetCachedModel(ExternalWeightsModel));
+        var paths = await manager.EnsureModelAsync(ExternalWeightsModel, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(File.Exists(paths.ModelPath));
+    }
+
+    [Fact]
+    public async Task TokenizerFromAnotherRepository_IsReadFromThatRepositorysCache()
+    {
+        var split = Model with { TokenizerRepoId = "acme/reranker-tokenizer" };
+        Cache(split.OnnxFile, "graph");
+        CacheIn("acme/reranker-tokenizer", split.TokenizerFile, "{}");
+        using var manager = new ModelManager(_cacheDir, autoDownload: false);
+
+        var paths = await manager.EnsureModelAsync(split, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(CacheManager.GetModelFilePath(_cacheDir, "acme/reranker-tokenizer", split.TokenizerFile), paths.TokenizerPath);
+        Assert.NotNull(manager.GetCachedModel(split));
+    }
+
+    [Fact]
+    public async Task TokenizerFromAnotherRepository_NotCachedThere_IsNotFound_EvenWhenTheModelRepositoryHasOne()
+    {
+        var split = Model with { TokenizerRepoId = "acme/reranker-tokenizer" };
+        Cache(split.OnnxFile, "graph");
+        Cache(split.TokenizerFile, "{}");
+        using var manager = new ModelManager(_cacheDir, autoDownload: false);
+
+        Assert.Null(manager.GetCachedModel(split));
+        var ex = await Assert.ThrowsAsync<ModelNotFoundException>(() =>
+            manager.EnsureModelAsync(split, cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Contains("acme/reranker-tokenizer", ex.Message, StringComparison.Ordinal);
+    }
+
+    private void CacheIn(string repo, string file, string content)
+    {
+        var path = CacheManager.GetModelFilePath(_cacheDir, repo, file);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, content);
+    }
+
+    [Fact]
+    public void EveryBuiltInModelOver2GB_DeclaresItsExternalWeights()
+    {
+        // ONNX protobuf cannot hold more than 2 GB inline, so a built-in model that size ships its weights separately.
+        Assert.All(DefaultModels.All.Where(m => m.SizeBytes >= 2_000_000_000), m => Assert.NotNull(m.OnnxDataFile));
+    }
+
     private void Cache(string file, string content)
     {
         var path = CacheManager.GetModelFilePath(_cacheDir, Model.Id, file);

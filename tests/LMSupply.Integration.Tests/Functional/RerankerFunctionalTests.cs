@@ -640,4 +640,53 @@ public class RerankerFunctionalTests
         results[0].Document.Should().Contain("Photosynthesis",
             "relevant document should be ranked first");
     }
+
+    // ── Q axis: non-English queries ─────────────────────────────────
+
+    // A Korean query over a mixed Korean/English corpus. Both financial reports answer it; the weather sentence and the
+    // Korean machine-learning sentence do not. An English-only cross-encoder scores the unrelated Korean sentence above the
+    // English report that answers the query — language overlap wins over meaning.
+    private const string KoreanFinanceQuery = "매출 성장에 대한 재무 보고서";
+
+    private static readonly string[] KoreanFinanceCorpus =
+    [
+        "The quarterly financial report shows revenue growth.",
+        "분기 재무 보고서는 매출 성장을 보여준다.",
+        "The weather today is sunny and warm.",
+        "머신러닝 모델은 학습 데이터가 필요하다.",
+    ];
+
+    // Measured 2026-09-17: quality and auto (resolving to quality on that machine) → 1,0,2,3; default and fast → 1,3,2,0;
+    // large and multilingual did not load (external weights not downloaded; no ONNX export in the upstream repo).
+    [Theory]
+    [Trait("Axis", "Quality")]
+    [InlineData("quality")]
+    [InlineData("large")]
+    [InlineData("multilingual")]
+    [InlineData("auto")]
+    public async Task Q_KoreanQuery_MultilingualAliases_RankBothAnsweringReportsAboveTheUnrelatedSentences(string alias)
+    {
+        await using var model = await LocalReranker.LoadAsync(alias, cancellationToken: TestContext.Current.CancellationToken);
+
+        var results = await model.RerankAsync(KoreanFinanceQuery, KoreanFinanceCorpus, topK: 4, cancellationToken: TestContext.Current.CancellationToken);
+        var order = results.Select(r => r.OriginalIndex).ToList();
+        TestContext.Current.TestOutputHelper?.WriteLine($"[{alias} -> {model.ModelId}] order={string.Join(",", order)}");
+
+        order.Take(2).Should().BeEquivalentTo([0, 1], $"'{alias}' should rank the Korean and the English report above the unrelated sentences");
+    }
+
+    [Theory]
+    [Trait("Axis", "Quality")]
+    [InlineData("default")]
+    [InlineData("fast")]
+    public async Task Q_KoreanQuery_EnglishOnlyAliases_AreDeclaredEnglishOnly_AndMisrankAsDocumented(string alias)
+    {
+        // Pins the documented limitation, so a model swap that fixes (or worsens) it is noticed.
+        LMSupply.Reranker.Models.RerankerModelRegistry.Default.Resolve(alias).IsMultilingual.Should().BeFalse();
+        await using var model = await LocalReranker.LoadAsync(alias, cancellationToken: TestContext.Current.CancellationToken);
+
+        var results = await model.RerankAsync(KoreanFinanceQuery, KoreanFinanceCorpus, topK: 4, cancellationToken: TestContext.Current.CancellationToken);
+
+        results.Select(r => r.OriginalIndex).Take(2).Should().Contain(3, "an English-only cross-encoder places the unrelated Korean sentence in the top two");
+    }
 }

@@ -155,7 +155,7 @@ public static class WellKnownModels
         /// 568M params, 8192 tokens. 100+ languages.
         /// Best for multilingual and long-context reranking.
         /// </summary>
-        public const string Multilingual = "BAAI/bge-reranker-v2-m3";
+        public const string Multilingual = "onnx-community/bge-reranker-v2-m3-ONNX";
 
         /// <summary>
         /// Legacy quality - MS MARCO MiniLM L12 for backward compatibility.

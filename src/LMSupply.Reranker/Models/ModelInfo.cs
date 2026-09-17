@@ -43,6 +43,21 @@ public sealed record ModelInfo : IModelInfoBase, IModelMemoryInfo
     public required string OnnxFile { get; init; }
 
     /// <summary>
+    /// Gets the relative path to the external weights file the ONNX graph loads its tensors from, or <c>null</c> when
+    /// the graph holds its own weights. A model over the 2 GB protobuf limit ships <see cref="OnnxFile"/> as a small
+    /// graph shell plus this file; without it the session fails at initialization, so it is downloaded with the graph
+    /// and a cache holding the graph alone is not a cached model.
+    /// </summary>
+    public string? OnnxDataFile { get; init; }
+
+    /// <summary>
+    /// Gets the repository the tokenizer files (<see cref="TokenizerFile"/>, <c>vocab.txt</c>, <c>sentencepiece.bpe.model</c>)
+    /// are downloaded from, or <c>null</c> for the model's own repository. An ONNX export can omit the SentencePiece model a
+    /// Unigram tokenizer needs; the original repository still publishes it.
+    /// </summary>
+    public string? TokenizerRepoId { get; init; }
+
+    /// <summary>
     /// Gets the relative path to the tokenizer configuration file.
     /// </summary>
     public required string TokenizerFile { get; init; }

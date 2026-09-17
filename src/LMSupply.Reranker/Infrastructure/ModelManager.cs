@@ -54,52 +54,82 @@ internal sealed class ModelManager : IDisposable
             return GetLocalModelPaths(modelInfo);
         }
 
-        // Get expected file paths
+        // Get expected file paths. The tokenizer can come from another repository than the weights (an ONNX export that
+        // did not carry the SentencePiece model); its files sit together, because the tokenizer is built from their directory.
+        var tokenizerRepo = modelInfo.TokenizerRepoId ?? modelInfo.Id;
         var modelPath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, modelInfo.OnnxFile);
-        var tokenizerPath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, modelInfo.TokenizerFile);
+        var tokenizerPath = CacheManager.GetModelFilePath(_cacheDir, tokenizerRepo, modelInfo.TokenizerFile);
+        var dataPath = modelInfo.OnnxDataFile is null ? null : CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, modelInfo.OnnxDataFile);
 
-        // Check if already cached and not LFS pointers
+        // Check if already cached and not LFS pointers. A graph whose weights live in an external file is only cached
+        // with that file: a cache holding the graph shell alone (left by a release that did not fetch it) is completed here.
         var modelExists = File.Exists(modelPath) && !CacheManager.IsLfsPointerFile(modelPath);
         var tokenizerExists = File.Exists(tokenizerPath) && !CacheManager.IsLfsPointerFile(tokenizerPath);
+        var dataExists = dataPath is null || (File.Exists(dataPath) && !CacheManager.IsLfsPointerFile(dataPath));
 
-        if (modelExists && tokenizerExists)
+        if (modelExists && tokenizerExists && dataExists)
         {
             return new ModelPaths(modelPath, tokenizerPath);
         }
 
         // Download required files — with auto-download disabled the downloader reads the cache only, so
         // a missing graph throws ModelNotFoundException there and a missing tokenizer is caught below.
-        var filesToDownload = new List<string>();
-        if (!modelExists) filesToDownload.Add(modelInfo.OnnxFile);
-        if (!tokenizerExists) filesToDownload.Add(modelInfo.TokenizerFile);
+        var weightFiles = new List<string>();
+        if (!modelExists) weightFiles.Add(modelInfo.OnnxFile);
+        if (!dataExists) weightFiles.Add(modelInfo.OnnxDataFile!);
+
+        var tokenizerFiles = new List<string>();
+        if (!tokenizerExists) tokenizerFiles.Add(modelInfo.TokenizerFile);
 
         // Also try to download tokenizer-specific files based on model architecture
         // BERT models use vocab.txt, XLM-RoBERTa models use sentencepiece.bpe.model
-        var vocabPath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, "vocab.txt");
+        var vocabPath = CacheManager.GetModelFilePath(_cacheDir, tokenizerRepo, "vocab.txt");
         if (!File.Exists(vocabPath) || CacheManager.IsLfsPointerFile(vocabPath))
         {
-            filesToDownload.Add("vocab.txt");
+            tokenizerFiles.Add("vocab.txt");
         }
 
-        var sentencepiecePath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, "sentencepiece.bpe.model");
+        var sentencepiecePath = CacheManager.GetModelFilePath(_cacheDir, tokenizerRepo, "sentencepiece.bpe.model");
         if (!File.Exists(sentencepiecePath) || CacheManager.IsLfsPointerFile(sentencepiecePath))
         {
-            filesToDownload.Add("sentencepiece.bpe.model");
+            tokenizerFiles.Add("sentencepiece.bpe.model");
         }
 
-        await _downloader.DownloadModelAsync(
-            modelInfo.Id,
-            filesToDownload,
-            progress: progress,
-            cancellationToken: cancellationToken);
+        if (tokenizerRepo == modelInfo.Id)
+        {
+            await _downloader.DownloadModelAsync(
+                modelInfo.Id,
+                [.. weightFiles, .. tokenizerFiles],
+                progress: progress,
+                cancellationToken: cancellationToken);
+        }
+        else
+        {
+            if (weightFiles.Count > 0)
+            {
+                await _downloader.DownloadModelAsync(modelInfo.Id, weightFiles, progress: progress, cancellationToken: cancellationToken);
+            }
+
+            await _downloader.DownloadModelAsync(tokenizerRepo, tokenizerFiles, progress: progress, cancellationToken: cancellationToken);
+        }
 
         // Verify downloads
         modelPath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, modelInfo.OnnxFile);
-        tokenizerPath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, modelInfo.TokenizerFile);
+        tokenizerPath = CacheManager.GetModelFilePath(_cacheDir, tokenizerRepo, modelInfo.TokenizerFile);
 
         if (!File.Exists(modelPath))
         {
             throw new ModelDownloadException($"Model file was not downloaded successfully.", modelInfo.Id);
+        }
+
+        if (dataPath is not null && !File.Exists(dataPath))
+        {
+            // The downloader treats only .onnx graphs as required; this graph cannot initialize without its weights.
+            throw _downloader.LocalFilesOnly
+                ? new ModelNotFoundException(
+                    $"External weights '{modelInfo.OnnxDataFile}' of model '{modelInfo.Id}' are not in the local cache and downloads are disabled.",
+                    modelInfo.Id)
+                : new ModelDownloadException($"External weights file '{modelInfo.OnnxDataFile}' was not downloaded successfully.", modelInfo.Id);
         }
 
         if (!File.Exists(tokenizerPath))
@@ -108,7 +138,7 @@ internal sealed class ModelManager : IDisposable
             // cannot run without one.
             throw _downloader.LocalFilesOnly
                 ? new ModelNotFoundException(
-                    $"Tokenizer '{modelInfo.TokenizerFile}' of model '{modelInfo.Id}' is not in the local cache and downloads are disabled.",
+                    $"Tokenizer '{modelInfo.TokenizerFile}' of model '{modelInfo.Id}' (from '{tokenizerRepo}') is not in the local cache and downloads are disabled.",
                     modelInfo.Id)
                 : new ModelDownloadException($"Tokenizer file was not downloaded successfully.", modelInfo.Id);
         }
@@ -131,10 +161,11 @@ internal sealed class ModelManager : IDisposable
         }
 
         var modelPath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, modelInfo.OnnxFile);
-        var tokenizerPath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, modelInfo.TokenizerFile);
+        var tokenizerPath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.TokenizerRepoId ?? modelInfo.Id, modelInfo.TokenizerFile);
 
         if (File.Exists(modelPath) && File.Exists(tokenizerPath) &&
-            !CacheManager.IsLfsPointerFile(modelPath))
+            !CacheManager.IsLfsPointerFile(modelPath) &&
+            (modelInfo.OnnxDataFile is null || File.Exists(CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, modelInfo.OnnxDataFile))))
         {
             return new ModelPaths(modelPath, tokenizerPath);
         }

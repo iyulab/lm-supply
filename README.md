@@ -630,7 +630,7 @@ Use any HuggingFace repository directly with `owner/repo-name` format:
 ```csharp
 // ONNX models - auto-discovers onnx/ subfolder
 await using var embedder = await LocalEmbedder.LoadAsync("BAAI/bge-large-en-v1.5");
-await using var reranker = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3");
+await using var reranker = await LocalReranker.LoadAsync("onnx-community/bge-reranker-v2-m3-ONNX");
 
 // GGUF models - auto-detected by repo name pattern (-GGUF, _gguf)
 await using var generator = await LocalGenerator.LoadAsync("bartowski/Llama-3.2-3B-Instruct-GGUF");

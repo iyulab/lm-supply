@@ -107,8 +107,9 @@ public static class DefaultModels
         DisplayName = "BGE Reranker Large",
         Parameters = 560_000_000,
         MaxSequenceLength = 512,
-        SizeBytes = 1_100_000_000,
+        SizeBytes = 2_240_000_000,
         OnnxFile = "onnx/model.onnx",
+        OnnxDataFile = "onnx/model.onnx_data",
         TokenizerFile = "tokenizer.json",
         Description = "Large: Highest accuracy, quality-critical apps",
         IsMultilingual = true,
@@ -121,16 +122,23 @@ public static class DefaultModels
     /// 568M params, 8192 tokens, 100+ languages.
     /// Best for multilingual and long document scenarios.
     /// </summary>
+    /// <remarks>
+    /// <c>BAAI/bge-reranker-v2-m3</c> publishes no ONNX export; the alias resolved there and could not load. The weights
+    /// are served from the ONNX conversion of the same model, which does not carry the SentencePiece model its Unigram
+    /// tokenizer needs — the tokenizer files come from the original repository.
+    /// </remarks>
     public static ModelInfo BgeRerankerV2M3 { get; } = new()
     {
-        Id = "BAAI/bge-reranker-v2-m3",
+        Id = "onnx-community/bge-reranker-v2-m3-ONNX",
         AliasName = "multilingual",
         DisplayName = "BGE Reranker v2 M3",
         Parameters = 568_000_000,
         MaxSequenceLength = 8192,
-        SizeBytes = 1_100_000_000,
+        SizeBytes = 2_272_000_000,
         OnnxFile = "onnx/model.onnx",
+        OnnxDataFile = "onnx/model.onnx_data",
         TokenizerFile = "tokenizer.json",
+        TokenizerRepoId = "BAAI/bge-reranker-v2-m3",
         Description = "Multilingual: 8K context, 100+ languages, long docs",
         IsMultilingual = true,
         Architecture = ModelArchitecture.XlmRoberta,
