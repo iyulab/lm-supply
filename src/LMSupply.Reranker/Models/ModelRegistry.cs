@@ -31,27 +31,31 @@ public sealed class RerankerModelRegistry : ModelRegistryBase<ModelInfo>
     /// Gets the optimal model based on current hardware profile.
     /// Uses PerformanceTier to select appropriate model size.
     /// </summary>
-    /// <remarks>
-    /// Tier mapping:
-    /// - Low:    ms-marco-MiniLM-L-6-v2 (22M params) - fast, lightweight
-    /// - Medium: bge-reranker-base (278M params) - balanced, multilingual
-    /// - High:   bge-reranker-large (560M params) - highest accuracy
-    /// - Ultra:  bge-reranker-large (560M params) - highest accuracy
-    /// </remarks>
+    /// <remarks>See <see cref="ForTier"/> for the mapping.</remarks>
     protected override ModelInfo GetAutoModel()
     {
         var tier = HardwareProfile.Current.Tier;
         Trace.TraceInformation($"[RerankerModelRegistry] Auto-selecting model for tier: {tier}");
 
-        var model = tier switch
-        {
-            PerformanceTier.Ultra or PerformanceTier.High => DefaultModels.BgeRerankerLarge,
-            PerformanceTier.Medium => DefaultModels.BgeRerankerBase,
-            _ => DefaultModels.MsMarcoMiniLML6V2
-        };
-
-        return model with { AliasName = "auto" };
+        return ForTier(tier) with { AliasName = "auto" };
     }
+
+    /// <summary>
+    /// The model <c>auto</c> resolves to on a hardware tier.
+    /// </summary>
+    /// <remarks>
+    /// - Low:         ms-marco-MiniLM-L-6-v2 (22M params) — fast, English-only
+    /// - Medium:      bge-reranker-base (278M params) — balanced, multilingual
+    /// - High, Ultra: bge-reranker-v2-m3 (568M params) — 100+ languages, 8K context
+    /// High and Ultra resolved to bge-reranker-large before 0.68.0. v2-m3 is the same size, reads further and covers more
+    /// languages; both rank a Korean query correctly where the English-only models do not.
+    /// </remarks>
+    internal static ModelInfo ForTier(PerformanceTier tier) => tier switch
+    {
+        PerformanceTier.Ultra or PerformanceTier.High => DefaultModels.BgeRerankerV2M3,
+        PerformanceTier.Medium => DefaultModels.BgeRerankerBase,
+        _ => DefaultModels.MsMarcoMiniLML6V2
+    };
 
     /// <summary>
     /// Creates a fallback model info for unknown model IDs (HuggingFace repos or local paths).

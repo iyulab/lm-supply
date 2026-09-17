@@ -174,6 +174,19 @@ public class ModelRegistryTests
         model.AliasName.Should().Be("auto");
     }
 
+    [Theory]
+    [InlineData(LMSupply.Hardware.PerformanceTier.Low, "cross-encoder/ms-marco-MiniLM-L-6-v2", false)]
+    [InlineData(LMSupply.Hardware.PerformanceTier.Medium, "BAAI/bge-reranker-base", true)]
+    [InlineData(LMSupply.Hardware.PerformanceTier.High, "onnx-community/bge-reranker-v2-m3-ONNX", true)]
+    [InlineData(LMSupply.Hardware.PerformanceTier.Ultra, "onnx-community/bge-reranker-v2-m3-ONNX", true)]
+    public void AutoForTier_ResolvesTheDocumentedModel(LMSupply.Hardware.PerformanceTier tier, string expectedId, bool multilingual)
+    {
+        var model = RerankerModelRegistry.ForTier(tier);
+
+        model.Id.Should().Be(expectedId);
+        model.IsMultilingual.Should().Be(multilingual);
+    }
+
     [Fact]
     public void LocalReranker_Registry_ShouldExpose()
     {

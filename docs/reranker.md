@@ -64,7 +64,7 @@ Output:
 | `quality` | BAAI/bge-reranker-base | 512 | ~440MB | Multilingual | Balanced multilingual |
 | `large` | BAAI/bge-reranker-large | 512 | ~2.2GB | Multilingual | Highest accuracy (graph + external weights) |
 | `multilingual` | onnx-community/bge-reranker-v2-m3-ONNX | 8192 | ~2.3GB | 100+ languages | Long context (ONNX export of BAAI/bge-reranker-v2-m3) |
-| `auto` | by hardware tier | | | | Low → `default`, Medium → `quality`, High/Ultra → `large` |
+| `auto` | by hardware tier | | | | Low → `default` (English-only), Medium → `quality`, High/Ultra → `multilingual` |
 
 > **Non-English queries.** `default`, `fast` and `ms-marco-l12` are English-only cross-encoders: over a Korean query they
 > score an unrelated Korean passage above an English passage that answers it. For non-English or mixed-language corpora
