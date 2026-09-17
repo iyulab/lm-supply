@@ -88,7 +88,7 @@ public class OptionsReachabilityRosterTests
         var assemblies = LibraryAssemblies();
 
         var optionTypes = assemblies
-            .SelectMany(a => a.GetTypes())
+            .SelectMany(SafeTypes)
             .Where(t => t is { IsPublic: true, IsClass: true, IsAbstract: false } || t is { IsNestedPublic: true, IsClass: true, IsAbstract: false })
             .Where(t => t.Name.EndsWith("Options", StringComparison.Ordinal))
             .OrderBy(t => t.FullName, StringComparer.Ordinal)
@@ -121,7 +121,7 @@ public class OptionsReachabilityRosterTests
 
         foreach (var assembly in assemblies)
         {
-            foreach (var type in assembly.GetTypes())
+            foreach (var type in SafeTypes(assembly))
             {
                 var owner = optionTypes.FirstOrDefault(o => IsWithin(type, o));
                 IEnumerable<MethodBase> bodies = type.GetMethods(all).Cast<MethodBase>().Concat(type.GetConstructors(all));
@@ -135,7 +135,7 @@ public class OptionsReachabilityRosterTests
                             var key = $"{option.Type.FullName}.{option.Name}";
                             if (owner == option.Type)
                             {
-                                if (method is MethodInfo && method.Name != "Clone" && owner == method.DeclaringType)
+                                if (method is MethodInfo && !IsCopy(method) && owner == method.DeclaringType)
                                 {
                                     var methodKey = (method.Module, method.MetadataToken);
                                     if (!readsInside.TryGetValue(methodKey, out var list))
@@ -179,6 +179,40 @@ public class OptionsReachabilityRosterTests
 
         return new Scan(optionTypes, unread, read, crossAssembly);
     }
+
+    /// <summary>
+    /// A method that exists to produce another instance of the type it lives on — a clone, a copy, a
+    /// <c>With…</c> derivation, or the compiler's own record copy constructor. Reading a property in
+    /// order to carry it into a new instance is not consuming it, so those reads must not count; the
+    /// record copy constructor is the sharpest case, since it reads *every* property and would mark a
+    /// whole options record as read on its own.
+    /// <para>
+    /// Judged by what the method returns rather than by its name: a <c>WithRetries</c> that actually
+    /// applies the option (returning void, or something else) is a real read and stays counted, while a
+    /// differently-named copy helper is still excluded. This copy of the scanner excluded only a method
+    /// literally called <c>Clone</c>, which left every record-shaped options type reading itself clean.
+    /// </para>
+    /// <para>
+    /// Known limit: a fluent <c>Validate()</c> that returns <c>this</c> is indistinguishable by signature
+    /// from a copy, so its reads would not count. No options type here has one — if that changes, the
+    /// distinction has to come from the body rather than the signature.
+    /// </para>
+    /// </summary>
+    /// <summary>
+    /// An assembly whose types cannot all be loaded still yields the ones that can. Without this, one
+    /// unresolvable dependency turns the whole scan into an exception — which reads as "the scanner is
+    /// broken" rather than "these types could not be examined", and tempts whoever hits it to delete
+    /// the assembly from the list instead.
+    /// </summary>
+    private static IEnumerable<Type> SafeTypes(Assembly assembly)
+    {
+        try { return assembly.GetTypes(); }
+        catch (ReflectionTypeLoadException ex) { return ex.Types.Where(t => t is not null)!; }
+    }
+
+    private static bool IsCopy(MethodBase method) =>
+        method.Name == "<Clone>$"
+        || (method is MethodInfo { ReturnType: { } returned } && returned == method.DeclaringType);
 
     // Every method a body calls: call (0x28) / callvirt (0x6F) followed by a MethodDef (0x06) or
     // MemberRef (0x0A) token. A byte that merely looks like the opcode inside another operand yields a
