@@ -124,7 +124,7 @@ public sealed class LlamaServerApiTimeoutTests : IDisposable
                     }
                 }
 
-                var json = $$"""{ "tag_name": "{{Build}}", "prerelease": false, "assets": [{ "name": "{{asset}}", "browser_download_url": "{{FakeHost}}{{asset}}", "size": 42 }] }""";
+                var json = $$"""{ "tag_name": "{{Build}}", "prerelease": false, "assets": [{ "name": "{{asset}}", "browser_download_url": "{{FakeHost}}{{asset}}", "size": {{FakeReleaseAssets.ServerArchiveSize}} }] }""";
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json") };
             }
 

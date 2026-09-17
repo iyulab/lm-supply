@@ -162,7 +162,7 @@ public sealed class LlamaServerUpdateOnWarmupTests : IDisposable
             if (url.EndsWith("/releases/latest", StringComparison.Ordinal)
                 || url.EndsWith($"/releases/tags/{LatestBuild}", StringComparison.Ordinal))
             {
-                var json = $$"""{ "tag_name": "{{LatestBuild}}", "prerelease": false, "assets": [ { "name": "{{asset}}", "browser_download_url": "{{FakeHost}}{{asset}}", "size": 42 } ] }""";
+                var json = $$"""{ "tag_name": "{{LatestBuild}}", "prerelease": false, "assets": [ { "name": "{{asset}}", "browser_download_url": "{{FakeHost}}{{asset}}", "size": {{FakeReleaseAssets.ServerArchiveSize}} } ] }""";
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 { Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json") });
             }

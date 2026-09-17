@@ -131,6 +131,24 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
         Assert.Equal(["bytes=2400-"], hub.Ranges);
     }
 
+    /// <summary>
+    /// A failure raised <em>after</em> the ".part" was closed must reach the caller as itself. The attempt
+    /// wraps the body in a handler that deletes an empty ".part", and that handler used to measure the
+    /// stream it had just been told was closed — so a stale listing, or a move the retry could not
+    /// complete, arrived as "Cannot access a closed file" with the real reason gone.
+    /// </summary>
+    [Fact]
+    public async Task AFailureRaisedAfterThePartIsClosed_SurfacesAsItself()
+    {
+        var hub = new Hub { ListedSize = 3000 };
+        using var downloader = new HuggingFaceDownloader(_cacheDir, hub);
+
+        var ex = await Assert.ThrowsAsync<ModelDownloadException>(
+            () => downloader.DownloadModelAsync(Repo, ["model.onnx"], cancellationToken: Ct));
+
+        Assert.Contains("the listing may be stale", ex.Message);
+    }
+
     [Fact]
     public async Task TwoCallersForTheSameFile_ShareOneDownload()
     {
@@ -205,6 +223,9 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
         /// <summary>Per resolve request, a failure status to answer with instead of a body.</summary>
         public Queue<HttpStatusCode> StatusesBeforeBody { get; init; } = new();
 
+        /// <summary>What the tree listing announces for model.onnx; the body served is always the real 4000 bytes.</summary>
+        public int ListedSize { get; init; } = 4000;
+
         /// <summary>Whether a Range request is honoured with 206; when false the server sends the whole file again.</summary>
         public bool ResumeFromRange { get; init; } = true;
 
@@ -224,7 +245,8 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
             var path = Uri.UnescapeDataString(request.RequestUri!.AbsolutePath);
 
             if (path == $"/api/models/{Repo}/tree/main")
-                return Task.FromResult(Json("""[{"path":"model.onnx","type":"file","size":4000},{"path":"config.json","type":"file","size":2}]"""));
+                return Task.FromResult(Json(
+                    $$"""[{"path":"model.onnx","type":"file","size":{{ListedSize}}},{"path":"config.json","type":"file","size":2}]"""));
             if (path == $"/{Repo}/resolve/main/config.json")
                 return Task.FromResult(Bytes("{}"u8.ToArray(), 0, null));
             if (path != $"/{Repo}/resolve/main/model.onnx")

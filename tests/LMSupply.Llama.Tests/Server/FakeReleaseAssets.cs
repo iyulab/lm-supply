@@ -31,6 +31,13 @@ internal static class FakeReleaseAssets
 
     public static string ServerExecutableName => OperatingSystem.IsWindows() ? "llama-server.exe" : "llama-server";
 
+    /// <summary>
+    /// The length <see cref="ServerArchive"/> actually serves. A release listing declares the asset's
+    /// size and the downloader now holds the body to it, so a fake that announces one number and serves
+    /// another is not a stand-in for a release — it is a stale listing, which is a different test.
+    /// </summary>
+    public static int ServerArchiveSize => ServerArchive().Length;
+
     /// <summary>An archive whose single entry is the server executable, in this platform's archive format.</summary>
     public static byte[] ServerArchive(byte[]? content = null)
     {

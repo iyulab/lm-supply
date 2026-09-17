@@ -199,7 +199,14 @@ internal static class ResumableFileDownload
         {
             // Nothing landed (a 404, a refused request, a body that never started): an empty ".part" is not
             // a resume point, and the directory validator reads any ".part" as an unfinished download.
-            if (fileStream.Length == 0)
+            //
+            // The guard is on the handle, not just the length: the body closes the stream itself before it
+            // moves the ".part" into place or deletes it, and the throws that follow those closes (a move
+            // the retry could not complete, a listing that disagrees with what arrived) would otherwise
+            // reach a disposed handle here and leave the caller holding "Cannot access a closed file"
+            // instead of the failure that actually happened. A closed stream means the body already
+            // decided what becomes of the ".part", so this handler has nothing to do.
+            if (fileStream.CanRead && fileStream.Length == 0)
             {
                 fileStream.Close();
                 File.Delete(tempPath);

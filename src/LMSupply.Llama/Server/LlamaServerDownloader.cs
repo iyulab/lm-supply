@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using LMSupply.Download;
 using LMSupply.Runtime;
 
 namespace LMSupply.Llama.Server;
@@ -360,29 +361,22 @@ public sealed class LlamaServerDownloader : IDisposable
             Phase = DownloadPhase.Downloading
         });
 
-        using (var response = await _httpClient.GetAsync(asset.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
-        {
-            response.EnsureSuccessStatusCode();
-
-            var totalBytes = response.Content.Headers.ContentLength ?? asset.SizeBytes ?? 0;
-            var tracker = new DownloadProgressTracker();
-            tracker.Start();
-
-            await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            await using var fileStream = File.Create(archivePath);
-
-            var buffer = new byte[81920];
-            long bytesDownloaded = 0;
-            int bytesRead;
-
-            while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
+        // A server build is a large binary (the CUDA ones run to hundreds of megabytes), so it goes
+        // through the same path every other large download in this library uses: a ".part" it owns, a
+        // range request to resume a transfer that ended early, retries for the transient statuses, and
+        // acceptance only at the announced length. A hand-rolled copy loop here would restart from zero
+        // on a link that drops — and would accept a body that ended early as the file.
+        await ResumableFileDownload.DownloadAsync(
+            _httpClient,
+            new ResumableFileDownload.Request
             {
-                await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
-                bytesDownloaded += bytesRead;
-
-                progress?.Report(tracker.CreateProgress(asset.Name, bytesDownloaded, totalBytes, DownloadPhase.Downloading));
-            }
-        }
+                Url = asset.DownloadUrl,
+                DestinationPath = archivePath,
+                FileName = asset.Name,
+                ExpectedSize = asset.SizeBytes,
+                Progress = progress
+            },
+            cancellationToken);
 
         // Extract archive
         progress?.Report(new DownloadProgress
@@ -829,15 +823,23 @@ public sealed class LlamaServerDownloader : IDisposable
         {
             var archivePath = Path.Combine(stagingDir, cudartName);
 
+            // Same path as the server build above. Resume across process restarts does not apply here —
+            // the staging directory is named per attempt on purpose, so a later run never inherits this
+            // ".part" — but the retry, the in-attempt resume and the announced-length check all do, and
+            // the length check is what a plain copy could not give: a body that ends early without an
+            // error would otherwise be extracted as if it were the runtime.
             progress?.Report(new DownloadProgress { FileName = cudartName, Phase = DownloadPhase.Downloading });
 
-            using (var dl = await _httpClient.GetAsync(cudartUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
-            {
-                dl.EnsureSuccessStatusCode();
-                await using var src = await dl.Content.ReadAsStreamAsync(cancellationToken);
-                await using var dst = File.Create(archivePath);
-                await src.CopyToAsync(dst, cancellationToken);
-            }
+            await ResumableFileDownload.DownloadAsync(
+                _httpClient,
+                new ResumableFileDownload.Request
+                {
+                    Url = cudartUrl,
+                    DestinationPath = archivePath,
+                    FileName = cudartName,
+                    Progress = progress
+                },
+                cancellationToken);
 
             var extractDir = Path.Combine(stagingDir, "extracted");
             Directory.CreateDirectory(extractDir);

@@ -196,7 +196,7 @@ public sealed class LlamaServerLatestResolutionTests : IDisposable
         private static string Release(string tag, bool prerelease, string[] assets)
         {
             var assetJson = string.Join(",", assets.Select(a =>
-                $$"""{ "name": "{{a}}", "browser_download_url": "{{FakeHost}}{{a}}", "size": 42 }"""));
+                $$"""{ "name": "{{a}}", "browser_download_url": "{{FakeHost}}{{a}}", "size": {{FakeReleaseAssets.ServerArchiveSize}} }"""));
             return $$"""{ "tag_name": "{{tag}}", "prerelease": {{(prerelease ? "true" : "false")}}, "assets": [{{assetJson}}] }""";
         }
 
