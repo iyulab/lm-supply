@@ -32,8 +32,8 @@ public class OptionsReachabilityRosterTests
     // Each entry has an open issue draft: wire the option, or remove it as a deliberate decision.
     private static readonly Dictionary<string, string[]> KnownUnread = new(StringComparer.Ordinal)
     {
-        // Found by this roster's first run (issue draft "options nothing reads, across seven types").
-        ["LMSupply.Runtime.RuntimeManagerOptions"] = ["MaxRetries", "ProxyPassword", "ProxyUrl", "ProxyUsername"],
+        // Empty: the thirteen options this roster's first run found were each wired or removed (issue draft
+        // "options nothing reads, across seven types"). A new entry needs its own draft.
     };
 
     private static readonly Lazy<Scan> Result = new(Run);

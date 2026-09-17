@@ -713,6 +713,24 @@ The same mode is available directly as `new HuggingFaceDownloader(cacheDir, loca
 `new ModelPathResolver(cacheDir, localFilesOnly: true)` (the `local_files_only` mode of `huggingface_hub`).
 Populate the cache once on a connected machine (e.g. `LocalReranker.DownloadModelAsync`) and copy it over.
 
+### Behind a proxy
+
+Every download LMSupply makes — models, ONNX runtime packages, llama-server builds — uses the .NET default proxy, so
+the standard settings apply to all of them at once:
+
+- **Environment**: `HTTPS_PROXY` / `HTTP_PROXY` (e.g. `http://user:password@proxy.internal:8080`) and `NO_PROXY`.
+  On Windows the system proxy is used when these are unset.
+- **In code**, before the first load:
+  ```csharp
+  HttpClient.DefaultProxy = new WebProxy("http://proxy.internal:8080")
+  {
+      Credentials = new NetworkCredential("user", "password")
+  };
+  ```
+
+Model and ONNX runtime downloads retry transient failures (timeouts, 5xx, dropped connections) and resume an
+interrupted file where it stopped.
+
 ### Non-HF Artifacts (runtimes, llama-server builds)
 
 Non-model artifacts — ONNX runtime packages and llama-server builds — are deliberately kept

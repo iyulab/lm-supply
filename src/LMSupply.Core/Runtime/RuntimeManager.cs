@@ -563,26 +563,6 @@ public sealed class RuntimeManagerOptions
     public string? CacheDirectory { get; set; }
 
     /// <summary>
-    /// Gets or sets the proxy URL.
-    /// </summary>
-    public string? ProxyUrl { get; set; }
-
-    /// <summary>
-    /// Gets or sets the proxy username.
-    /// </summary>
-    public string? ProxyUsername { get; set; }
-
-    /// <summary>
-    /// Gets or sets the proxy password.
-    /// </summary>
-    public string? ProxyPassword { get; set; }
-
-    /// <summary>
-    /// Gets or sets the maximum retry attempts for downloads.
-    /// </summary>
-    public int MaxRetries { get; set; } = 3;
-
-    /// <summary>
     /// Gets or sets whether <see cref="RuntimeManager.EnsureRuntimeAsync"/>/
     /// <see cref="RuntimeManager.CheckAndApplyUpdateAsync"/> throw
     /// <see cref="LMSupply.Exceptions.NativeLibraryConflictException"/> when the runtime
