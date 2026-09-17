@@ -76,52 +76,75 @@ public sealed class OnnxNuGetDownloader : IDisposable
                 $"No package configuration found for {packageType}/{provider}");
         }
 
-        // Resolve version dynamically if not specified
-        version ??= await ResolveVersionAsync(config.PackageId, cancellationToken);
-
-        // Check cache first
-        var cachePath = GetCachePath(packageType, provider, version, platform);
-        if (Directory.Exists(cachePath) && IsValidCache(cachePath, config, platform))
+        // The version to serve is the one the loaded managed assembly expects (verified against the feed,
+        // falling back to the package line's latest when that exact number does not exist for it) or the
+        // one the caller named. A cached binary of some OTHER version is only ever a stand-in for an
+        // unreachable feed - never a substitute for a download that would succeed. Preferring "whatever
+        // is cached" ran managed 1.30.0 on a native 1.24.4 for as long as the cache existed.
+        string? requestedVersion = version;
+        string? feedFailure = null;
+        if (requestedVersion is null)
         {
-            Trace.TraceInformation($"[OnnxNuGetDownloader] Using cached binaries: {cachePath}");
-            ReportCacheHit(progress);
-            return cachePath;
+            try
+            {
+                requestedVersion = await ResolveVersionAsync(config.PackageId, cancellationToken);
+            }
+            catch (Exception ex) when (IsFeedUnreachable(ex, cancellationToken))
+            {
+                feedFailure = ex.Message;
+            }
         }
 
-        // If specific version not cached, check any existing valid cached version before downloading.
-        // The requested version may not exist for this specific package (e.g. a provider package with fewer
-        // patch releases than the base OnnxRuntime assembly version).
+        if (requestedVersion is not null)
+        {
+            var cachePath = GetCachePath(packageType, provider, requestedVersion, platform);
+            if (Directory.Exists(cachePath) && IsValidCache(cachePath, config, platform))
+            {
+                Trace.TraceInformation($"[OnnxNuGetDownloader] Using cached binaries: {cachePath}");
+                ReportCacheHit(progress);
+                return cachePath;
+            }
+
+            try
+            {
+                return await DownloadAndExtractAsync(
+                    config,
+                    requestedVersion,
+                    platform,
+                    cachePath,
+                    progress,
+                    cancellationToken);
+            }
+            catch (Exception ex) when (IsFeedUnreachable(ex, cancellationToken))
+            {
+                feedFailure = ex.Message;
+            }
+        }
+
+        // Feed unreachable: the newest cached version of this package is the only thing that can run.
+        // Say so - a consumer that pinned a newer managed runtime is now on a different native.
         var existingCache = FindExistingCache(packageType, provider, platform, config);
         if (existingCache is not null)
         {
-            Trace.TraceInformation($"[OnnxNuGetDownloader] Using existing cached version: {existingCache}");
+            var wanted = requestedVersion is null ? "the version the loaded runtime expects" : $"the requested {requestedVersion}";
+            Trace.TraceWarning(
+                $"[OnnxNuGetDownloader] Package feed unreachable ({feedFailure}); using cached {existingCache} instead of {wanted}. " +
+                $"The managed and native ONNX Runtime versions may differ until the feed is reachable again.");
             ReportCacheHit(progress);
             return existingCache;
         }
 
-        // Resolve best available version from NuGet before downloading
-        var resolvedVersion = await ResolveVersionAsync(config.PackageId, cancellationToken);
-        if (resolvedVersion != version)
-        {
-            version = resolvedVersion;
-            cachePath = GetCachePath(packageType, provider, version, platform);
-            if (Directory.Exists(cachePath) && IsValidCache(cachePath, config, platform))
-            {
-                Trace.TraceInformation($"[OnnxNuGetDownloader] Using resolved version cache: {cachePath}");
-                ReportCacheHit(progress);
-                return cachePath;
-            }
-        }
-
-        // Download and extract
-        return await DownloadAndExtractAsync(
-            config,
-            version,
-            platform,
-            cachePath,
-            progress,
-            cancellationToken);
+        throw new InvalidOperationException(
+            $"Cannot provision {config.PackageId}: the package feed is unreachable ({feedFailure}) and no cached version exists.");
     }
+
+    /// <summary>
+    /// A lookup/download failure caused by the network or the feed, as opposed to a caller cancellation
+    /// or a bug - the only failures a stale cached version is allowed to paper over.
+    /// </summary>
+    private static bool IsFeedUnreachable(Exception ex, CancellationToken cancellationToken)
+        => !cancellationToken.IsCancellationRequested
+           && ex is HttpRequestException or TaskCanceledException or System.Net.Sockets.SocketException or IOException;
 
     /// <summary>
     /// Resolves the version to use, either from assembly or NuGet API.
@@ -320,8 +343,9 @@ public sealed class OnnxNuGetDownloader : IDisposable
         if (!Directory.Exists(providerCacheDir))
             return null;
 
-        // Prefer newest version (descending sort)
-        foreach (var versionDir in Directory.GetDirectories(providerCacheDir).OrderDescending())
+        // Prefer newest version - by version, not by string ("1.9.0" must not outrank "1.30.0").
+        foreach (var versionDir in Directory.GetDirectories(providerCacheDir)
+                     .OrderByDescending(dir => Version.TryParse(Path.GetFileName(dir), out var v) ? v : new Version(0, 0)))
         {
             var candidatePath = Path.Combine(versionDir, platform.RuntimeIdentifier);
             if (Directory.Exists(candidatePath) && IsValidCache(candidatePath, config, platform))

@@ -39,6 +39,8 @@ public static class LocalTranslator
         CancellationToken cancellationToken = default)
     {
         options ??= new TranslatorOptions();
+        // An unsupported provider is refused here, before any model resolution or download (0.67.1).
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 
         // Parse variant qualifier (e.g., "default:fp16" → modelId="default", hint="fp16")
         var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);

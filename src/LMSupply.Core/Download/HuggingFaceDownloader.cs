@@ -275,12 +275,12 @@ public sealed class HuggingFaceDownloader : IDisposable
                             repoId);
                     }
 
-                    // Non-critical (e.g. tokenizer asset) — log a Trace warning so partial-cache
-                    // problems can be diagnosed even when downstream tokenizer construction fails
-                    // with a confusing error far away from the actual missing file.
-                    Trace.TraceWarning(
-                        $"[HuggingFaceDownloader] Optional file '{file}' not found for '{repoId}' " +
-                        $"(searched in {location}). Downstream tokenizer/feature extraction may fail.");
+                    // Non-critical (a tokenizer asset another tokenizer family uses, an external data
+                    // file a single-file model does not have): its absence is the normal case for most
+                    // models, so it is recorded at Information for cache diagnostics. Whether a file is
+                    // actually required is the tokenizer factory's call, and it throws when one is.
+                    Trace.TraceInformation(
+                        $"[HuggingFaceDownloader] Optional file '{file}' not present for '{repoId}' (searched in {location}).");
                 }
             }
         }

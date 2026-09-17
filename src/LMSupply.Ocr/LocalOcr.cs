@@ -53,6 +53,8 @@ public static class LocalOcr
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(detectionModel);
         options ??= new OcrOptions();
+        // An unsupported provider is refused here, before any model resolution or download (0.67.1).
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 
         // Parse variant qualifier (e.g., "default:fp16" → detectionModel="default", hint="fp16")
         var (baseDetId, detQualifier) = LMSupplyOptionsBase.SplitQualifier(detectionModel);
@@ -103,6 +105,8 @@ public static class LocalOcr
         CancellationToken cancellationToken = default)
     {
         options ??= new OcrOptions { LanguageHint = languageCode };
+        // An unsupported provider is refused here, before any model resolution or download (0.67.1).
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
         options.LanguageHint = languageCode;
 
         var recognitionModel = OcrRecognitionModelRegistry.Default.ResolveForLanguage(languageCode).AliasName;

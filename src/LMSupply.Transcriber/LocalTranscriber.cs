@@ -39,6 +39,8 @@ public static class LocalTranscriber
         CancellationToken cancellationToken = default)
     {
         options ??= new TranscriberOptions();
+        // An unsupported provider is refused here, before any model resolution or download (0.67.1).
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 
         // Parse variant qualifier (e.g., "large:fp16" → modelId="large", hint="fp16")
         var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);

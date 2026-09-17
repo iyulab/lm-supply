@@ -287,8 +287,9 @@ public static class OnnxSessionFactory
                         // surface as a confusing "wrong provider was used" later.
                         Trace.TraceWarning(
                             $"[OnnxSessionFactory] CUDA skipped (missing: {string.Join(", ", missingLibs)}). " +
-                            $"Falling back to next provider in chain. " +
-                            $"Install the missing libraries to enable CUDA acceleration.");
+                            $"Falling back to next provider in chain - ONNX sessions (embedder, reranker, OCR, transcriber) run on CPU. " +
+                            $"To use the GPU for ONNX sessions install the CUDA 12 runtime and cuDNN 9 (LMSupply provisions the ONNX Runtime " +
+                            $"binaries but not the CUDA libraries; GGUF/llama-server models get their CUDA runtime bundled and are unaffected).");
                         triedProviders.Add("CUDA(skipped)");
                         continue;
                     }
