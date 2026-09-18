@@ -54,4 +54,32 @@ public sealed class WhisperLongFormConformanceTests
 
         result.Segments.Select(s => s.Text).Should().OnlyHaveUniqueItems("a repetition loop repeats segment texts");
     }
+
+    /// <summary>
+    /// The last window starts at a seek point with only a few seconds of audio left and is padded to
+    /// 30 s. A language hint that does not match the speech drives the decoder into temperature
+    /// fallback, and a sampled decode over the padding closed segments up to 16 s past the end of the
+    /// input (docket iyulab/lm-supply#347). Several runs, because the fallback samples.
+    /// </summary>
+    [Fact]
+    public async Task WithAMismatchedLanguageHint_NoSegmentEndsPastTheAudio()
+    {
+        await using var model = await LocalTranscriber.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
+
+        for (var run = 0; run < 3; run++)
+        {
+            var result = await model.TranscribeAsync(
+                s_fixture,
+                new TranscribeOptions { WordTimestamps = true, Language = "en" },
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            result.DurationSeconds.Should().NotBeNull();
+            var duration = result.DurationSeconds!.Value;
+            foreach (var segment in result.Segments)
+            {
+                segment.End.Should().BeLessThanOrEqualTo(duration + 0.02,
+                    $"run {run}: segment {segment} must not end past the {duration:F2} s input");
+            }
+        }
+    }
 }

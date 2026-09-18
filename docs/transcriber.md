@@ -114,6 +114,11 @@ could be lost.
 Trailing audio shorter than 500 ms after the last window is not decoded on its own: zero-padded to a
 full window it is mostly silence, and Whisper hallucinates text into silence.
 
+A window shorter than 30 seconds — the last one, which usually starts at a seek point — is zero-padded
+to 30 seconds, but no timestamp is placed past its real audio: every segment ends at or before the end
+of the input. Before v0.68.3 a decode that went astray over the padding (most often under a language
+hint that does not match the speech) could close segments several seconds past the end.
+
 ### Initial prompt
 
 `InitialPrompt` is text the model reads as what came before the audio. Use it for names, terms and

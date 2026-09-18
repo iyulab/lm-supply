@@ -127,4 +127,62 @@ public class WhisperDecoderTimestampRulesTests
 
         selected.Should().Be(TextA);
     }
+
+    // A window shorter than 30 s is padded to 30 s before the encoder sees it. The timestamp tokens
+    // still span the full 30 s, so without a bound the decoder can close a segment inside the padding —
+    // measured: a 10.6 s last window closed a segment at 27.08 s, 16 s past the end of the input
+    // (docket iyulab/lm-supply#347).
+
+    [Fact]
+    public void TimestampPastTheWindowsAudio_IsNeverSelected()
+    {
+        var logits = Logits();
+        logits[Ts(27.08)] = 10f;
+        logits[Ts(10.0)] = 1f;
+
+        var selected = Decoder().SelectNextToken(
+            logits, Generated(Ts(0.0), TextA), Prompt, WithTimestamps, audioSeconds: 10.6);
+
+        selected.Should().Be(Ts(10.0));
+    }
+
+    [Fact]
+    public void TimestampAtTheEndOfTheWindowsAudio_IsAllowed()
+    {
+        var logits = Logits();
+        logits[Ts(10.6)] = 10f;
+        logits[Ts(10.62)] = 11f;
+
+        var selected = Decoder().SelectNextToken(
+            logits, Generated(Ts(0.0), TextA), Prompt, WithTimestamps, audioSeconds: 10.6);
+
+        selected.Should().Be(Ts(10.6));
+    }
+
+    [Fact]
+    public void SegmentClosedAtTheEndOfTheAudio_EndsTheWindow()
+    {
+        // Nothing can follow: a new segment would open at the end of the audio and could never be
+        // closed, so its text would be decoded from the padding alone.
+        var logits = Logits();
+        logits[Ts(10.6)] = 10f;
+        logits[EndOfText] = 0f;
+
+        var selected = Decoder().SelectNextToken(
+            logits, Generated(Ts(0.0), TextA, Ts(10.6)), Prompt, WithTimestamps, audioSeconds: 10.6);
+
+        selected.Should().Be(EndOfText);
+    }
+
+    [Fact]
+    public void FullWindow_KeepsTheWholeTimestampRange()
+    {
+        var logits = Logits();
+        logits[Ts(30.0)] = 10f;
+
+        var selected = Decoder().SelectNextToken(
+            logits, Generated(Ts(0.0), TextA), Prompt, WithTimestamps, audioSeconds: 30.0);
+
+        selected.Should().Be(Ts(30.0));
+    }
 }

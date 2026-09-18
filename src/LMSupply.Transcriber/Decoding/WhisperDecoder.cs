@@ -316,7 +316,7 @@ internal sealed class WhisperDecoder
 
             // Argmax at temperature 0, a draw above it -- after the hallucination guard and the
             // timestamp rules have filtered the logits.
-            var nextToken = SelectNextToken(lastLogits, tokens, initialTokens, options, temperature);
+            var nextToken = SelectNextToken(lastLogits, tokens, initialTokens, options, temperature, chunkDurationSeconds);
 
             // Log probability from the filtered, unscaled logits (as the reference decoder takes it):
             // per segment over text tokens for AvgLogProb, and over every selected token for the
@@ -617,7 +617,8 @@ internal sealed class WhisperDecoder
     /// exact selection logic directly, without a real ONNX session.
     /// </summary>
     internal int SelectNextToken(
-        float[] logits, List<int> tokens, int[] initialTokens, TranscribeOptions? options, float temperature = 0f)
+        float[] logits, List<int> tokens, int[] initialTokens, TranscribeOptions? options, float temperature = 0f,
+        double? audioSeconds = null)
     {
         // No blanket repetition penalty. The reference decoder applies none, and neither do the
         // mainstream Whisper runtimes: speech legitimately reuses short tokens within a few tokens
@@ -663,7 +664,7 @@ internal sealed class WhisperDecoder
 
         if (options?.WordTimestamps == true)
         {
-            ApplyTimestampRules(logits, tokens, initialTokens);
+            ApplyTimestampRules(logits, tokens, initialTokens, audioSeconds);
         }
 
         return temperature > 0f ? Sample(logits, temperature) : ArgMax(logits);
@@ -714,6 +715,9 @@ internal sealed class WhisperDecoder
     // timestamp-token index (20 ms per token).
     private const int MaxInitialTimestampIndex = 50;
 
+    // Seconds per timestamp token.
+    private const double SecondsPerTimestamp = 0.02;
+
     /// <summary>
     /// The reference decoder's timestamp rules (openai/whisper <c>ApplyTimestampRules</c>), applied when
     /// segment timestamps are requested. A greedy decoder left alone almost never picks a timestamp after
@@ -721,9 +725,10 @@ internal sealed class WhisperDecoder
     /// Rules: the no-timestamps token is never selected; timestamps come in pairs (after a pair, text;
     /// after a closing timestamp, not text); timestamps never go backwards and a segment cannot be empty;
     /// the first token is a timestamp within the first second; and when the timestamps together carry
-    /// more probability than the single best text token, a timestamp is taken.
+    /// more probability than the single best text token, a timestamp is taken. With
+    /// <paramref name="audioSeconds"/>, no timestamp lies past the window's real (unpadded) audio.
     /// </summary>
-    internal void ApplyTimestampRules(float[] logits, List<int> tokens, int[] initialTokens)
+    internal void ApplyTimestampRules(float[] logits, List<int> tokens, int[] initialTokens, double? audioSeconds = null)
     {
         var timestampBegin = _tokenizer.TimestampBeginToken;
         var eot = _tokenizer.EndOfTextToken;
@@ -771,6 +776,23 @@ internal sealed class WhisperDecoder
             // segment cannot have zero length (which would let the decoder loop on empty segments).
             var floor = lastWasTimestamp && !penultimateWasTimestamp ? lastTimestamp : lastTimestamp + 1;
             SuppressRange(logits, timestampBegin, Math.Min(floor, logits.Length));
+        }
+
+        // Never past the window's audio. A window shorter than 30 s is padded to 30 s, and the
+        // timestamp range still spans all of it, so a decoder hallucinating over the padding could
+        // close a segment seconds after the input ends (docket iyulab/lm-supply#347). Once a segment
+        // closes at the end of the audio nothing can follow: a new one could never be closed.
+        if (audioSeconds is { } seconds)
+        {
+            var lastAllowed = timestampBegin + (int)Math.Floor(seconds / SecondsPerTimestamp + 1e-6);
+            if (lastWasTimestamp && !penultimateWasTimestamp && lastTimestamp >= lastAllowed)
+            {
+                SuppressRange(logits, timestampBegin, logits.Length);
+            }
+            else
+            {
+                SuppressRange(logits, Math.Min(lastAllowed + 1, logits.Length), logits.Length);
+            }
         }
 
         if (sampled == 0)
