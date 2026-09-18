@@ -105,26 +105,18 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         ValidateTranslateSupport(options);
         var samples = await AudioProcessor.LoadAudioAsync(audioPath, cancellationToken);
 
-        var chunks = AudioProcessor.SplitIntoChunks(samples);
         var segmentId = 0;
         string? lastYieldedText = null;
         var compressionThreshold = options?.CompressionRatioThreshold ?? 2.4f;
         var noSpeechThreshold = options?.NoSpeechThreshold ?? 0.6f;
-        LanguageDetection? language = null;
 
-        for (int i = 0; i < chunks.Count; i++)
+        await foreach (var window in DecodeWindowsAsync(samples, options, cancellationToken))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var chunkStartTime = i * 30.0;
-            var (result, detected) = await TranscribeChunkAsync(chunks[i], options, language, cancellationToken);
-            language ??= detected;
-
-            foreach (var segment in result.Segments)
+            foreach (var segment in window.Segments)
             {
                 var trimmedText = segment.Text.Trim();
 
-                // Skip consecutive duplicates across chunks
+                // Skip consecutive duplicates across windows
                 if (string.Equals(trimmedText, lastYieldedText, StringComparison.Ordinal))
                     continue;
 
@@ -139,16 +131,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
                     continue;
 
                 lastYieldedText = trimmedText;
-                yield return new TranscriptionSegment
-                {
-                    Id = segmentId++,
-                    Start = chunkStartTime + segment.Start,
-                    End = chunkStartTime + segment.End,
-                    Text = segment.Text,
-                    AvgLogProb = segment.AvgLogProb,
-                    NoSpeechProb = segment.NoSpeechProb,
-                    CompressionRatio = segment.CompressionRatio
-                };
+                yield return CopyWith(segment, segmentId++, 0);
             }
         }
     }
@@ -182,65 +165,21 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         var sw = Stopwatch.StartNew();
         var duration = AudioProcessor.GetDurationSeconds(samples);
 
-        // For short audio, process as single chunk
-        if (samples.Length <= 480000) // 30 seconds
-        {
-            var (result, _) = await TranscribeChunkAsync(samples, options, null, cancellationToken);
-            var (filteredSegments, filteredText) = SegmentPostProcessor.Process(
-                result.Segments.ToList(), options);
-            sw.Stop();
-
-            return new TranscriptionResult
-            {
-                Text = filteredText,
-                Language = result.Language,
-                LanguageProbability = result.LanguageProbability,
-                Segments = filteredSegments,
-                DurationSeconds = duration,
-                InferenceTimeMs = sw.Elapsed.TotalMilliseconds
-            };
-        }
-
-        // For longer audio, process in fixed 30-second chunks.
-        // With WordTimestamps enabled, the decoder produces natural segment boundaries
-        // within each chunk. Fixed chunking preserves performance (no redundant encoding).
-        var chunks = AudioProcessor.SplitIntoChunks(samples);
         var allSegments = new List<TranscriptionSegment>();
-        var textParts = new List<string>();
-        string? detectedLanguage = null;
-        float? languageProb = null;
-        LanguageDetection? language = null;
+        string? language = null;
+        float? languageProbability = null;
 
-        for (int i = 0; i < chunks.Count; i++)
+        await foreach (var window in DecodeWindowsAsync(samples, options, cancellationToken))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // The language is identified once, on the first chunk, and reused for the rest of the
-            // file (Whisper's reference behaviour); a hint in options bypasses identification.
-            var (chunkResult, detected) = await TranscribeChunkAsync(chunks[i], options, language, cancellationToken);
-            language ??= detected;
-            var chunkStartTime = i * 30.0;
-
-            if (i == 0)
+            if (language is null)
             {
-                detectedLanguage = chunkResult.Language;
-                languageProb = chunkResult.LanguageProbability;
+                language = window.Language;
+                languageProbability = window.LanguageProbability;
             }
 
-            textParts.Add(chunkResult.Text);
-
-            foreach (var segment in chunkResult.Segments)
+            foreach (var segment in window.Segments)
             {
-                allSegments.Add(new TranscriptionSegment
-                {
-                    Id = allSegments.Count,
-                    Start = chunkStartTime + segment.Start,
-                    End = chunkStartTime + segment.End,
-                    Text = segment.Text,
-                    AvgLogProb = segment.AvgLogProb,
-                    NoSpeechProb = segment.NoSpeechProb,
-                    CompressionRatio = segment.CompressionRatio
-                });
+                allSegments.Add(CopyWith(segment, allSegments.Count, 0));
             }
         }
 
@@ -251,20 +190,93 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         return new TranscriptionResult
         {
             Text = postText,
-            Language = detectedLanguage ?? "en",
-            LanguageProbability = languageProb,
+            Language = language ?? "en",
+            LanguageProbability = languageProbability,
             Segments = postSegments,
             DurationSeconds = duration,
             InferenceTimeMs = sw.Elapsed.TotalMilliseconds
         };
     }
 
+    // One window's final segments, already on the input's timeline.
+    private sealed record DecodedWindow(
+        IReadOnlyList<TranscriptionSegment> Segments, string Language, float? LanguageProbability);
+
+    /// <summary>
+    /// Decodes the input window by window. Audio of up to 30 s is one window. Longer audio is decoded
+    /// with timestamp tokens and each window starts where the previous one's last closed segment ended
+    /// (<see cref="LongFormSeek"/>), so speech a window boundary cut through is decoded again whole
+    /// instead of being lost. The language is identified once, on the first window, and reused for the
+    /// rest of the input (Whisper's reference behaviour); a hint in options bypasses identification.
+    /// </summary>
+    private async IAsyncEnumerable<DecodedWindow> DecodeWindowsAsync(
+        float[] samples,
+        TranscribeOptions? options,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var windowOptions = samples.Length > AudioProcessor.NumSamples
+            ? (options ?? new TranscribeOptions()).WithTimestampTokens()
+            : options;
+
+        LanguageDetection? language = null;
+        var start = 0;
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var length = Math.Min(AudioProcessor.NumSamples, samples.Length - start);
+            var window = samples.AsSpan(start, length).ToArray();
+            var (decoded, detected) = await TranscribeWindowAsync(window, windowOptions, language, cancellationToken);
+            language ??= detected;
+
+            var step = LongFormSeek.Plan(
+                start, length, samples.Length,
+                decoded.Segments.Count, decoded.ClosedSegmentCount, decoded.LastClosedSegmentEnd);
+
+            if (step.KeepSegments < decoded.Segments.Count)
+            {
+                Trace.TraceInformation(
+                    $"[OnnxTranscriberModel] Window at {start / (double)AudioProcessor.WhisperSampleRate:F2}s: " +
+                    $"re-decoding from {step.NextStart / (double)AudioProcessor.WhisperSampleRate:F2}s " +
+                    $"(dropping {decoded.Segments.Count - step.KeepSegments} open segment(s)).");
+            }
+            else if (step.NextStart >= samples.Length && start + length < samples.Length)
+            {
+                Trace.TraceInformation(
+                    $"[OnnxTranscriberModel] Dropping {samples.Length - start - length} trailing samples below the " +
+                    $"{AudioProcessor.MinTailSamples}-sample minimum; padded to a full window they would only invite hallucination.");
+            }
+
+            var offset = start / (double)AudioProcessor.WhisperSampleRate;
+            var kept = new List<TranscriptionSegment>(step.KeepSegments);
+            for (var i = 0; i < step.KeepSegments; i++)
+            {
+                kept.Add(CopyWith(decoded.Segments[i], i, offset));
+            }
+
+            yield return new DecodedWindow(kept, decoded.Language, decoded.LanguageProbability);
+            start = step.NextStart;
+        }
+        while (start < samples.Length);
+    }
+
+    private static TranscriptionSegment CopyWith(TranscriptionSegment segment, int id, double offsetSeconds) => new()
+    {
+        Id = id,
+        Start = offsetSeconds + segment.Start,
+        End = offsetSeconds + segment.End,
+        Text = segment.Text,
+        AvgLogProb = segment.AvgLogProb,
+        NoSpeechProb = segment.NoSpeechProb,
+        CompressionRatio = segment.CompressionRatio
+    };
+
     /// <summary>
     /// Transcribes one 30 s window. When no language hint is set and <paramref name="knownLanguage"/>
     /// is null, runs the language-identification step on this window's encoder output first (one
     /// extra decoder step) and returns what it found so the caller can reuse it for later windows.
     /// </summary>
-    private async Task<(TranscriptionResult Result, LanguageDetection? Language)> TranscribeChunkAsync(
+    private async Task<(DecodingResult Result, LanguageDetection? Language)> TranscribeWindowAsync(
         float[] samples,
         TranscribeOptions? options,
         LanguageDetection? knownLanguage,
@@ -274,7 +286,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         try
         {
             // Log language settings for debugging
-            Trace.TraceInformation($"[OnnxTranscriberModel] Transcribing chunk - Language: {options?.Language ?? knownLanguage?.Language ?? "auto-detect"}, " +
+            Trace.TraceInformation($"[OnnxTranscriberModel] Transcribing window - Language: {options?.Language ?? knownLanguage?.Language ?? "auto-detect"}, " +
                 $"WordTimestamps: {options?.WordTimestamps ?? false}");
 
             // Compute mel spectrogram
@@ -286,7 +298,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
 
             // Audio is always padded/truncated to a fixed 30s window before mel extraction
             // (AudioProcessor.PadOrTruncate), so the encoder's own sequence length can't tell us
-            // how long this chunk's real content was. Compute it from the pre-padding sample
+            // how long this window's real content was. Compute it from the pre-padding sample
             // count instead, clamped to the padding window.
             var sampleRate = _modelInfo?.SampleRate ?? 16000;
             var chunkDurationSeconds = Math.Min(samples.Length / (double)sampleRate, 30.0);
@@ -305,14 +317,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
                 $"Probability: {decoderResult.LanguageProbability?.ToString("F3", System.Globalization.CultureInfo.InvariantCulture) ?? "N/A"}, " +
                 $"Text length: {decoderResult.Text.Length}, Segments: {decoderResult.Segments.Count}");
 
-            var result = new TranscriptionResult
-            {
-                Text = decoderResult.Text,
-                Language = decoderResult.Language,
-                LanguageProbability = decoderResult.LanguageProbability,
-                Segments = decoderResult.Segments
-            };
-            return (result, language);
+            return (decoderResult, language);
         }
         finally
         {

@@ -101,8 +101,18 @@ A hint (`Language = "ko"`) skips the step and leaves `LanguageProbability` null.
 models (`*.en`) have no language tokens and always report `en`. Before v0.58.0 the step did not
 exist — the prompt simply omitted the language token, which decoded non-English audio as English.
 
-Trailing audio shorter than 500 ms after the last full 30-second window is not decoded on its own:
-zero-padded to a full window it is mostly silence, and Whisper hallucinates text into silence.
+### Long audio
+
+Audio longer than 30 seconds is decoded window by window, and a window does not advance by a fixed
+30 seconds. Each window starts where the previous window's last complete segment ended, so speech cut
+by a window boundary — or skipped because the decoder closed its last segment and stopped — is decoded
+again, whole, in the next window. This is Whisper's long-form seek; it needs timestamp tokens, so long
+audio decodes with them even when `WordTimestamps` is false. It costs a few extra seconds of audio per
+window. Before v0.68.2 windows advanced by a fixed 30 seconds and the speech just before each boundary
+could be lost.
+
+Trailing audio shorter than 500 ms after the last window is not decoded on its own: zero-padded to a
+full window it is mostly silence, and Whisper hallucinates text into silence.
 
 ### Initial prompt
 
@@ -197,9 +207,10 @@ foreach (var segment in result.Segments)
 ```
 
 What `End` means depends on the mode. With `WordTimestamps = true` the model places segment boundaries
-and a segment ends where its speech stops. In the default mode (no timestamps) each 30-second window
-yields one segment that ends at the end of that window's audio — where the window stops, not where the
-speech in it stops. Request timestamps when you need to know where speech ends.
+and a segment ends where its speech stops. In the default mode (no timestamps) audio of up to 30 seconds
+yields one segment that ends at the end of the audio — where the input stops, not where the speech in it
+stops. Longer audio is segmented by timestamps either way (see [Long audio](#long-audio)). Request
+timestamps when you need to know where speech ends.
 
 ### Word-Level Timestamps
 

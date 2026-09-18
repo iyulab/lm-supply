@@ -69,7 +69,10 @@ public sealed class TranscribeOptions
     /// <para>
     /// When true, the model generates timestamp tokens that create natural segment breaks
     /// based on speech patterns. Each segment will have Start and End timestamps.
-    /// When false, creates a single segment per 30-second audio chunk.
+    /// When false, audio of up to 30 seconds becomes a single segment. Longer audio always decodes
+    /// with timestamp tokens regardless: each 30-second window starts where the previous window's
+    /// last complete segment ended, so an utterance cut by a window boundary is decoded whole in
+    /// the next window instead of being lost.
     /// </para>
     /// <para>
     /// <b>Word-level timestamps:</b> True word-level timestamps (populating the Words property
@@ -148,4 +151,15 @@ public sealed class TranscribeOptions
     /// <para>Default: 0.6</para>
     /// </summary>
     public float NoSpeechThreshold { get; set; } = 0.6f;
+
+    /// <summary>
+    /// A copy that decodes with timestamp tokens — what long-form seeking needs. A memberwise copy, so
+    /// an option added later is carried without this method having to know about it.
+    /// </summary>
+    internal TranscribeOptions WithTimestampTokens()
+    {
+        var copy = (TranscribeOptions)MemberwiseClone();
+        copy.WordTimestamps = true;
+        return copy;
+    }
 }

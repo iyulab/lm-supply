@@ -278,6 +278,10 @@ internal sealed class WhisperDecoder
         var currentSegmentTokens = new List<int>();
         var currentSegmentStart = 0.0;
 
+        // The long-form loop seeks to the end of the last segment a timestamp token closed (LongFormSeek).
+        var closedSegmentCount = 0;
+        double? lastClosedEnd = null;
+
         // Create encoder output tensor [1, seq_len, hidden_size]
         var encoderTensor = new DenseTensor<float>(
             encoderOutput,
@@ -375,6 +379,8 @@ internal sealed class WhisperDecoder
 
                     currentSegmentLogProbs.Clear();
                     currentSegmentTokens.Clear();
+                    closedSegmentCount = segments.Count;
+                    lastClosedEnd = timestamp;
                 }
             }
             else if (!_tokenizer.IsSpecialToken(nextToken))
@@ -436,7 +442,9 @@ internal sealed class WhisperDecoder
             Temperature = temperature,
             AvgLogProb = selectedCount > 0 ? (float)(sumLogProb / selectedCount) : null,
             NoSpeechProb = chunkNoSpeechProb,
-            CompressionRatio = SegmentPostProcessor.ComputeCompressionRatio(fullTranscription)
+            CompressionRatio = SegmentPostProcessor.ComputeCompressionRatio(fullTranscription),
+            ClosedSegmentCount = closedSegmentCount,
+            LastClosedSegmentEnd = lastClosedEnd
         };
     }
 
@@ -1065,6 +1073,15 @@ internal sealed class DecodingResult
 
     /// <summary>Compression ratio of the window's full text.</summary>
     public float? CompressionRatio { get; init; }
+
+    /// <summary>
+    /// How many leading <see cref="Segments"/> a timestamp token closed. The rest (at most one) is an
+    /// open segment the window ended inside of, whose end is only the window's length.
+    /// </summary>
+    public int ClosedSegmentCount { get; init; }
+
+    /// <summary>Window-relative end, in seconds, of the last closed segment; null when none closed.</summary>
+    public double? LastClosedSegmentEnd { get; init; }
 }
 
 /// <summary>
