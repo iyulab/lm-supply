@@ -71,6 +71,12 @@ float[] embedding = await model.EmbedAsync("Hello, world!");
 | [LMSupply.Transcriber](docs/transcriber.md) | Speech → Text (Whisper) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Transcriber.svg)](https://www.nuget.org/packages/LMSupply.Transcriber) |
 | [LMSupply.Synthesizer](docs/synthesizer.md) | Text → Speech (Piper) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Synthesizer.svg)](https://www.nuget.org/packages/LMSupply.Synthesizer) |
 | [LMSupply.Llama](docs/llama.md) | Shared llama-server management for GGUF | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Llama.svg)](https://www.nuget.org/packages/LMSupply.Llama) |
+| LMSupply.Generator.Onnx | Optional ONNX Runtime GenAI backend for `LMSupply.Generator` (ONNX models such as Phi, CUDA). Not needed for GGUF | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Generator.Onnx.svg)](https://www.nuget.org/packages/LMSupply.Generator.Onnx) |
+| LMSupply.ImageGenerator | Text → Image (Latent Consistency Models, 2–4 steps; CUDA / CoreML) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.ImageGenerator.svg)](https://www.nuget.org/packages/LMSupply.ImageGenerator) |
+
+Shared infrastructure, pulled in by the packages above — you do not reference these directly: **LMSupply.Core** (HuggingFace
+download, cache, GPU execution providers), **LMSupply.Text.Core** (tokenization and vocabularies) and **LMSupply.Vision.Core**
+(image loading and preprocessing for the captioner and OCR).
 
 ---
 
