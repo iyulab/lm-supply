@@ -75,10 +75,15 @@ public static class DefaultModels
     };
 
     /// <summary>
-    /// BGE Reranker Base - Quality multilingual model (2024 release).
-    /// 278M params, 512 tokens, excellent accuracy.
-    /// Recommended quality option with multilingual support.
+    /// BGE Reranker Base - higher-accuracy model trained on English and Chinese.
+    /// 278M params, 512 tokens.
     /// </summary>
+    /// <remarks>
+    /// The backbone (XLM-RoBERTa) tokenizes any language, which is what <see cref="ModelInfo.IsMultilingual"/>
+    /// records, but the model card lists English and Chinese as its training languages. Other languages
+    /// work by transfer only; for those, use <c>multilingual</c> or the GGUF alias <c>multilingual-fast</c>.
+    /// The ONNX export is fp32: the download is 1.1 GB.
+    /// </remarks>
     public static ModelInfo BgeRerankerBase { get; } = new()
     {
         Id = "BAAI/bge-reranker-base",
@@ -86,10 +91,10 @@ public static class DefaultModels
         DisplayName = "BGE Reranker Base",
         Parameters = 278_000_000,
         MaxSequenceLength = 512,
-        SizeBytes = 440_000_000,
+        SizeBytes = 1_112_459_588,
         OnnxFile = "onnx/model.onnx",
         TokenizerFile = "tokenizer.json",
-        Description = "Quality: 2024 release, excellent accuracy, multilingual",
+        Description = "Quality: higher accuracy, trained on English and Chinese",
         IsMultilingual = true,
         Architecture = ModelArchitecture.XlmRoberta,
         OutputShape = OutputShape.SingleLogit

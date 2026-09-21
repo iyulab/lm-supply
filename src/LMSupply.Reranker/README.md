@@ -34,9 +34,18 @@ foreach (var result in results)
 |-------|-------|------|-----------|-------------|
 | `default` | MS MARCO MiniLM L6 | ~90MB | WordPiece | Best speed/quality balance |
 | `fast` | MS MARCO TinyBERT | ~18MB | WordPiece | Ultra-fast, latency-critical |
-| `quality` | BGE Reranker Base | ~440MB | Unigram | Higher accuracy, multilingual |
-| `large` | BGE Reranker Large | ~1.1GB | Unigram | Highest accuracy |
-| `multilingual` | BGE Reranker v2-m3 | ~1.1GB | Unigram | 8K context, 100+ languages |
+| `quality` | BGE Reranker Base | ~1.1GB | Unigram | Higher accuracy; trained on English and Chinese |
+| `large` | BGE Reranker Large | ~2.2GB | Unigram | Highest accuracy; trained on English and Chinese |
+| `multilingual` | BGE Reranker v2-m3 | ~2.3GB | Unigram | 8K context, 100+ languages |
+| `multilingual-fast` | BGE Reranker v2-m3, GGUF Q4_K_M | ~440MB | (llama-server) | Same model as `multilingual`, quantized: a fraction of the download and CPU latency. Runs a llama-server process |
+
+Sizes are what a load downloads (the ONNX exports are fp32). `multilingual-fast` additionally fetches the
+llama-server binary on first use. Scores are on the same 0..1 scale on both routes, and
+`LocalReranker.IsModelDownloaded` / `DownloadModelAsync` work for every alias above.
+
+For languages other than English and Chinese use `multilingual` or `multilingual-fast`: `quality` and `large`
+tokenize any language but were not trained on it, and on a Korean corpus `quality` can rank worse than no
+reranking at all.
 
 ## Tokenizer Auto-Detection
 

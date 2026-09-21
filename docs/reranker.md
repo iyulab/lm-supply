@@ -61,14 +61,21 @@ Output:
 | `default` | cross-encoder/ms-marco-MiniLM-L-6-v2 | 512 | ~90MB | English | Fast, good quality for English |
 | `fast` | cross-encoder/ms-marco-TinyBERT-L-2-v2 | 512 | ~18MB | English | Ultra-fast |
 | `ms-marco-l12` | cross-encoder/ms-marco-MiniLM-L-12-v2 | 512 | ~134MB | English | Higher accuracy than `default` |
-| `quality` | BAAI/bge-reranker-base | 512 | ~440MB | Multilingual | Balanced multilingual |
-| `large` | BAAI/bge-reranker-large | 512 | ~2.2GB | Multilingual | Highest accuracy (graph + external weights) |
+| `quality` | BAAI/bge-reranker-base | 512 | ~1.1GB | English, Chinese | Higher accuracy than `default` |
+| `large` | BAAI/bge-reranker-large | 512 | ~2.2GB | English, Chinese | Highest accuracy (graph + external weights) |
 | `multilingual` | onnx-community/bge-reranker-v2-m3-ONNX | 8192 | ~2.3GB | 100+ languages | Long context (ONNX export of BAAI/bge-reranker-v2-m3) |
+| `multilingual-fast` | gguf:gpustack/bge-reranker-v2-m3-GGUF (Q4_K_M) | 8192 | ~440MB | 100+ languages | The same model, quantized, served by llama-server: a fraction of the download and of the CPU latency |
 | `auto` | by hardware tier | | | | Low → `default` (English-only), Medium → `quality`, High/Ultra → `multilingual` |
 
 > **Non-English queries.** `default`, `fast` and `ms-marco-l12` are English-only cross-encoders: over a Korean query they
-> score an unrelated Korean passage above an English passage that answers it. For non-English or mixed-language corpora
-> use `quality`, `large` or `multilingual`.
+> score an unrelated Korean passage above an English passage that answers it. `quality` and `large` tokenize any language
+> but their model cards list English and Chinese as the training languages — on a Korean corpus `quality` can rank worse
+> than no reranking at all. For other languages or mixed-language corpora use `multilingual`
+> or `multilingual-fast`.
+
+Sizes are what a load downloads: the ONNX exports are fp32. `multilingual-fast` is the one alias that takes the GGUF route
+(see below) — it runs a llama-server process and fetches that binary on first use, which is why `multilingual` and `auto`
+do not resolve to it on their own.
 
 `large` and `multilingual` keep their weights in a separate `onnx/model.onnx_data` file next to the graph; it is downloaded
 with the model, and a cache that holds the graph without it is completed on the next load.

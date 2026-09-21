@@ -15,6 +15,32 @@ public sealed class GgufRerankerLiveTests
     private const string Model = "gguf:gpustack/bge-reranker-v2-m3-GGUF";
 
     [Fact]
+    public async Task TheBuiltInAlias_LoadsTheSameModel()
+    {
+        if (!LocalReranker.IsModelDownloaded("multilingual-fast"))
+        {
+            Assert.Skip("multilingual-fast is not in the local cache; this test never downloads.");
+        }
+
+        var ct = TestContext.Current.CancellationToken;
+        await using var reranker = await LocalReranker.LoadAsync(
+            "multilingual-fast", new RerankerOptions { DisableAutoDownload = true }, cancellationToken: ct);
+
+        // Korean on purpose: the alias exists for the corpora the English-only defaults rank badly.
+        string[] documents =
+        [
+            "경조사 휴가는 배우자 사망 시 5일, 부모 사망 시 5일을 부여한다.",
+            "사내 식당의 점심 메뉴는 매주 월요일에 게시된다.",
+        ];
+
+        var ranked = await reranker.RerankAsync("부모님이 돌아가시면 며칠 쉴 수 있나요?", documents, cancellationToken: ct);
+
+        ranked[0].OriginalIndex.Should().Be(0);
+        ranked.Should().OnlyContain(r => r.Score > 0f && r.Score < 1f);
+        ranked[0].Score.Should().BeGreaterThan(ranked[1].Score * 10f, "the unrelated passage is not a near miss");
+    }
+
+    [Fact]
     public async Task ARealGgufReranker_ScoresOnTheDocumentedScale()
     {
         if (!LocalReranker.IsModelDownloaded(Model))

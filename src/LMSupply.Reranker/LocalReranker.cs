@@ -35,6 +35,23 @@ public static class LocalReranker
         => string.IsNullOrWhiteSpace(options.QuantizationHint) ? DefaultGgufQuantization : options.QuantizationHint;
 
     /// <summary>
+    /// Built-in aliases that resolve to the GGUF (llama-server) route. They live here rather than in the
+    /// registry because a registry entry describes an ONNX model (graph file, tokenizer file); a GGUF
+    /// model is one file served by llama-server and has neither.
+    /// </summary>
+    /// <remarks>
+    /// <c>multilingual-fast</c> is the quantized build of the model behind <c>multilingual</c>
+    /// (bge-reranker-v2-m3): the same ranking at about a fifth of the download and a fraction of the CPU
+    /// latency, at the price of running a llama-server process. <c>multilingual</c> and <c>auto</c> keep
+    /// resolving to ONNX, so a caller that did not ask for llama-server never gets one.
+    /// </remarks>
+    internal static readonly IReadOnlyDictionary<string, string> GgufAliases =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["multilingual-fast"] = "gguf:gpustack/bge-reranker-v2-m3-GGUF",
+        };
+
+    /// <summary>
     /// Gets the model registry for the Reranker domain.
     /// Provides access to model resolution, alias management, and model enumeration.
     /// </summary>
@@ -65,7 +82,7 @@ public static class LocalReranker
     /// Loads a reranker model by name or path.
     /// </summary>
     /// <param name="modelIdOrPath">
-    /// Either a model alias (e.g., "default", "quality", "fast"),
+    /// Either a model alias (e.g., "default", "quality", "fast", or "multilingual-fast" for the GGUF route),
     /// a HuggingFace model ID (e.g., "cross-encoder/ms-marco-MiniLM-L-6-v2"),
     /// a local path to an ONNX model file,
     /// or a GGUF model (prefix with "gguf:" or use repo ending in "-GGUF").
@@ -96,12 +113,12 @@ public static class LocalReranker
         options.ModelId = baseId;
         options.QuantizationHint ??= qualifier;
 
-        // User alias translation precedes format detection: the gguf check below
-        // must see the TARGET (e.g. "my-rerank" -> "gguf:..." must enter the GGUF path).
-        if (RerankerModelRegistry.Default.TryGetUserAliasTarget(baseId, out var userAliasTarget))
+        // Alias translation precedes format detection: the gguf check below must see the TARGET
+        // (e.g. "my-rerank" -> "gguf:..." or "multilingual-fast" must enter the GGUF path).
+        if (TryFollowAlias(baseId, out var aliasTarget))
         {
-            modelIdOrPath = userAliasTarget!;
-            options.ModelId = userAliasTarget!;
+            modelIdOrPath = aliasTarget;
+            options.ModelId = aliasTarget;
         }
 
         // Check for GGUF format
@@ -157,7 +174,25 @@ public static class LocalReranker
     private static string FollowUserAlias(string modelId)
     {
         var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelId);
-        return RerankerModelRegistry.Default.TryGetUserAliasTarget(baseId, out var target) ? target! : modelId;
+        return TryFollowAlias(baseId, out var target) ? target : modelId;
+    }
+
+    /// <summary>
+    /// A user alias first — so a caller can point a built-in GGUF alias name somewhere else — then the
+    /// built-in GGUF aliases, applied to whatever the user alias gave.
+    /// </summary>
+    private static bool TryFollowAlias(string baseId, out string target)
+    {
+        var followed = RerankerModelRegistry.Default.TryGetUserAliasTarget(baseId, out var userTarget);
+        target = followed ? userTarget! : baseId;
+
+        if (GgufAliases.TryGetValue(target, out var ggufTarget))
+        {
+            target = ggufTarget;
+            followed = true;
+        }
+
+        return followed;
     }
 
     /// <summary>
@@ -357,7 +392,9 @@ public static class LocalReranker
     /// <returns>Available model aliases.</returns>
     public static IEnumerable<string> GetAvailableModels()
     {
-        return RerankerModelRegistry.Default.GetAliases().Select(a => a.Name);
+        return RerankerModelRegistry.Default.GetAliases().Select(a => a.Name)
+            .Concat(GgufAliases.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>

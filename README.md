@@ -265,7 +265,11 @@ GGUF models are auto-detected by `-GGUF` or `_gguf` in repo name, or `.gguf` fil
 | `large` | bge-reranker-large | 560M | 512 | Best accuracy |
 | `multilingual` | bge-reranker-v2-m3 | 568M | 8192 | Long docs, 100+ languages |
 
+`quality` and `large` were trained on English and Chinese; for other languages use `multilingual` or `multilingual-fast`.
+
 ### Reranker (GGUF via llama-server)
+
+The alias `multilingual-fast` loads bge-reranker-v2-m3 as a Q4_K_M GGUF (~440MB instead of ~2.3GB, and a fraction of the CPU latency).
 
 GGUF reranker models are auto-detected by `-GGUF` or `_gguf` in repo name.
 
