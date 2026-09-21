@@ -85,13 +85,15 @@ var reranker = await LocalReranker.LoadAsync("BAAI/bge-reranker-large");
 
 GGUF reranker models are auto-detected by repo name patterns (`-GGUF`, `_gguf`). LMSupply automatically downloads and manages llama-server binaries for GPU-accelerated inference.
 
-When a GGUF repository contains multiple quantization files, LMSupply selects the **largest quantization that fits in available memory** (VRAM + RAM), automatically choosing the best quality for your hardware.
+When a GGUF repository contains multiple quantization files, LMSupply loads **`Q4_K_M`** when the repository offers it and it fits in memory — or the quantization you name in `RerankerOptions.QuantizationHint` (e.g. `"Q8_0"`). If that file is missing or does not fit, it falls back to the largest quantization that fits in available memory (VRAM + RAM).
+
+**Scores are on one scale across backends.** llama-server's rank pooling returns a raw logit; LMSupply maps it through the same sigmoid the ONNX cross-encoder path uses, so `RankedResult.Score` is the documented 0..1 relevance whichever backend loaded the model, and a relevance threshold keeps its meaning when you switch between them.
 
 ```csharp
 using LMSupply.Reranker;
 
 // Load GGUF reranker model
-await using var reranker = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3-GGUF");
+await using var reranker = await LocalReranker.LoadAsync("gguf:gpustack/bge-reranker-v2-m3-GGUF");
 
 // Usage is identical to ONNX models
 var results = await reranker.RerankAsync(
@@ -104,8 +106,23 @@ var results = await reranker.RerankAsync(
 
 | Model Repository | Context | Best For |
 |------------------|---------|----------|
-| `BAAI/bge-reranker-v2-m3-GGUF` | 8K | Multilingual, long documents |
-| `jinaai/jina-reranker-v2-base-multilingual-GGUF` | 8K | Multilingual |
+| `gpustack/bge-reranker-v2-m3-GGUF` | 8K | Multilingual, long documents (Q4_K_M: 438 MB) |
+
+Other cross-encoder GGUF repositories take the same route (for example
+`gpustack/jina-reranker-v2-base-multilingual-GGUF`); the row above is the one this repository's tests load.
+
+`LocalReranker.IsModelDownloaded` and `DownloadModelAsync` accept these ids in every form `LoadAsync` does
+(`gguf:org/repo`, a `*-GGUF` repository, a local `.gguf` path), so a download-consent gate works the same
+for a GGUF model as for an ONNX alias:
+
+```csharp
+const string model = "gguf:gpustack/bge-reranker-v2-m3-GGUF";
+if (!LocalReranker.IsModelDownloaded(model))
+    await LocalReranker.DownloadModelAsync(model, progress: progress);   // outside any user-facing call
+
+await using var reranker = await LocalReranker.LoadAsync(
+    model, new RerankerOptions { DisableAutoDownload = true });          // never fetches
+```
 
 ### GGUF vs ONNX for Reranking
 

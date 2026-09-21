@@ -271,8 +271,10 @@ GGUF reranker models are auto-detected by `-GGUF` or `_gguf` in repo name.
 
 | Model Repository | Context | Best For |
 |------------------|---------|----------|
-| `BAAI/bge-reranker-v2-m3-GGUF` | 8K | Multilingual, long docs |
-| `jinaai/jina-reranker-v2-base-multilingual-GGUF` | 8K | Multilingual |
+| `gpustack/bge-reranker-v2-m3-GGUF` | 8K | Multilingual, long docs (Q4_K_M: 438 MB) |
+
+Scores are on the same 0..1 scale as the ONNX route, and `LocalReranker.IsModelDownloaded` /
+`DownloadModelAsync` accept the same GGUF ids `LoadAsync` does. See the [Reranker Guide](docs/reranker.md).
 
 ### Generator
 

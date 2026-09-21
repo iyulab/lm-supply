@@ -47,9 +47,9 @@ internal sealed class GgufDownloader : IDisposable
         // Offline: the cache is the only source. Read it, never list the repository, never write.
         if (_localFilesOnly)
         {
-            var cached = TrySelectFromLocalCache(repoId, preferredQuantization)
+            var cached = TrySelectFromLocalCache(_cacheDirectory, repoId, preferredQuantization)
                 ?? throw new ModelNotFoundException(
-                    $"No GGUF file of model '{repoId}' is in the local cache ({GetCacheDirectory(repoId)}) and downloads are disabled.",
+                    $"No GGUF file of model '{repoId}' is in the local cache ({GetCacheDirectory(_cacheDirectory, repoId)}) and downloads are disabled.",
                     repoId);
 
             progress?.Report(new DownloadProgress
@@ -75,9 +75,10 @@ internal sealed class GgufDownloader : IDisposable
         // Select best file based on quantization preference
         var selectedFile = SelectBestFile(ggufFiles, preferredQuantization);
 
-        // Check cache
-        var cachePath = GetCachePath(repoId, selectedFile.Path);
-        if (File.Exists(cachePath))
+        // Check cache: a cached file counts only at the length the repository lists; one of another
+        // length is not this file and is fetched again.
+        var cachePath = GetCachePath(_cacheDirectory, repoId, selectedFile.Path);
+        if (ResumableFileDownload.IsUsableCachedFile(cachePath, selectedFile.Size > 0 ? selectedFile.Size : null))
         {
             progress?.Report(new DownloadProgress
             {
@@ -145,19 +146,27 @@ internal sealed class GgufDownloader : IDisposable
             "Please use a repository that provides a single-file GGUF model.");
     }
 
-    private string GetCacheDirectory(string repoId) => Path.GetDirectoryName(GetCachePath(repoId, "model.gguf"))!;
+    private static string GetCacheDirectory(string cacheDirectory, string repoId)
+        => Path.GetDirectoryName(GetCachePath(cacheDirectory, repoId, "model.gguf"))!;
 
     /// <summary>
     /// The cached GGUF file an offline load opens: the one matching the preferred quantization when
     /// there is one, otherwise the first by name. Null when nothing of the repository is cached.
+    /// A file that holds no model — a Git LFS pointer — is not counted, and a download that stopped half
+    /// way never reaches a <c>.gguf</c> name (see <see cref="ResumableFileDownload"/>).
     /// </summary>
-    private string? TrySelectFromLocalCache(string repoId, string? preferredQuantization)
+    /// <remarks>
+    /// Static and free of side effects so that <see cref="LocalReranker.IsModelDownloaded"/> answers from
+    /// the same choice the loader makes, without opening an HTTP client to ask.
+    /// </remarks>
+    internal static string? TrySelectFromLocalCache(string cacheDirectory, string repoId, string? preferredQuantization)
     {
-        var dir = GetCacheDirectory(repoId);
+        var dir = GetCacheDirectory(cacheDirectory, repoId);
         if (!Directory.Exists(dir))
             return null;
 
         var files = Directory.EnumerateFiles(dir, "*.gguf", SearchOption.AllDirectories)
+            .Where(CacheManager.IsCachedFile)
             .OrderBy(f => f, StringComparer.Ordinal)
             .ToList();
         if (files.Count == 0)
@@ -174,45 +183,30 @@ internal sealed class GgufDownloader : IDisposable
         return files[0];
     }
 
-    private string GetCachePath(string repoId, string filename)
+    private static string GetCachePath(string cacheDirectory, string repoId, string filename)
     {
         var safeRepoId = repoId.Replace('/', '_').Replace('\\', '_');
-        return Path.Combine(_cacheDirectory, "gguf-rerankers", safeRepoId, filename);
+        return Path.Combine(cacheDirectory, "gguf-rerankers", safeRepoId, filename);
     }
 
-    private async Task DownloadFileAsync(
+    // Through the shared resumable download: the bytes land in a ".part" and take the final name only
+    // once the whole file is there, so a transfer that stops half way never leaves a truncated model
+    // under a name the cache - and IsModelDownloaded - would accept.
+    private Task DownloadFileAsync(
         string url,
         string destinationPath,
         string fileName,
         long totalBytes,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
-    {
-        using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        var contentLength = response.Content.Headers.ContentLength ?? totalBytes;
-        var downloadedBytes = 0L;
-
-        await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        await using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
-
-        var buffer = new byte[81920]; // 80KB buffer
-        int bytesRead;
-
-        while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
+        => ResumableFileDownload.DownloadAsync(_httpClient, new ResumableFileDownload.Request
         {
-            await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
-            downloadedBytes += bytesRead;
-
-            progress?.Report(new DownloadProgress
-            {
-                FileName = fileName,
-                TotalBytes = contentLength,
-                BytesDownloaded = downloadedBytes
-            });
-        }
-    }
+            Url = url,
+            DestinationPath = destinationPath,
+            FileName = fileName,
+            ExpectedSize = totalBytes > 0 ? totalBytes : null,
+            Progress = progress,
+        }, cancellationToken);
 
     public void Dispose()
     {

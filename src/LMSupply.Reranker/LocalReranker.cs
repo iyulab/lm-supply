@@ -20,6 +20,21 @@ public static class LocalReranker
     public const string DefaultModel = "default";
 
     /// <summary>
+    /// The quantization a GGUF repository is loaded at when it offers several. One constant, because the
+    /// loader, <see cref="DownloadModelAsync"/> and <see cref="IsModelDownloaded"/> have to pick the same file.
+    /// </summary>
+    internal const string DefaultGgufQuantization = "Q4_K_M";
+
+    /// <summary>
+    /// The quantization a GGUF load asks for: the caller's <see cref="LMSupplyOptionsBase.QuantizationHint"/>
+    /// (e.g. <c>"Q8_0"</c>) when there is one, <see cref="DefaultGgufQuantization"/> otherwise. When the
+    /// repository has no such file, or it does not fit in memory, selection falls back to the largest
+    /// file that fits.
+    /// </summary>
+    internal static string GgufQuantizationFor(RerankerOptions options)
+        => string.IsNullOrWhiteSpace(options.QuantizationHint) ? DefaultGgufQuantization : options.QuantizationHint;
+
+    /// <summary>
     /// Gets the model registry for the Reranker domain.
     /// Provides access to model resolution, alias management, and model enumeration.
     /// </summary>
@@ -56,7 +71,7 @@ public static class LocalReranker
     /// or a GGUF model (prefix with "gguf:" or use repo ending in "-GGUF").
     /// <para>
     /// <b>GGUF compatibility:</b> Only traditional cross-encoder models are supported
-    /// (e.g., BAAI/bge-reranker-v2-m3-GGUF, jinaai/jina-reranker-v1-turbo-en-GGUF).
+    /// (e.g., gpustack/bge-reranker-v2-m3-GGUF, gpustack/jina-reranker-v1-turbo-en-GGUF).
     /// Generative rerankers (e.g., Qwen3-Reranker) that require prompt-based "yes/no"
     /// scoring are NOT compatible with llama-server's --pooling rank mode and will
     /// produce near-zero garbage scores.
@@ -129,6 +144,22 @@ public static class LocalReranker
         return false;
     }
 
+    private static string StripGgufPrefix(string modelIdOrPath)
+        => modelIdOrPath.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase)
+            ? modelIdOrPath[5..]
+            : modelIdOrPath;
+
+    /// <summary>
+    /// What <see cref="LoadAsync"/> does to an id before it chooses a backend, for the entry points that
+    /// have to choose the same one: a user alias is followed to its target first, because the target is
+    /// what says whether this is a GGUF model.
+    /// </summary>
+    private static string FollowUserAlias(string modelId)
+    {
+        var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelId);
+        return RerankerModelRegistry.Default.TryGetUserAliasTarget(baseId, out var target) ? target! : modelId;
+    }
+
     /// <summary>
     /// Loads a GGUF reranker model.
     /// </summary>
@@ -141,10 +172,7 @@ public static class LocalReranker
         string modelPath;
         string modelId;
 
-        // Remove gguf: prefix if present
-        var cleanPath = modelIdOrPath.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase)
-            ? modelIdOrPath[5..]
-            : modelIdOrPath;
+        var cleanPath = StripGgufPrefix(modelIdOrPath);
 
         // Check if it's a local file
         if (File.Exists(cleanPath))
@@ -161,7 +189,7 @@ public static class LocalReranker
             using var downloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
             modelPath = await downloader.DownloadAsync(
                 cleanPath,
-                preferredQuantization: "Q4_K_M",
+                preferredQuantization: GgufQuantizationFor(options),
                 progress: progress,
                 cancellationToken: cancellationToken);
 
@@ -172,7 +200,7 @@ public static class LocalReranker
             throw new ModelNotFoundException(
                 $"GGUF reranker model not found: '{modelIdOrPath}'. " +
                 "Provide a local path to a .gguf file or a HuggingFace repo ID " +
-                "(e.g., 'gguf:BAAI/bge-reranker-v2-m3-GGUF').",
+                "(e.g., 'gguf:gpustack/bge-reranker-v2-m3-GGUF').",
                 modelIdOrPath);
         }
 
@@ -200,14 +228,31 @@ public static class LocalReranker
     /// Checks whether a model is already downloaded and available in the local cache.
     /// This does NOT load the model into memory or initialize the ONNX Runtime.
     /// </summary>
+    /// <remarks>
+    /// The answer is the one a load with <see cref="RerankerOptions.DisableAutoDownload"/> would act on:
+    /// <see langword="true"/> exactly when that load finds its file. That holds for GGUF ids too — the
+    /// probe looks where the GGUF loader looks and picks the quantization the loader picks.
+    /// </remarks>
     /// <param name="modelId">
-    /// A model alias (e.g., "default"), a known model ID, or a HuggingFace repo ID.
+    /// A model alias (e.g., "default"), a known model ID, a HuggingFace repo ID, or a GGUF model in any
+    /// form <see cref="LoadAsync"/> accepts (<c>gguf:org/repo</c>, a <c>*-GGUF</c> repo, a local <c>.gguf</c> path).
     /// </param>
     /// <param name="cacheDirectory">Custom cache directory, or <see langword="null"/> for default.</param>
     /// <returns><see langword="true"/> if the model files exist in cache and are not LFS pointers.</returns>
     public static bool IsModelDownloaded(string modelId, string? cacheDirectory = null)
     {
         var cacheDir = cacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+
+        modelId = FollowUserAlias(modelId);
+        if (IsGgufModel(modelId))
+        {
+            var ggufTarget = StripGgufPrefix(modelId);
+            if (File.Exists(ggufTarget))
+                return CacheManager.IsCachedFile(ggufTarget);
+
+            return ggufTarget.Contains('/')
+                && GgufDownloader.TrySelectFromLocalCache(cacheDir, ggufTarget, DefaultGgufQuantization) != null;
+        }
 
         // Resolve alias to model info
         var registry = RerankerModelRegistry.Default;
@@ -257,6 +302,30 @@ public static class LocalReranker
 
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         var registry = RerankerModelRegistry.Default;
+
+        // A GGUF id is fetched the way the GGUF loader fetches it - one file, at the loader's quantization,
+        // into the loader's cache layout. The raw-repository branch below would pull every quantization of
+        // the repository into a layout the loader never reads.
+        var ggufCandidate = FollowUserAlias(modelId);
+        if (IsGgufModel(ggufCandidate))
+        {
+            var ggufTarget = StripGgufPrefix(ggufCandidate);
+            if (File.Exists(ggufTarget))
+                return;
+
+            if (!ggufTarget.Contains('/'))
+            {
+                throw new ModelNotFoundException(
+                    $"GGUF reranker model not found: '{modelId}'. " +
+                    "Provide a local path to a .gguf file or a HuggingFace repo ID " +
+                    "(e.g., 'gguf:gpustack/bge-reranker-v2-m3-GGUF').",
+                    modelId);
+            }
+
+            using var ggufDownloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+            await ggufDownloader.DownloadAsync(ggufTarget, GgufQuantizationFor(options), progress, cancellationToken);
+            return;
+        }
 
         ModelInfo modelInfo;
         try

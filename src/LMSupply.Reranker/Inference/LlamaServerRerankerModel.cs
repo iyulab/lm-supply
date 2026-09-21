@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using LMSupply.Download;
 using LMSupply.Llama.Server;
+using LMSupply.Reranker.Core;
 using LMSupply.Reranker.Models;
 
 namespace LMSupply.Reranker.Inference;
@@ -8,6 +9,12 @@ namespace LMSupply.Reranker.Inference;
 /// <summary>
 /// GGUF reranker model implementation using llama-server with rank pooling.
 /// </summary>
+/// <remarks>
+/// llama-server's <c>relevance_score</c> under rank pooling is the classifier's raw logit. It is mapped
+/// through the same sigmoid the ONNX cross-encoder path applies, so that <see cref="RankedResult.Score"/>
+/// is the documented 0..1 relevance on every backend and a threshold a caller calibrated on one backend
+/// keeps its meaning on the other. The sigmoid is monotonic: the ranking is the one the logits give.
+/// </remarks>
 internal sealed class LlamaServerRerankerModel : IRerankerModel
 {
     private readonly ServerLease _serverLease;
@@ -149,30 +156,58 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
             topK ?? docList.Count,
             cancellationToken);
 
-        // Convert to RankedResult with documents
-        var rankedResults = results
-            .Select(r => new RankedResult(r.Index, r.RelevanceScore, docList[r.Index]))
+        // Warn if all scores are near-zero — likely model incompatibility with --pooling rank
+        // (e.g., generative rerankers like Qwen3-Reranker require prompt-based scoring, not rank pooling)
+        if (AllLogitsNearZero(results))
+        {
+            Trace.TraceWarning(
+                $"[LlamaServerReranker] All raw rerank scores are near-zero (max={results.Max(r => r.RelevanceScore):E2}). " +
+                $"Model '{ModelId}' may be incompatible with llama-server's rank pooling mode. " +
+                "Generative rerankers (e.g., Qwen3-Reranker) require prompt-based scoring, not --pooling rank. " +
+                "Consider using a cross-encoder model (e.g., gpustack/bge-reranker-v2-m3-GGUF).");
+        }
+
+        return ToRankedResults(results, docList, topK);
+    }
+
+    /// <summary>
+    /// The server's rows as ranked results: logit to 0..1 score, best first, cut to <paramref name="topK"/>.
+    /// </summary>
+    internal static IReadOnlyList<RankedResult> ToRankedResults(
+        IReadOnlyList<RerankResult> serverResults,
+        IReadOnlyList<string> documents,
+        int? topK)
+    {
+        var ranked = serverResults
+            .Select(r => new RankedResult(r.Index, ScoreNormalizer.Sigmoid(r.RelevanceScore), documents[r.Index]))
             .OrderByDescending(r => r.Score)
             .ToList();
 
-        // Warn if all scores are near-zero — likely model incompatibility with --pooling rank
-        // (e.g., generative rerankers like Qwen3-Reranker require prompt-based scoring, not rank pooling)
-        if (rankedResults.Count > 0 && rankedResults.All(r => MathF.Abs(r.Score) < 1e-4f))
-        {
-            Trace.TraceWarning(
-                $"[LlamaServerReranker] All rerank scores are near-zero (max={rankedResults.Max(r => r.Score):E2}). " +
-                $"Model '{ModelId}' may be incompatible with llama-server's rank pooling mode. " +
-                "Generative rerankers (e.g., Qwen3-Reranker) require prompt-based scoring, not --pooling rank. " +
-                "Consider using a cross-encoder model (e.g., BAAI/bge-reranker-v2-m3-GGUF).");
-        }
-
-        if (topK.HasValue && topK.Value < rankedResults.Count)
-        {
-            return rankedResults.Take(topK.Value).ToList();
-        }
-
-        return rankedResults;
+        return topK.HasValue && topK.Value < ranked.Count
+            ? ranked.Take(topK.Value).ToList()
+            : ranked;
     }
+
+    /// <summary>
+    /// The server's rows as 0..1 scores in the order the documents were given.
+    /// </summary>
+    internal static float[] ToScores(IReadOnlyList<RerankResult> serverResults, int documentCount)
+    {
+        var scores = new float[documentCount];
+        foreach (var result in serverResults)
+        {
+            scores[result.Index] = ScoreNormalizer.Sigmoid(result.RelevanceScore);
+        }
+
+        return scores;
+    }
+
+    /// <summary>
+    /// A model that rank pooling cannot score answers every pair with a logit of about zero. The test is
+    /// on the raw logits: after the sigmoid that signature reads 0.5, not 0.
+    /// </summary>
+    internal static bool AllLogitsNearZero(IReadOnlyList<RerankResult> serverResults)
+        => serverResults.Count > 0 && serverResults.All(r => MathF.Abs(r.RelevanceScore) < 1e-4f);
 
     /// <inheritdoc />
     public async Task<float[]> ScoreAsync(
@@ -194,14 +229,7 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
             docList.Count,
             cancellationToken);
 
-        // Return scores in original document order
-        var scores = new float[docList.Count];
-        foreach (var result in results)
-        {
-            scores[result.Index] = result.RelevanceScore;
-        }
-
-        return scores;
+        return ToScores(results, docList.Count);
     }
 
     /// <inheritdoc />

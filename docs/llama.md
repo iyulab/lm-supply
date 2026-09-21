@@ -117,7 +117,7 @@ Reranker GGUF models use llama-server with `--embedding --pooling rank`:
 using LMSupply.Reranker;
 
 // llama-server is automatically started in reranking mode
-await using var model = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3-GGUF");
+await using var model = await LocalReranker.LoadAsync("gguf:gpustack/bge-reranker-v2-m3-GGUF");
 
 // Rerank documents
 var results = await model.RerankAsync(
