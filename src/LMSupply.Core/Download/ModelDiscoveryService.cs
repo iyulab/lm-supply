@@ -70,6 +70,9 @@ public sealed class ModelDiscoveryService : IDisposable
     private static readonly HashSet<string> ConfigFileNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "config.json",
+        // sentence-transformers' own settings: max_seq_length is where the reference implementation
+        // truncates, which is not always the 512 the architecture allows.
+        "sentence_bert_config.json",
         "tokenizer.json",
         "tokenizer_config.json",
         "vocab.json",

@@ -543,7 +543,9 @@ public sealed class HuggingFaceDownloader : IDisposable
             "tokenizer.json",
             "tokenizer_config.json",
             "special_tokens_map.json",
-            "sentencepiece.bpe.model"
+            "sentencepiece.bpe.model",
+            // sentence-transformers' own settings (max_seq_length). Optional: most repos lack it.
+            "sentence_bert_config.json"
         ];
     }
 
@@ -580,6 +582,7 @@ public sealed class HuggingFaceDownloader : IDisposable
                filename.Equals("tokenizer_config.json", StringComparison.OrdinalIgnoreCase) ||
                filename.Equals("special_tokens_map.json", StringComparison.OrdinalIgnoreCase) ||
                filename.Equals("config.json", StringComparison.OrdinalIgnoreCase) ||
+               filename.Equals("sentence_bert_config.json", StringComparison.OrdinalIgnoreCase) ||
                filename.Equals("sentencepiece.bpe.model", StringComparison.OrdinalIgnoreCase);
     }
 

@@ -4,6 +4,33 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.71.0] - 2026-09-21
+
+### Changed
+
+- **The embedder truncates where the model says it does.** A sentence-transformers model declares
+  its sequence length in `sentence_bert_config.json` (`max_seq_length` - 256 for
+  `all-MiniLM-L6-v2`, not the 512 its architecture allows). The file was neither downloaded nor
+  read, so a model loaded by repository id ran at the 512 default and its embeddings diverged from
+  the reference implementation on inputs longer than the declared length. It is now downloaded
+  (an existing cache picks it up on the next online load) and used when the caller left
+  `EmbedderOptions.MaxSequenceLength` at its default: the model's declaration first, then the
+  catalog entry for a known alias, then 512. **An explicit value still wins.** After loading,
+  `MaxSequenceLength` holds the length in effect. **Behaviour change:** for a model that declares a
+  length other than the one previously used, inputs longer than it embed differently - vectors
+  stored from such inputs need re-embedding. Known limit: the option is an `int`, so "the caller
+  chose exactly 512" cannot be told from "the caller chose nothing".
+
+### Added
+
+- `EmbedderOptions.DefaultMaxSequenceLength`.
+- **Special tokens typed into the input are ordinary text - now a tested guarantee.** `"a [SEP] b"`
+  tokenizes as `a [ sep ] b`, so user content cannot inject a separator or classifier token; the
+  special ids appear exactly where the tokenizer puts them. This differs from sentence-transformers,
+  which maps such text to the special ids, and costs cosine agreement on inputs that contain them.
+  The behaviour itself is unchanged from 0.70.0; it was a side effect and is now pinned for cased and
+  uncased vocabularies.
+
 ## [0.70.0] - 2026-09-21
 
 ### Fixed

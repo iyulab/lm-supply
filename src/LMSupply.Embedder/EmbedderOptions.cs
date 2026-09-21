@@ -7,11 +7,19 @@ namespace LMSupply.Embedder;
 /// </summary>
 public sealed class EmbedderOptions : LMSupplyOptionsBase
 {
+    /// <summary>The value <see cref="MaxSequenceLength"/> starts with.</summary>
+    public const int DefaultMaxSequenceLength = 512;
+
     /// <summary>
-    /// Gets or sets the maximum sequence length for tokenization.
-    /// Defaults to 512.
+    /// Gets or sets the maximum sequence length for tokenization. Defaults to 512.
     /// </summary>
-    public int MaxSequenceLength { get; set; } = 512;
+    /// <remarks>
+    /// Left at the default, the length is taken from the model: first from its
+    /// <c>sentence_bert_config.json</c> (<c>max_seq_length</c> - where sentence-transformers truncates,
+    /// e.g. 256 for all-MiniLM-L6-v2), then from the catalog entry for a known alias, and only then
+    /// 512. Any other value is used as given. After loading, this property holds the length in effect.
+    /// </remarks>
+    public int MaxSequenceLength { get; set; } = DefaultMaxSequenceLength;
 
     /// <summary>
     /// Gets or sets whether to normalize embeddings to unit vectors (L2 normalization).

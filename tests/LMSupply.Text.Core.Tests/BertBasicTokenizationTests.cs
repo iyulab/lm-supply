@@ -131,6 +131,41 @@ public class BertBasicTokenizationTests : IDisposable
         tokens.Should().NotContain("[UNK]");
     }
 
+    private static readonly string[] SpecialTokenVocab =
+    [
+        "[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", "a", "b", "[", "]", "sep", "cl", "##s", "mask", "SEP", "CLS", "MASK",
+    ];
+
+    /// <summary>
+    /// Special tokens typed into the input are ordinary text: user content cannot inject a separator
+    /// or a classifier token. This is a deliberate difference from sentence-transformers, which maps
+    /// them to the special ids (<c>split_special_tokens=False</c>); it costs cosine agreement on such
+    /// inputs and buys the guarantee that <c>[SEP]</c> appears where the tokenizer put it and nowhere else.
+    /// </summary>
+    [Theory]
+    [InlineData(true, "a [SEP] b", new[] { "a", "[", "sep", "]", "b" })]
+    [InlineData(true, "a [CLS] b", new[] { "a", "[", "cl", "##s", "]", "b" })]
+    [InlineData(true, "[MASK]", new[] { "[", "mask", "]" })]
+    [InlineData(false, "a [SEP] b", new[] { "a", "[", "SEP", "]", "b" })]
+    [InlineData(false, "a [CLS] b", new[] { "a", "[", "CLS", "]", "b" })]
+    public async Task SpecialTokensTypedAsText_AreOrdinaryText(bool uncased, string text, string[] expected)
+    {
+        WriteVocab(SpecialTokenVocab);
+        WriteTokenizerConfig(doLowerCase: uncased, stripAccents: uncased ? null : false);
+
+        (await TokensOf(text)).Should().Equal(expected);
+
+        // With the special tokens added, each special id appears exactly where the tokenizer puts it.
+        var tokenizer = await TokenizerFactory.CreateWordPieceAsync(_modelDir, maxSequenceLength: 32);
+        var ids = tokenizer.Encode(text, addSpecialTokens: true);
+        var sep = Array.IndexOf(SpecialTokenVocab, "[SEP]");
+        var cls = Array.IndexOf(SpecialTokenVocab, "[CLS]");
+        ids.Count(id => id == sep).Should().Be(1);
+        ids.Count(id => id == cls).Should().Be(1);
+        ids[0].Should().Be(cls);
+        ids[^1].Should().Be(sep);
+    }
+
     private async Task<string[]> TokensOf(string text)
     {
         var vocab = File.ReadAllLines(Path.Combine(_modelDir, "vocab.txt"));

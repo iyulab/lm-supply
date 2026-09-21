@@ -98,6 +98,12 @@ public static class LocalEmbedder
 
         ModelInfo? loadedModelInfo = null;
 
+        // "The caller did not choose a length" can only be read off the default value - the option
+        // is a plain int. A caller who really wants 512 on a model that declares something else
+        // cannot say so today.
+        var callerLeftDefaultSequenceLength = options.MaxSequenceLength == EmbedderOptions.DefaultMaxSequenceLength;
+        int? catalogMaxSequenceLength = null;
+
         // Check if it's a local path
         if (File.Exists(modelIdOrPath) || modelIdOrPath.EndsWith(".onnx", StringComparison.OrdinalIgnoreCase))
         {
@@ -112,11 +118,9 @@ public static class LocalEmbedder
         {
             loadedModelInfo = modelInfo;
 
-            // Apply model-specific defaults
-            if (options.MaxSequenceLength == 512) // default value
-            {
-                options.MaxSequenceLength = modelInfo!.MaxSequenceLength;
-            }
+            // Apply model-specific defaults (the sequence length is settled below, once the model's
+            // own files are on disk).
+            catalogMaxSequenceLength = modelInfo!.MaxSequenceLength;
             options.PoolingMode = modelInfo!.PoolingMode;
             options.DoLowerCase = modelInfo.DoLowerCase;
 
@@ -200,6 +204,15 @@ public static class LocalEmbedder
         // Resolve tokenizer directory: prefer the directory that actually contains tokenizer
         // assets. Probe primary first, then fall back to the repo root.
         var tokenizerDir = ResolveTokenizerDir(tokenizerPrimaryDir, tokenizerFallbackDir, modelId);
+
+        // Sequence length: an explicit caller value wins; otherwise what the model declares in
+        // sentence_bert_config.json (where sentence-transformers truncates - 256 for all-MiniLM-L6-v2,
+        // not the 512 its architecture allows), then the catalog, then the default.
+        options.MaxSequenceLength = SentenceBertConfig.ResolveMaxSequenceLength(
+            options.MaxSequenceLength,
+            callerLeftDefaultSequenceLength,
+            SentenceBertConfig.TryReadMaxSequenceLength(tokenizerDir, tokenizerPrimaryDir, tokenizerFallbackDir),
+            catalogMaxSequenceLength);
 
         // Load tokenizer using Text.Core (auto-detects WordPiece vs SentencePiece)
         var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(tokenizerDir, options.MaxSequenceLength);

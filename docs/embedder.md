@@ -132,7 +132,9 @@ var options = new EmbedderOptions
     // GPU/CPU execution provider
     Provider = ExecutionProvider.Auto,  // Auto, Cpu, Cuda, CoreML
 
-    // Maximum sequence length (tokens)
+    // Maximum sequence length (tokens). Left at the default (512), the model decides: its
+    // sentence_bert_config.json max_seq_length first, then the catalog, then 512. Any other value
+    // is used as given. After loading, this property holds the length in effect.
     MaxSequenceLength = 512,
 
     // Normalize embeddings to unit length
