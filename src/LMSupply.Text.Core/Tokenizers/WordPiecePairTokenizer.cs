@@ -6,6 +6,7 @@ namespace LMSupply.Text;
 internal sealed class WordPiecePairTokenizer : IPairTokenizer
 {
     private readonly Tokenizer _tokenizer;
+    private readonly BertBasicTokenizer _basic;
     private readonly SpecialTokens _specialTokens;
     private readonly int _maxSequenceLength;
 
@@ -18,16 +19,17 @@ internal sealed class WordPiecePairTokenizer : IPairTokenizer
     public int? SepTokenId => _specialTokens.SepTokenId;
     public int MaxSequenceLength => _maxSequenceLength;
 
-    public WordPiecePairTokenizer(Tokenizer tokenizer, SpecialTokens specialTokens, int maxSequenceLength)
+    public WordPiecePairTokenizer(Tokenizer tokenizer, SpecialTokens specialTokens, int maxSequenceLength, BertBasicTokenizer? basic = null)
     {
         _tokenizer = tokenizer;
+        _basic = basic ?? new BertBasicTokenizer(BertNormalization.Uncased);
         _specialTokens = specialTokens;
         _maxSequenceLength = maxSequenceLength;
     }
 
     public int[] Encode(string text, bool addSpecialTokens = true)
     {
-        var ids = _tokenizer.EncodeToIds(text).ToArray();
+        var ids = _tokenizer.EncodeToIds(_basic.Normalize(text)).ToArray();
 
         if (!addSpecialTokens)
             return ids;
@@ -62,7 +64,7 @@ internal sealed class WordPiecePairTokenizer : IPairTokenizer
     public EncodedSequence EncodeSequence(string text, int? maxLength = null)
     {
         var length = maxLength ?? _maxSequenceLength;
-        var tokens = _tokenizer.EncodeToIds(text).ToArray();
+        var tokens = _tokenizer.EncodeToIds(_basic.Normalize(text)).ToArray();
 
         // maxLength is a truncation cap only — sized to real content; EncodeBatch pads to the
         // longest member (see SentencePiecePairTokenizer.EncodeSequence for the rationale).
@@ -112,8 +114,8 @@ internal sealed class WordPiecePairTokenizer : IPairTokenizer
     {
         var length = maxLength ?? _maxSequenceLength;
 
-        var tokens1 = _tokenizer.EncodeToIds(text1).ToArray();
-        var tokens2 = _tokenizer.EncodeToIds(text2).ToArray();
+        var tokens1 = _tokenizer.EncodeToIds(_basic.Normalize(text1)).ToArray();
+        var tokens2 = _tokenizer.EncodeToIds(_basic.Normalize(text2)).ToArray();
 
         // Format: [CLS] text1 [SEP] text2 [SEP]
         var availableLength = length - 3; // Reserve 3 for special tokens

@@ -60,6 +60,11 @@ var sentencepiecePair = await TokenizerFactory.CreateSentencePiecePairAsync(mode
 The `CreateAutoPairAsync` method automatically detects the tokenizer type:
 
 1. **vocab.txt exists** → WordPiece tokenizer
+   - BERT's basic tokenization runs before WordPiece — lowercasing and accent stripping for uncased
+     models, punctuation and CJK ideographs split into words of their own — as the model declares it in
+     `tokenizer.json` (`BertNormalizer` / `BertPreTokenizer`) or `tokenizer_config.json`
+     (`do_lower_case`, `strip_accents`, `tokenize_chinese_chars`). Token ids match the HuggingFace
+     `tokenizers` library.
 2. **tokenizer.json exists** → Parse `model.type` field:
    - `WordPiece` → WordPiece tokenizer
    - `Unigram` or `BPE` → SentencePiece-compatible tokenizer

@@ -590,7 +590,7 @@ public class RerankerFunctionalTests
     public async Task L_GgufModel_LoadsSuccessfully()
     {
         // R-Q5: Load a GGUF reranker via llama-server (cross-encoder only)
-        await using var model = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3-GGUF", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalReranker.LoadAsync("multilingual-fast", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
     }
@@ -601,7 +601,7 @@ public class RerankerFunctionalTests
     public async Task Q_GgufReranker_ProducesValidScores()
     {
         // R-Q5: GGUF reranker should produce meaningful, non-zero scores
-        await using var model = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3-GGUF", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalReranker.LoadAsync("multilingual-fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "What is machine learning?";
         string[] docs =
@@ -625,7 +625,7 @@ public class RerankerFunctionalTests
     public async Task Q_GgufReranker_RanksRelevantHigher()
     {
         // R-Q6: GGUF reranker should rank relevant doc higher than irrelevant
-        await using var model = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3-GGUF", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalReranker.LoadAsync("multilingual-fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var query = "How does photosynthesis work?";
         string[] docs =

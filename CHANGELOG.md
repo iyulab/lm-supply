@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.70.0] - 2026-09-21
+
+### Fixed
+
+- **Breaking — WordPiece (BERT-family) models are tokenized the way they were trained.** The WordPiece
+  path looked whitespace-separated words up in the vocabulary and did nothing else: no lowercasing, no
+  accent stripping, no splitting of punctuation or CJK ideographs. On an uncased vocabulary that made
+  every capitalized word (`The`, `Paris`), every word with punctuation attached (`dog?!`, `France.`)
+  and every accented word (`Café`) an `[UNK]`, so embeddings and relevance scores matched the
+  reference implementation only for lowercase, space-separated ASCII. BERT's basic tokenization now
+  runs first, configured from what the model declares — `tokenizer.json` (`BertNormalizer`,
+  `BertPreTokenizer`), then `tokenizer_config.json` (`do_lower_case`, `strip_accents`,
+  `tokenize_chinese_chars`); a model that ships neither is treated as cased when its vocabulary holds
+  uppercase pieces. Token ids now equal the HuggingFace `tokenizers` output, including for tab/newline
+  separated words and for ASCII symbols such as `$ + =`.
+  Affected: every model that loads through `vocab.txt` or a WordPiece `tokenizer.json` — in the
+  embedder `bge-base-en-v1.5`, `bge-large-en-v1.5`, `e5-small-v2`, `e5-base-v2`, `all-mpnet-base-v2`,
+  `nomic-embed-text-v1.5` and any such repository loaded by id (e.g. `all-MiniLM-L6-v2`); in the
+  reranker `default`, `fast` and `ms-marco-l12`. The SentencePiece models (`default`/`quality` =
+  bge-m3, `fast`/`large` = multilingual-e5, reranker `quality`/`large`/`multilingual`) are untouched.
+  Migration: **vectors stored from an affected model were computed from the old token ids — re-embed
+  them**, or queries and documents will disagree wherever text has capitals or punctuation. Reranker
+  scores from the affected aliases change (towards the model's own), so re-check any threshold
+  calibrated on them.
+
 ## [0.69.0] - 2026-09-21
 
 ### Added

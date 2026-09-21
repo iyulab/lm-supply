@@ -6,6 +6,7 @@ namespace LMSupply.Text;
 internal sealed class WordPieceSequenceTokenizer : ISequenceTokenizer
 {
     private readonly Tokenizer _tokenizer;
+    private readonly BertBasicTokenizer _basic;
     private readonly SpecialTokens _specialTokens;
     private readonly int _maxSequenceLength;
 
@@ -18,16 +19,17 @@ internal sealed class WordPieceSequenceTokenizer : ISequenceTokenizer
     public int? SepTokenId => _specialTokens.SepTokenId;
     public int MaxSequenceLength => _maxSequenceLength;
 
-    public WordPieceSequenceTokenizer(Tokenizer tokenizer, SpecialTokens specialTokens, int maxSequenceLength)
+    public WordPieceSequenceTokenizer(Tokenizer tokenizer, SpecialTokens specialTokens, int maxSequenceLength, BertBasicTokenizer? basic = null)
     {
         _tokenizer = tokenizer;
+        _basic = basic ?? new BertBasicTokenizer(BertNormalization.Uncased);
         _specialTokens = specialTokens;
         _maxSequenceLength = maxSequenceLength;
     }
 
     public int[] Encode(string text, bool addSpecialTokens = true)
     {
-        var ids = _tokenizer.EncodeToIds(text).ToArray();
+        var ids = _tokenizer.EncodeToIds(_basic.Normalize(text)).ToArray();
 
         if (!addSpecialTokens)
             return ids;
@@ -63,7 +65,7 @@ internal sealed class WordPieceSequenceTokenizer : ISequenceTokenizer
     public EncodedSequence EncodeSequence(string text, int? maxLength = null)
     {
         var length = maxLength ?? _maxSequenceLength;
-        var tokens = _tokenizer.EncodeToIds(text).ToArray();
+        var tokens = _tokenizer.EncodeToIds(_basic.Normalize(text)).ToArray();
 
         // Calculate available space (excluding [CLS] and [SEP]). maxLength is a truncation cap
         // only — the sequence is sized to real content; EncodeBatch pads to the longest member.

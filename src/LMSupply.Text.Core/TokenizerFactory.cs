@@ -43,7 +43,7 @@ public static class TokenizerFactory
                 $"No vocabulary file found. Expected vocab.txt or tokenizer.json in: {modelDir}");
         }
 
-        return new WordPieceSequenceTokenizer(tokenizer, specialTokens, maxSequenceLength);
+        return new WordPieceSequenceTokenizer(tokenizer, specialTokens, maxSequenceLength, LoadBasicTokenizer(modelDir));
     }
 
     /// <summary>
@@ -80,7 +80,7 @@ public static class TokenizerFactory
                 $"No vocabulary file found. Expected vocab.txt or tokenizer.json in: {modelDir}");
         }
 
-        return new WordPiecePairTokenizer(tokenizer, specialTokens, maxSequenceLength);
+        return new WordPiecePairTokenizer(tokenizer, specialTokens, maxSequenceLength, LoadBasicTokenizer(modelDir));
     }
 
     /// <summary>
@@ -469,6 +469,19 @@ public static class TokenizerFactory
             "If this is a SentencePiece-based model (e.g. XLM-Roberta, multilingual-e5, BGE-M3), " +
             "delete the cached model directory and re-download so the SentencePiece model file is " +
             "fetched alongside tokenizer.json.");
+    }
+
+    /// <summary>
+    /// The basic tokenization the model declares (lowercasing, accent stripping, punctuation and CJK
+    /// splitting). WordPiece alone is a vocabulary lookup on whitespace-separated words; a BERT model
+    /// was trained on text that went through this step first.
+    /// </summary>
+    private static BertBasicTokenizer LoadBasicTokenizer(string modelDir)
+    {
+        var vocabPath = Path.Combine(modelDir, "vocab.txt");
+        return new(BertNormalization.Load(
+            modelDir,
+            () => File.Exists(vocabPath) ? File.ReadLines(vocabPath) : []));
     }
 
     private static WordPieceTokenizer CreateWordPieceFromJson(string tokenizerJsonPath)
