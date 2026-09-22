@@ -38,6 +38,12 @@ internal static class FakeReleaseAssets
     /// </summary>
     public static int ServerArchiveSize => ServerArchive().Length;
 
+    /// <summary>
+    /// Every entry is stamped with this instead of "now": the listing's size and the served bytes come
+    /// from separate builds, and an archive that embeds the clock is a different archive each second.
+    /// </summary>
+    private static readonly DateTimeOffset FixedStamp = new(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
     /// <summary>An archive whose single entry is the server executable, in this platform's archive format.</summary>
     public static byte[] ServerArchive(byte[]? content = null)
     {
@@ -52,7 +58,9 @@ internal static class FakeReleaseAssets
         using var ms = new MemoryStream();
         using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
         {
-            using var entryStream = zip.CreateEntry(entryName).Open();
+            var entry = zip.CreateEntry(entryName);
+            entry.LastWriteTime = FixedStamp;   // "now" changes the bytes (and the compressed length) across calls
+            using var entryStream = entry.Open();
             entryStream.Write(content);
         }
         return ms.ToArray();
@@ -66,7 +74,8 @@ internal static class FakeReleaseAssets
         {
             var entry = new GnuTarEntry(TarEntryType.RegularFile, entryName)
             {
-                DataStream = new MemoryStream(content)
+                DataStream = new MemoryStream(content),
+                ModificationTime = FixedStamp   // "now" changes the gzip length by a byte or two across a second
             };
             writer.WriteEntry(entry);
         }
