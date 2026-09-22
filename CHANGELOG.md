@@ -69,6 +69,17 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   (`LocalOnly`, CPU provider) fail when the vectors move and the revision does not, and when the
   revision moves and the vectors do not — measured red on three mutations before shipping
   (normalization switched off · basic tokenization removed · an epoch raised alone).
+- **`CacheManager.FindReclaimable(cacheDir)` / `Reclaim(cacheDir, files)` — free the duplicates a
+  layout change left behind.** 0.63.0 moved a subfolder's files from the snapshot root into the
+  subfolder and every existing cache downloaded them again, keeping both copies (one dogfooding cache
+  measured 6.8 GB of byte-identical pairs). `FindReclaimable` lists, largest first, each root file whose
+  same-name twin in a subfolder of the same snapshot has the same length and SHA-256 **and** is the copy
+  a manifest lists as read — the measured case and nothing wider; a root file with no twin, a twin of
+  another length or content, or one no manifest knows is never reported. The list is the dry run
+  (`RepoId`, `Path`, `Size`, `TwinPath`, a sentence to show); `Reclaim` deletes what it is handed, after
+  re-checking that each file still exists, lies inside the cache directory and still has its twin, and
+  returns the bytes freed. After reclaiming, the model loads from the cache without a request
+  (fixture-tested). Adopt-before-fetch (below) prevents new pairs; this removes the ones already there.
 - **Breaking (`LMSupply.Text.Core`): `ISequenceTokenizer.Signature`.** The algorithm, normalization
   convention and implementation epoch of a tokenizer as a short ASCII string — the tokenizer's input to
   the revision above. Implementations of `ISequenceTokenizer`/`IPairTokenizer` outside this library

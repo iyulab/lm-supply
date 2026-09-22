@@ -720,6 +720,17 @@ Models are cached following HuggingFace Hub conventions:
 - **Environment variables**: `HF_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME`
 - **Manual override**: `new EmbedderOptions { CacheDirectory = "/path/to/cache" }`
 
+**Reclaiming space.** A release that changes where a model's files are read from can leave the old copy
+next to the new one (0.63.0 did — see the changelog). `CacheManager.FindReclaimable(cacheDir)` lists the
+root copies whose byte-identical twin in a subfolder is what the loader reads; nothing else is ever
+listed. `CacheManager.Reclaim(cacheDir, list)` deletes them and returns the bytes freed:
+
+```csharp
+var cacheDir = CacheManager.GetDefaultCacheDirectory();
+var duplicates = CacheManager.FindReclaimable(cacheDir);          // dry run: RepoId, Path, Size, TwinPath, Reason
+long freed = CacheManager.Reclaim(cacheDir, duplicates);           // re-checks each entry before deleting
+```
+
 ### Offline / air-gapped use
 
 Set `DisableAutoDownload = true` on a package's options to serve models from the cache only: a model

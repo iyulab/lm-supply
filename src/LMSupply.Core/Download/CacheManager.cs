@@ -171,6 +171,135 @@ public static class CacheManager
     }
 
     /// <summary>
+    /// Finds files in the cache that can be deleted without any model losing a file it reads. The one
+    /// criterion, applied per snapshot: a file at the snapshot root whose same-name twin in an
+    /// immediate subfolder has the same length and the same SHA-256, where that subfolder copy is
+    /// the one a manifest lists — the copy the loader reads. Nothing else is reported: a root file
+    /// with no twin, a twin of another length or content, or a twin no manifest knows, all stay.
+    /// </summary>
+    /// <remarks>
+    /// 0.63.0 moved a subfolder's files from the snapshot root into the subfolder; a cache from
+    /// before it kept the root copy and downloaded the file again (adopt-before-fetch now prevents
+    /// new pairs, but the ones already on disk stay until something deletes them). "A file no loader
+    /// reads" in general is not decidable here — any repository can be loaded by id — so the criterion
+    /// is the measured case and nothing wider. Hashing reads every candidate pair once; on a cache of
+    /// several gigabytes this takes seconds, which is why it is a separate call and not part of loading.
+    /// </remarks>
+    /// <param name="cacheDir">The cache directory.</param>
+    /// <returns>The reclaimable files, largest first. Pass the list (or a subset) to <see cref="Reclaim"/>.</returns>
+    public static IReadOnlyList<ReclaimableFile> FindReclaimable(string cacheDir)
+    {
+        var result = new List<ReclaimableFile>();
+        if (!Directory.Exists(cacheDir))
+            return result;
+
+        foreach (var (repoId, revision) in GetCachedModels(cacheDir))
+        {
+            var snapshot = GetModelDirectory(cacheDir, repoId, revision);
+            if (!Directory.Exists(snapshot))
+                continue;
+
+            var rootManifest = DownloadManifest.Read(snapshot);
+
+            foreach (var rootFile in Directory.EnumerateFiles(snapshot))
+            {
+                var name = Path.GetFileName(rootFile);
+                if (name.StartsWith('.'))
+                    continue; // manifests, metadata, partial downloads
+
+                long rootLength;
+                try
+                {
+                    rootLength = new FileInfo(rootFile).Length;
+                }
+                catch (IOException)
+                {
+                    continue;
+                }
+
+                foreach (var subDir in Directory.EnumerateDirectories(snapshot))
+                {
+                    var twin = Path.Combine(subDir, name);
+                    if (!File.Exists(twin) || new FileInfo(twin).Length != rootLength)
+                        continue;
+
+                    var subfolder = Path.GetFileName(subDir);
+                    if (!IsListed(rootManifest, subfolder + "/" + name) && !IsListed(DownloadManifest.Read(subDir), name))
+                        continue; // the subfolder copy is not what any manifest says the loader reads
+
+                    if (!SameContent(rootFile, twin))
+                        continue;
+
+                    result.Add(new ReclaimableFile(
+                        repoId,
+                        rootFile,
+                        rootLength,
+                        twin,
+                        $"'{name}' at the snapshot root is a byte-identical copy of '{subfolder}/{name}', which the manifest lists as the file the loader reads (a root copy from before 0.63.0, or the same repository loaded once by alias and once by id)."));
+                    break;
+                }
+            }
+        }
+
+        return result.OrderByDescending(f => f.Size).ThenBy(f => f.Path, StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>
+    /// Deletes the files <see cref="FindReclaimable"/> reported — the list as returned, or the subset
+    /// the consumer chose. Each entry is re-checked before deletion: the file must still exist, live
+    /// under <paramref name="cacheDir"/>, and its twin must still be present, so a stale list cannot
+    /// delete a file that has since become the only copy.
+    /// </summary>
+    /// <param name="cacheDir">The cache directory the list was computed for.</param>
+    /// <param name="files">Entries from <see cref="FindReclaimable"/>.</param>
+    /// <returns>The number of bytes freed.</returns>
+    public static long Reclaim(string cacheDir, IEnumerable<ReclaimableFile> files)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(cacheDir));
+        long freed = 0;
+
+        foreach (var file in files)
+        {
+            var path = Path.GetFullPath(file.Path);
+            if (!path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                Trace.TraceWarning($"[CacheManager] Not reclaiming '{file.Path}': outside the cache directory.");
+                continue;
+            }
+
+            if (!File.Exists(path) || !File.Exists(file.TwinPath))
+                continue;
+
+            try
+            {
+                var length = new FileInfo(path).Length;
+                File.Delete(path);
+                freed += length;
+                Trace.TraceInformation($"[CacheManager] Reclaimed '{path}' ({length} bytes); '{file.TwinPath}' stays.");
+            }
+            catch (IOException ex)
+            {
+                Trace.TraceWarning($"[CacheManager] Could not delete '{path}': {ex.Message}");
+            }
+        }
+
+        return freed;
+    }
+
+    private static bool IsListed(DownloadManifest? manifest, string path) =>
+        manifest is not null && manifest.Files.Any(f =>
+            string.Equals(f.Path.Replace('\\', '/'), path, StringComparison.OrdinalIgnoreCase));
+
+    private static bool SameContent(string a, string b)
+    {
+        using var sa = File.OpenRead(a);
+        using var sb = File.OpenRead(b);
+        return System.Security.Cryptography.SHA256.HashData(sa).AsSpan()
+            .SequenceEqual(System.Security.Cryptography.SHA256.HashData(sb));
+    }
+
+    /// <summary>
     /// Gets all cached models.
     /// </summary>
     /// <returns>Enumerable of (ModelId, Revision) tuples.</returns>
