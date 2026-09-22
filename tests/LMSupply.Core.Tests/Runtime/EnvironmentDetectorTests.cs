@@ -116,4 +116,28 @@ public class EnvironmentDetectorTests
         gpu2.Should().NotBeNull();
         gpu2.Vendor.Should().Be(gpu1.Vendor);
     }
+
+    [Fact]
+    public async Task Concurrent_detections_agree_on_the_gpus()
+    {
+        // Detection is cached behind a lock and ClearCache() empties the cache under the same lock, but
+        // the cached value used to be re-read *outside* the lock on the way out — a ClearCache() in that
+        // window handed a caller null from a non-nullable API (measured: 2 of 6 runs of this fact threw
+        // ArgumentNullException before the fix, 0 of 8 after). The NVML session is serialized as well,
+        // since each detection owns its whole init → enumerate → shutdown lifetime on one process-wide
+        // handle. On a host without NVML every detection is the same fallback and this is trivially
+        // green; it bites where concurrent detection can actually happen.
+        var results = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() =>
+        {
+            var seen = new List<string>();
+            for (var i = 0; i < 10; i++)
+            {
+                EnvironmentDetector.ClearCache();
+                seen.Add(string.Join("|", EnvironmentDetector.DetectAllGpus().Select(g => $"{g.Vendor}:{g.DeviceName}")));
+            }
+            return seen;
+        })));
+
+        results.SelectMany(r => r).Distinct().Should().HaveCount(1, "every detection on one machine sees the same GPUs in the same order");
+    }
 }

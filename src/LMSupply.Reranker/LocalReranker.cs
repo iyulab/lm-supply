@@ -1,5 +1,7 @@
 using LMSupply.Core.Download;
 using LMSupply.Download;
+using LMSupply.Hardware;
+using LMSupply.Llama.Server;
 using LMSupply.Inference;
 using LMSupply.Reranker.Infrastructure;
 using LMSupply.Reranker.Inference;
@@ -186,6 +188,19 @@ public static class LocalReranker
         var followed = RerankerModelRegistry.Default.TryGetUserAliasTarget(baseId, out var userTarget);
         target = followed ? userTarget! : baseId;
 
+        // `auto` on a Medium host: the GGUF build of the multilingual model when a llama-server binary is
+        // already cached (a fifth of the download, a fraction of the CPU latency, every language); the
+        // ONNX `quality` model otherwise, so `auto` never fetches a server binary on its own.
+        if (string.Equals(target, "auto", StringComparison.OrdinalIgnoreCase))
+        {
+            var rewritten = ResolveAutoAlias(HardwareProfile.Current.Tier, LlamaServerDownloader.IsAnyServerCached());
+            if (rewritten != "auto")
+            {
+                target = rewritten;
+                followed = true;
+            }
+        }
+
         if (GgufAliases.TryGetValue(target, out var ggufTarget))
         {
             target = ggufTarget;
@@ -194,6 +209,17 @@ public static class LocalReranker
 
         return followed;
     }
+
+    /// <summary>
+    /// What <c>auto</c> stands for on a hardware tier before the registry maps it to an ONNX model:
+    /// on <see cref="PerformanceTier.Medium"/> with a llama-server binary already cached it is
+    /// <c>multilingual-fast</c> (the GGUF route — the ONNX choice for that tier, <c>quality</c>, is
+    /// trained on English and Chinese only and on a Korean corpus ranks worse than no reranking);
+    /// everywhere else it stays <c>auto</c>, which <see cref="RerankerModelRegistry.ForTier"/> maps.
+    /// The server binary is a precondition, not a consequence: <c>auto</c> never downloads one.
+    /// </summary>
+    internal static string ResolveAutoAlias(PerformanceTier tier, bool llamaServerCached) =>
+        tier == PerformanceTier.Medium && llamaServerCached ? "multilingual-fast" : "auto";
 
     /// <summary>
     /// Loads a GGUF reranker model.

@@ -23,15 +23,13 @@ public static class EnvironmentDetector
 
         lock (_lock)
         {
-            _cachedPlatformInfo ??= new PlatformInfo
+            return _cachedPlatformInfo ??= new PlatformInfo
             {
                 OS = GetOperatingSystem(),
                 Architecture = RuntimeInformation.OSArchitecture,
                 RuntimeIdentifier = GetRuntimeIdentifier()
             };
         }
-
-        return _cachedPlatformInfo;
     }
 
     /// <summary>
@@ -45,10 +43,10 @@ public static class EnvironmentDetector
 
         lock (_lock)
         {
-            _cachedGpuInfo ??= GpuDetector.DetectPrimaryGpu();
+            // Returned from inside the lock: a ClearCache() between the assignment and a read of the
+            // field outside it handed a caller null from a non-nullable API.
+            return _cachedGpuInfo ??= GpuDetector.DetectPrimaryGpu();
         }
-
-        return _cachedGpuInfo;
     }
 
     /// <summary>
@@ -62,10 +60,10 @@ public static class EnvironmentDetector
 
         lock (_lock)
         {
-            _cachedAllGpus ??= GpuDetector.DetectAllGpus();
+            // Returned from inside the lock: a ClearCache() between the assignment and a read of the
+            // field outside it handed a caller null from a non-nullable API.
+            return _cachedAllGpus ??= GpuDetector.DetectAllGpus();
         }
-
-        return _cachedAllGpus;
     }
 
     /// <summary>

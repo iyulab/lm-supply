@@ -158,49 +158,57 @@ internal static class NvmlDetector
     {
         var gpus = new List<GpuInfo>();
 
-        try
+        // One NVML session per process, and this method owns its whole lifetime (init → enumerate →
+        // shutdown), so two detections at once must not interleave: a second caller's Shutdown() in
+        // the middle of the first caller's enumeration made the device count come back as
+        // NVML_ERROR_UNINITIALIZED, the NVIDIA GPU vanished from that result and the DXGI fallback
+        // reported the integrated GPU as primary — a different vendor from one call to the next.
+        lock (_initLock)
         {
-            if (!TryLoadNvmlLibrary())
-                return gpus;
-
-            if (!TryInitialize())
-                return gpus;
-
             try
             {
-                // Get CUDA driver version
-                int cudaMajor = 0, cudaMinor = 0;
-                if (TryGetCudaDriverVersion(out var cudaVersion))
-                {
-                    cudaMajor = cudaVersion / 1000;
-                    cudaMinor = (cudaVersion % 1000) / 10;
-                }
-
-                // Get device count
-                if (!TryGetDeviceCount(out var deviceCount) || deviceCount == 0)
+                if (!TryLoadNvmlLibrary())
                     return gpus;
 
-                // Enumerate devices
-                for (uint i = 0; i < deviceCount; i++)
+                if (!TryInitialize())
+                    return gpus;
+
+                try
                 {
-                    if (TryGetDeviceInfo(i, out var gpuInfo))
+                    // Get CUDA driver version
+                    int cudaMajor = 0, cudaMinor = 0;
+                    if (TryGetCudaDriverVersion(out var cudaVersion))
                     {
-                        gpus.Add(gpuInfo with
+                        cudaMajor = cudaVersion / 1000;
+                        cudaMinor = (cudaVersion % 1000) / 10;
+                    }
+
+                    // Get device count
+                    if (!TryGetDeviceCount(out var deviceCount) || deviceCount == 0)
+                        return gpus;
+
+                    // Enumerate devices
+                    for (uint i = 0; i < deviceCount; i++)
+                    {
+                        if (TryGetDeviceInfo(i, out var gpuInfo))
                         {
-                            CudaDriverVersionMajor = cudaMajor,
-                            CudaDriverVersionMinor = cudaMinor
-                        });
+                            gpus.Add(gpuInfo with
+                            {
+                                CudaDriverVersionMajor = cudaMajor,
+                                CudaDriverVersionMinor = cudaMinor
+                            });
+                        }
                     }
                 }
+                finally
+                {
+                    Shutdown();
+                }
             }
-            finally
+            catch (Exception ex)
             {
-                Shutdown();
+                Trace.TraceInformation($"[GpuDetector] NVML detection failed: {ex.Message}");
             }
-        }
-        catch (Exception ex)
-        {
-            Trace.TraceInformation($"[GpuDetector] NVML detection failed: {ex.Message}");
         }
 
         return gpus;

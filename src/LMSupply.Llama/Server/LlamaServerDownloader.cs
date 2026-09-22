@@ -435,6 +435,36 @@ public sealed class LlamaServerDownloader : IDisposable
     }
 
     /// <summary>
+    /// Whether any llama-server build is already in the cache for this platform — a file check, no
+    /// request, no version resolution. A caller that must not fetch a server binary the user did not
+    /// ask for (the reranker's <c>auto</c> alias choosing between an ONNX model and the GGUF route)
+    /// asks this first: <see langword="true"/> means the GGUF route costs no new download of the
+    /// server, only of the model.
+    /// </summary>
+    /// <param name="cacheDirectory">The llama-server cache directory; the default location when null.</param>
+    public static bool IsAnyServerCached(string? cacheDirectory = null)
+    {
+        var root = cacheDirectory ?? LMSupplyCachePaths.GetLlamaServerDirectory();
+        if (!Directory.Exists(root))
+            return false;
+
+        var platform = GetCurrentPlatform();
+        foreach (var versionDir in Directory.EnumerateDirectories(root))
+        {
+            if (!IsBuildTag(Path.GetFileName(versionDir)))
+                continue;
+
+            foreach (var backendDir in Directory.EnumerateDirectories(versionDir))
+            {
+                if (File.Exists(GetServerExecutablePath(backendDir, platform)))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Gets the path to a cached llama-server version, or null if not cached.
     /// </summary>
     public string? GetCachedServerPath(string version, LlamaServerBackend backend)

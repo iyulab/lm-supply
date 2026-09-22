@@ -65,7 +65,7 @@ Output:
 | `large` | BAAI/bge-reranker-large | 512 | ~2.2GB | English, Chinese | Highest accuracy (graph + external weights) |
 | `multilingual` | onnx-community/bge-reranker-v2-m3-ONNX | 8192 | ~2.3GB | 100+ languages | Long context (ONNX export of BAAI/bge-reranker-v2-m3) |
 | `multilingual-fast` | gguf:gpustack/bge-reranker-v2-m3-GGUF (Q4_K_M) | 8192 | ~440MB | 100+ languages | The same model, quantized, served by llama-server: a fraction of the download and of the CPU latency |
-| `auto` | by hardware tier | | | | Low → `default` (English-only), Medium → `quality`, High/Ultra → `multilingual` |
+| `auto` | by hardware tier | | | | Low → `default` (English-only), Medium → `multilingual-fast` when a llama-server binary is already cached, otherwise `quality`; High/Ultra → `multilingual` |
 
 > **Non-English queries.** `default`, `fast` and `ms-marco-l12` are English-only cross-encoders: over a Korean query they
 > score an unrelated Korean passage above an English passage that answers it. `quality` and `large` tokenize any language
@@ -74,8 +74,9 @@ Output:
 > or `multilingual-fast`.
 
 Sizes are what a load downloads: the ONNX exports are fp32. `multilingual-fast` is the one alias that takes the GGUF route
-(see below) — it runs a llama-server process and fetches that binary on first use, which is why `multilingual` and `auto`
-do not resolve to it on their own.
+(see below) — it runs a llama-server process and fetches that binary on first use, which is why `multilingual` never
+resolves to it and `auto` does so only on a Medium host where that binary is **already** in the cache (from a generator
+or embedder that used it, or an earlier `multilingual-fast` load): `auto` never downloads a server binary on its own.
 
 `large` and `multilingual` keep their weights in a separate `onnx/model.onnx_data` file next to the graph; it is downloaded
 with the model, and a cache that holds the graph without it is completed on the next load.

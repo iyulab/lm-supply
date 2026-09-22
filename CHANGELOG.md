@@ -50,6 +50,24 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   offline (read-only) mode. Existing duplicate pairs are not removed by this — a reclaim call is a
   separate item.
 
+- **Reranker `auto` on a Medium host takes the GGUF multilingual model when a llama-server binary is
+  already cached.** Medium resolved to `quality` (bge-reranker-base), whose model card lists English and
+  Chinese as its training languages — on a Korean corpus it ranked worse than no reranking (a consumer's
+  measurement, #376). When a llama-server binary is already in the cache, `auto` now resolves to
+  `multilingual-fast` (bge-reranker-v2-m3 Q4_K_M: a fifth of the download, a fraction of the CPU latency,
+  the same ranking as the ONNX `multilingual`); without one it still resolves to `quality`, so `auto`
+  never fetches a server binary on its own. Low, High and Ultra are unchanged. `LlamaServerDownloader.IsAnyServerCached()`
+  is the probe (a file check, no request). **Behaviour change** for Medium hosts that already run
+  llama-server: a different model, scores on the same 0..1 scale.
+- **`EnvironmentDetector.DetectGpu()` / `DetectAllGpus()` / `DetectPlatform()` could return `null`
+  from a non-nullable API** when `ClearCache()` ran on another thread: the cached value was assigned
+  under the lock but read again outside it on the way out. Measured with a fact that runs 80
+  concurrent detections: 2 of 6 runs threw `ArgumentNullException` before, 0 of 8 after. The NVML
+  session (one process-wide handle whose init → enumerate → shutdown each detection owns) is
+  serialized in the same change as a precaution; a vendor flip between two detections seen once on a
+  dual-GPU machine was **not** reproduced by that fact with or without the serialization, so its cause
+  is not established by this release.
+
 ### Added
 
 - **`IEmbeddingModel.VectorSpaceRevision` — an opaque string that changes when, and only when, this
