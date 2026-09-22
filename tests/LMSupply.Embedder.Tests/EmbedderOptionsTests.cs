@@ -11,10 +11,11 @@ public class EmbedderOptionsTests
         var options = new EmbedderOptions();
 
         options.CacheDirectory.Should().BeNull();
-        options.MaxSequenceLength.Should().Be(512);
+        options.MaxSequenceLength.Should().BeNull("unset: the model decides, then the catalog, then 512");
         options.NormalizeEmbeddings.Should().BeTrue();
         options.Provider.Should().Be(ExecutionProvider.Auto);
-        options.PoolingMode.Should().Be(PoolingMode.Mean);
+        options.PoolingMode.Should().BeNull("unset: the model decides, then the catalog, then Mean");
+        EmbedderOptions.DefaultMaxSequenceLength.Should().Be(512);
         options.DoLowerCase.Should().BeTrue();
     }
 

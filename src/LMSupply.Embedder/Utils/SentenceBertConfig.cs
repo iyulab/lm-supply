@@ -47,8 +47,8 @@ internal static class SentenceBertConfig
 
     /// <summary>
     /// The sequence length to tokenize with. An explicit caller value wins; otherwise what the model
-    /// declares about itself, then what the catalog knows, then the option's default.
+    /// declares about itself, then what the catalog knows, then <see cref="EmbedderOptions.DefaultMaxSequenceLength"/>.
     /// </summary>
-    public static int ResolveMaxSequenceLength(int optionValue, bool callerLeftDefault, int? declaredByModel, int? catalogValue) =>
-        !callerLeftDefault ? optionValue : declaredByModel ?? catalogValue ?? optionValue;
+    public static int ResolveMaxSequenceLength(int? callerValue, int? declaredByModel, int? catalogValue) =>
+        callerValue ?? declaredByModel ?? catalogValue ?? EmbedderOptions.DefaultMaxSequenceLength;
 }

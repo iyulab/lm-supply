@@ -97,12 +97,13 @@ public static class LocalEmbedder
         string modelId;
 
         ModelInfo? loadedModelInfo = null;
-
-        // "The caller did not choose a length" can only be read off the default value - the option
-        // is a plain int. A caller who really wants 512 on a model that declares something else
-        // cannot say so today.
-        var callerLeftDefaultSequenceLength = options.MaxSequenceLength == EmbedderOptions.DefaultMaxSequenceLength;
         int? catalogMaxSequenceLength = null;
+        PoolingMode? catalogPoolingMode = null;
+        // The repository root: where a sentence-transformers model keeps 1_Pooling/ and
+        // config_sentence_transformers.json (never inside the onnx/ subfolder).
+        string? modelRootDir;
+        string? subfolder = null;
+        var repoIdForInfo = modelIdOrPath;
 
         // Check if it's a local path
         if (File.Exists(modelIdOrPath) || modelIdOrPath.EndsWith(".onnx", StringComparison.OrdinalIgnoreCase))
@@ -112,17 +113,21 @@ public static class LocalEmbedder
 
             tokenizerPrimaryDir = Path.GetDirectoryName(modelPath) ?? ".";
             tokenizerFallbackDir = null;
+            modelRootDir = tokenizerPrimaryDir;
         }
-        // Check if it's a known model ID
-        else if (EmbedderModelRegistry.Default.TryResolve(modelIdOrPath, out var modelInfo))
+        // Check if it's a model the catalog knows. Not TryResolve: that answers any "org/repo" with a
+        // fallback entry whose dimensions, pooling, length and subfolder are placeholders, and the
+        // repository-id branch below — which reads the model's own files — was never reached.
+        else if (EmbedderModelRegistry.Default.TryResolveCatalog(modelIdOrPath, out var modelInfo, out var resolvedId))
         {
             loadedModelInfo = modelInfo;
 
             // Apply model-specific defaults (the sequence length is settled below, once the model's
             // own files are on disk).
             catalogMaxSequenceLength = modelInfo!.MaxSequenceLength;
-            options.PoolingMode = modelInfo!.PoolingMode;
+            catalogPoolingMode = modelInfo.PoolingMode;
             options.DoLowerCase = modelInfo.DoLowerCase;
+            subfolder = modelInfo.Subfolder;
 
             // Download model
             var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
@@ -140,9 +145,12 @@ public static class LocalEmbedder
             tokenizerPrimaryDir = modelDir;
             tokenizerFallbackDir = null;
             modelId = modelIdOrPath;
+            // The catalog is the authority for a known alias; the root is kept only for what it may add.
+            modelRootDir = string.IsNullOrEmpty(modelInfo.Subfolder) ? modelDir : Path.GetDirectoryName(modelDir);
         }
-        // Assume it's a HuggingFace repo ID (e.g., "sentence-transformers/all-MiniLM-L6-v2")
-        else if (modelIdOrPath.Contains('/'))
+        // A HuggingFace repository the catalog does not know (e.g., "BAAI/bge-small-en-v1.5"): the
+        // model's own files are the only declaration there is, so they are downloaded and read.
+        else if (resolvedId.Contains('/'))
         {
             var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
             using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
@@ -159,7 +167,7 @@ public static class LocalEmbedder
                 }
                 : hwPrefs;
             var (downloadedDir, discovery) = await downloader.DownloadWithDiscoveryAsync(
-                modelIdOrPath,
+                resolvedId,
                 preferences: preferences,
                 progress: progress,
                 cancellationToken: cancellationToken);
@@ -172,8 +180,8 @@ public static class LocalEmbedder
             if (mainOnnxFile is null)
             {
                 throw new ModelNotFoundException(
-                    $"No ONNX model file found in repository '{modelIdOrPath}'.",
-                    modelIdOrPath);
+                    $"No ONNX model file found in repository '{resolvedId}'.",
+                    resolvedId);
             }
 
             // Preserve full path including subfolder (e.g., "onnx/model.onnx")
@@ -186,7 +194,10 @@ public static class LocalEmbedder
                 ? null
                 : downloadedDir;
 
-            modelId = modelIdOrPath.Split('/').Last();
+            modelId = resolvedId.Split('/').Last();
+            modelRootDir = downloadedDir;
+            subfolder = discovery.Subfolder;
+            repoIdForInfo = resolvedId;
         }
         else
         {
@@ -208,14 +219,23 @@ public static class LocalEmbedder
         // Sequence length: an explicit caller value wins; otherwise what the model declares in
         // sentence_bert_config.json (where sentence-transformers truncates - 256 for all-MiniLM-L6-v2,
         // not the 512 its architecture allows), then the catalog, then the default.
-        options.MaxSequenceLength = SentenceBertConfig.ResolveMaxSequenceLength(
+        var maxSequenceLength = SentenceBertConfig.ResolveMaxSequenceLength(
             options.MaxSequenceLength,
-            callerLeftDefaultSequenceLength,
             SentenceBertConfig.TryReadMaxSequenceLength(tokenizerDir, tokenizerPrimaryDir, tokenizerFallbackDir),
             catalogMaxSequenceLength);
+        options.MaxSequenceLength = maxSequenceLength;
+
+        // Pooling: the same precedence. A model loaded by repository id used to be pooled with the option's
+        // default (Mean) whatever its 1_Pooling/config.json said, so a CLS model loaded by id lived in a
+        // different vector space from the same model loaded by alias.
+        var poolingMode = options.PoolingMode
+            ?? SentenceTransformersModules.TryReadPoolingMode(modelRootDir)
+            ?? catalogPoolingMode
+            ?? PoolingMode.Mean;
+        options.PoolingMode = poolingMode;
 
         // Load tokenizer using Text.Core (auto-detects WordPiece vs SentencePiece)
-        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(tokenizerDir, options.MaxSequenceLength);
+        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(tokenizerDir, maxSequenceLength);
 
         // Load inference engine (use async to ensure RuntimeManager initializes native binaries)
         var engine = await OnnxInferenceEngine.CreateAsync(modelPath, options.Provider, cancellationToken: cancellationToken);
@@ -223,7 +243,27 @@ public static class LocalEmbedder
         LogProviderSelection(modelId, options.Provider, engine);
 
         // Create pooling strategy
-        var poolingStrategy = PoolingFactory.Create(options.PoolingMode);
+        var poolingStrategy = PoolingFactory.Create(poolingMode);
+
+        // What the model info reports is what the loader did — not only what the catalog said. A model
+        // without a catalog entry gets one built from its own files, so GetModelInfo() is never null and
+        // the query/passage prefixes it declares are applied.
+        var (queryPrefix, passagePrefix) = SentenceTransformersModules.TryReadPrompts(modelRootDir);
+        loadedModelInfo = loadedModelInfo is null
+            ? new ModelInfo
+            {
+                RepoId = repoIdForInfo,
+                AliasName = modelId,
+                Dimensions = engine.HiddenSize,
+                MaxSequenceLength = maxSequenceLength,
+                PoolingMode = poolingMode,
+                DoLowerCase = options.DoLowerCase,
+                QueryPrefix = queryPrefix,
+                PassagePrefix = passagePrefix,
+                Subfolder = subfolder,
+                SizeBytes = File.Exists(modelPath) ? new FileInfo(modelPath).Length : 0
+            }
+            : loadedModelInfo with { MaxSequenceLength = maxSequenceLength, PoolingMode = poolingMode };
 
         return new EmbeddingModel(modelId, engine, tokenizer, poolingStrategy, options, loadedModelInfo, modelPath);
     }

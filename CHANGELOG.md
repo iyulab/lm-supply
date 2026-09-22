@@ -18,8 +18,26 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   catalog entry for a known alias, then 512. **An explicit value still wins.** After loading,
   `MaxSequenceLength` holds the length in effect. **Behaviour change:** for a model that declares a
   length other than the one previously used, inputs longer than it embed differently - vectors
-  stored from such inputs need re-embedding. Known limit: the option is an `int`, so "the caller
-  chose exactly 512" cannot be told from "the caller chose nothing".
+  stored from such inputs need re-embedding.
+- **Breaking: `EmbedderOptions.MaxSequenceLength` is `int?` and `EmbedderOptions.PoolingMode` is
+  `PoolingMode?`, both `null` by default.** `null` means "the model decides": its own declaration
+  (`sentence_bert_config.json` for the length, `1_Pooling/config.json` for the pooling), then the
+  catalog entry for a known alias, then 512 / `Mean`. A value is used as given — including exactly 512,
+  which the `int` could not express. After loading, both hold the value in effect. Assignments compile
+  unchanged; code that *reads* either property as a non-nullable value handles `null` (or reads
+  `GetModelInfo()` after loading, which is where the effective values are). `LMSupply.Reranker` already
+  used `int?` for the same option; the embedder now matches it.
+- **A model loaded by repository id is pooled the way it declares, and reports a `ModelInfo`.** Without a
+  catalog entry the loader pooled every such model with the option's default (`Mean`) whatever its
+  `1_Pooling/config.json` said — a CLS model such as `BAAI/bge-small-en-v1.5` loaded by id produced
+  vectors in a different space from the same model loaded by alias — and `GetModelInfo()` was `null`, so
+  `EmbedQueryAsync`/`EmbedPassageAsync` applied no prefix. The loader now downloads and reads
+  `1_Pooling/config.json`, `modules.json` and `config_sentence_transformers.json`, builds a `ModelInfo`
+  from the model's own files (dimensions from the session, the effective length and pooling, and the
+  `prompts` the repository declares — most declare none), and a catalog `ModelInfo` reports the length and
+  pooling actually in effect. **Behaviour change:** a repository-id model whose file declares CLS or max
+  pooling embeds differently from before — re-embed vectors stored from it. A pooling this library does
+  not implement (weighted mean, last token) is treated as undeclared.
 
 ### Added
 

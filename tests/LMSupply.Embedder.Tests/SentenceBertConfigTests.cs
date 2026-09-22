@@ -53,13 +53,14 @@ public sealed class SentenceBertConfigTests : IDisposable
     public void NoFile_IsNull() => SentenceBertConfig.TryReadMaxSequenceLength(_dir).Should().BeNull();
 
     [Theory]
-    // caller left the default: the model's declaration, then the catalog, then the default
-    [InlineData(512, true, 256, 8192, 256)]
-    [InlineData(512, true, null, 8192, 8192)]
-    [InlineData(512, true, null, null, 512)]
-    // caller chose a value: it wins over both
-    [InlineData(128, false, 256, 8192, 128)]
-    [InlineData(1024, false, 256, null, 1024)]
-    public void Precedence(int option, bool callerLeftDefault, int? declared, int? catalog, int expected) =>
-        SentenceBertConfig.ResolveMaxSequenceLength(option, callerLeftDefault, declared, catalog).Should().Be(expected);
+    // caller left it unset: the model's declaration, then the catalog, then the default
+    [InlineData(null, 256, 8192, 256)]
+    [InlineData(null, null, 8192, 8192)]
+    [InlineData(null, null, null, 512)]
+    // caller chose a value: it wins over both — including exactly 512, which an int could not express
+    [InlineData(128, 256, 8192, 128)]
+    [InlineData(1024, 256, null, 1024)]
+    [InlineData(512, 256, 8192, 512)]
+    public void Precedence(int? caller, int? declared, int? catalog, int expected) =>
+        SentenceBertConfig.ResolveMaxSequenceLength(caller, declared, catalog).Should().Be(expected);
 }

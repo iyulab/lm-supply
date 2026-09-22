@@ -75,6 +75,9 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         });
 
         // Map pooling mode
+        // A GGUF model carries no 1_Pooling/config.json to read; unset means the mean, as before.
+        options.PoolingMode ??= PoolingMode.Mean;
+        options.MaxSequenceLength ??= EmbedderOptions.DefaultMaxSequenceLength;
         var poolingType = options.PoolingMode switch
         {
             PoolingMode.Cls => PoolingType.Cls,
@@ -87,7 +90,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         {
             ModelPath = modelPath,
             Port = 0, // Auto-assign
-            ContextSize = options.MaxSequenceLength,
+            ContextSize = options.MaxSequenceLength.Value,
             GpuLayers = backend == LlamaServerBackend.Cpu ? 0 : -1,
             BatchSize = 512,
             Parallel = 1,
@@ -253,8 +256,8 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
     {
         RepoId = ModelId,
         Dimensions = Dimensions,
-        MaxSequenceLength = _options.MaxSequenceLength,
-        PoolingMode = _options.PoolingMode,
+        MaxSequenceLength = _options.MaxSequenceLength ?? EmbedderOptions.DefaultMaxSequenceLength,
+        PoolingMode = _options.PoolingMode ?? PoolingMode.Mean,
         DoLowerCase = _options.DoLowerCase,
         Description = $"GGUF embedding model via llama-server-{_serverLease.Backend}"
     };

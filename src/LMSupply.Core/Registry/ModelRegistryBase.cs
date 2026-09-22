@@ -94,6 +94,49 @@ public abstract class ModelRegistryBase<TModelInfo> : IModelRegistry<TModelInfo>
         return TryResolveInternal(baseId, out modelInfo);
     }
 
+    /// <summary>
+    /// Like <see cref="TryResolve"/>, but only what the catalog actually knows: <c>auto</c>, a system or
+    /// user alias, a full model id or a short name. A local path or a repository id the catalog has no
+    /// entry for is <see langword="false"/> — <see cref="TryResolve"/> answers those with a fallback
+    /// entry whose values (dimensions, pooling, length, subfolder) are placeholders, and a loader that
+    /// took that placeholder for a declaration read the model wrongly. <paramref name="resolvedId"/> is
+    /// the id to load when this returns <see langword="false"/>: the user alias's target if there was
+    /// one, otherwise the input without its variant qualifier.
+    /// </summary>
+    public bool TryResolveCatalog(string modelIdOrAlias, out TModelInfo? modelInfo, out string resolvedId)
+    {
+        modelInfo = default;
+        resolvedId = modelIdOrAlias;
+
+        if (string.IsNullOrWhiteSpace(modelIdOrAlias))
+        {
+            return false;
+        }
+
+        var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelIdOrAlias);
+        resolvedId = baseId;
+
+        if (baseId.Equals("auto", StringComparison.OrdinalIgnoreCase))
+        {
+            modelInfo = GetAutoModel();
+            return true;
+        }
+
+        if (_userAliases.TryGetValue(baseId, out var targetId))
+        {
+            resolvedId = targetId;
+            return TryResolveCataloged(targetId, out modelInfo);
+        }
+
+        return TryResolveCataloged(baseId, out modelInfo);
+    }
+
+    /// <summary>Steps 3–5 of resolution: what is in the catalog, and nothing made up.</summary>
+    private bool TryResolveCataloged(string modelIdOrAlias, out TModelInfo? modelInfo) =>
+        _systemAliases.TryGetValue(modelIdOrAlias, out modelInfo!)
+        || _modelsById.TryGetValue(modelIdOrAlias, out modelInfo!)
+        || _modelsByShortName.TryGetValue(modelIdOrAlias, out modelInfo!);
+
     private bool TryResolveInternal(string modelIdOrAlias, out TModelInfo? modelInfo)
     {
         // 3. System alias

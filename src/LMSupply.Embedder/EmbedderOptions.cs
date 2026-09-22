@@ -11,15 +11,12 @@ public sealed class EmbedderOptions : LMSupplyOptionsBase
     public const int DefaultMaxSequenceLength = 512;
 
     /// <summary>
-    /// Gets or sets the maximum sequence length for tokenization. Defaults to 512.
+    /// The sequence length to tokenize with, in tokens. <see langword="null"/> — the default — lets the
+    /// model decide: its own <c>sentence_bert_config.json</c> <c>max_seq_length</c> first, then the
+    /// catalog entry for a known alias, then <see cref="DefaultMaxSequenceLength"/>. A value is used as
+    /// given. After loading, the property holds the length in effect.
     /// </summary>
-    /// <remarks>
-    /// Left at the default, the length is taken from the model: first from its
-    /// <c>sentence_bert_config.json</c> (<c>max_seq_length</c> - where sentence-transformers truncates,
-    /// e.g. 256 for all-MiniLM-L6-v2), then from the catalog entry for a known alias, and only then
-    /// 512. Any other value is used as given. After loading, this property holds the length in effect.
-    /// </remarks>
-    public int MaxSequenceLength { get; set; } = DefaultMaxSequenceLength;
+    public int? MaxSequenceLength { get; set; }
 
     /// <summary>
     /// Gets or sets whether to normalize embeddings to unit vectors (L2 normalization).
@@ -28,10 +25,12 @@ public sealed class EmbedderOptions : LMSupplyOptionsBase
     public bool NormalizeEmbeddings { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets the pooling mode for sentence embeddings.
-    /// Defaults to Mean pooling.
+    /// How token embeddings are pooled into one vector (ONNX models). <see langword="null"/> — the
+    /// default — lets the model decide: its own <c>1_Pooling/config.json</c> first, then the catalog
+    /// entry for a known alias, then <see cref="PoolingMode.Mean"/>. A value is used as given. After
+    /// loading, the property holds the pooling in effect.
     /// </summary>
-    public PoolingMode PoolingMode { get; set; } = PoolingMode.Mean;
+    public PoolingMode? PoolingMode { get; set; }
 
     /// <summary>
     /// Gets or sets whether to convert text to lowercase before tokenization.

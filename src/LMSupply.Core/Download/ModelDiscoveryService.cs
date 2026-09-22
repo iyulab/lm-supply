@@ -73,6 +73,11 @@ public sealed class ModelDiscoveryService : IDisposable
         // sentence-transformers' own settings: max_seq_length is where the reference implementation
         // truncates, which is not always the 512 the architecture allows.
         "sentence_bert_config.json",
+        // and its pipeline declaration: how the token embeddings are pooled, and the prompts (if any)
+        // a query and a passage are prefixed with. Root-only paths; a match is on the whole path.
+        "1_Pooling/config.json",
+        "modules.json",
+        "config_sentence_transformers.json",
         "tokenizer.json",
         "tokenizer_config.json",
         "vocab.json",

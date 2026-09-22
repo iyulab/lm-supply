@@ -132,16 +132,17 @@ var options = new EmbedderOptions
     // GPU/CPU execution provider
     Provider = ExecutionProvider.Auto,  // Auto, Cpu, Cuda, CoreML
 
-    // Maximum sequence length (tokens). Left at the default (512), the model decides: its
-    // sentence_bert_config.json max_seq_length first, then the catalog, then 512. Any other value
-    // is used as given. After loading, this property holds the length in effect.
-    MaxSequenceLength = 512,
+    // Maximum sequence length (tokens). Left null (the default), the model decides: its
+    // sentence_bert_config.json max_seq_length first, then the catalog, then 512. A value is used
+    // as given. After loading, this property holds the length in effect.
+    MaxSequenceLength = null,
 
     // Normalize embeddings to unit length
     NormalizeEmbeddings = true,
 
-    // Pooling strategy (ONNX models only)
-    PoolingMode = PoolingMode.Mean,  // Mean, Cls, Max
+    // Pooling strategy (ONNX models only). Left null (the default), the model decides: its
+    // 1_Pooling/config.json first, then the catalog, then Mean. A value is used as given.
+    PoolingMode = null,  // Mean, Cls, Max
 
     // Lowercase input text (for uncased models)
     DoLowerCase = true,

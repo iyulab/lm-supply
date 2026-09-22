@@ -695,9 +695,9 @@ public class EmbedderFunctionalTests
     {
         var opts = new EmbedderOptions();
 
-        opts.MaxSequenceLength.Should().Be(512, "default max sequence length should be 512");
+        opts.MaxSequenceLength.Should().BeNull("unset by default: the model decides, then the catalog, then 512");
         opts.NormalizeEmbeddings.Should().BeTrue("embeddings should be normalized by default");
-        opts.PoolingMode.Should().Be(PoolingMode.Mean, "default pooling should be Mean");
+        opts.PoolingMode.Should().BeNull("unset by default: the model decides, then the catalog, then Mean");
         opts.DoLowerCase.Should().BeTrue("default should lowercase for uncased models");
         opts.Provider.Should().Be(ExecutionProvider.Auto, "default provider should be Auto");
         opts.CacheDirectory.Should().BeNull("default cache directory should be null");

@@ -80,7 +80,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         // Tokenize
-        var encoded = _tokenizer.EncodeSequence(text, _options.MaxSequenceLength);
+        var encoded = _tokenizer.EncodeSequence(text, _options.MaxSequenceLength ?? EmbedderOptions.DefaultMaxSequenceLength);
 
         // Run inference. CancellableInference guarantees control returns to the caller if the
         // token is cancelled, even when the native ONNX call (e.g. a cold GPU kernel init) ignores it.
@@ -116,7 +116,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
             return [];
 
         // Tokenize all texts
-        var encodedBatch = _tokenizer.EncodeBatch(texts, _options.MaxSequenceLength);
+        var encodedBatch = _tokenizer.EncodeBatch(texts, _options.MaxSequenceLength ?? EmbedderOptions.DefaultMaxSequenceLength);
 
         // Get jagged arrays for batch inference
         var allInputIds = encodedBatch.GetInputIdsJagged();
