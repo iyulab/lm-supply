@@ -36,6 +36,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="Functional\Goldens\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
     <Using Include="AwesomeAssertions" />
   </ItemGroup>

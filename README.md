@@ -104,6 +104,10 @@ float[][] embeddings = await model.EmbedAsync(new[]
 // Similarity
 float similarity = LocalEmbedder.CosineSimilarity(embeddings[0], embeddings[1]);
 
+// Store this next to the vectors: it changes when, and only when, a release changes
+// the vectors this model id produces (then re-embed) — see docs/embedder.md
+string revision = model.VectorSpaceRevision!;
+
 // GGUF models (via llama-server) - Auto-detected by repo name pattern
 await using var ggufModel = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF");
 float[] ggufEmbedding = await ggufModel.EmbedAsync("Hello from GGUF!");

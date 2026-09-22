@@ -19,6 +19,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
     private readonly EmbedderOptions _options;
     private readonly ModelInfo? _modelInfo;
     private readonly string? _modelPath;
+    private readonly VectorSpaceDescriptor? _vectorSpace;
     private bool _disposed;
     private bool _warmedUp;
 
@@ -39,6 +40,9 @@ internal sealed class EmbeddingModel : IEmbeddingModel
     /// <inheritdoc />
     public ExecutionProvider RequestedProvider => _engine.RequestedProvider;
 
+    /// <inheritdoc />
+    public string? VectorSpaceRevision => _vectorSpace?.Revision;
+
     internal EmbeddingModel(
         string modelId,
         OnnxInferenceEngine engine,
@@ -46,7 +50,8 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         IPoolingStrategy poolingStrategy,
         EmbedderOptions options,
         ModelInfo? modelInfo = null,
-        string? modelPath = null)
+        string? modelPath = null,
+        VectorSpaceDescriptor? vectorSpace = null)
     {
         ModelId = modelId;
         _engine = engine;
@@ -55,6 +60,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         _options = options;
         _modelInfo = modelInfo;
         _modelPath = modelPath;
+        _vectorSpace = vectorSpace;
     }
 
     /// <summary>

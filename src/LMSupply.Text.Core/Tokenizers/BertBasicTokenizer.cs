@@ -21,6 +21,16 @@ internal sealed record BertNormalization(
     public static BertNormalization Uncased { get; } = new();
 
     /// <summary>
+    /// The convention as a short ASCII string, with <see cref="StripAccents"/> resolved to the value
+    /// actually applied. Part of <see cref="ISequenceTokenizer.Signature"/>.
+    /// </summary>
+    public string Signature =>
+        $"clean={Flag(CleanText)};chinese={Flag(HandleChineseChars)};accents={Flag(StripAccents ?? Lowercase)};" +
+        $"lower={Flag(Lowercase)};punct={Flag(SplitPunctuation)}";
+
+    private static char Flag(bool value) => value ? '1' : '0';
+
+    /// <summary>
     /// Reads the convention a model declares. <c>tokenizer.json</c> is the authority (its
     /// <c>normalizer</c> and <c>pre_tokenizer</c> are what the reference implementation executes), then
     /// <c>tokenizer_config.json</c>. A model that ships neither is judged by its vocabulary: an uncased

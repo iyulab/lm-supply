@@ -94,6 +94,16 @@ public interface ISequenceTokenizer : ITextTokenizer
     /// <param name="maxLength">Maximum sequence length (uses default if null).</param>
     /// <returns>Batch of encoded sequences.</returns>
     EncodedBatch EncodeBatch(IReadOnlyList<string> texts, int? maxLength = null);
+
+    /// <summary>
+    /// What this tokenizer does to text on the way to ids, as a short ASCII string: the algorithm,
+    /// the normalization convention it applies, and the epoch of this library's implementation of
+    /// that algorithm — a constant raised when a release changes the ids the algorithm produces for
+    /// the same model files. Two tokenizers built from the same model files with equal signatures
+    /// map equal text to equal ids. The model files themselves are not part of it; a consumer that
+    /// stores ids keys them by model id and this signature together.
+    /// </summary>
+    string Signature { get; }
 }
 
 /// <summary>

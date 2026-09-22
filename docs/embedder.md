@@ -319,6 +319,31 @@ if (info != null)
 }
 ```
 
+### Vector-space revision
+
+A release can change the vectors a model id produces — a tokenizer fix, a pooling read from the
+model's own files, a different sequence length — and every vector stored before it is then stale.
+`IEmbeddingModel.VectorSpaceRevision` is an opaque string derived from what the loader actually
+did for this model (tokenizer and normalization convention, pooling, L2 normalization, query/passage
+prefixes, effective sequence length, the model file opened, and the epoch of this library's
+implementation of each step). Store it next to the vectors; on a later load, a different value means
+those vectors need re-embedding for this model — and only for this model, since a fix to one
+tokenizer family moves that family alone.
+
+```csharp
+await using var model = await LocalEmbedder.LoadAsync("default");
+var revision = model.VectorSpaceRevision;   // e.g. "c586ab6fab5393a1"
+
+// On load, compare with what the index was built under:
+if (index.EmbeddingRevision != revision)
+    await index.ReembedAsync(model);        // stale for this model id
+```
+
+The execution provider and GPU are not part of the value (they change floating-point noise, not the
+space); for a GGUF model the llama-server binary version is not either. The value is a hash; the line
+it was computed from is traced at load as `[LocalEmbedder.vectorspace]` when two revisions need to be
+compared by eye.
+
 ## Local Models
 
 You can use locally stored ONNX models:

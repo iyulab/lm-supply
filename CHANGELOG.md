@@ -52,6 +52,27 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ### Added
 
+- **`IEmbeddingModel.VectorSpaceRevision` — an opaque string that changes when, and only when, this
+  library would produce different vectors for the same model id.** Three releases (`#195`, 0.70.0 and
+  this one) changed the vectors a model id produces and said so only in prose; a consumer that stores
+  vectors had no value to compare. The revision is derived from what the loader actually did — the
+  tokenizer and its normalization convention, pooling, L2 normalization, the query/passage prefixes,
+  the sequence length in effect, the model file opened (a quantization variant is a different space)
+  and a per-component implementation epoch (WordPiece and SentencePiece each carry their own, raised
+  only when a release changes the ids they produce for the same files) — so a WordPiece fix moves
+  WordPiece models only, and a model loaded by repository id is covered by the same code as an alias.
+  Not part of it: the execution provider/GPU, and for GGUF models the llama-server binary version.
+  **Contract:** store it next to the vectors; when a later load reports a different value, the stored
+  vectors are stale for that model. The interface member has a default implementation (`null`), so a
+  consumer's own `IEmbeddingModel` keeps compiling. The canonical line behind the hash is traced at
+  load (`[LocalEmbedder.vectorspace]`) so two revisions can be diffed. Teeth: golden-vector facts
+  (`LocalOnly`, CPU provider) fail when the vectors move and the revision does not, and when the
+  revision moves and the vectors do not — measured red on three mutations before shipping
+  (normalization switched off · basic tokenization removed · an epoch raised alone).
+- **Breaking (`LMSupply.Text.Core`): `ISequenceTokenizer.Signature`.** The algorithm, normalization
+  convention and implementation epoch of a tokenizer as a short ASCII string — the tokenizer's input to
+  the revision above. Implementations of `ISequenceTokenizer`/`IPairTokenizer` outside this library
+  add the property (any stable string that changes when the ids the tokenizer produces change).
 - `EmbedderOptions.DefaultMaxSequenceLength`.
 - **Special tokens typed into the input are ordinary text - now a tested guarantee.** `"a [SEP] b"`
   tokenizes as `a [ sep ] b`, so user content cannot inject a separator or classifier token; the

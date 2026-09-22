@@ -19,6 +19,9 @@ internal sealed class WordPieceSequenceTokenizer : ISequenceTokenizer
     public int? SepTokenId => _specialTokens.SepTokenId;
     public int MaxSequenceLength => _maxSequenceLength;
 
+    /// <inheritdoc />
+    public string Signature => $"wordpiece/{TokenizerEpochs.WordPiece};{_basic.Options.Signature}";
+
     public WordPieceSequenceTokenizer(Tokenizer tokenizer, SpecialTokens specialTokens, int maxSequenceLength, BertBasicTokenizer? basic = null)
     {
         _tokenizer = tokenizer;

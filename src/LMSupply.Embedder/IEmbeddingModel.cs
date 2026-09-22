@@ -39,6 +39,17 @@ public interface IEmbeddingModel : IAsyncDisposable
     long? EstimatedMemoryBytes { get; }
 
     /// <summary>
+    /// An opaque string that changes when, and only when, this library would produce different vectors
+    /// for this model id: the tokenizer and its normalization convention, the pooling, L2
+    /// normalization, the query/passage prefixes, the sequence length in effect, the model file
+    /// (quantization variant) and the epoch of each of this library's implementations of those
+    /// steps. A consumer that stores vectors stores this next to them and, when a later load reports a
+    /// different value, knows those vectors are stale for this model. The execution provider and GPU
+    /// are not part of it. <see langword="null"/> when the implementation does not compute one.
+    /// </summary>
+    string? VectorSpaceRevision => null;
+
+    /// <summary>
     /// Generates an embedding for a single text.
     /// </summary>
     ValueTask<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default);

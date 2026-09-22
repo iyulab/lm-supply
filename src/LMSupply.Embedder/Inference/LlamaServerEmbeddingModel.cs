@@ -20,9 +20,11 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         string modelPath,
         ServerLease serverLease,
         int dimensions,
-        EmbedderOptions options)
+        EmbedderOptions options,
+        VectorSpaceDescriptor vectorSpace)
     {
         ModelId = modelId;
+        VectorSpaceRevision = vectorSpace.Revision;
         _modelPath = modelPath;
         _serverLease = serverLease;
         Dimensions = dimensions;
@@ -138,12 +140,28 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             Phase = DownloadPhase.Complete
         });
 
+        // What the server was actually asked to do — not the option as requested (Max is sent as Last).
+        // Tokenization happens inside llama-server and is not visible here; the server binary's version
+        // is deliberately outside the revision (see VectorSpaceDescriptor).
+        var vectorSpace = new VectorSpaceDescriptor(
+            Backend: "gguf",
+            ModelFile: Path.GetFileName(modelPath),
+            Tokenizer: "llama-server",
+            Pooling: poolingType.ToString(),
+            Normalize: options.NormalizeEmbeddings,
+            MaxSequenceLength: options.MaxSequenceLength.Value,
+            Dimensions: dimensions,
+            QueryPrefix: null,
+            PassagePrefix: null);
+        System.Diagnostics.Trace.TraceInformation($"[LocalEmbedder.vectorspace] {modelId}: {vectorSpace.Canonical} -> {vectorSpace.Revision}");
+
         return new LlamaServerEmbeddingModel(
             modelId,
             modelPath,
             serverLease,
             dimensions,
-            options);
+            options,
+            vectorSpace);
     }
 
     /// <inheritdoc />
@@ -151,6 +169,9 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
 
     /// <inheritdoc />
     public int Dimensions { get; }
+
+    /// <inheritdoc />
+    public string VectorSpaceRevision { get; }
 
     /// <inheritdoc />
     public long? EstimatedMemoryBytes => File.Exists(_modelPath) ? new FileInfo(_modelPath).Length * 2 : null;

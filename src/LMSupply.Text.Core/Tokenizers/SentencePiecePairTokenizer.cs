@@ -20,6 +20,10 @@ internal sealed class SentencePiecePairTokenizer : IPairTokenizer
     public int? SepTokenId => _specialTokens.SepTokenId;
     public int MaxSequenceLength => _maxSequenceLength;
 
+    /// <inheritdoc />
+    public string Signature =>
+        $"sentencepiece/{TokenizerEpochs.SentencePiece};idmap={(_idMap.IsIdentity ? "identity" : "mapped")}";
+
     public SentencePiecePairTokenizer(
         Tokenizer tokenizer,
         SpecialTokens specialTokens,

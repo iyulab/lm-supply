@@ -265,7 +265,24 @@ public static class LocalEmbedder
             }
             : loadedModelInfo with { MaxSequenceLength = maxSequenceLength, PoolingMode = poolingMode };
 
-        return new EmbeddingModel(modelId, engine, tokenizer, poolingStrategy, options, loadedModelInfo, modelPath);
+        // The vector-space revision is derived from what was decided above — the tokenizer as built, the
+        // pooling and length in effect, the prefixes the info carries, the model file actually opened —
+        // so it moves exactly when those move (#381). The canonical line is traced so two revisions can
+        // be diffed by eye; the consumer sees only the hash.
+        var vectorSpace = new VectorSpaceDescriptor(
+            Backend: "onnx",
+            ModelFile: VectorSpaceDescriptor.RelativeModelFile(modelRootDir, modelPath),
+            Tokenizer: tokenizer.Signature,
+            Pooling: poolingMode.ToString(),
+            Normalize: options.NormalizeEmbeddings,
+            MaxSequenceLength: maxSequenceLength,
+            Dimensions: engine.HiddenSize,
+            QueryPrefix: loadedModelInfo.QueryPrefix,
+            PassagePrefix: loadedModelInfo.PassagePrefix);
+        System.Diagnostics.Trace.TraceInformation(
+            $"[LocalEmbedder.vectorspace] {modelId}: {vectorSpace.Canonical} -> {vectorSpace.Revision}");
+
+        return new EmbeddingModel(modelId, engine, tokenizer, poolingStrategy, options, loadedModelInfo, modelPath, vectorSpace);
     }
 
     private static void LogProviderSelection(string modelId, ExecutionProvider requested, OnnxInferenceEngine engine)
