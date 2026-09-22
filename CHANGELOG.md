@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.72.0] - 2026-09-22
+
+### Added
+
+- **`LocalEmbedder.GetVectorSpaceRevisionAsync(modelIdOrPath, options?, ct)`** — the `VectorSpaceRevision` a
+  load would report, from the cached files alone: no inference session, no download, no request. It goes
+  through the same resolution as `LoadAsync` (model file, tokenizer as built from its files, pooling,
+  normalization, sequence length, prefixes), so the two agree by construction for everything but the
+  dimension, which the load reads from the ONNX graph and this method from the catalog entry or the
+  repository's `config.json` (`hidden_size`); a model whose graph width differs from its declared hidden
+  size gets a different value here, and the load traces a warning for it. Returns `null` when the answer
+  needs a load: the model is not cached, the id is unknown, no dimension is declared, or the model is GGUF
+  (llama-server decides its dimension). For a consumer that names its vector store after the embedding
+  identity before the model is loaded and wants the revision in that name without forcing a warm-up.
+
 ## [0.71.0] - 2026-09-21
 
 ### Changed

@@ -334,6 +334,10 @@ tokenizer family moves that family alone.
 await using var model = await LocalEmbedder.LoadAsync("default");
 var revision = model.VectorSpaceRevision;   // e.g. "c586ab6fab5393a1"
 
+// The same value before the model is loaded, from the cached files alone (0.72.0) — no session,
+// no download; null when it cannot be known without loading (not cached, no declared dimension, GGUF).
+string? early = await LocalEmbedder.GetVectorSpaceRevisionAsync("default");
+
 // On load, compare with what the index was built under:
 if (index.EmbeddingRevision != revision)
     await index.ReembedAsync(model);        // stale for this model id

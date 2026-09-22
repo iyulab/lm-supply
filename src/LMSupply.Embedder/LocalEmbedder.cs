@@ -87,6 +87,153 @@ public static class LocalEmbedder
             return await LoadGgufAsync(modelIdOrPath, options, progress, cancellationToken);
         }
 
+        var sources = await ResolveOnnxSourcesAsync(modelIdOrPath, options, progress, cancellationToken);
+
+        // Load tokenizer using Text.Core (auto-detects WordPiece vs SentencePiece)
+        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(sources.TokenizerDir, sources.MaxSequenceLength);
+
+        // Load inference engine (use async to ensure RuntimeManager initializes native binaries)
+        var engine = await OnnxInferenceEngine.CreateAsync(sources.ModelPath, options.Provider, cancellationToken: cancellationToken);
+
+        LogProviderSelection(sources.ModelId, options.Provider, engine);
+
+        // Create pooling strategy
+        var poolingStrategy = PoolingFactory.Create(sources.PoolingMode);
+
+        // What the model info reports is what the loader did — not only what the catalog said. A model
+        // without a catalog entry gets one built from its own files, so GetModelInfo() is never null and
+        // the query/passage prefixes it declares are applied.
+        var loadedModelInfo = sources.CatalogInfo is null
+            ? new ModelInfo
+            {
+                RepoId = sources.RepoIdForInfo,
+                AliasName = sources.ModelId,
+                Dimensions = engine.HiddenSize,
+                MaxSequenceLength = sources.MaxSequenceLength,
+                PoolingMode = sources.PoolingMode,
+                DoLowerCase = options.DoLowerCase,
+                QueryPrefix = sources.QueryPrefix,
+                PassagePrefix = sources.PassagePrefix,
+                Subfolder = sources.Subfolder,
+                SizeBytes = File.Exists(sources.ModelPath) ? new FileInfo(sources.ModelPath).Length : 0
+            }
+            : sources.CatalogInfo with { MaxSequenceLength = sources.MaxSequenceLength, PoolingMode = sources.PoolingMode };
+
+        // GetVectorSpaceRevisionAsync answers the dimension from the files (catalog entry, then config.json);
+        // the graph is the authority here. When the two disagree the pre-load revision differs from this one —
+        // say so, so the mismatch is visible instead of a silent re-embed.
+        var declaredDimensions = TryReadDeclaredDimensions(sources);
+        if (declaredDimensions is { } declared && declared != engine.HiddenSize)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"[LocalEmbedder.vectorspace] {sources.ModelId}: the model files declare {declared} dimensions but the graph produces {engine.HiddenSize}; " +
+                "GetVectorSpaceRevisionAsync reports a different revision than the loaded model for this id.");
+        }
+
+        // The vector-space revision is derived from what was decided above — the tokenizer as built, the
+        // pooling and length in effect, the prefixes the info carries, the model file actually opened —
+        // so it moves exactly when those move (#381). The canonical line is traced so two revisions can
+        // be diffed by eye; the consumer sees only the hash.
+        var vectorSpace = BuildVectorSpace(sources, tokenizer.Signature, options.NormalizeEmbeddings, engine.HiddenSize);
+        System.Diagnostics.Trace.TraceInformation(
+            $"[LocalEmbedder.vectorspace] {sources.ModelId}: {vectorSpace.Canonical} -> {vectorSpace.Revision}");
+
+        return new EmbeddingModel(sources.ModelId, engine, tokenizer, poolingStrategy, options, loadedModelInfo, sources.ModelPath, vectorSpace);
+    }
+
+    /// <summary>
+    /// The vector-space revision <see cref="LoadAsync"/> would report for <paramref name="modelIdOrPath"/>,
+    /// computed from the cached files alone — no inference session, no download, no request (0.72.0).
+    /// <c>null</c> when it cannot be known without loading: the model (or one of its files) is not in the
+    /// cache, the id is unknown, the dimension is declared by neither the catalog nor the repository's
+    /// <c>config.json</c>, or the model is GGUF (llama-server decides its dimension).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same decisions <see cref="LoadAsync"/> makes — model file, tokenizer as built from its files,
+    /// pooling, normalization, sequence length, prefixes — go through the same code
+    /// (<c>ResolveOnnxSourcesAsync</c>), so the two agree by construction for everything but the
+    /// dimension, which the load takes from the ONNX graph and this method from the catalog entry or the
+    /// repository's <c>config.json</c> (<c>hidden_size</c>). A model whose graph output width differs from
+    /// its declared hidden size gets a different value here than after the load; the load traces a warning
+    /// for it.
+    /// </para>
+    /// <para>
+    /// This is what lets a consumer that names its vector store after the identity — before the model is
+    /// loaded — use the revision without forcing a warm-up. Reads only the fields of
+    /// <paramref name="options"/> that <see cref="LoadAsync"/> reads while resolving (cache directory,
+    /// quantization hint, provider, sequence length, pooling, lower-casing, normalization) and never
+    /// mutates the caller's instance.
+    /// </para>
+    /// </remarks>
+    public static async Task<string?> GetVectorSpaceRevisionAsync(
+        string modelIdOrPath,
+        EmbedderOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        var source = options ?? new EmbedderOptions();
+        var offline = new EmbedderOptions
+        {
+            CacheDirectory = source.CacheDirectory,
+            QuantizationHint = source.QuantizationHint,
+            Provider = source.Provider,
+            MaxSequenceLength = source.MaxSequenceLength,
+            PoolingMode = source.PoolingMode,
+            DoLowerCase = source.DoLowerCase,
+            NormalizeEmbeddings = source.NormalizeEmbeddings,
+            DisableAutoDownload = true,
+        };
+
+        var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
+        offline.QuantizationHint ??= qualifier;
+        if (EmbedderModelRegistry.Default.TryGetUserAliasTarget(baseId, out var userAliasTarget))
+            baseId = userAliasTarget!;
+
+        if (IsGgufModel(baseId))
+            return null;
+
+        OnnxSources sources;
+        try
+        {
+            sources = await ResolveOnnxSourcesAsync(baseId, offline, progress: null, cancellationToken);
+        }
+        catch (ModelNotFoundException)
+        {
+            return null;
+        }
+
+        var dimensions = TryReadDeclaredDimensions(sources);
+        if (dimensions is null)
+            return null;
+
+        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(sources.TokenizerDir, sources.MaxSequenceLength);
+        return BuildVectorSpace(sources, tokenizer.Signature, offline.NormalizeEmbeddings, dimensions.Value).Revision;
+    }
+
+    /// <summary>
+    /// Everything <see cref="LoadAsync"/> decides from the model's files and the catalog before it opens an
+    /// inference session — one function, so a pre-load read and the load cannot drift apart.
+    /// </summary>
+    private sealed record OnnxSources(
+        string ModelId,
+        string ModelPath,
+        string TokenizerDir,
+        string? ModelRootDir,
+        string? Subfolder,
+        string RepoIdForInfo,
+        ModelInfo? CatalogInfo,
+        int MaxSequenceLength,
+        PoolingMode PoolingMode,
+        string? QueryPrefix,
+        string? PassagePrefix);
+
+    private static async Task<OnnxSources> ResolveOnnxSourcesAsync(
+        string modelIdOrPath,
+        EmbedderOptions options,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
         string modelPath;
         // Directories to probe for tokenizer files (model dir first, then repo root if different).
         // The first entry must contain model.onnx; subsequent entries are fall-back search roots
@@ -234,56 +381,36 @@ public static class LocalEmbedder
             ?? PoolingMode.Mean;
         options.PoolingMode = poolingMode;
 
-        // Load tokenizer using Text.Core (auto-detects WordPiece vs SentencePiece)
-        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(tokenizerDir, maxSequenceLength);
-
-        // Load inference engine (use async to ensure RuntimeManager initializes native binaries)
-        var engine = await OnnxInferenceEngine.CreateAsync(modelPath, options.Provider, cancellationToken: cancellationToken);
-
-        LogProviderSelection(modelId, options.Provider, engine);
-
-        // Create pooling strategy
-        var poolingStrategy = PoolingFactory.Create(poolingMode);
-
-        // What the model info reports is what the loader did — not only what the catalog said. A model
-        // without a catalog entry gets one built from its own files, so GetModelInfo() is never null and
-        // the query/passage prefixes it declares are applied.
         var (queryPrefix, passagePrefix) = SentenceTransformersModules.TryReadPrompts(modelRootDir);
-        loadedModelInfo = loadedModelInfo is null
-            ? new ModelInfo
-            {
-                RepoId = repoIdForInfo,
-                AliasName = modelId,
-                Dimensions = engine.HiddenSize,
-                MaxSequenceLength = maxSequenceLength,
-                PoolingMode = poolingMode,
-                DoLowerCase = options.DoLowerCase,
-                QueryPrefix = queryPrefix,
-                PassagePrefix = passagePrefix,
-                Subfolder = subfolder,
-                SizeBytes = File.Exists(modelPath) ? new FileInfo(modelPath).Length : 0
-            }
-            : loadedModelInfo with { MaxSequenceLength = maxSequenceLength, PoolingMode = poolingMode };
 
-        // The vector-space revision is derived from what was decided above — the tokenizer as built, the
-        // pooling and length in effect, the prefixes the info carries, the model file actually opened —
-        // so it moves exactly when those move (#381). The canonical line is traced so two revisions can
-        // be diffed by eye; the consumer sees only the hash.
-        var vectorSpace = new VectorSpaceDescriptor(
-            Backend: "onnx",
-            ModelFile: VectorSpaceDescriptor.RelativeModelFile(modelRootDir, modelPath),
-            Tokenizer: tokenizer.Signature,
-            Pooling: poolingMode.ToString(),
-            Normalize: options.NormalizeEmbeddings,
-            MaxSequenceLength: maxSequenceLength,
-            Dimensions: engine.HiddenSize,
-            QueryPrefix: loadedModelInfo.QueryPrefix,
-            PassagePrefix: loadedModelInfo.PassagePrefix);
-        System.Diagnostics.Trace.TraceInformation(
-            $"[LocalEmbedder.vectorspace] {modelId}: {vectorSpace.Canonical} -> {vectorSpace.Revision}");
+        // The catalog is the authority for the prefixes of a model it knows (as before: its entry, not the
+        // repository's prompts); a repository-id model declares them in its own files or not at all.
+        var (effectiveQuery, effectivePassage) = loadedModelInfo is not null
+            ? (loadedModelInfo.QueryPrefix, loadedModelInfo.PassagePrefix)
+            : (queryPrefix, passagePrefix);
 
-        return new EmbeddingModel(modelId, engine, tokenizer, poolingStrategy, options, loadedModelInfo, modelPath, vectorSpace);
+        return new OnnxSources(
+            modelId, modelPath, tokenizerDir, modelRootDir, subfolder, repoIdForInfo, loadedModelInfo,
+            maxSequenceLength, poolingMode, effectiveQuery, effectivePassage);
     }
+
+    /// <summary>The dimension the files declare: the catalog entry, then the repository's <c>config.json</c>.</summary>
+    private static int? TryReadDeclaredDimensions(OnnxSources sources) =>
+        sources.CatalogInfo?.Dimensions is { } catalog && catalog > 0
+            ? catalog
+            : HuggingFaceConfig.TryReadHiddenSize(sources.ModelRootDir, sources.TokenizerDir);
+
+    private static VectorSpaceDescriptor BuildVectorSpace(OnnxSources sources, string tokenizerSignature, bool normalize, int dimensions) =>
+        new(
+            Backend: "onnx",
+            ModelFile: VectorSpaceDescriptor.RelativeModelFile(sources.ModelRootDir, sources.ModelPath),
+            Tokenizer: tokenizerSignature,
+            Pooling: sources.PoolingMode.ToString(),
+            Normalize: normalize,
+            MaxSequenceLength: sources.MaxSequenceLength,
+            Dimensions: dimensions,
+            QueryPrefix: sources.QueryPrefix,
+            PassagePrefix: sources.PassagePrefix);
 
     private static void LogProviderSelection(string modelId, ExecutionProvider requested, OnnxInferenceEngine engine)
     {

@@ -44,6 +44,21 @@ public sealed class EmbedderVectorSpaceGoldenTests
 
     private sealed record Golden(string Model, string Revision, string Text, float[] Vector);
 
+    /// <summary>
+    /// The pre-load read (0.72.0) goes through the same resolution as the load and must give the same value
+    /// for every family here — including a repository-id model whose dimension comes from config.json.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Models))]
+    public async Task The_preload_revision_equals_the_loaded_revision(string model)
+    {
+        var options = new EmbedderOptions { Provider = ExecutionProvider.Cpu };
+        var preload = await LocalEmbedder.GetVectorSpaceRevisionAsync(model, options, TestContext.Current.CancellationToken);
+        await using var embedder = await LocalEmbedder.LoadAsync(model, options, cancellationToken: TestContext.Current.CancellationToken);
+
+        preload.Should().Be(embedder.VectorSpaceRevision, "the files alone must say what the loader will do");
+    }
+
     [Theory]
     [MemberData(nameof(Models))]
     public async Task Revision_moves_exactly_when_the_vectors_move(string model)
