@@ -39,6 +39,17 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   pooling embeds differently from before — re-embed vectors stored from it. A pooling this library does
   not implement (weighted mean, last token) is treated as undeclared.
 
+- **A model file the cache already holds at another place in the same snapshot is moved, not downloaded
+  again.** 0.63.0 (2026-09-11) moved a subfolder's files from the snapshot root into the subfolder; the
+  new path looked in one place only, so every install that had the model before 0.63.0 fetched it once
+  more on the first load after updating — about 1 GB for the default embedder — and kept both copies
+  (one dogfooding cache held 6.8 GB of byte-identical pairs). That release note was never written; this
+  is it. The downloader now looks for a wanted file at the snapshot root (when the target is a
+  subfolder) or in an immediate subfolder (when the target is the root) and moves a copy of the listed
+  length into place: no request, one copy. Copies of another length are left alone; nothing is moved in
+  offline (read-only) mode. Existing duplicate pairs are not removed by this — a reclaim call is a
+  separate item.
+
 ### Added
 
 - `EmbedderOptions.DefaultMaxSequenceLength`.

@@ -131,7 +131,8 @@ public sealed class HuggingFaceDownloader : IDisposable
             // The listing discovery just fetched says how long every file must be.
             var expectedSize = discovery.FileSizes.TryGetValue(file, out var listed) && listed > 0 ? listed : (long?)null;
 
-            if (!IsUsableCachedFile(localPath, expectedSize, repoId))
+            if (!IsUsableCachedFile(localPath, expectedSize, repoId)
+                && !TryAdoptSiblingCopy(localPath, expectedSize, snapshotDir: modelDir, repoId))
             {
                 // Every discovered file is part of the model (graph, external weights, config).
                 if (_localFilesOnly)
@@ -245,7 +246,8 @@ public sealed class HuggingFaceDownloader : IDisposable
         {
             fileIndex++;
             var localPath = Path.Combine(modelDir, file);
-            if (!IsUsableCachedFile(localPath, ExpectedOnDisk(file), repoId))
+            if (!IsUsableCachedFile(localPath, ExpectedOnDisk(file), repoId)
+                && !TryAdoptSiblingCopy(localPath, ExpectedOnDisk(file), snapshotDir, repoId))
             {
                 if (_localFilesOnly)
                 {
@@ -324,6 +326,60 @@ public sealed class HuggingFaceDownloader : IDisposable
     /// so it is not a prefix to resume from: only a ".part" is. It is deleted so the download starts over.
     /// With local files only nothing is deleted; the file is simply not cached.
     /// </summary>
+    /// <summary>
+    /// Before a file is downloaded to <paramref name="localPath"/>, looks for the same file elsewhere in
+    /// the same snapshot — at the root when the target is in a subfolder, in an immediate subfolder when
+    /// the target is at the root — and moves it there when it is a real file of the listed length.
+    /// </summary>
+    /// <remarks>
+    /// 0.63.0 moved a subfolder's files from the snapshot root into the subfolder, and the new path
+    /// looked in one place only: every existing cache downloaded the model again (about 1 GB for the
+    /// default embedder) and kept both copies. A repository loaded once by alias (files under its
+    /// subfolder) and once by id (repository layout) produced the same pair the other way round. A
+    /// move keeps one copy and costs no request. Nothing is moved in read-only mode, and a copy whose
+    /// length differs from the listing is left where it is — it is not the file the repository lists.
+    /// </remarks>
+    private bool TryAdoptSiblingCopy(string localPath, long? expectedSize, string snapshotDir, string repoId)
+    {
+        if (_localFilesOnly || File.Exists(localPath))
+            return false;
+
+        var fileName = Path.GetFileName(localPath);
+        var targetDir = Path.GetDirectoryName(localPath)!;
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(snapshotDir));
+        var targetIsRoot = string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(targetDir)), root, StringComparison.OrdinalIgnoreCase);
+
+        IEnumerable<string> candidates = targetIsRoot
+            ? Directory.Exists(root)
+                ? Directory.EnumerateDirectories(root).Select(d => Path.Combine(d, fileName))
+                : []
+            : [Path.Combine(root, fileName)];
+
+        foreach (var candidate in candidates)
+        {
+            if (!CacheManager.IsCachedFile(candidate))
+                continue;
+            if (expectedSize is { } expected && new FileInfo(candidate).Length != expected)
+                continue;
+
+            try
+            {
+                Directory.CreateDirectory(targetDir);
+                File.Move(candidate, localPath);
+                Trace.TraceInformation(
+                    $"[HuggingFaceDownloader] Adopted '{candidate}' as '{localPath}' for '{repoId}' instead of downloading it again.");
+                return true;
+            }
+            catch (IOException ex)
+            {
+                Trace.TraceWarning($"[HuggingFaceDownloader] Could not move '{candidate}' to '{localPath}': {ex.Message}");
+                return false;
+            }
+        }
+
+        return false;
+    }
+
     private bool IsUsableCachedFile(string localPath, long? expectedSize, string repoId)
     {
         if (!CacheManager.IsCachedFile(localPath) || expectedSize is not { } expected)
