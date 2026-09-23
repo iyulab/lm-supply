@@ -28,18 +28,18 @@ This package provides centralized tokenization and text processing utilities use
 
 ```csharp
 // Auto-detect and create appropriate tokenizer
-var tokenizer = await TokenizerFactory.CreateAutoAsync(modelDir, maxLength: 512);
+var tokenizer = await TokenizerFactory.CreateAutoAsync(modelDir, maxSequenceLength: 512);
 
 // Specific tokenizer types
 var wordpiece = await TokenizerFactory.CreateWordPieceAsync(modelDir, maxLength);
-var sentencepiece = await TokenizerFactory.CreateSentencePieceAsync(modelDir, maxLength);
+var sentencepiece = await TokenizerFactory.CreateSentencePieceSequenceAsync(modelDir, maxLength);
 ```
 
 ### Pair Tokenizers (for Cross-Encoders)
 
 ```csharp
 // Auto-detect tokenizer type and create pair tokenizer (recommended)
-var pairTokenizer = await TokenizerFactory.CreateAutoPairAsync(modelDir, maxLength: 512);
+var pairTokenizer = await TokenizerFactory.CreateAutoPairAsync(modelDir, maxSequenceLength: 512);
 
 // Specific pair tokenizer types
 var wordpiecePair = await TokenizerFactory.CreateWordPiecePairAsync(modelDir, maxLength);
@@ -95,7 +95,7 @@ var decoded = tokenizer.Decode(encoded.InputIds, skipSpecialTokens: true);
 using LMSupply.Text;
 
 // Create pair tokenizer (auto-detects WordPiece/Unigram/BPE)
-var pairTokenizer = await TokenizerFactory.CreateAutoPairAsync(modelPath, maxLength: 512);
+var pairTokenizer = await TokenizerFactory.CreateAutoPairAsync(modelPath, maxSequenceLength: 512);
 
 // Encode query-document pair
 var encoded = pairTokenizer.EncodePair(

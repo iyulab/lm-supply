@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\LMSupply.Embedder\LMSupply.Embedder.csproj" />
     <ProjectReference Include="..\..\src\LMSupply.Reranker\LMSupply.Reranker.csproj" />
     <ProjectReference Include="..\..\src\LMSupply.Generator\LMSupply.Generator.csproj" />
+    <ProjectReference Include="..\..\src\LMSupply.Generator.Onnx\LMSupply.Generator.Onnx.csproj" />
     <ProjectReference Include="..\..\src\LMSupply.Llama\LMSupply.Llama.csproj" />
     <ProjectReference Include="..\..\src\LMSupply.Translator\LMSupply.Translator.csproj" />
     <ProjectReference Include="..\..\src\LMSupply.Transcriber\LMSupply.Transcriber.csproj" />

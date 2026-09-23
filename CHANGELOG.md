@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.72.2] - unreleased
+
+### Documentation
+
+- **`LMSupply.Text.Core`'s package README showed tokenizer calls that do not compile.** `TokenizerFactory` has no
+  `CreateSentencePieceAsync` (the sequence tokenizer is `CreateSentencePieceSequenceAsync`), and the factories' length
+  parameter is `maxSequenceLength`, so the README's `maxLength:` named arguments failed. Corrected; a test now checks
+  every name the README, `docs/` and each package README use.
+
 ## [0.72.1] - 2026-09-23
 
 ### Fixed
