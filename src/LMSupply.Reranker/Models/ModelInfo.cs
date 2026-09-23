@@ -32,6 +32,9 @@ public sealed record ModelInfo : IModelInfoBase, IModelMemoryInfo
     /// </summary>
     public required int MaxSequenceLength { get; init; }
 
+    /// <inheritdoc />
+    int? IModelInfoBase.ContextLength => MaxSequenceLength;
+
     /// <summary>
     /// Gets the approximate model size in bytes.
     /// </summary>

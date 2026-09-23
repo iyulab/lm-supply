@@ -58,6 +58,9 @@ public sealed class TranslatorModelInfo : IModelInfoBase, IModelMemoryInfo
     /// </summary>
     public int MaxLength { get; init; } = 512;
 
+    /// <inheritdoc />
+    int? IModelInfoBase.ContextLength => MaxLength;
+
     /// <summary>
     /// Gets or sets the vocabulary size.
     /// </summary>

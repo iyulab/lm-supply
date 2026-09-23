@@ -20,6 +20,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `<org>/<model>-GGUF` now takes the catalog entry of `<org>/<model>` (a local `.gguf` file or an unknown model still
   has none). The prefixes are part of the vector space, so `VectorSpaceRevision` changes for such a model: vectors
   stored before this release were made without the prefix and should be re-embedded.
+- **Reranker and translator model info report their input limit as `IModelInfoBase.ContextLength`.** Both declared it
+  (`ModelInfo.MaxSequenceLength`, `TranslatorModelInfo.MaxLength`) but left the interface member at its default `null`,
+  so a generic model listing (the console host's `/models` endpoint included) showed the limit as unknown. The embedder
+  already reported it this way.
 
 ## [0.72.0] - 2026-09-22
 
