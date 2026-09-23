@@ -311,6 +311,29 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
     }
 
     /// <inheritdoc />
+    public async Task<GenerationResult> GenerateChatCompleteResultAsync(
+        IEnumerable<ChatMessage> messages,
+        GenerationOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        var messageList = messages.ToList();
+        var outcome = new GenerationOutcome();
+        var sb = new StringBuilder();
+
+        await foreach (var token in GenerateChatCoreAsync(messageList, options, outcome, cancellationToken))
+        {
+            sb.Append(token);
+        }
+
+        var content = sb.ToString();
+        var promptTokens = TokenUsage.EstimateTokens(string.Concat(messageList.Select(m => m.Content)));
+        return new GenerationResult(
+            content,
+            new TokenUsage(promptTokens, TokenUsage.EstimateTokens(content)),
+            outcome.FinishReason);
+    }
+
+    /// <inheritdoc />
     public async Task<ChatCompletionResult> GenerateChatWithToolsAsync(
         IEnumerable<ChatMessage> messages,
         GenerationOptions? options = null,

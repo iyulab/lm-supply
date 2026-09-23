@@ -40,6 +40,25 @@ public class OnnxFinishReasonIntegrationTests
     }
 
     [Fact]
+    public async Task A_chat_completion_reports_why_it_ended()
+    {
+        OnnxGeneratorBackend.Register();
+        await using var model = await LocalGenerator.LoadAsync(
+            Phi35Model, new GeneratorOptions { Provider = ExecutionProvider.Cpu }, cancellationToken: TestContext.Current.CancellationToken);
+
+        var cut = await model.GenerateChatCompleteResultAsync(
+            [ChatMessage.User("Count from one to fifty in words, separated by commas.")],
+            new GenerationOptions { MaxTokens = 8, DoSample = false }, TestContext.Current.CancellationToken);
+        cut.FinishReason.Should().Be("length", "eight tokens cannot hold fifty numbers");
+        cut.Content.Should().NotBeEmpty();
+
+        var whole = await model.GenerateChatCompleteResultAsync(
+            [ChatMessage.User("Reply with the single word: yes")],
+            new GenerationOptions { MaxTokens = 64, DoSample = false }, TestContext.Current.CancellationToken);
+        whole.FinishReason.Should().Be("stop", "a short answer ends on the model's end token");
+    }
+
+    [Fact]
     public async Task A_raw_prompt_completion_reports_why_it_ended()
     {
         OnnxGeneratorBackend.Register();

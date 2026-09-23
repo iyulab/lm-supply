@@ -79,6 +79,31 @@ public class GgufIntegrationTests
     }
 
     /// <summary>
+    /// A chat completion reports why it ended too — the string chat API cannot, so a consumer used to collect
+    /// <c>GenerateChatStreamAsync</c> itself to learn it. llama-server's own <c>finish_reason</c> carries through.
+    /// </summary>
+    [Fact]
+    public async Task GenerateChatCompleteResultAsync_WithGgufModel_ReportsTheFinishReason()
+    {
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", cancellationToken: TestContext.Current.CancellationToken);
+
+        var cut = await model.GenerateChatCompleteResultAsync(
+            [ChatMessage.User("Count from one to fifty in words, separated by commas.")],
+            new GenerationOptions { MaxTokens = 6, Temperature = 0f, Thinking = ThinkingMode.Off }, TestContext.Current.CancellationToken);
+        cut.FinishReason.Should().Be("length", "six tokens cannot hold fifty numbers");
+        cut.Content.Should().NotBeEmpty();
+
+        var whole = await model.GenerateChatCompleteResultAsync(
+            [ChatMessage.User("Reply with the single word: yes")],
+            new GenerationOptions { MaxTokens = 64, Temperature = 0f, Thinking = ThinkingMode.Off }, TestContext.Current.CancellationToken);
+        whole.FinishReason.Should().Be("stop", "a short answer ends on the model's end token");
+        whole.Content.Should().Be(await model.GenerateChatCompleteAsync(
+            [ChatMessage.User("Reply with the single word: yes")],
+            new GenerationOptions { MaxTokens = 64, Temperature = 0f, Thinking = ThinkingMode.Off }, TestContext.Current.CancellationToken),
+            "the result twin returns the same text as the string API");
+    }
+
+    /// <summary>
     /// Tests chat generation with a GGUF model.
     /// </summary>
     [Fact]

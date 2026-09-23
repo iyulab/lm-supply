@@ -543,10 +543,17 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     }
 
     /// <inheritdoc />
-    public async IAsyncEnumerable<string> GenerateChatAsync(
+    public IAsyncEnumerable<string> GenerateChatAsync(
         IEnumerable<ChatMessage> messages,
         GenerationOptions? options = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
+        => GenerateChatCoreAsync(messages, options, outcome: null, cancellationToken);
+
+    private async IAsyncEnumerable<string> GenerateChatCoreAsync(
+        IEnumerable<ChatMessage> messages,
+        GenerationOptions? options,
+        CompletionOutcome? outcome,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
         options ??= GenerationOptions.Default;
@@ -571,10 +578,23 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                 ? new ReasoningTokenFilter(options.ExtractReasoningTokens)
                 : null;
 
-            await foreach (var token in _serverLease.Client.GenerateChatAsync(serverMessages, chatOptions, cancellationToken))
+            // The structured stream carries the server's finish_reason on its last chunk; the text stream dropped it.
+            // Text is the same: content deltas only (reasoning_content is not part of the answer).
+            await foreach (var data in _serverLease.Client.GenerateChatStreamAsync(serverMessages, chatOptions, cancellationToken))
             {
+                if (data.FinishReason is not null && outcome is not null)
+                    outcome.FinishReason = data.FinishReason;
+
+                var token = data.TextDelta;
+                if (string.IsNullOrEmpty(token))
+                    continue;
+
                 if (maxTokens > 0 && ++tokenCount > maxTokens)
+                {
+                    if (outcome is not null)
+                        outcome.FinishReason = "length";
                     break;
+                }
 
                 if (reasoningFilter != null)
                 {
@@ -657,6 +677,29 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         }
 
         return sb.ToString();
+    }
+
+    /// <inheritdoc />
+    public async Task<GenerationResult> GenerateChatCompleteResultAsync(
+        IEnumerable<ChatMessage> messages,
+        GenerationOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        var messageList = messages.ToList();
+        var outcome = new CompletionOutcome();
+        var sb = new StringBuilder();
+
+        await foreach (var token in GenerateChatCoreAsync(messageList, options, outcome, cancellationToken))
+        {
+            sb.Append(token);
+        }
+
+        var content = sb.ToString();
+        var promptTokens = TokenUsage.EstimateTokens(string.Concat(messageList.Select(m => m.Content)));
+        return new GenerationResult(
+            content,
+            new TokenUsage(promptTokens, TokenUsage.EstimateTokens(content)),
+            outcome.FinishReason);
     }
 
     /// <inheritdoc />

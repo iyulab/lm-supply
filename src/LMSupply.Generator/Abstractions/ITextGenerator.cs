@@ -76,6 +76,21 @@ public interface ITextGenerator : IAsyncDisposable
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Generates a complete chat response (non-streaming) together with the reason it ended — the same text as
+    /// <see cref="GenerateChatCompleteAsync"/>, plus <see cref="GenerationResult.FinishReason"/> so a caller can tell
+    /// an answer cut off at <see cref="GenerationOptions.MaxTokens"/> (<c>"length"</c>) from a finished one.
+    /// Reaching the limit is not an error here: the caller set it, and decides what a cut-off answer means.
+    /// </summary>
+    /// <param name="messages">The chat messages.</param>
+    /// <param name="options">Generation options. If null, default options are used.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The generated text, estimated token usage and the finish reason.</returns>
+    Task<GenerationResult> GenerateChatCompleteResultAsync(
+        IEnumerable<ChatMessage> messages,
+        GenerationOptions? options = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Generates a chat completion with tool calling support.
     /// Returns structured result that may contain tool calls.
     /// </summary>

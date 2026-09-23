@@ -13,13 +13,18 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   the model stopped at `MaxTokens` and `"stop"` when it finished — on both backends. Chat callers already had this
   through `GenerateChatWithToolsAsync` and `GenerateChatStreamAsync`; the prompt form had no way to tell a cut-off
   answer from a finished one. `GenerateWithUsageAsync` now returns the reason too.
+- **A chat completion can say why it ended, without collecting a stream.** `ITextGenerator.GenerateChatCompleteResultAsync(messages,
+  options)` is the chat twin: the same text as `GenerateChatCompleteAsync`, plus `FinishReason`. The string chat APIs cannot
+  carry a reason, so a caller that needed one had to collect `GenerateChatStreamAsync` itself. On the llama-server
+  backend the chat text path now reads the server's structured stream, which is where its `finish_reason` arrives
+  (the text it returns is unchanged).
 - `LlamaServerClient.GenerateStreamAsync` streams a raw completion as `CompletionStreamData` (text delta, and the
   finish reason on the last chunk, mapped from llama-server's `stop_type`).
 
 ### Changed
 
 - **Breaking** for code that implements `ITextGenerator` / `IGeneratorModel` itself (a wrapper or proxy): add
-  `GenerateCompleteResultAsync`. A wrapper delegates it to the model it wraps in one line. The member has no default
+  `GenerateCompleteResultAsync` and `GenerateChatCompleteResultAsync`. A wrapper delegates each to the model it wraps in one line. The members have no default
   implementation on purpose — a default could only report "no reason", and a wrapper that forgot to forward it would
   silently hide the reason its inner model knows.
 
