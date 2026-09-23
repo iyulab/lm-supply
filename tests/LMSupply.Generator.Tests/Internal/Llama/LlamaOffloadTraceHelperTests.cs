@@ -161,8 +161,11 @@ public class LlamaOffloadTraceHelperTests
     {
         private readonly Predicate<string> _accept = accept;
 
-        public List<string> Warnings { get; } = [];
-        public List<string> Information { get; } = [];
+        // The filter keeps foreign messages out; the queues keep a concurrent write from breaking an enumeration.
+        private readonly System.Collections.Concurrent.ConcurrentQueue<string> _warnings = new();
+        private readonly System.Collections.Concurrent.ConcurrentQueue<string> _information = new();
+        public IReadOnlyList<string> Warnings => [.. _warnings];
+        public IReadOnlyList<string> Information => [.. _information];
 
         public override void TraceEvent(TraceEventCache? cache, string source, TraceEventType eventType, int id, string? message)
         {
@@ -172,10 +175,10 @@ public class LlamaOffloadTraceHelperTests
             switch (eventType)
             {
                 case TraceEventType.Warning:
-                    Warnings.Add(message);
+                    _warnings.Enqueue(message);
                     break;
                 case TraceEventType.Information:
-                    Information.Add(message);
+                    _information.Enqueue(message);
                     break;
             }
         }

@@ -13,12 +13,14 @@ public class ExecutionProviderSupportTests
 {
     private sealed class InfoCapture : TraceListener
     {
-        public List<string> Lines { get; } = [];
+        // Trace.Listeners is process-wide: other tests running in parallel write here while an assertion enumerates.
+        private readonly System.Collections.Concurrent.ConcurrentQueue<string> _lines = new();
+        public IReadOnlyList<string> Lines => [.. _lines];
         public override void Write(string? message) { }
-        public override void WriteLine(string? message) { if (message is not null) Lines.Add(message); }
+        public override void WriteLine(string? message) { if (message is not null) _lines.Enqueue(message); }
         public override void TraceEvent(TraceEventCache? e, string source, TraceEventType eventType, int id, string? message, params object?[]? data)
         {
-            if (message is not null) Lines.Add(message);
+            if (message is not null) _lines.Enqueue(message);
         }
     }
 

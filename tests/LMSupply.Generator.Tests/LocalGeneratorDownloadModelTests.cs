@@ -81,9 +81,10 @@ public class LocalGeneratorDownloadModelTests
 
     private sealed class CapturingListener : TraceListener
     {
-        private readonly List<string> _lines = [];
-        public IReadOnlyList<string> Lines => _lines;
-        public override void Write(string? message) { if (message != null) _lines.Add(message); }
-        public override void WriteLine(string? message) { if (message != null) _lines.Add(message); }
+        // Trace.Listeners is process-wide: other tests running in parallel write here while an assertion enumerates.
+        private readonly System.Collections.Concurrent.ConcurrentQueue<string> _lines = new();
+        public IReadOnlyList<string> Lines => [.. _lines];
+        public override void Write(string? message) { if (message != null) _lines.Enqueue(message); }
+        public override void WriteLine(string? message) { if (message != null) _lines.Enqueue(message); }
     }
 }

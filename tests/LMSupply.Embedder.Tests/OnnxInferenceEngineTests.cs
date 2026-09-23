@@ -20,21 +20,23 @@ public class OnnxInferenceEngineTests
     // TraceEvent handles structured trace (framework path); WriteLine handles raw path.
     private sealed class WarningCapture : TraceListener
     {
-        public List<string> Warnings { get; } = [];
+        // Trace.Listeners is process-wide: other tests running in parallel write here while an assertion enumerates.
+        private readonly System.Collections.Concurrent.ConcurrentQueue<string> _warnings = new();
+        public IReadOnlyList<string> Warnings => [.. _warnings];
 
         public override void Write(string? message) { }
 
         public override void WriteLine(string? message)
         {
             if (message is not null)
-                Warnings.Add(message);
+                _warnings.Enqueue(message);
         }
 
         public override void TraceEvent(
             TraceEventCache? e, string source, TraceEventType eventType, int id, string? message, params object?[]? data)
         {
             if (eventType == TraceEventType.Warning && message is not null)
-                Warnings.Add(message);
+                _warnings.Enqueue(message);
         }
     }
 
