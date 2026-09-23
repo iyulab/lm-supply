@@ -708,11 +708,36 @@ public static class LocalEmbedder
                 modelIdOrPath);
         }
 
+        var (queryPrefix, passagePrefix) = ResolveGgufPrefixes(cleanPath);
         return await LlamaServerEmbeddingModel.LoadAsync(
             modelId,
             modelPath,
             options,
+            queryPrefix,
+            passagePrefix,
             progress,
             cancellationToken);
+    }
+
+    /// <summary>
+    /// The query/passage prefixes of the model a GGUF repository was converted from. A GGUF file carries no
+    /// sentence-transformers prompts, so a repository named "&lt;org&gt;/&lt;model&gt;-GGUF" takes the catalog entry of
+    /// "&lt;org&gt;/&lt;model&gt;"; anything else (a local file, an unknown model) has none.
+    /// </summary>
+    internal static (string? QueryPrefix, string? PassagePrefix) ResolveGgufPrefixes(string repoIdOrPath)
+    {
+        if (!repoIdOrPath.Contains('/') || File.Exists(repoIdOrPath))
+            return (null, null);
+
+        foreach (var suffix in new[] { "-GGUF", "_GGUF", ".GGUF" })
+        {
+            if (!repoIdOrPath.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var baseRepo = repoIdOrPath[..^suffix.Length];
+            return EmbedderModelRegistry.Default.TryResolveCatalog(baseRepo, out var info, out _) && info is not null
+                ? (info.QueryPrefix, info.PassagePrefix)
+                : (null, null);
+        }
+        return (null, null);
     }
 }

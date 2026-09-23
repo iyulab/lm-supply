@@ -113,6 +113,8 @@ string? early = await LocalEmbedder.GetVectorSpaceRevisionAsync("default");
 // GGUF models (via llama-server) - Auto-detected by repo name pattern
 await using var ggufModel = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF");
 float[] ggufEmbedding = await ggufModel.EmbedAsync("Hello from GGUF!");
+// "<org>/<model>-GGUF" takes the base model's query/passage prefixes from the catalog (0.72.1+)
+float[] ggufQuery = await ggufModel.EmbedQueryAsync("what is GGUF?");   // "search_query: what is GGUF?"
 ```
 
 ### Semantic Reranking

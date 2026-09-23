@@ -15,14 +15,21 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
     private readonly string _modelPath;
     private bool _disposed;
 
+    private readonly string? _queryPrefix;
+    private readonly string? _passagePrefix;
+
     private LlamaServerEmbeddingModel(
         string modelId,
         string modelPath,
         ServerLease serverLease,
         int dimensions,
         EmbedderOptions options,
-        VectorSpaceDescriptor vectorSpace)
+        VectorSpaceDescriptor vectorSpace,
+        string? queryPrefix,
+        string? passagePrefix)
     {
+        _queryPrefix = queryPrefix;
+        _passagePrefix = passagePrefix;
         ModelId = modelId;
         VectorSpaceRevision = vectorSpace.Revision;
         _modelPath = modelPath;
@@ -34,10 +41,25 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
     /// <summary>
     /// Loads a GGUF embedding model using llama-server.
     /// </summary>
-    public static async Task<LlamaServerEmbeddingModel> LoadAsync(
+    public static Task<LlamaServerEmbeddingModel> LoadAsync(
         string modelId,
         string modelPath,
         EmbedderOptions options,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+        => LoadAsync(modelId, modelPath, options, queryPrefix: null, passagePrefix: null, progress, cancellationToken);
+
+    /// <summary>
+    /// Loads a GGUF embedding model whose query/passage prefixes are known (from the catalog entry of the model the GGUF
+    /// file was converted from). <see cref="IEmbeddingModel.EmbedQueryAsync(string, CancellationToken)"/> and
+    /// <see cref="IEmbeddingModel.EmbedPassageAsync(string, CancellationToken)"/> apply them, as they do on the ONNX path.
+    /// </summary>
+    internal static async Task<LlamaServerEmbeddingModel> LoadAsync(
+        string modelId,
+        string modelPath,
+        EmbedderOptions options,
+        string? queryPrefix,
+        string? passagePrefix,
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -151,8 +173,8 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             Normalize: options.NormalizeEmbeddings,
             MaxSequenceLength: options.MaxSequenceLength.Value,
             Dimensions: dimensions,
-            QueryPrefix: null,
-            PassagePrefix: null);
+            QueryPrefix: queryPrefix,
+            PassagePrefix: passagePrefix);
         System.Diagnostics.Trace.TraceInformation($"[LocalEmbedder.vectorspace] {modelId}: {vectorSpace.Canonical} -> {vectorSpace.Revision}");
 
         return new LlamaServerEmbeddingModel(
@@ -161,7 +183,9 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             serverLease,
             dimensions,
             options,
-            vectorSpace);
+            vectorSpace,
+            queryPrefix,
+            passagePrefix);
     }
 
     /// <inheritdoc />
@@ -280,6 +304,8 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         MaxSequenceLength = _options.MaxSequenceLength ?? EmbedderOptions.DefaultMaxSequenceLength,
         PoolingMode = _options.PoolingMode ?? PoolingMode.Mean,
         DoLowerCase = _options.DoLowerCase,
+        QueryPrefix = _queryPrefix,
+        PassagePrefix = _passagePrefix,
         Description = $"GGUF embedding model via llama-server-{_serverLease.Backend}"
     };
 

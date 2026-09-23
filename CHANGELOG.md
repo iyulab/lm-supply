@@ -13,6 +13,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   answered `"stop"` for every completion without tool calls, so a response cut off at the token limit looked
   finished. They now say `"stop"` only when the model produced its end token or a stop sequence. The llama-server
   path already reported the server's reason and is unchanged.
+- **A GGUF embedding repository applies the query/passage prefixes of the model it was converted from.**
+  `EmbedQueryAsync` / `EmbedPassageAsync` on `nomic-ai/nomic-embed-text-v1.5-GGUF` (the GGUF example in the README)
+  embedded bare text, while the ONNX build of the same model prefixed `search_query: ` / `search_document: ` — a GGUF
+  file carries no sentence-transformers prompts and the GGUF path reported none. A repository named
+  `<org>/<model>-GGUF` now takes the catalog entry of `<org>/<model>` (a local `.gguf` file or an unknown model still
+  has none). The prefixes are part of the vector space, so `VectorSpaceRevision` changes for such a model: vectors
+  stored before this release were made without the prefix and should be re-embedded.
 
 ## [0.72.0] - 2026-09-22
 
