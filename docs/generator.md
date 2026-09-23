@@ -48,6 +48,12 @@ string response = await generator.GenerateChatCompleteAsync(messages);
 Console.WriteLine(response);
 ```
 
+`GenerateCompleteAsync` / `GenerateChatCompleteAsync` return the text only. When you need to know whether the
+response was cut off at `GenerationOptions.MaxTokens` (a summary or rewrite you are about to store, say), use a
+path that carries the finish reason: `GenerateChatWithToolsAsync` (`ChatCompletionResult.FinishReason`, works
+without tools) or `GenerateChatStreamAsync` (the last chunk's `FinishReason`). `"length"` means the model stopped
+at the output limit or the context window; `"stop"` means it finished. Both backends report it (ONNX since 0.72.1).
+
 ### Streaming Generation
 
 ```csharp

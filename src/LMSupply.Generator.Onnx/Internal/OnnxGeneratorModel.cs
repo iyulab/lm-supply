@@ -116,10 +116,33 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
         : null;
 
     /// <inheritdoc />
-    public async IAsyncEnumerable<string> GenerateAsync(
+    public IAsyncEnumerable<string> GenerateAsync(
         string prompt,
         GenerationOptions? options = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
+        => GenerateCoreAsync(prompt, options, outcome: null, cancellationToken);
+
+    /// <summary>
+    /// Why a generation ended, filled in by <see cref="GenerateCoreAsync"/> once its stream completes.
+    /// </summary>
+    private sealed class GenerationOutcome
+    {
+        public string FinishReason { get; set; } = "stop";
+    }
+
+    /// <summary>
+    /// The OpenAI-style finish reason for an ONNX generation: <c>"length"</c> when it ended because it
+    /// reached the output token limit or the model's maximum sequence length, <c>"stop"</c> when the
+    /// model produced its end token or a stop sequence.
+    /// </summary>
+    internal static string ResolveFinishReason(bool reachedOutputLimit, int sequenceLength, int maxSequenceLength)
+        => reachedOutputLimit || (maxSequenceLength > 0 && sequenceLength >= maxSequenceLength) ? "length" : "stop";
+
+    private async IAsyncEnumerable<string> GenerateCoreAsync(
+        string prompt,
+        GenerationOptions? options,
+        GenerationOutcome? outcome,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
         options ??= GenerationOptions.Default;
@@ -174,6 +197,8 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
                 // Check MaxNewTokens limit
                 if (generatedTokenCount >= maxNewTokens)
                 {
+                    if (outcome is not null)
+                        outcome.FinishReason = ResolveFinishReason(reachedOutputLimit: true, 0, 0);
                     yield break;
                 }
 
@@ -198,6 +223,11 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
                 // Yield to allow other tasks
                 await Task.Yield();
             }
+
+            // The loop ended because the generator is done: its end token, or the maximum sequence length
+            // (the context window) — the second is a cut-off, not a completion.
+            if (outcome is not null)
+                outcome.FinishReason = ResolveFinishReason(false, generator.GetSequence(0).Length, effectiveMaxLength);
         }
         finally
         {
@@ -210,6 +240,13 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
         IEnumerable<ChatMessage> messages,
         GenerationOptions? options = null,
         CancellationToken cancellationToken = default)
+        => GenerateChatCoreAsync(messages, options, outcome: null, cancellationToken);
+
+    private IAsyncEnumerable<string> GenerateChatCoreAsync(
+        IEnumerable<ChatMessage> messages,
+        GenerationOptions? options,
+        GenerationOutcome? outcome,
+        CancellationToken cancellationToken)
     {
         var prompt = _chatFormatter.FormatPrompt(messages);
 
@@ -217,7 +254,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
         options ??= GenerationOptions.Default;
         var mergedOptions = MergeStopSequences(options);
 
-        return GenerateAsync(prompt, mergedOptions, cancellationToken);
+        return GenerateCoreAsync(prompt, mergedOptions, outcome, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -268,8 +305,14 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
             messageList = InjectToolDefinitions(messageList, options.Tools);
         }
 
-        // Generate the full text response
-        var responseText = await GenerateChatCompleteAsync(messageList, options, cancellationToken);
+        // Generate the full text response, keeping why it ended
+        var outcome = new GenerationOutcome();
+        var sb = new StringBuilder();
+        await foreach (var token in GenerateChatCoreAsync(messageList, options, outcome, cancellationToken))
+        {
+            sb.Append(token);
+        }
+        var responseText = sb.ToString();
 
         // Try to parse tool calls from the response
         var toolCalls = ToolCallTextParser.TryParse(responseText);
@@ -286,7 +329,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
         return new ChatCompletionResult
         {
             Content = responseText,
-            FinishReason = "stop"
+            FinishReason = outcome.FinishReason
         };
     }
 
@@ -379,8 +422,9 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
         var buffer = new StringBuilder();
         var bufferingForToolCall = hasTools;
         var firstNonWhitespaceDecided = false;
+        var outcome = new GenerationOutcome();
 
-        await foreach (var token in GenerateChatAsync(messageList, options, cancellationToken))
+        await foreach (var token in GenerateChatCoreAsync(messageList, options, outcome, cancellationToken))
         {
             if (bufferingForToolCall)
             {
@@ -464,7 +508,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
             yield return new ChatStreamChunk { Text = fullText };
         }
 
-        yield return new ChatStreamChunk { FinishReason = "stop" };
+        yield return new ChatStreamChunk { FinishReason = outcome.FinishReason };
     }
 
     /// <inheritdoc />

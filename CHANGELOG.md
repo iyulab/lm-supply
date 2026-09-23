@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.72.1] - 2026-09-23
+
+### Fixed
+
+- **ONNX models report `FinishReason = "length"` when a completion stops at `GenerationOptions.MaxTokens` or fills
+  the model's maximum sequence length.** `GenerateChatWithToolsAsync` and the last chunk of `GenerateChatStreamAsync`
+  answered `"stop"` for every completion without tool calls, so a response cut off at the token limit looked
+  finished. They now say `"stop"` only when the model produced its end token or a stop sequence. The llama-server
+  path already reported the server's reason and is unchanged.
+
 ## [0.72.0] - 2026-09-22
 
 ### Added
