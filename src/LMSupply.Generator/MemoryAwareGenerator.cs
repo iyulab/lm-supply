@@ -159,6 +159,20 @@ public sealed class MemoryAwareGenerator : IGeneratorModel, Internal.IDiagnostic
     }
 
     /// <inheritdoc />
+    public async Task<GenerationResult> GenerateCompleteResultAsync(
+        string prompt,
+        GenerationOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        CheckMemoryBudget();
+
+        var result = await _inner.GenerateCompleteResultAsync(prompt, options, cancellationToken);
+        CheckMemoryDuringGeneration();
+        return result;
+    }
+
+    /// <inheritdoc />
     public async Task<string> GenerateChatCompleteAsync(
         IEnumerable<ChatMessage> messages,
         GenerationOptions? options = null,

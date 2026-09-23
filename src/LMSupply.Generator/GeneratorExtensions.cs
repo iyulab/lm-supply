@@ -49,28 +49,15 @@ public static class GeneratorExtensions
     /// <param name="prompt">The input prompt.</param>
     /// <param name="options">Generation options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Generation result including content and usage statistics.</returns>
-    public static async Task<GenerationResult> GenerateWithUsageAsync(
+    /// <returns>Generation result including content, usage statistics and the finish reason.</returns>
+    public static Task<GenerationResult> GenerateWithUsageAsync(
         this ITextGenerator generator,
         string prompt,
         GenerationOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        var promptTokens = TokenUsage.EstimateTokens(prompt);
-
-        // Generate the completion
-        var sb = new StringBuilder();
-        await foreach (var token in generator.GenerateAsync(prompt, options, cancellationToken))
-        {
-            sb.Append(token);
-        }
-
-        var content = sb.ToString();
-        var completionTokens = TokenUsage.EstimateTokens(content);
-
-        return new GenerationResult(
-            content,
-            new TokenUsage(promptTokens, completionTokens));
+        ArgumentNullException.ThrowIfNull(generator);
+        return generator.GenerateCompleteResultAsync(prompt, options, cancellationToken);
     }
 
     private static string FormatMessagesForEstimation(IEnumerable<ChatMessage> messages)

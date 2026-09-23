@@ -59,6 +59,26 @@ public class GgufIntegrationTests
     }
 
     /// <summary>
+    /// A raw prompt completion reports why it ended: <c>"length"</c> when it stopped at MaxTokens,
+    /// <c>"stop"</c> when a stop sequence ended it (llama-server's <c>stop_type</c> = limit / word).
+    /// </summary>
+    [Fact]
+    public async Task GenerateCompleteResultAsync_WithGgufModel_ReportsTheFinishReason()
+    {
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", cancellationToken: TestContext.Current.CancellationToken);
+
+        var cut = await model.GenerateCompleteResultAsync(
+            "One, two, three, four, five, six, seven, eight, nine, ten, eleven,",
+            new GenerationOptions { MaxTokens = 6, Temperature = 0f }, TestContext.Current.CancellationToken);
+        cut.FinishReason.Should().Be("length");
+
+        var stopped = await model.GenerateCompleteResultAsync(
+            "One, two, three,",
+            new GenerationOptions { MaxTokens = 64, Temperature = 0f, StopSequences = [","] }, TestContext.Current.CancellationToken);
+        stopped.FinishReason.Should().Be("stop", "the stop sequence ended the completion");
+    }
+
+    /// <summary>
     /// Tests chat generation with a GGUF model.
     /// </summary>
     [Fact]

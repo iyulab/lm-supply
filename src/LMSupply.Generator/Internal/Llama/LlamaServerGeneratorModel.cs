@@ -444,10 +444,25 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     public string? ServerStartupLog => _serverLease.Server.Info?.StartupLog;
 
     /// <inheritdoc />
-    public async IAsyncEnumerable<string> GenerateAsync(
+    public IAsyncEnumerable<string> GenerateAsync(
         string prompt,
         GenerationOptions? options = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default)
+        => GenerateCoreAsync(prompt, options, outcome: null, cancellationToken);
+
+    /// <summary>
+    /// Why a raw completion ended, filled in by <see cref="GenerateCoreAsync"/> once its stream completes.
+    /// </summary>
+    private sealed class CompletionOutcome
+    {
+        public string? FinishReason { get; set; }
+    }
+
+    private async IAsyncEnumerable<string> GenerateCoreAsync(
+        string prompt,
+        GenerationOptions? options,
+        CompletionOutcome? outcome,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
         options ??= GenerationOptions.Default;
@@ -481,10 +496,21 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                 ? new ReasoningTokenFilter(options.ExtractReasoningTokens)
                 : null;
 
-            await foreach (var token in _serverLease.Client.GenerateAsync(prompt, completionOptions, cancellationToken))
+            await foreach (var data in _serverLease.Client.GenerateStreamAsync(prompt, completionOptions, cancellationToken))
             {
+                if (data.FinishReason is not null && outcome is not null)
+                    outcome.FinishReason = data.FinishReason;
+
+                if (data.TextDelta is not { } token)
+                    continue;
+
                 if (maxTokens > 0 && ++tokenCount > maxTokens)
+                {
+                    // The client-side cap cut the stream before the server said why: that is the output limit.
+                    if (outcome is not null)
+                        outcome.FinishReason = "length";
                     break;
+                }
 
                 if (reasoningFilter != null)
                 {
@@ -594,6 +620,27 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         }
 
         return sb.ToString();
+    }
+
+    /// <inheritdoc />
+    public async Task<GenerationResult> GenerateCompleteResultAsync(
+        string prompt,
+        GenerationOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        var outcome = new CompletionOutcome();
+        var sb = new StringBuilder();
+
+        await foreach (var token in GenerateCoreAsync(prompt, options, outcome, cancellationToken))
+        {
+            sb.Append(token);
+        }
+
+        var content = sb.ToString();
+        return new GenerationResult(
+            content,
+            new TokenUsage(TokenUsage.EstimateTokens(prompt), TokenUsage.EstimateTokens(content)),
+            outcome.FinishReason);
     }
 
     /// <inheritdoc />

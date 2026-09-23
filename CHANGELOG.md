@@ -4,7 +4,28 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [0.72.2] - unreleased
+## [0.73.0] - unreleased
+
+### Added
+
+- **A raw prompt completion can say why it ended.** `ITextGenerator.GenerateCompleteResultAsync(prompt, options)`
+  returns the same text as `GenerateCompleteAsync` in a `GenerationResult` whose new `FinishReason` is `"length"` when
+  the model stopped at `MaxTokens` and `"stop"` when it finished — on both backends. Chat callers already had this
+  through `GenerateChatWithToolsAsync` and `GenerateChatStreamAsync`; the prompt form had no way to tell a cut-off
+  answer from a finished one. `GenerateWithUsageAsync` now returns the reason too.
+- `LlamaServerClient.GenerateStreamAsync` streams a raw completion as `CompletionStreamData` (text delta, and the
+  finish reason on the last chunk, mapped from llama-server's `stop_type`).
+
+### Changed
+
+- **Breaking** for code that implements `ITextGenerator` / `IGeneratorModel` itself (a wrapper or proxy): add
+  `GenerateCompleteResultAsync`. A wrapper delegates it to the model it wraps in one line. The member has no default
+  implementation on purpose — a default could only report "no reason", and a wrapper that forgot to forward it would
+  silently hide the reason its inner model knows.
+
+### Fixed
+
+- The raw completion stream no longer drops text the server sends on its final chunk.
 
 ### Documentation
 

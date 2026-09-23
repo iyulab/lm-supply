@@ -386,6 +386,9 @@ public static class ChatEndpoints
         public Task<string> GenerateCompleteAsync(string prompt, GenerationOptions? options = null, CancellationToken ct = default)
             => inner.GenerateCompleteAsync(prompt, options, ct);
 
+        public Task<GenerationResult> GenerateCompleteResultAsync(string prompt, GenerationOptions? options = null, CancellationToken ct = default)
+            => inner.GenerateCompleteResultAsync(prompt, options, ct);
+
         public Task<string> GenerateChatCompleteAsync(IEnumerable<ChatMessage> messages, GenerationOptions? options = null, CancellationToken ct = default)
             => inner.GenerateChatCompleteAsync(messages, options, ct);
 

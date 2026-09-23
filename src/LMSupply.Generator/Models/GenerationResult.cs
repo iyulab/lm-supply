@@ -5,9 +5,15 @@ namespace LMSupply.Generator.Models;
 /// </summary>
 /// <param name="Content">The generated text content.</param>
 /// <param name="Usage">Token usage statistics for the generation.</param>
+/// <param name="FinishReason">
+/// Why the generation ended, OpenAI-style: <c>"length"</c> when it stopped at
+/// <see cref="GenerationOptions.MaxTokens"/> or the model's context, <c>"stop"</c> at the end token or a stop
+/// sequence; <c>null</c> when the backend does not report it.
+/// </param>
 public readonly record struct GenerationResult(
     string Content,
-    TokenUsage Usage);
+    TokenUsage Usage,
+    string? FinishReason = null);
 
 /// <summary>
 /// Token usage statistics for a generation operation.

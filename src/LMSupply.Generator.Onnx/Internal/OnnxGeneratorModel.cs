@@ -274,6 +274,27 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
     }
 
     /// <inheritdoc />
+    public async Task<GenerationResult> GenerateCompleteResultAsync(
+        string prompt,
+        GenerationOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        var outcome = new GenerationOutcome();
+        var sb = new StringBuilder();
+
+        await foreach (var token in GenerateCoreAsync(prompt, options, outcome, cancellationToken))
+        {
+            sb.Append(token);
+        }
+
+        var content = sb.ToString();
+        return new GenerationResult(
+            content,
+            new TokenUsage(TokenUsage.EstimateTokens(prompt), TokenUsage.EstimateTokens(content)),
+            outcome.FinishReason);
+    }
+
+    /// <inheritdoc />
     public async Task<string> GenerateChatCompleteAsync(
         IEnumerable<ChatMessage> messages,
         GenerationOptions? options = null,

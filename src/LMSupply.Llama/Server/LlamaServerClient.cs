@@ -252,6 +252,23 @@ public sealed class LlamaServerClient : IDisposable
         CompletionOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        await foreach (var data in GenerateStreamAsync(prompt, options, cancellationToken).ConfigureAwait(false))
+        {
+            if (!string.IsNullOrEmpty(data.TextDelta))
+                yield return data.TextDelta;
+        }
+    }
+
+    /// <summary>
+    /// Generates a streaming text completion with the reason it ended: every chunk carries a text delta, and
+    /// the last one carries <see cref="CompletionStreamData.FinishReason"/> — <c>"length"</c> when the server
+    /// stopped at <c>n_predict</c>, <c>"stop"</c> at the end-of-sequence token or a stop word.
+    /// </summary>
+    public async IAsyncEnumerable<CompletionStreamData> GenerateStreamAsync(
+        string prompt,
+        CompletionOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
         options ??= new CompletionOptions();
 
         var request = new CompletionRequest
@@ -316,15 +333,38 @@ public sealed class LlamaServerClient : IDisposable
                 continue;
             }
 
-            if (chunk?.Stop == true)
-                break;
+            if (chunk is null)
+                continue;
 
-            if (!string.IsNullOrEmpty(chunk?.Content))
+            if (chunk.Stop)
             {
-                yield return chunk.Content;
+                // The final chunk carries why generation ended (and, on some builds, a last piece of text).
+                yield return new CompletionStreamData
+                {
+                    TextDelta = string.IsNullOrEmpty(chunk.Content) ? null : chunk.Content,
+                    FinishReason = MapStopType(chunk.StopType),
+                };
+                break;
+            }
+
+            if (!string.IsNullOrEmpty(chunk.Content))
+            {
+                yield return new CompletionStreamData { TextDelta = chunk.Content };
             }
         }
     }
+
+    /// <summary>
+    /// Maps llama-server's native <c>stop_type</c> to the OpenAI-style finish reason the rest of the library uses:
+    /// <c>limit</c> (reached <c>n_predict</c>) → <c>"length"</c>; <c>eos</c> and <c>word</c> → <c>"stop"</c>.
+    /// An absent or unknown value (an older server) is <c>null</c> — not guessed.
+    /// </summary>
+    internal static string? MapStopType(string? stopType) => stopType switch
+    {
+        "limit" => "length",
+        "eos" or "word" => "stop",
+        _ => null,
+    };
 
     /// <summary>
     /// Checks if the server is healthy.
@@ -924,6 +964,26 @@ internal sealed class CompletionChunk
 {
     public string? Content { get; set; }
     public bool Stop { get; set; }
+
+    /// <summary>On the final chunk: <c>eos</c>, <c>limit</c>, <c>word</c> or <c>none</c>.</summary>
+    public string? StopType { get; set; }
+}
+
+/// <summary>
+/// Structured streaming data from a raw text completion (<c>/completion</c>).
+/// </summary>
+public sealed class CompletionStreamData
+{
+    /// <summary>
+    /// Text content delta.
+    /// </summary>
+    public string? TextDelta { get; init; }
+
+    /// <summary>
+    /// Finish reason (present only on the final chunk): <c>"length"</c> or <c>"stop"</c>, or <c>null</c> when the
+    /// server did not say.
+    /// </summary>
+    public string? FinishReason { get; init; }
 }
 
 /// <summary>

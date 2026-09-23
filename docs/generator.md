@@ -50,9 +50,19 @@ Console.WriteLine(response);
 
 `GenerateCompleteAsync` / `GenerateChatCompleteAsync` return the text only. When you need to know whether the
 response was cut off at `GenerationOptions.MaxTokens` (a summary or rewrite you are about to store, say), use a
-path that carries the finish reason: `GenerateChatWithToolsAsync` (`ChatCompletionResult.FinishReason`, works
+path that carries the finish reason: `GenerateCompleteResultAsync(prompt)` for a raw prompt
+(`GenerationResult.FinishReason`, 0.73.0+), `GenerateChatWithToolsAsync` (`ChatCompletionResult.FinishReason`, works
 without tools) or `GenerateChatStreamAsync` (the last chunk's `FinishReason`). `"length"` means the model stopped
 at the output limit or the context window; `"stop"` means it finished. Both backends report it (ONNX since 0.72.1).
+Reaching the limit is data, not an error — you set the limit, you decide what a cut-off answer means:
+
+```csharp
+var result = await generator.GenerateCompleteResultAsync(prompt, new GenerationOptions { MaxTokens = 256 });
+if (result.FinishReason == "length")
+{
+    // cut off: retry with a larger budget, or keep it marked as partial
+}
+```
 
 ### Streaming Generation
 

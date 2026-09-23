@@ -38,4 +38,22 @@ public class OnnxFinishReasonIntegrationTests
             new GenerationOptions { MaxTokens = 64, DoSample = false }, TestContext.Current.CancellationToken);
         whole.FinishReason.Should().Be("stop", "a short answer ends on the model's end token");
     }
+
+    [Fact]
+    public async Task A_raw_prompt_completion_reports_why_it_ended()
+    {
+        OnnxGeneratorBackend.Register();
+        await using var model = await LocalGenerator.LoadAsync(
+            Phi35Model, new GeneratorOptions { Provider = ExecutionProvider.Cpu }, cancellationToken: TestContext.Current.CancellationToken);
+
+        var cut = await model.GenerateCompleteResultAsync(
+            "One, two, three, four, five, six, seven, eight, nine, ten, eleven,",
+            new GenerationOptions { MaxTokens = 8, DoSample = false }, TestContext.Current.CancellationToken);
+        cut.FinishReason.Should().Be("length", "eight tokens cannot finish the count");
+        cut.Content.Should().NotBeEmpty();
+
+        var usage = await model.GenerateWithUsageAsync(
+            "One, two, three,", new GenerationOptions { MaxTokens = 4, DoSample = false }, TestContext.Current.CancellationToken);
+        usage.FinishReason.Should().Be("length", "the usage helper reports the same reason");
+    }
 }
