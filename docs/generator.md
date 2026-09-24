@@ -234,9 +234,9 @@ var generator = await TextGeneratorBuilder.Create()
 
 Each GGUF model runs in a llama-server process from a shared pool. When a model is disposed its
 server stays pooled for a while (`LlamaServerPoolOptions.IdleTimeout`, 10 minutes) so loading the
-same model again is fast — and on one GPU that idle server keeps its memory. Loading a generator on a
-GPU stops the idle servers of *other* models first, so dispose the old model before loading the new
-one. A host that switches models (or wants the memory back now) can also stop every idle server:
+same model again is fast — and on one GPU that idle server keeps its memory. Starting a server on a
+GPU (for a generator, an embedder or a reranker) stops the idle servers of *other* models first, so
+dispose the old model before loading the new one. A host that switches models (or wants the memory back now) can also stop every idle server:
 
 ```csharp
 await oldModel.DisposeAsync();

@@ -26,10 +26,11 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   load fails with `ModelNotFoundException` instead. On a host where the default does not fit, the cached smaller
   quantization is still used, as before.
 
-- **Loading a generator on a GPU stops the idle llama-servers of other models first.** After switching from one GGUF
-  model to another, the old model's server stayed resident beside the new one for ten minutes, and the new model
-  was sized as if that memory were free. Idle servers of the same model are kept (the load may reuse them), and a
-  server a live model is using is never stopped.
+- **Starting a llama-server on a GPU stops the idle servers of other models first** — for a generator, an embedder
+  and a reranker alike. After switching from one GGUF model to another, the old model's server stayed resident
+  beside the new one for ten minutes, and a generator was sized as if that memory were free (it now releases them
+  before it measures). Idle servers of the same model are kept (the load may reuse them), and a server a live model
+  is using is never stopped.
 
 ### Fixed
 

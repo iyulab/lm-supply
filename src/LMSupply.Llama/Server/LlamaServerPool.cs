@@ -138,6 +138,15 @@ public sealed class LlamaServerPool : IAsyncDisposable
                 }
             }
 
+            // A new GPU server needs memory the idle servers of other models are holding. Stop them
+            // first — for every caller (generator, embedder, reranker), not only the ones that size
+            // themselves against free VRAM before leasing. Idle servers of this same model stay.
+            if (backend != LlamaServerBackend.Cpu)
+            {
+                await ReleaseIdleAsync(s => s.Backend != LlamaServerBackend.Cpu
+                    && !string.Equals(s.ModelPath, config.ModelPath, StringComparison.OrdinalIgnoreCase));
+            }
+
             // Check server limit
             var activeCount = _servers.Values.Count(s => s.IsAlive);
             if (activeCount >= Options.MaxServers)
@@ -216,8 +225,9 @@ public sealed class LlamaServerPool : IAsyncDisposable
     /// <remarks>
     /// A server stays in the pool after the last model using it is disposed so that loading the same
     /// model again is fast. On a single GPU that idle server keeps its memory, and the next model to
-    /// load gets less. A host that switches models calls this after disposing the old one. Loading a
-    /// generator on a GPU already stops the idle GPU servers of other models before it measures memory.
+    /// load gets less. A host that switches models calls this after disposing the old one. Starting a server
+    /// on a GPU already stops the idle GPU servers of other models (a generator does so before it measures
+    /// memory).
     /// A server a model is using is never stopped.
     /// </remarks>
     public Task<int> ReleaseIdleAsync() => ReleaseIdleAsync(static _ => true);
