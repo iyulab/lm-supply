@@ -76,7 +76,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
         else
         {
             var configContextLength = GenAiConfigReader.ReadMaxContextLength(modelPath, configBasePath);
-            var hwMaxContext = HardwareDetector.GetRecommendation().MaxContextLength;
+            var hwMaxContext = HardwareDetector.GetRecommendation(_resolvedProvider).MaxContextLength;
             if (configContextLength > hwMaxContext)
             {
                 Trace.TraceInformation(

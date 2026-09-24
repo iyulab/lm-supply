@@ -103,7 +103,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         });
 
         var preferredBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(
-            options.Provider, Hardware.HardwareProfile.Current.GpuInfo);
+            options.Provider, Hardware.HardwareProfile.For(options.Provider).GpuInfo);
         var updateService = LlamaServerUpdateService.Resolve(options.ServerUpdateOptions);
         var updateResult = await updateService.GetServerPathAsync(
             preferredBackend,
@@ -1329,7 +1329,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     /// </summary>
     internal static LlamaOptions ChooseLlamaOptions(GeneratorOptions options, string modelPath, GgufMetadata? ggufMetadata)
         => ResolveGpuOffloadRatio(
-            options.LlamaOptions ?? GetVramAwareLlamaOptions(modelPath, ggufMetadata),
+            options.LlamaOptions ?? GetVramAwareLlamaOptions(modelPath, ggufMetadata, options.Provider),
             ggufMetadata?.LayerCount);
 
     /// <summary>
@@ -1469,9 +1469,10 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     /// Gets VRAM-aware LlamaOptions using actual model size and GPU information.
     /// Uses GgufModelInfo metadata when available, falls back to file-size estimation.
     /// </summary>
-    private static LlamaOptions GetVramAwareLlamaOptions(string modelPath, GgufMetadata? ggufMetadata)
+    private static LlamaOptions GetVramAwareLlamaOptions(string modelPath, GgufMetadata? ggufMetadata, ExecutionProvider provider)
     {
-        var gpu = Hardware.HardwareProfile.Current.GpuInfo;
+        // An explicit CPU provider offloads nothing, and must not probe the GPU to decide that.
+        var gpu = Hardware.HardwareProfile.For(provider).GpuInfo;
 
         // Determine model size: prefer GGUF metadata, fall back to file size
         long modelSizeBytes;

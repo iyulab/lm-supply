@@ -9,6 +9,14 @@ namespace LMSupply.Runtime;
 /// </summary>
 public static class GpuDetector
 {
+    private static int _probeCount;
+
+    /// <summary>
+    /// How many times this process has probed the GPU hardware (each probe loads the vendor driver libraries).
+    /// Lets a test see that a code path does not probe.
+    /// </summary>
+    internal static int ProbeCount => Volatile.Read(ref _probeCount);
+
     /// <summary>
     /// Detects the primary GPU on the system.
     /// </summary>
@@ -23,6 +31,7 @@ public static class GpuDetector
     /// </summary>
     public static IReadOnlyList<GpuInfo> DetectAllGpus()
     {
+        Interlocked.Increment(ref _probeCount);
         var gpus = new List<GpuInfo>();
 
         // Try NVIDIA detection via NVML

@@ -11,10 +11,23 @@ public sealed class HardwareProfile
 {
     private static readonly Lazy<HardwareProfile> _current = new(Detect, LazyThreadSafetyMode.ExecutionAndPublication);
 
+    private static readonly Lazy<HardwareProfile> _cpuOnly = new(DetectCpuOnly, LazyThreadSafetyMode.ExecutionAndPublication);
+
     /// <summary>
-    /// Gets the current hardware profile (singleton, lazily initialized).
+    /// Gets the current hardware profile (singleton, lazily initialized). Reading it probes the GPU, which loads the
+    /// vendor driver libraries (NVML and the CUDA driver on an NVIDIA host).
     /// </summary>
     public static HardwareProfile Current => _current.Value;
+
+    /// <summary>
+    /// The profile a load with <paramref name="provider"/> works with. An explicit
+    /// <see cref="ExecutionProvider.Cpu"/> gets a CPU-only profile — system memory and a CPU tier, no GPU — built without
+    /// probing the GPU, so a caller that ruled the GPU out does not load its driver libraries. Every other provider gets
+    /// <see cref="Current"/>. The CPU-only profile is never cached as <see cref="Current"/>: a later GPU or Auto load in the
+    /// same process still sees the GPU.
+    /// </summary>
+    public static HardwareProfile For(ExecutionProvider provider)
+        => provider == ExecutionProvider.Cpu ? _cpuOnly.Value : _current.Value;
 
     /// <summary>
     /// Gets the detected GPU information.
@@ -74,6 +87,20 @@ public sealed class HardwareProfile
             SystemMemoryBytes = systemMemory,
             RecommendedProvider = provider,
             Tier = tier
+        };
+    }
+
+    private static HardwareProfile DetectCpuOnly()
+    {
+        var gpuInfo = new GpuInfo { Vendor = GpuVendor.Unknown, DeviceName = "Unknown" };
+        var systemMemory = GetSystemMemoryBytes();
+
+        return new HardwareProfile
+        {
+            GpuInfo = gpuInfo,
+            SystemMemoryBytes = systemMemory,
+            RecommendedProvider = ExecutionProvider.Cpu,
+            Tier = DeterminePerformanceTier(gpuInfo, systemMemory, ExecutionProvider.Cpu)
         };
     }
 

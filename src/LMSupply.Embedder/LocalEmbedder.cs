@@ -414,7 +414,7 @@ public static class LocalEmbedder
 
     private static void LogProviderSelection(string modelId, ExecutionProvider requested, OnnxInferenceEngine engine)
     {
-        var profile = HardwareProfile.Current;
+        var profile = HardwareProfile.For(requested);
         var gpu = profile.GpuInfo;
         var active = engine.ActiveProviders.Count > 0
             ? string.Join("+", engine.ActiveProviders)

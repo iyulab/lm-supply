@@ -54,7 +54,7 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
         });
 
         var preferredBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(
-            options.Provider, Hardware.HardwareProfile.Current.GpuInfo);
+            options.Provider, Hardware.HardwareProfile.For(options.Provider).GpuInfo);
         var updateService = LlamaServerUpdateService.Resolve(options.ServerUpdateOptions);
         var updateResult = await updateService.GetServerPathAsync(
             preferredBackend,

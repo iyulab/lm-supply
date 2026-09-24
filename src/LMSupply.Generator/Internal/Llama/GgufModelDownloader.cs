@@ -362,7 +362,7 @@ public sealed class GgufModelDownloader : IDisposable
 
     private static AvailableMemory SelectionBudgetFor(ExecutionProvider provider, out bool vramOnly)
     {
-        var profile = HardwareProfile.Current;
+        var profile = HardwareProfile.For(provider);
         var cpuBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(provider, profile.GpuInfo)
             == global::LMSupply.Llama.Server.LlamaServerBackend.Cpu;
         return BuildSelectionBudget(

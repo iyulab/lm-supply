@@ -475,7 +475,13 @@ var options = new EmbedderOptions { Provider = ExecutionProvider.Auto };
 // Force specific provider
 var options = new EmbedderOptions { Provider = ExecutionProvider.Cuda };     // NVIDIA
 var options = new EmbedderOptions { Provider = ExecutionProvider.CoreML };   // macOS
+var options = new EmbedderOptions { Provider = ExecutionProvider.Cpu };      // CPU only
 ```
+
+`ExecutionProvider.Cpu` also keeps the GPU out of the process: the hardware probe (NVML, which loads the CUDA driver
+library with it) runs only for a GPU or `Auto` choice, so a CPU load leaves the NVIDIA driver libraries unloaded.
+`HardwareProfile.For(provider)` is the profile a load with that provider works with — for `Cpu`, system memory and a
+CPU tier without a GPU probe.
 
 ### Verify GPU Detection
 

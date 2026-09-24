@@ -15,7 +15,17 @@ public static class HardwareDetector
         // Use the cached HardwareProfile so GPU detection and the provider decision are made once
         // and stay consistent with the rest of the system (single source of truth).
         var profile = Hardware.HardwareProfile.Current;
-        return CreateRecommendation(profile.GpuInfo, profile.SystemMemoryBytes);
+        return CreateRecommendation(profile);
+    }
+
+    /// <summary>
+    /// Gets the hardware recommendation for a load with <paramref name="provider"/>. An explicit
+    /// <see cref="ExecutionProvider.Cpu"/> is answered from system memory without probing the GPU.
+    /// </summary>
+    public static HardwareRecommendation GetRecommendation(ExecutionProvider provider)
+    {
+        var profile = Hardware.HardwareProfile.For(provider);
+        return CreateRecommendation(profile);
     }
 
     /// <summary>
@@ -34,13 +44,14 @@ public static class HardwareDetector
         return provider == ExecutionProvider.Auto ? GetBestProvider() : provider;
     }
 
-    private static HardwareRecommendation CreateRecommendation(GpuInfo gpuInfo, long systemMemoryBytes)
+    private static HardwareRecommendation CreateRecommendation(Hardware.HardwareProfile profile)
     {
+        var gpuInfo = profile.GpuInfo;
         var gpuMemoryGB = (gpuInfo.TotalMemoryBytes ?? 0) / (1024.0 * 1024 * 1024);
-        var systemMemoryGB = systemMemoryBytes / (1024.0 * 1024 * 1024);
+        var systemMemoryGB = profile.SystemMemoryBytes / (1024.0 * 1024 * 1024);
 
-        // Determine best execution provider
-        var provider = GetBestProvider();
+        // The provider the profile recommends: the detected one for Current, CPU for the CPU-only profile.
+        var provider = profile.RecommendedProvider;
 
         // Determine recommended model size based on available memory
         var (maxModelParams, quantization, maxContext) = (gpuMemoryGB, systemMemoryGB, provider) switch
@@ -66,7 +77,7 @@ public static class HardwareDetector
         {
             Provider = provider,
             GpuInfo = gpuInfo,
-            SystemMemoryBytes = systemMemoryBytes,
+            SystemMemoryBytes = profile.SystemMemoryBytes,
             MaxModelParameters = maxModelParams,
             RecommendedQuantization = quantization,
             MaxContextLength = maxContext,

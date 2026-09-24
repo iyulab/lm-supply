@@ -20,7 +20,8 @@ public sealed class RuntimeManager : IAsyncDisposable
     private bool _initialized;
     private bool _disposed;
     private PlatformInfo? _platform;
-    private GpuInfo? _gpu;
+    private volatile GpuInfo? _gpu;
+    private readonly object _gpuLock = new();
     private string? _currentVersion;
     private string? _activeProvider;
     private string? _primaryLibraryName;
@@ -53,14 +54,18 @@ public sealed class RuntimeManager : IAsyncDisposable
     public PlatformInfo Platform => _platform ?? throw new InvalidOperationException("Runtime manager not initialized");
 
     /// <summary>
-    /// Gets the detected GPU information.
+    /// Gets the detected GPU information. The GPU is probed on first read, not at initialization: the probe loads the
+    /// vendor driver libraries (NVML, and the CUDA driver with it), which a process that only runs CPU sessions never needs.
     /// </summary>
-    public GpuInfo Gpu => _gpu ?? throw new InvalidOperationException("Runtime manager not initialized");
+    public GpuInfo Gpu => _initialized ? EnsureGpu() : throw new InvalidOperationException("Runtime manager not initialized");
 
     /// <summary>
-    /// Gets the recommended execution provider based on detected hardware.
+    /// Gets the recommended execution provider based on detected hardware. Reading it probes the GPU.
     /// </summary>
-    public ExecutionProvider RecommendedProvider => _gpu?.RecommendedProvider ?? ExecutionProvider.Cpu;
+    public ExecutionProvider RecommendedProvider => _initialized ? EnsureGpu().RecommendedProvider : ExecutionProvider.Cpu;
+
+    /// <summary>Whether the GPU has been probed in this process by this manager.</summary>
+    internal bool IsGpuDetected => _gpu is not null;
 
     /// <summary>
     /// Gets the current runtime version.
@@ -89,7 +94,8 @@ public sealed class RuntimeManager : IAsyncDisposable
         _primaryLibraryName is null ? null : NativeLoader.Instance.GetLoadedPath(_primaryLibraryName);
 
     /// <summary>
-    /// Initializes the runtime manager by detecting hardware.
+    /// Initializes the runtime manager: detects the platform. The GPU is probed later, by the first operation that
+    /// needs it (an Auto provider choice, a GPU provider's runtime), so a CPU-only load never loads GPU driver libraries.
     /// </summary>
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
@@ -104,19 +110,34 @@ public sealed class RuntimeManager : IAsyncDisposable
             if (_initialized)
                 return;
 
-            // Detect platform and GPU
             _platform = EnvironmentDetector.DetectPlatform();
-            _gpu = EnvironmentDetector.DetectGpu();
-
-            // Setup CUDA/cuDNN DLL search paths for Windows
-            // This must be done before any ONNX session creation
-            SetupCudaDllSearchPaths();
-
             _initialized = true;
         }
         finally
         {
             _initLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Probes the GPU once and, with it, sets up the CUDA/cuDNN DLL search paths a GPU session needs.
+    /// </summary>
+    private GpuInfo EnsureGpu()
+    {
+        if (_gpu is not null)
+            return _gpu;
+
+        lock (_gpuLock)
+        {
+            if (_gpu is not null)
+                return _gpu;
+
+            var gpu = EnvironmentDetector.DetectGpu();
+            _gpu = gpu;
+
+            // Before any GPU session is created (CUDA provider native dependencies).
+            SetupCudaDllSearchPaths();
+            return gpu;
         }
     }
 
@@ -191,6 +212,9 @@ public sealed class RuntimeManager : IAsyncDisposable
         // If provider is explicitly specified, download for that provider
         if (!string.IsNullOrEmpty(provider))
         {
+            // A GPU provider's session needs the GPU probe's DLL search paths; the CPU one needs no probe at all.
+            if (!provider.Equals("cpu", StringComparison.OrdinalIgnoreCase))
+                EnsureGpu();
             return await DownloadRuntimeForProviderAsync(provider, packageType, version, progress, cancellationToken);
         }
 
@@ -402,29 +426,31 @@ public sealed class RuntimeManager : IAsyncDisposable
         var chain = new List<string>();
         var supportedProviders = RuntimePackageRegistry.GetSupportedProviders(packageType).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        if (_gpu is not null)
+        // The fallback chain is the Auto choice — it is what the GPU probe is for.
+        var gpu = _initialized ? EnsureGpu() : _gpu;
+        if (gpu is not null)
         {
             // CUDA first (if NVIDIA GPU with sufficient driver)
-            if (_gpu.Vendor == GpuVendor.Nvidia)
+            if (gpu.Vendor == GpuVendor.Nvidia)
             {
                 // For GenAI, use generic "cuda" which maps to CUDA package
                 if (packageType.Equals(RuntimePackageRegistry.PackageTypes.OnnxRuntimeGenAI, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (_gpu.CudaDriverVersionMajor >= 11 && supportedProviders.Contains("cuda"))
+                    if (gpu.CudaDriverVersionMajor >= 11 && supportedProviders.Contains("cuda"))
                         chain.Add("cuda");
                 }
                 else
                 {
                     // For standard ONNX Runtime, use specific CUDA versions
-                    if (_gpu.CudaDriverVersionMajor >= 12 && supportedProviders.Contains("cuda12"))
+                    if (gpu.CudaDriverVersionMajor >= 12 && supportedProviders.Contains("cuda12"))
                         chain.Add("cuda12");
-                    else if (_gpu.CudaDriverVersionMajor >= 11 && supportedProviders.Contains("cuda11"))
+                    else if (gpu.CudaDriverVersionMajor >= 11 && supportedProviders.Contains("cuda11"))
                         chain.Add("cuda11");
                 }
             }
 
             // CoreML (macOS/iOS)
-            if (_gpu.CoreMLSupported && supportedProviders.Contains("coreml"))
+            if (gpu.CoreMLSupported && supportedProviders.Contains("coreml"))
                 chain.Add("coreml");
         }
 
@@ -449,7 +475,7 @@ public sealed class RuntimeManager : IAsyncDisposable
 
         return $"""
             Platform: {_platform}
-            GPU: {_gpu}
+            GPU: {_gpu?.ToString() ?? "(not probed)"}
             Recommended Provider: {RecommendedProvider}
             Default Provider String: {GetDefaultProvider()}
             Active Provider: {_activeProvider ?? "none"}

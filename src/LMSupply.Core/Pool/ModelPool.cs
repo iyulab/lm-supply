@@ -16,7 +16,7 @@ public sealed class ModelPool<TModel, TOptions> : IAsyncDisposable
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private readonly IModelLoader<TModel, TOptions> _loader;
     private readonly ModelPoolOptions _options;
-    private readonly long _availableMemory;
+    private readonly Lazy<long> _availableMemory;
     private long _allocatedMemory;
     private long _accessClock;
     private bool _disposed;
@@ -31,10 +31,16 @@ public sealed class ModelPool<TModel, TOptions> : IAsyncDisposable
         _options = options ?? new ModelPoolOptions();
         ArgumentOutOfRangeException.ThrowIfLessThan(_options.MaxLoadedModels, 1, "options.MaxLoadedModels");
 
-        var profile = HardwareProfile.Current;
-        _availableMemory = _options.MaxMemoryBytes
-            ?? profile.GpuInfo.TotalMemoryBytes
-            ?? profile.SystemMemoryBytes;
+        // Read on first use, not at construction: a pool is a static of every Local* entry point, and reading the
+        // hardware profile probes the GPU (loading its driver libraries) in a process that may only run on the CPU.
+        var configured = _options.MaxMemoryBytes;
+        _availableMemory = new Lazy<long>(() =>
+        {
+            if (configured is { } bytes)
+                return bytes;
+            var profile = HardwareProfile.Current;
+            return profile.GpuInfo.TotalMemoryBytes ?? profile.SystemMemoryBytes;
+        }, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <summary>Gets the number of loaded models.</summary>
@@ -44,7 +50,7 @@ public sealed class ModelPool<TModel, TOptions> : IAsyncDisposable
     public long AllocatedMemoryBytes => _allocatedMemory;
 
     /// <summary>Gets the available memory for model loading.</summary>
-    public long AvailableMemoryBytes => _availableMemory - _allocatedMemory;
+    public long AvailableMemoryBytes => _availableMemory.Value - _allocatedMemory;
 
     /// <summary>Gets or loads a model by ID.</summary>
     /// <exception cref="InvalidOperationException">Thrown when memory is insufficient.</exception>
@@ -142,7 +148,7 @@ public sealed class ModelPool<TModel, TOptions> : IAsyncDisposable
     private bool CanAllocate(long requiredBytes)
     {
         var withMargin = (long)(requiredBytes * (1 + _options.MemorySafetyMargin));
-        return _allocatedMemory + withMargin <= _availableMemory;
+        return _allocatedMemory + withMargin <= _availableMemory.Value;
     }
 
     // Least recently used first, by an access counter rather than a timestamp: two accesses inside the

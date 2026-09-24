@@ -14,9 +14,16 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   (`Gemma 4 E4B Instruct (Q4_0)`).
 - **`GeneratorModelInfo.KnownIssues` is populated for registry aliases.** It was looked up by the display name, which
   is not a registry key, so every GGUF load reported no known issues.
+- **An explicit `ExecutionProvider.Cpu` no longer loads the NVIDIA driver libraries.** Every entry point's model pool,
+  the runtime manager's initialization and several load-path reads probed the GPU whatever the provider, so a CPU
+  load brought `nvml.dll` and the CUDA driver (`nvcuda.dll`) into the process. The GPU is now probed only when a GPU or
+  `Auto` choice needs it: a CPU embedder load leaves both unloaded (module list), and an `Auto` load still probes.
 
 ### Added
 
+- **`HardwareProfile.For(ExecutionProvider)`** — the profile a load with that provider works with. For `Cpu` it is
+  system memory and a CPU tier, built without probing the GPU; for any other provider it is `HardwareProfile.Current`.
+  `HardwareDetector.GetRecommendation(ExecutionProvider)` answers from it.
 - **`GeneratorModelInfo.RequestedModelId`, `RequestedFile`, `LoadedFile` and `IsQuantizationSubstituted`** — what the
   load was asked for, the alias's default file, the file it opened, and whether a smaller quantization stood in for the
   default. Set by GGUF (llama-server) loads. `IModelInfoBase.AliasName` now returns the requested id.
