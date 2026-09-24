@@ -189,7 +189,9 @@ public class GgufModelDownloaderTests
     [InlineData("mmproj-model.gguf", true)]
     [InlineData("mtp-model.gguf", true)]
     [InlineData("dflash-model.gguf", true)]
+    [InlineData("Qwen_Qwen3.5-4B-imatrix.gguf", true)]
     [InlineData("gemma-4-E4B-it-Q4_0.gguf", false)]
+    [InlineData("Qwen_Qwen3.5-4B-Q4_K_S.gguf", false)]
     public void IsCompanionFile_MatchesAnyKnownCompanionPrefix(string filename, bool expected)
     {
         GgufModelDownloader.IsCompanionFile(filename).Should().Be(expected);

@@ -4,9 +4,29 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [0.73.1] - unreleased
+## [0.74.0] - unreleased
+
+### Added
+
+- **`LocalGenerator.IsModelDownloaded(modelId, options)` tells a consent gate whether a load would download
+  anything.** It reads the cache only (no network, no runtime) and follows `LoadAsync`'s resolution: the
+  file a `gguf:` alias opens on this host rather than any file of its repository, every shard of a split model,
+  the model `default`/`auto` selects, a raw GGUF repository, a local path, and an ONNX model once a completed
+  download of it is cached. The embedder and reranker already had this; a generator consumer had to work it out
+  from the repository cache listing, which says "downloaded" for an alias whose file is not.
+
+### Changed
+
+- **A registry alias no longer loads another alias's cached file when its own would fit.** When a repository held
+  only a smaller quantization (for example `gguf:gemma4-default`'s Q4_0), `gguf:gemma4-balanced` (Q8_0) loaded
+  that file on a host where Q8_0 fits, silently. It now downloads its own file, and with `DisableAutoDownload` the
+  load fails with `ModelNotFoundException` instead. On a host where the default does not fit, the cached smaller
+  quantization is still used, as before.
 
 ### Fixed
+
+- **An importance-matrix file (`*-imatrix.gguf`) is never taken for a model.** Quantizers publish it next to their
+  quantizations. It was counted as one, and as the smallest file it could be picked when no quantization fits.
 
 - **A chat that starts with two system messages no longer fails on Qwen 3.x (llama-server backend).** A system prompt
   followed by a second system message (a conversation summary, for example) is valid in the OpenAI chat format, but

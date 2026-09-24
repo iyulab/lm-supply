@@ -126,4 +126,100 @@ public class GgufModelDownloaderDecisionTests
         budget.VramBytes.Should().Be(gpu.EffectiveAvailableBytes!.Value);
         budget.RamBytes.Should().Be(32 * GB);
     }
+
+    // ─── PlanFromCachedGroups — what a load settles on from the cache alone ───
+    // Two aliases can share one repository and differ only in the file (gemma4-default Q4_0,
+    // gemma4-balanced Q8_0). A cache holding only the smaller file must not turn the larger alias
+    // into the smaller one on a host where the larger one fits.
+
+    private static GgufModelInfo ModelWithEstimate(long? estimatedBytes) => Model() with { EstimatedSizeBytes = estimatedBytes };
+
+    [Fact]
+    public void PlanFromCache_DefaultFitsButOnlyAnotherQuantIsCached_IsUnsettled()
+    {
+        var budget = new AvailableMemory(VramBytes: 0, RamBytes: 32 * GB);
+        var model = ModelWithEstimate((long)(5.0 * GB));
+
+        // Before: DecideRegistryFile over the cached groups alone says Downscaled → Q2 was loaded.
+        GgufModelDownloader.DecideRegistryFile(model, [Grp("Model-Q2_K.gguf", 2.5)], budget, vramOnly: false)
+            .Reason.Should().Be(GgufModelDownloader.RegistryFileReason.Downscaled);
+
+        GgufModelDownloader.PlanFromCachedGroups(model, [Grp("Model-Q2_K.gguf", 2.5)], budget, vramOnly: false)
+            .Should().BeNull("the default fits this host, so the load fetches it rather than use another alias's file");
+    }
+
+    [Fact]
+    public void PlanFromCache_DefaultDoesNotFit_CachedSmallerQuantStandsIn()
+    {
+        var budget = new AvailableMemory(VramBytes: 0, RamBytes: 10 * GB);
+        var model = ModelWithEstimate((long)(5.0 * GB));
+
+        GgufModelDownloader.PlanFromCachedGroups(model, [Grp("Model-Q2_K.gguf", 2.5)], budget, vramOnly: false)
+            .Should().Be("Model-Q2_K.gguf", "the load would downscale anyway, and the cached quant fits");
+    }
+
+    [Fact]
+    public void PlanFromCache_DefaultCachedAndFits_IsTheDefault()
+    {
+        var budget = new AvailableMemory(VramBytes: 0, RamBytes: 32 * GB);
+
+        GgufModelDownloader.PlanFromCachedGroups(ModelWithEstimate((long)(5.0 * GB)), Groups(), budget, vramOnly: false)
+            .Should().Be("Model-Q4_K_M.gguf");
+    }
+
+    [Fact]
+    public void PlanFromCache_NothingCached_IsUnsettled()
+    {
+        var budget = new AvailableMemory(VramBytes: 0, RamBytes: 32 * GB);
+
+        GgufModelDownloader.PlanFromCachedGroups(ModelWithEstimate((long)(5.0 * GB)), [], budget, vramOnly: false)
+            .Should().BeNull();
+    }
+
+    [Fact]
+    public void PlanFromCache_NoSizeEstimate_KeepsTheCachedDownscale()
+    {
+        // Without an estimate the default is not known to fit: the cached quant stands in, as before.
+        var budget = new AvailableMemory(VramBytes: 0, RamBytes: 32 * GB);
+
+        GgufModelDownloader.PlanFromCachedGroups(ModelWithEstimate(null), [Grp("Model-Q2_K.gguf", 2.5)], budget, vramOnly: false)
+            .Should().Be("Model-Q2_K.gguf");
+    }
+
+    // ─── PlanRegistryFile — when the cache alone does not settle it, the listing does ───
+
+    [Fact]
+    public void PlanRegistryFile_NothingFits_CachedFileIsTheListingsSmallest_IsThatFile()
+    {
+        // An 8 GB GPU and a model whose every quantization is too big: the load lists the repository
+        // and takes its smallest file. When that is the cached one, nothing is downloaded.
+        var budget = new AvailableMemory(VramBytes: 0, RamBytes: 4 * GB);
+        var model = ModelWithEstimate((long)(5.0 * GB));
+
+        GgufModelDownloader.PlanFromCachedGroups(model, [Grp("Model-Q3_K_M.gguf", 3.5)], budget, vramOnly: false)
+            .Should().BeNull("the cached file does not fit, so the cache alone cannot say what the load picks");
+
+        GgufModelDownloader.PlanRegistryFile(model, [Grp("Model-Q3_K_M.gguf", 3.5)],
+                [Grp("Model-Q4_K_M.gguf", 5.0), Grp("Model-Q3_K_M.gguf", 3.5)], budget, vramOnly: false)
+            .Should().Be("Model-Q3_K_M.gguf");
+    }
+
+    [Fact]
+    public void PlanRegistryFile_ListingHasASmallerUncachedFile_IsThatFile()
+    {
+        var budget = new AvailableMemory(VramBytes: 0, RamBytes: 4 * GB);
+        var model = ModelWithEstimate((long)(5.0 * GB));
+
+        GgufModelDownloader.PlanRegistryFile(model, [Grp("Model-Q3_K_M.gguf", 3.5)], Groups(), budget, vramOnly: false)
+            .Should().Be("Model-Q2_K.gguf", "the load would fetch the smaller file, so the cached one is not what it opens");
+    }
+
+    [Fact]
+    public void PlanRegistryFile_NoListing_IsUnsettled()
+    {
+        var budget = new AvailableMemory(VramBytes: 0, RamBytes: 4 * GB);
+
+        GgufModelDownloader.PlanRegistryFile(ModelWithEstimate((long)(5.0 * GB)), [Grp("Model-Q3_K_M.gguf", 3.5)], null, budget, vramOnly: false)
+            .Should().BeNull();
+    }
 }

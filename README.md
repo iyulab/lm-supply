@@ -181,6 +181,10 @@ await using var robust = await LocalGenerator.LoadWithFallbackChainAsync(
 // Quality floor — prefer a specific model in 'auto' selection, fall back if unavailable
 var options = new GeneratorOptions { PreferredAutoModelId = "gguf:phi-4-mini" };
 await using var preferred = await LocalGenerator.LoadAsync("auto", options);
+
+// Consent gate — true only when the load with the same id and options downloads nothing
+if (!LocalGenerator.IsModelDownloaded("gguf:qwen3-default", options) && !AskUserToDownload())
+    return;
 ```
 
 ### Translation

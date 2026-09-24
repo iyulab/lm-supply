@@ -1,3 +1,4 @@
+using LMSupply.Download;
 using LMSupply.Generator.Abstractions;
 using LMSupply.Hardware;
 using LMSupply.Runtime;
@@ -170,6 +171,122 @@ public static class LocalGenerator
         }
 
         return await Internal.GeneratorModelLoader.DownloadAsync(modelId, options, progress, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Whether <see cref="LoadAsync"/> (and <see cref="DownloadModelAsync"/>) with the same id and options
+    /// would download nothing — for a consent gate that must not start a download unasked. Reads the
+    /// cache only: no network, no runtime, no llama-server.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The answer follows the load's own resolution, step for step. A <c>gguf:</c> or registry alias is
+    /// the file that alias loads on this host — every shard of a split model, and the registry default
+    /// unless it would not fit the provider's memory budget, in which case the cached smaller
+    /// quantization the load would use. Another quantization of the same repository does not count:
+    /// <c>gguf:gemma4-balanced</c> (Q8_0) is not downloaded because <c>gguf:gemma4-default</c>'s Q4_0
+    /// file is. When the cached files alone do not settle which file the load takes (no quantization
+    /// fits, so the load takes the repository's smallest), the decision is made over the repository
+    /// listing cached at the last download; with no cached listing the answer is
+    /// <see langword="false"/>. <c>"default"</c>/<c>"auto"</c> are the model the hardware-aware selection picks. A raw
+    /// GGUF repository counts when it holds a cached GGUF (the load takes one before listing). A local
+    /// path counts when it exists.
+    /// </para>
+    /// <para>
+    /// An ONNX model counts when a completed download of its repository is in the cache: the manifest
+    /// that download wrote lists files that are all present at the recorded lengths (and, for a registry
+    /// model with a subfolder, that subfolder is among them). The files an ONNX load picks come from the
+    /// repository listing, which this check cannot read, so a model fetched by other means reads as not
+    /// downloaded.
+    /// </para>
+    /// <para>
+    /// <see langword="false"/> means a load <em>may</em> download; <see langword="true"/> means it opens
+    /// cached files only. The answer never errs toward <see langword="true"/>.
+    /// </para>
+    /// </remarks>
+    /// <param name="modelId">Anything <see cref="LoadAsync"/> accepts.</param>
+    /// <param name="options">
+    /// The options the load will use. <see cref="LMSupplyOptionsBase.Provider"/> decides the memory budget
+    /// that picks a GGUF file, and <see cref="LMSupplyOptionsBase.CacheDirectory"/> where to look.
+    /// </param>
+    public static bool IsModelDownloaded(string modelId, GeneratorOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        options ??= new GeneratorOptions();
+
+        // Mirrors DownloadModelAsync's resolution — see LoadAsync for why each check sits where it does.
+        if (GeneratorModelRegistry.Default.TryGetUserAliasTarget(modelId, out var userAliasTarget))
+        {
+            modelId = userAliasTarget!;
+        }
+
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+
+        if (modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ||
+            Internal.Llama.GgufModelRegistry.IsAlias(modelId))
+        {
+            return IsGgufModelCached(modelId, options, cacheDir);
+        }
+
+        var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelId);
+        modelId = baseId;
+
+        if (modelId.Equals("default", StringComparison.OrdinalIgnoreCase) ||
+            modelId.Equals("auto", StringComparison.OrdinalIgnoreCase))
+        {
+            var selected = !string.IsNullOrEmpty(options.PreferredAutoModelId)
+                ? options.PreferredAutoModelId
+                : SelectAutoModel(options).ModelId;
+            return IsModelDownloaded(selected, options);
+        }
+
+        GeneratorModelRegistry.Default.TryResolve(modelId, out var resolvedModel);
+        if (resolvedModel is not null)
+        {
+            modelId = resolvedModel.ModelId;
+        }
+
+        if (File.Exists(modelId) || Directory.Exists(modelId))
+        {
+            return true;
+        }
+
+        return Internal.ModelFormatDetector.Detect(modelId) == Models.ModelFormat.Onnx
+            ? IsOnnxModelCached(modelId, resolvedModel?.Subfolder, cacheDir)
+            : IsGgufModelCached(modelId, options, cacheDir);
+    }
+
+    private static bool IsGgufModelCached(string modelId, GeneratorOptions options, string cacheDir)
+    {
+        using var downloader = new Internal.Llama.GgufModelDownloader(cacheDir, localFilesOnly: true);
+        var registryInfo = Internal.Llama.GgufModelRegistry.Resolve(modelId);
+        if (registryInfo is not null)
+        {
+            return downloader.IsRegistryModelCached(registryInfo, options.Provider);
+        }
+
+        // An unregistered "gguf:" id cannot load at all; a raw repository id loads a cached GGUF first.
+        return !modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase)
+            && downloader.IsRepositoryModelCached(modelId);
+    }
+
+    private static bool IsOnnxModelCached(string repoId, string? subfolder, string cacheDir)
+    {
+        var snapshotDir = CacheManager.GetModelDirectory(cacheDir, repoId);
+        var manifest = DownloadManifest.Read(snapshotDir);
+        if (manifest is not { Files.Count: > 0 })
+            return false;
+
+        if (subfolder is not null &&
+            !manifest.Files.Any(f => f.Path.StartsWith(subfolder.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        return manifest.Files.All(f => ResumableFileDownload.IsUsableCachedFile(
+            Path.Combine(snapshotDir, f.Path.Replace('/', Path.DirectorySeparatorChar)),
+            f.Size > 0 ? f.Size : null,
+            readOnly: true));
     }
 
     /// <summary>

@@ -985,6 +985,28 @@ public sealed class ModelDiscoveryService : IDisposable
             $"Model '{repoId}' is not in the local cache and downloads are disabled.", repoId);
     }
 
+    /// <summary>
+    /// The repository file list this service cached at its last listing, at any age, or
+    /// <see langword="null"/> when none is cached. Read-only and synchronous — for a probe that must
+    /// answer from the cache without a request.
+    /// </summary>
+    internal IReadOnlyList<RepoFile>? TryReadCachedListing(string repoId, string revision = "main")
+    {
+        var cachePath = GetCachePath(repoId, revision);
+        if (string.IsNullOrEmpty(cachePath) || !File.Exists(cachePath))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<RepoFile>>(File.ReadAllText(cachePath));
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceInformation($"[ModelDiscoveryService] File list cache read failed: {ex.Message}");
+            return null;
+        }
+    }
+
     private async Task<IReadOnlyList<RepoFile>?> TryLoadFromCacheAsync(
         string repoId,
         string revision,

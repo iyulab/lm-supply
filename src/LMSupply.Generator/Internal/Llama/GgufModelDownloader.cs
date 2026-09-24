@@ -220,27 +220,20 @@ public sealed class GgufModelDownloader : IDisposable
         ExecutionProvider provider,
         CancellationToken cancellationToken)
     {
-        var profile = HardwareProfile.Current;
-        var cpuBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(provider, profile.GpuInfo)
-            == global::LMSupply.Llama.Server.LlamaServerBackend.Cpu;
-        var budget = BuildSelectionBudget(
-            cpuBackend, profile.GpuInfo, profile.SystemMemoryBytes,
-            GgufModelRegistry.DefaultBudgetContextLength, out var vramOnly);
+        var budget = SelectionBudgetFor(provider, out var vramOnly);
 
-        // Offline-first, but budget-aware: only reuse a cached quant if it actually fits the budget.
-        // (A cached default that no longer fits must not short-circuit the downscale.)
+        // Offline-first, but budget-aware: reuse a cached quant only where the load would have chosen it.
         var cachedGroups = ListCachedGroups(modelInfo.RepoId);
-        if (cachedGroups.Count > 0)
-        {
-            var cachedDecision = DecideRegistryFile(modelInfo, cachedGroups, budget, vramOnly);
-            if (cachedDecision.Reason is RegistryFileReason.DefaultFits or RegistryFileReason.Downscaled)
-                return cachedDecision.FileName;
-        }
+        var planned = PlanFromCachedGroups(modelInfo, cachedGroups, budget, vramOnly);
+        if (planned is not null)
+            return planned;
 
-        // Offline: whatever is cached is the choice (DownloadAsync fails the load if nothing is); never list.
+        // Offline: never list. A cached quant stands in only when the default would not fit this host
+        // either; a default that fits but is not cached is refused (DownloadAsync throws NotCached)
+        // rather than silently replaced by another alias's file.
         if (_localFilesOnly)
         {
-            return cachedGroups.Count > 0
+            return cachedGroups.Count > 0 && !DefaultFitsByEstimate(modelInfo, budget, vramOnly)
                 ? DecideRegistryFile(modelInfo, cachedGroups, budget, vramOnly).FileName
                 : modelInfo.DefaultFile;
         }
@@ -274,6 +267,107 @@ public sealed class GgufModelDownloader : IDisposable
         }
 
         return decision.FileName;
+    }
+
+    /// <summary>
+    /// Whether a load of this registry model opens only files already in the cache: every shard of a
+    /// split model, otherwise the file the load picks for this host. Read-only and network-free; the
+    /// same plan <see cref="DownloadFromRegistryAsync"/> follows.
+    /// </summary>
+    /// <remarks>
+    /// When the cached files alone do not settle the pick (<see cref="PlanFromCachedGroups"/> is
+    /// <see langword="null"/>), the load lists the repository and decides over every quantization. The
+    /// probe makes that decision over the listing cached at the last download, at any age. With no
+    /// cached listing the answer is <see langword="false"/>.
+    /// </remarks>
+    internal bool IsRegistryModelCached(GgufModelInfo modelInfo, ExecutionProvider provider)
+    {
+        if (modelInfo.ShardCount is > 1)
+        {
+            return GenerateShardFilenames(modelInfo.DefaultFile, modelInfo.ShardCount.Value)
+                .All(f => IsCachedFile(modelInfo.RepoId, f));
+        }
+
+        var budget = SelectionBudgetFor(provider, out var vramOnly);
+        var listing = _discoveryService.TryReadCachedListing(modelInfo.RepoId);
+        var planned = PlanRegistryFile(
+            modelInfo, ListCachedGroups(modelInfo.RepoId), listing is null ? null : ToGgufGroups(listing), budget, vramOnly);
+
+        return planned is not null && IsCachedFile(modelInfo.RepoId, planned);
+    }
+
+    /// <summary>
+    /// The file a load of this registry model opens: the cache's answer when it settles the pick,
+    /// otherwise the decision over the repository listing, or <see langword="null"/> without one.
+    /// Pure — the groups and the budget are passed in.
+    /// </summary>
+    internal static string? PlanRegistryFile(
+        GgufModelInfo modelInfo,
+        IReadOnlyList<GgufFileGroup> cachedGroups,
+        IReadOnlyList<GgufFileGroup>? listedGroups,
+        AvailableMemory budget,
+        bool vramOnly)
+        => PlanFromCachedGroups(modelInfo, cachedGroups, budget, vramOnly)
+           ?? (listedGroups is { Count: > 0 } ? DecideRegistryFile(modelInfo, listedGroups, budget, vramOnly).FileName : null);
+
+    /// <summary>
+    /// Whether a load of a raw HuggingFace GGUF repository (no file named) opens a cached file:
+    /// that load takes a cached GGUF before it lists the repository.
+    /// </summary>
+    internal bool IsRepositoryModelCached(string repoId)
+    {
+        var file = TrySelectFromLocalCache(repoId, preferredQuantization: null);
+        return file is not null && IsCachedFile(repoId, file);
+    }
+
+    private bool IsCachedFile(string repoId, string filename)
+        => ResumableFileDownload.IsUsableCachedFile(GetCachedPath(repoId, filename), expectedSize: null, readOnly: true);
+
+    /// <summary>
+    /// The registry file a load settles on from the cache alone, or <see langword="null"/> when only the
+    /// repository listing can settle it — nothing is cached, or the default fits this host but is not cached.
+    /// </summary>
+    /// <remarks>
+    /// A smaller cached quantization stands in for the default only when the default would not fit either.
+    /// Otherwise it is another alias's file: <c>gguf:gemma4-balanced</c> (Q8_0) and <c>gguf:gemma4-default</c>
+    /// (Q4_0) share one repository, and a cache holding only Q4_0 must not turn the first into the second.
+    /// </remarks>
+    internal static string? PlanFromCachedGroups(
+        GgufModelInfo modelInfo,
+        IReadOnlyList<GgufFileGroup> cachedGroups,
+        AvailableMemory budget,
+        bool vramOnly)
+    {
+        if (cachedGroups.Count == 0)
+            return null;
+
+        var decision = DecideRegistryFile(modelInfo, cachedGroups, budget, vramOnly);
+        return decision.Reason switch
+        {
+            RegistryFileReason.DefaultFits => decision.FileName,
+            RegistryFileReason.Downscaled when !DefaultFitsByEstimate(modelInfo, budget, vramOnly) => decision.FileName,
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// Whether the registry default fits the budget by the registry's size estimate — known without
+    /// listing the repository. An entry without an estimate is not known to fit.
+    /// </summary>
+    internal static bool DefaultFitsByEstimate(GgufModelInfo modelInfo, AvailableMemory budget, bool vramOnly)
+        => modelInfo.EstimatedSizeBytes is > 0 and var size && FitsBudget(size, budget, vramOnly);
+
+    private static bool FitsBudget(long sizeBytes, AvailableMemory budget, bool vramOnly)
+        => vramOnly && budget.VramBytes > 0 ? budget.FitsInGpu(sizeBytes) : budget.FitsInMemory(sizeBytes);
+
+    private static AvailableMemory SelectionBudgetFor(ExecutionProvider provider, out bool vramOnly)
+    {
+        var profile = HardwareProfile.Current;
+        var cpuBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(provider, profile.GpuInfo)
+            == global::LMSupply.Llama.Server.LlamaServerBackend.Cpu;
+        return BuildSelectionBudget(
+            cpuBackend, profile.GpuInfo, profile.SystemMemoryBytes,
+            GgufModelRegistry.DefaultBudgetContextLength, out vramOnly);
     }
 
     /// <summary>
@@ -364,8 +458,11 @@ public sealed class GgufModelDownloader : IDisposable
         string repoId,
         CancellationToken cancellationToken = default)
     {
-        var files = await ListRepositoryFilesAsync(repoId, cancellationToken);
+        return ToGgufGroups(await ListRepositoryFilesAsync(repoId, cancellationToken));
+    }
 
+    private static List<GgufFileGroup> ToGgufGroups(IEnumerable<RepoFile> files)
+    {
         var rawFiles = files
             .Where(f => f.Path.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase))
             .Where(f => !IsCompanionFile(Path.GetFileName(f.Path)))
@@ -434,9 +531,7 @@ public sealed class GgufModelDownloader : IDisposable
         if (availableGroups.Count == 0)
             return new RegistryFileDecision(model.DefaultFile, RegistryFileReason.GroupsUnavailable);
 
-        bool Fits(long sizeBytes) => vramOnly && budget.VramBytes > 0
-            ? budget.FitsInGpu(sizeBytes)
-            : budget.FitsInMemory(sizeBytes);
+        bool Fits(long sizeBytes) => FitsBudget(sizeBytes, budget, vramOnly);
 
         // Prefer the registry's intended quant if it fits — capable hosts stay on the default.
         var registryQuant = ExtractQuantization(model.DefaultFile);
@@ -688,12 +783,20 @@ public sealed class GgufModelDownloader : IDisposable
         filename.StartsWith("dflash", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// True for any file that is a companion to a standalone model — a multimodal projector or a
-    /// speculative-decoding draft/assistant — and must therefore never be selected as the main
+    /// Importance-matrix data that quantizers publish next to their quants (<c>*-imatrix.gguf</c>).
+    /// A GGUF container, but calibration data, not a model — and small, so a "smallest file" fallback
+    /// would otherwise pick it.
+    /// </summary>
+    internal static bool IsImatrixFile(string filename) =>
+        Path.GetFileNameWithoutExtension(filename).EndsWith("imatrix", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// True for any file that is not a standalone model — a multimodal projector, a speculative-decoding
+    /// draft/assistant, or importance-matrix data — and must therefore never be selected as the main
     /// model in quantization/size-based auto-selection.
     /// </summary>
     internal static bool IsCompanionFile(string filename) =>
-        IsMmprojFile(filename) || IsMtpFile(filename) || IsDflashFile(filename);
+        IsMmprojFile(filename) || IsMtpFile(filename) || IsDflashFile(filename) || IsImatrixFile(filename);
 
     public void Dispose()
     {
