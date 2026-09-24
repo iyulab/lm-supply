@@ -55,7 +55,8 @@ public sealed class TranscriptionSegment
     public int Id { get; init; }
 
     /// <summary>
-    /// Gets the start time in seconds.
+    /// Gets the start time in seconds from the start of the transcribed audio. Times are absolute across
+    /// the whole input: segments of later 30-second windows are shifted by where their window starts.
     /// </summary>
     public double Start { get; init; }
 

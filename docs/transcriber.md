@@ -211,6 +211,11 @@ foreach (var segment in result.Segments)
 }
 ```
 
+`Start` and `End` are seconds from the start of the audio you passed in, on one clock across the whole
+file: long audio is decoded in 30-second windows, and each window's segments are shifted by where that
+window starts. They line up with anything else measured from the same start — video frame times, a
+speaker diarization track. For audio cut out of a longer recording, add the clip's own offset.
+
 What `End` means depends on the mode. With `WordTimestamps = true` the model places segment boundaries
 and a segment ends where its speech stops. In the default mode (no timestamps) audio of up to 30 seconds
 yields one segment that ends at the end of the audio — where the input stops, not where the speech in it
