@@ -209,16 +209,57 @@ public sealed class LlamaServerPool : IAsyncDisposable
         };
     }
 
+    /// <summary>
+    /// Stops every pooled server that no model is using, now rather than after
+    /// <see cref="LlamaServerPoolOptions.IdleTimeout"/>, and returns how many were stopped.
+    /// </summary>
+    /// <remarks>
+    /// A server stays in the pool after the last model using it is disposed so that loading the same
+    /// model again is fast. On a single GPU that idle server keeps its memory, and the next model to
+    /// load gets less. A host that switches models calls this after disposing the old one. Loading a
+    /// generator on a GPU already stops the idle GPU servers of other models before it measures memory.
+    /// A server a model is using is never stopped.
+    /// </remarks>
+    public Task<int> ReleaseIdleAsync() => ReleaseIdleAsync(static _ => true);
+
+    /// <summary>
+    /// <see cref="ReleaseIdleAsync()"/> for the idle servers <paramref name="filter"/> selects.
+    /// </summary>
+    internal async Task<int> ReleaseIdleAsync(Func<PooledServer, bool> filter)
+    {
+        var released = 0;
+        foreach (var server in _servers.Values.Where(filter).ToList())
+        {
+            if (await TryRetireAsync(server).ConfigureAwait(false))
+                released++;
+        }
+        return released;
+    }
+
+    /// <summary>
+    /// Removes and stops <paramref name="server"/> if no lease holds it. The retire is atomic with
+    /// <see cref="PooledServer.TryLease"/>: a lease taken concurrently either wins (and the server stays)
+    /// or fails (and the caller starts a new server) — a leased server is never stopped under its model.
+    /// </summary>
+    private async Task<bool> TryRetireAsync(PooledServer server)
+    {
+        if (!server.TryRetire())
+            return false;
+
+        _servers.TryRemove(new KeyValuePair<string, PooledServer>(server.Key, server));
+        await server.DisposeAsync().ConfigureAwait(false);
+        return true;
+    }
+
     private async Task EvictOldestIdleServerAsync()
     {
-        var oldestIdle = _servers.Values
+        foreach (var candidate in _servers.Values
             .Where(s => s.IsAlive && !s.IsInUse)
             .OrderBy(s => s.LastUsed)
-            .FirstOrDefault();
-
-        if (oldestIdle != null && _servers.TryRemove(oldestIdle.Key, out var removed))
+            .ToList())
         {
-            await removed.DisposeAsync();
+            if (await TryRetireAsync(candidate))
+                return;
         }
     }
 
@@ -228,25 +269,15 @@ public sealed class LlamaServerPool : IAsyncDisposable
             return;
 
         var now = DateTimeOffset.UtcNow;
-        var serversToRemove = _servers.Values
-            .Where(s => !s.IsInUse && (now - s.LastUsed) > Options.IdleTimeout)
-            .ToList();
-
-        foreach (var server in serversToRemove)
-        {
-            if (_servers.TryRemove(server.Key, out var removed))
-            {
-                await removed.DisposeAsync().ConfigureAwait(false);
-            }
-        }
+        await ReleaseIdleAsync(s => (now - s.LastUsed) > Options.IdleTimeout).ConfigureAwait(false);
 
         // Also remove dead servers
         var deadServers = _servers.Values.Where(s => !s.IsAlive).ToList();
         foreach (var server in deadServers)
         {
-            if (_servers.TryRemove(server.Key, out var removed))
+            if (_servers.TryRemove(new KeyValuePair<string, PooledServer>(server.Key, server)))
             {
-                await removed.DisposeAsync().ConfigureAwait(false);
+                await server.DisposeAsync().ConfigureAwait(false);
             }
         }
     }
@@ -298,11 +329,47 @@ public sealed class LlamaServerPoolOptions
 }
 
 /// <summary>
+/// Counts the leases on a pooled server and retires it atomically: once <see cref="TryRetire"/> has
+/// succeeded no lease can be acquired, and it succeeds only while no lease is held. Without that, a
+/// server the idle sweep had picked could be leased in the gap before it was stopped.
+/// </summary>
+internal sealed class LeaseGate
+{
+    // Number of live leases; -1 once retired.
+    private int _count;
+
+    public bool IsHeld => Volatile.Read(ref _count) > 0;
+
+    public bool IsRetired => Volatile.Read(ref _count) < 0;
+
+    public bool TryAcquire()
+    {
+        while (true)
+        {
+            var count = Volatile.Read(ref _count);
+            if (count < 0)
+                return false;
+
+            if (Interlocked.CompareExchange(ref _count, count + 1, count) == count)
+                return true;
+        }
+    }
+
+    public void Release()
+    {
+        if (Interlocked.Decrement(ref _count) < 0)
+            throw new InvalidOperationException("A lease was released that was never acquired.");
+    }
+
+    public bool TryRetire() => Interlocked.CompareExchange(ref _count, -1, 0) == 0;
+}
+
+/// <summary>
 /// A pooled llama-server instance.
 /// </summary>
 internal sealed class PooledServer : IAsyncDisposable
 {
-    private int _leaseCount;
+    private readonly LeaseGate _leases = new();
     private bool _disposed;
 
     public string Key { get; }
@@ -313,7 +380,7 @@ internal sealed class PooledServer : IAsyncDisposable
     public DateTimeOffset LastUsed { get; private set; }
 
     public bool IsAlive => !_disposed && Server.IsRunning;
-    public bool IsInUse => _leaseCount > 0;
+    public bool IsInUse => _leases.IsHeld;
 
     public PooledServer(
         string key,
@@ -335,14 +402,22 @@ internal sealed class PooledServer : IAsyncDisposable
         if (_disposed || !Server.IsRunning)
             return false;
 
-        Interlocked.Increment(ref _leaseCount);
+        if (!_leases.TryAcquire())
+            return false; // retired: the pool is stopping it
+
         LastUsed = DateTimeOffset.UtcNow;
         return true;
     }
 
+    /// <summary>
+    /// Marks the server retired when no lease holds it, so no lease can be taken afterwards;
+    /// <see langword="false"/> when it is in use (or already retired).
+    /// </summary>
+    public bool TryRetire() => _leases.TryRetire();
+
     public void Release()
     {
-        Interlocked.Decrement(ref _leaseCount);
+        _leases.Release();
         LastUsed = DateTimeOffset.UtcNow;
     }
 

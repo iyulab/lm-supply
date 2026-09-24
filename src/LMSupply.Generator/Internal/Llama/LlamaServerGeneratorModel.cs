@@ -136,6 +136,22 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
 
         LlamaServerVersionRequirements.Validate(serverVersion, chatFormatter.FormatName);
 
+        // 1c. On a GPU, stop the idle servers of other models before sizing this one: a server whose
+        // model was disposed stays pooled for reuse, and on one GPU it keeps the memory this load is
+        // about to budget for. A server a live model uses is never stopped; an idle server of this same
+        // model is kept, because this load may reuse it.
+        if (backend != LlamaServerBackend.Cpu)
+        {
+            var released = await LlamaServerPool.Instance.ReleaseIdleAsync(
+                s => s.Backend != LlamaServerBackend.Cpu
+                     && !string.Equals(s.ModelPath, modelPath, StringComparison.OrdinalIgnoreCase));
+            if (released > 0)
+            {
+                Trace.TraceInformation(
+                    $"[LlamaServerGeneratorModel] Stopped {released} idle llama-server(s) of other models to free GPU memory before loading '{Path.GetFileName(modelPath)}'.");
+            }
+        }
+
         // 2. Read GGUF metadata (best effort)
         GgufMetadata? ggufMetadata = null;
         try

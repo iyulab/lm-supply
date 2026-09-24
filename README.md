@@ -185,6 +185,9 @@ await using var preferred = await LocalGenerator.LoadAsync("auto", options);
 // Consent gate — true only when the load with the same id and options downloads nothing
 if (!LocalGenerator.IsModelDownloaded("gguf:qwen3-default", options) && !AskUserToDownload())
     return;
+
+// Switching GGUF models on one GPU — stop the servers no model uses (dispose the old model first)
+await LlamaServerPool.Instance.ReleaseIdleAsync();
 ```
 
 ### Translation

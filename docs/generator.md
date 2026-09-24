@@ -230,6 +230,23 @@ var generator = await TextGeneratorBuilder.Create()
     .BuildAsync();
 ```
 
+#### Switching GGUF models on one GPU
+
+Each GGUF model runs in a llama-server process from a shared pool. When a model is disposed its
+server stays pooled for a while (`LlamaServerPoolOptions.IdleTimeout`, 10 minutes) so loading the
+same model again is fast — and on one GPU that idle server keeps its memory. Loading a generator on a
+GPU stops the idle servers of *other* models first, so dispose the old model before loading the new
+one. A host that switches models (or wants the memory back now) can also stop every idle server:
+
+```csharp
+await oldModel.DisposeAsync();
+await LlamaServerPool.Instance.ReleaseIdleAsync();   // returns how many servers were stopped
+await using var newModel = await LocalGenerator.LoadAsync("gguf:qwen3-default");
+```
+
+A server a live model is using is never stopped. Loading the new model *before* disposing the old one
+still sizes it next to the old one: both run at once.
+
 ## Hardware Detection
 
 ```csharp

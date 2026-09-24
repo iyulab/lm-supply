@@ -14,6 +14,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   the model `default`/`auto` selects, a raw GGUF repository, a local path, and an ONNX model once a completed
   download of it is cached. The embedder and reranker already had this; a generator consumer had to work it out
   from the repository cache listing, which says "downloaded" for an alias whose file is not.
+- **`LlamaServerPool.ReleaseIdleAsync()` stops every llama-server no model is using, now.** A disposed model's
+  server stays pooled for `IdleTimeout` (10 minutes) so it can be reused, and on one GPU it keeps its memory. A host
+  that switches models calls this after disposing the old one; it returns how many servers were stopped.
 
 ### Changed
 
@@ -23,8 +26,16 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   load fails with `ModelNotFoundException` instead. On a host where the default does not fit, the cached smaller
   quantization is still used, as before.
 
+- **Loading a generator on a GPU stops the idle llama-servers of other models first.** After switching from one GGUF
+  model to another, the old model's server stayed resident beside the new one for ten minutes, and the new model
+  was sized as if that memory were free. Idle servers of the same model are kept (the load may reuse them), and a
+  server a live model is using is never stopped.
+
 ### Fixed
 
+- **A pooled llama-server can no longer be stopped while a load is leasing it.** The idle sweep picked a server and
+  stopped it in two steps; a load that leased it in between got a server that was shutting down. Retiring and
+  leasing are now one atomic decision.
 - **An importance-matrix file (`*-imatrix.gguf`) is never taken for a model.** Quantizers publish it next to their
   quantizations. It was counted as one, and as the smallest file it could be picked when no quantization fits.
 
