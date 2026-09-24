@@ -4,7 +4,22 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [0.74.0] - unreleased
+## [0.75.0] - unreleased
+
+### Fixed
+
+- **`DownloadProgress.OverallPercentComplete` is byte-weighted.** It weighted every file of a multi-file download
+  equally, so while the one large file of a model downloaded it reported the share of files done (18 % with the
+  weights 82 % done). When every file's size is known up front (the repository listing or a verified manifest) it is
+  now bytes done over bytes total; only when a size is unknown does it fall back to the file-count approximation.
+
+### Added
+
+- **`DownloadProgress.OverallBytesDownloaded` / `OverallTotalBytes`** — the bytes done and the size of the whole
+  multi-file download (files already cached count as done), or `null` when a file's size is not known. The existing
+  `BytesDownloaded` / `TotalBytes` are, as before, the current file's; their XML doc now says so.
+
+## [0.74.0] - 2026-09-24
 
 ### Added
 

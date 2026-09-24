@@ -173,4 +173,47 @@ public class DownloadProgressTests
         progress.CurrentFileIndex.Should().Be(0);
         progress.TotalFileCount.Should().Be(0);
     }
+
+    // --- Byte-weighted overall (every file's size known) ---
+
+    [Fact]
+    public void OverallPercentComplete_WithOverallBytes_IsByteWeighted_NotFileCountWeighted()
+    {
+        // The reported case: ten files, the big one is second. 4.0 GB of its 4.9 GB is done, the small first
+        // file is done, the other eight (a few KB) are not started. The file-count approximation said ~18 %.
+        const long small = 4_000;
+        const long big = 4_900_000_000;
+        var progress = new DownloadProgress
+        {
+            FileName = "model.onnx_data",
+            BytesDownloaded = 4_000_000_000,
+            TotalBytes = big,
+            CurrentFileIndex = 2,
+            TotalFileCount = 10,
+            OverallBytesDownloaded = small + 4_000_000_000,
+            OverallTotalBytes = small * 9 + big,
+        };
+
+        progress.OverallPercentComplete.Should().BeApproximately(81.6, 0.1);
+        progress.PercentComplete.Should().BeApproximately(81.6, 0.1, "the current file is almost all of the download");
+    }
+
+    [Fact]
+    public void OverallBytes_Total_IsNull_WhenAnySizeIsUnknown()
+    {
+        var bytes = new LMSupply.Download.HuggingFaceDownloader.OverallBytes([10, null, 30]);
+
+        bytes.Total.Should().BeNull();
+        bytes.Before(3).Should().BeNull("a partial sum would make the percentage jump backwards");
+    }
+
+    [Fact]
+    public void OverallBytes_Before_SumsTheEarlierFiles()
+    {
+        var bytes = new LMSupply.Download.HuggingFaceDownloader.OverallBytes([10, 20, 30]);
+
+        bytes.Total.Should().Be(60);
+        bytes.Before(1).Should().Be(0);
+        bytes.Before(3).Should().Be(30);
+    }
 }

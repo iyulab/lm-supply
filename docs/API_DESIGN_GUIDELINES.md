@@ -327,12 +327,14 @@ All long-running operations MUST support progress reporting:
 public record DownloadProgress
 {
     string FileName,
-    long BytesDownloaded,
-    long TotalBytes,
+    long BytesDownloaded,             // current file
+    long TotalBytes,                  // current file
     double PercentComplete,           // per-file (0-100)
     int CurrentFileIndex,             // 1-based, 0 for single-file
     int TotalFileCount,               // 0 for single-file
-    double OverallPercentComplete     // overall across all files (0-100)
+    long? OverallBytesDownloaded,     // whole download, null when a file size is unknown
+    long? OverallTotalBytes,          // whole download, null when a file size is unknown
+    double OverallPercentComplete     // overall (0-100): byte-weighted when sizes are known, else by file count
 }
 
 // Usage

@@ -116,6 +116,8 @@ public sealed class HuggingFaceDownloader : IDisposable
         var totalFileCount = allFiles.Count;
         var fileIndex = 0;
         var manifestFiles = new List<ManifestFileEntry>();
+        var bytes = new OverallBytes(allFiles.Select(f =>
+            discovery.FileSizes.TryGetValue(f, out var s) && s > 0 ? s : (long?)null));
 
         foreach (var file in allFiles)
         {
@@ -146,7 +148,7 @@ public sealed class HuggingFaceDownloader : IDisposable
                 }
 
                 // Wrap progress to include multi-file context
-                var wrappedProgress = WrapProgress(progress, fileIndex, totalFileCount);
+                var wrappedProgress = WrapProgress(progress, fileIndex, totalFileCount, bytes);
 
                 // Download using the full file path (includes subfolder)
                 await DownloadFileWithRetryAsync(
@@ -242,6 +244,11 @@ public sealed class HuggingFaceDownloader : IDisposable
         long? ExpectedOnDisk(string file) =>
             manifestSizes.TryGetValue(file, out var recorded) ? recorded : ListedAt(subfolder, file) ?? ListedAt(null, file);
 
+        // A file the listing does not have is not downloaded (or fails), so it adds nothing; without a listing or
+        // manifest entry its size is unknown and the overall byte figures stay null.
+        var bytes = new OverallBytes(fileList.Select(f =>
+            ExpectedOnDisk(f) ?? ListedAt(subfolder, f) ?? ListedAt(null, f) ?? (listing is not null ? 0L : (long?)null)));
+
         foreach (var file in fileList)
         {
             fileIndex++;
@@ -260,7 +267,7 @@ public sealed class HuggingFaceDownloader : IDisposable
                     continue;
                 }
 
-                var wrappedProgress = WrapProgress(progress, fileIndex, totalFileCount);
+                var wrappedProgress = WrapProgress(progress, fileIndex, totalFileCount, bytes);
 
                 var downloaded = await TryDownloadFileWithFallbackAsync(
                     repoId, file, localPath, revision, subfolder,
@@ -545,19 +552,20 @@ public sealed class HuggingFaceDownloader : IDisposable
     }
 
     /// <summary>
-    /// Wraps a progress reporter to include multi-file context (file index and total count).
+    /// Wraps a progress reporter to include multi-file context (file index and total count, and the bytes done
+    /// across the whole download when every file's size is known).
     /// </summary>
     private static MultiFileProgress? WrapProgress(
-        IProgress<DownloadProgress>? progress, int currentFileIndex, int totalFileCount)
+        IProgress<DownloadProgress>? progress, int currentFileIndex, int totalFileCount, OverallBytes bytes)
     {
         if (progress is null)
             return null;
 
-        return new MultiFileProgress(progress, currentFileIndex, totalFileCount);
+        return new MultiFileProgress(progress, currentFileIndex, totalFileCount, bytes.Before(currentFileIndex), bytes.Total);
     }
 
     private sealed class MultiFileProgress(
-        IProgress<DownloadProgress> inner, int currentFileIndex, int totalFileCount)
+        IProgress<DownloadProgress> inner, int currentFileIndex, int totalFileCount, long? bytesBefore, long? overallTotal)
         : IProgress<DownloadProgress>
     {
         public void Report(DownloadProgress value)
@@ -565,10 +573,33 @@ public sealed class HuggingFaceDownloader : IDisposable
             inner.Report(value with
             {
                 CurrentFileIndex = currentFileIndex,
-                TotalFileCount = totalFileCount
+                TotalFileCount = totalFileCount,
+                OverallBytesDownloaded = bytesBefore + value.BytesDownloaded,
+                OverallTotalBytes = overallTotal
             });
         }
     }
+
+    /// <summary>
+    /// Sizes of the files of one multi-file download, in download order. <see cref="Total"/> and
+    /// <see cref="Before"/> are <c>null</c> as soon as one size is unknown — a partial sum would report a percentage
+    /// that jumps backwards when the unknown file starts.
+    /// </summary>
+    internal sealed class OverallBytes
+    {
+        private readonly long?[] _sizes;
+
+        public OverallBytes(IEnumerable<long?> sizes)
+        {
+            _sizes = sizes.ToArray();
+            Total = _sizes.All(s => s.HasValue) ? _sizes.Sum(s => s!.Value) : null;
+        }
+
+        public long? Total { get; }
+
+        /// <summary>Bytes of the files before the 1-based <paramref name="fileIndex"/>.</summary>
+        public long? Before(int fileIndex) =>
+            Total is null ? null : _sizes.Take(Math.Max(0, fileIndex - 1)).Sum(s => s!.Value);    }
 
     private ModelDiscoveryService CreateDiscoveryService() =>
         _discoveryHandler is null

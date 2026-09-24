@@ -13,14 +13,27 @@ public record DownloadProgress
     public required string FileName { get; init; }
 
     /// <summary>
-    /// Gets the number of bytes downloaded so far.
+    /// Gets the number of bytes of the current file (<see cref="FileName"/>) downloaded so far.
     /// </summary>
     public long BytesDownloaded { get; init; }
 
     /// <summary>
-    /// Gets the total number of bytes to download.
+    /// Gets the size of the current file (<see cref="FileName"/>) in bytes.
     /// </summary>
     public long TotalBytes { get; init; }
+
+    /// <summary>
+    /// Gets the bytes done across the whole multi-file download: the files before this one (downloaded or already
+    /// cached) plus <see cref="BytesDownloaded"/>. <c>null</c> when the size of some file is not known up front, and
+    /// for a single-file download (use <see cref="BytesDownloaded"/>).
+    /// </summary>
+    public long? OverallBytesDownloaded { get; init; }
+
+    /// <summary>
+    /// Gets the size of the whole multi-file download in bytes, when every file's size is known up front;
+    /// otherwise <c>null</c>.
+    /// </summary>
+    public long? OverallTotalBytes { get; init; }
 
     /// <summary>
     /// Gets the download progress of the current file as a percentage (0-100).
@@ -40,12 +53,15 @@ public record DownloadProgress
     public int TotalFileCount { get; init; }
 
     /// <summary>
-    /// Gets the overall download progress across all files as a percentage (0-100).
-    /// Uses file-count-weighted approximation. Falls back to <see cref="PercentComplete"/> for single-file downloads.
+    /// Gets the overall download progress across all files as a percentage (0-100). Byte-weighted
+    /// (<see cref="OverallBytesDownloaded"/> / <see cref="OverallTotalBytes"/>) when every file's size is known; a
+    /// file-count approximation only when it is not. <see cref="PercentComplete"/> for a single-file download.
     /// </summary>
-    public double OverallPercentComplete => TotalFileCount > 0
-        ? ((CurrentFileIndex - 1) * 100.0 + PercentComplete) / TotalFileCount
-        : PercentComplete;
+    public double OverallPercentComplete => OverallTotalBytes is > 0 && OverallBytesDownloaded is { } done
+        ? Math.Min(100.0, (double)done / OverallTotalBytes.Value * 100)
+        : TotalFileCount > 0
+            ? ((CurrentFileIndex - 1) * 100.0 + PercentComplete) / TotalFileCount
+            : PercentComplete;
 
     /// <summary>
     /// Gets the current download speed in bytes per second.

@@ -52,6 +52,32 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
     }
 
     [Fact]
+    public async Task MultiFileProgress_ReportsBytesAcrossTheWholeDownload()
+    {
+        // config.json (2 bytes, listed) comes first, then model.onnx (4000). The overall figures count the done
+        // first file, so the percentage is byte-weighted: a file-count weighting would say 50 % at the start of
+        // model.onnx and would hide that the second file is nearly all of the download.
+        var hub = new Hub();
+        using var downloader = new HuggingFaceDownloader(_cacheDir, hub);
+        var sink = new ProgressSink();
+
+        await downloader.DownloadModelAsync(Repo, ["config.json", "model.onnx"], progress: sink, cancellationToken: Ct);
+
+        var model = sink.Reports.Where(r => r.FileName.EndsWith("model.onnx", StringComparison.Ordinal)).ToList();
+        Assert.NotEmpty(model);
+        Assert.All(model, r => Assert.Equal(4002, r.OverallTotalBytes));
+        Assert.All(model, r => Assert.Equal(2 + r.BytesDownloaded, r.OverallBytesDownloaded));
+        Assert.Equal(100.0, model[^1].OverallPercentComplete, 3);
+    }
+
+    private sealed class ProgressSink : IProgress<DownloadProgress>
+    {
+        private readonly List<DownloadProgress> _reports = [];
+        public IReadOnlyList<DownloadProgress> Reports { get { lock (_reports) return [.. _reports]; } }
+        public void Report(DownloadProgress value) { lock (_reports) _reports.Add(value); }
+    }
+
+    [Fact]
     public async Task ABodyThatAlwaysEndsAtTheSameOffset_LeavesOnlyThePart_AndThrows()
     {
         var hub = new Hub { BodyLimits = new Queue<int>([2400, 2400, 2400, 2400, 2400]), ResumeFromRange = false };
