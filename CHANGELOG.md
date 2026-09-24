@@ -30,7 +30,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   and a reranker alike. After switching from one GGUF model to another, the old model's server stayed resident
   beside the new one for ten minutes, and a generator was sized as if that memory were free (it now releases them
   before it measures). Idle servers of the same model are kept (the load may reuse them), and a server a live model
-  is using is never stopped.
+  is using is never stopped. The rule does not check whether the new server would fit beside the idle ones: a host
+  that disposes its models between calls and alternates between two of them now starts a server on each switch
+  (keep the models alive to keep their servers warm).
 
 ### Fixed
 
