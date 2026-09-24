@@ -65,7 +65,8 @@ public interface IGeneratorModel : ITextGenerator
 /// <summary>
 /// Information about a generator model.
 /// </summary>
-/// <param name="ModelId">The model identifier.</param>
+/// <param name="ModelId">The loaded model: a registry alias's display name, naming the loaded quantization when
+/// another than the alias's default was loaded (see <see cref="IsQuantizationSubstituted"/>); otherwise the requested id.</param>
 /// <param name="ModelPath">The local path to the model files.</param>
 /// <param name="MaxContextLength">Maximum context length.</param>
 /// <param name="ChatFormat">The chat format name.</param>
@@ -159,14 +160,42 @@ public readonly record struct GeneratorModelInfo(
     public IReadOnlyList<string> KnownIssues { get; init; } = [];
 
     /// <summary>
+    /// Gets the id the load was asked for: a registry alias (<c>gguf:gemma4-balanced</c>), a HuggingFace repo id,
+    /// or a path. <see cref="ModelId"/> describes what was loaded; this is what was requested.
+    /// Set by GGUF (llama-server) loads; <see langword="null"/> otherwise.
+    /// </summary>
+    public string? RequestedModelId { get; init; }
+
+    /// <summary>
+    /// Gets the file name of the GGUF the load opened (the first shard of a split model).
+    /// Set by GGUF (llama-server) loads; <see langword="null"/> otherwise.
+    /// </summary>
+    public string? LoadedFile { get; init; }
+
+    /// <summary>
+    /// Gets the default file of the requested registry alias — what the load opens when that file fits this host.
+    /// <see langword="null"/> when no registry alias was requested.
+    /// </summary>
+    public string? RequestedFile { get; init; }
+
+    /// <summary>
+    /// Whether the load opened another quantization than the requested alias's default — the default did not
+    /// fit the memory budget and a smaller one stood in. <see cref="ModelId"/> then names the loaded
+    /// quantization, and <see cref="RequestedFile"/> / <see cref="LoadedFile"/> say what was replaced by what.
+    /// </summary>
+    public bool IsQuantizationSubstituted =>
+        RequestedFile is not null && LoadedFile is not null &&
+        !string.Equals(RequestedFile, LoadedFile, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Gets the model identifier (IModelInfoBase.Id).
     /// </summary>
     string IModelInfoBase.Id => ModelId;
 
     /// <summary>
-    /// Gets the model alias name (same as ModelId for Generator).
+    /// Gets the requested alias, or <see cref="ModelId"/> when the load did not record one.
     /// </summary>
-    string IModelInfoBase.AliasName => ModelId;
+    string IModelInfoBase.AliasName => RequestedModelId ?? ModelId;
 
     /// <summary>
     /// Gets the model description.

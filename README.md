@@ -583,6 +583,8 @@ When set to a positive integer, the override is applied **before any safety marg
 
 **Quantization-aware downscale (low-spec).** After the model family is chosen, the download step picks the quantization file that fits the *backend-consistent* memory budget (VRAM on a GPU backend, RAM on a CPU/integrated-GPU backend). A capable host keeps the registry's default quant (e.g. `Q4_K_M`); a tight-memory host **downscales to a smaller quant** (`Q4 → Q3 → Q2`) so it loads instead of OOMing on the default. If no quant fits, the smallest is used with a `Trace.TraceWarning` (OOM risk surfaced, not silent). An explicit GPU pin or `preferredQuantization` is honored as-is. A cached quant is reused only when it fits the budget.
 
+**Which file was loaded.** `GetModelInfo()` describes the file the load opened, not the alias's default: `ModelId` names the loaded quantization (`gguf:gemma4-balanced` loaded as Q4_0 reports `Gemma 4 E4B Instruct (Q4_0)`), `RequestedModelId` is the id you passed, `RequestedFile` / `LoadedFile` are the alias's default and the file opened, and `IsQuantizationSubstituted` says a smaller quant stood in — so a UI can show what runs and why.
+
 **Simulating a low-spec / RAM-limited host.** Set `LMSUPPLY_SYSTEM_RAM_MB` to force the RAM budget below physical RAM (mirrors `LMSUPPLY_VRAM_BUDGET_MB` for VRAM). Use it to match a container/cgroup memory limit, or to exercise the downscale path on a high-RAM dev box:
 
 ```bash

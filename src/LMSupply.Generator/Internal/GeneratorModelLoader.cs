@@ -138,12 +138,13 @@ internal static class GeneratorModelLoader
     {
         var (modelPath, chatFormat, registryInfo) = await ResolveGgufAsync(modelId, options, progress, cancellationToken);
 
-        // Load the model from downloaded path using llama-server
-        var resolvedModelId = registryInfo?.DisplayName ?? modelId;
+        // Load the model from downloaded path using llama-server. The identity describes the file the
+        // download settled on, which is not the alias's default when a smaller quantization stood in.
+        var identity = GgufLoadIdentity.Describe(modelId, registryInfo, modelPath);
         var chatFormatter = ChatFormatterFactory.CreateByFormat(chatFormat);
 
         return await LlamaServerGeneratorModel.LoadAsync(
-            resolvedModelId,
+            identity,
             modelPath,
             chatFormatter,
             options,
@@ -273,7 +274,7 @@ internal static class GeneratorModelLoader
         var chatFormatter = ChatFormatterFactory.CreateByFormat(chatFormat);
 
         return await LlamaServerGeneratorModel.LoadAsync(
-            modelId,
+            GgufLoadIdentity.Describe(modelId, registryInfo: null, modelPath),
             modelPath,
             chatFormatter,
             options,

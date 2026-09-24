@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.76.0] - Unreleased
+
+### Fixed
+
+- **`GetModelInfo().ModelId` names the quantization that was loaded.** When a registry alias's default did not fit the
+  memory budget and a smaller cached quantization stood in, the model info still named the default
+  (`gguf:gemma4-balanced` loaded as Q4_0 reported `Gemma 4 E4B Instruct (Q8_0)`). It now names the loaded one
+  (`Gemma 4 E4B Instruct (Q4_0)`).
+- **`GeneratorModelInfo.KnownIssues` is populated for registry aliases.** It was looked up by the display name, which
+  is not a registry key, so every GGUF load reported no known issues.
+
+### Added
+
+- **`GeneratorModelInfo.RequestedModelId`, `RequestedFile`, `LoadedFile` and `IsQuantizationSubstituted`** — what the
+  load was asked for, the alias's default file, the file it opened, and whether a smaller quantization stood in for the
+  default. Set by GGUF (llama-server) loads. `IModelInfoBase.AliasName` now returns the requested id.
+
 ## [0.75.0] - 2026-09-24
 
 ### Fixed

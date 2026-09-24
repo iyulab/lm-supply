@@ -39,7 +39,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     private bool _disposed;
 
     private LlamaServerGeneratorModel(
-        string modelId,
+        GgufLoadIdentity identity,
         string modelPath,
         ServerLease serverLease,
         IChatFormatter chatFormatter,
@@ -57,7 +57,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         long? vramTotalBytes = null,
         bool contextFlooredByVram = false)
     {
-        ModelId = modelId;
+        ModelId = identity.ModelId;
+        _identity = identity;
         _modelPath = modelPath;
         _serverLease = serverLease;
         _chatFormatter = chatFormatter;
@@ -85,7 +86,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     /// Loads a GGUF model using llama-server.
     /// </summary>
     public static async Task<LlamaServerGeneratorModel> LoadAsync(
-        string modelId,
+        GgufLoadIdentity identity,
         string modelPath,
         IChatFormatter chatFormatter,
         GeneratorOptions options,
@@ -398,7 +399,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             capturedGpuLayers = currentGpuLayers;
 
         var model = new LlamaServerGeneratorModel(
-            modelId,
+            identity,
             modelPath,
             serverLease,
             chatFormatter,
@@ -433,6 +434,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
 
     /// <inheritdoc />
     public string ModelId { get; }
+
+    private readonly GgufLoadIdentity _identity;
 
     /// <inheritdoc />
     public int MaxContextLength { get; }
@@ -740,7 +743,10 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         RuntimeVersion = _serverVersion,
         Diagnostics = _diagnostics,
         AdjustedContextLength = ResolveAdjustedContextLength(MaxContextLength, _effectiveContextLength),
-        KnownIssues = GgufModelRegistry.Resolve(ModelId)?.KnownIssues ?? [],
+        KnownIssues = _identity.KnownIssues,
+        RequestedModelId = _identity.RequestedModelId,
+        LoadedFile = Path.GetFileName(_modelPath),
+        RequestedFile = _identity.RequestedFile,
         GpuLayers = _gpuLayers,
         TotalLayers = _totalLayers,
         EstimatedVramBytes = _estimatedVramBytes,

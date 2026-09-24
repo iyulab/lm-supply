@@ -534,7 +534,7 @@ public sealed class GgufModelDownloader : IDisposable
         bool Fits(long sizeBytes) => FitsBudget(sizeBytes, budget, vramOnly);
 
         // Prefer the registry's intended quant if it fits — capable hosts stay on the default.
-        var registryQuant = ExtractQuantization(model.DefaultFile);
+        var registryQuant = GgufQuantizationLabel.FromFileName(model.DefaultFile);
         var defaultGroup =
             availableGroups.FirstOrDefault(g =>
                 g.PrimaryFileName.Equals(model.DefaultFile, StringComparison.OrdinalIgnoreCase))
@@ -729,27 +729,6 @@ public sealed class GgufModelDownloader : IDisposable
         var safeRepoId = repoId.Replace('/', Path.DirectorySeparatorChar);
         var modelDir = "models--" + safeRepoId.Replace(Path.DirectorySeparatorChar.ToString(), "--");
         return Path.Combine(_cacheDirectory, modelDir, "snapshots", "main", filename);
-    }
-
-    private static string? ExtractQuantization(string filename)
-    {
-        // Common GGUF quantization patterns
-        var quantPatterns = new[]
-        {
-            "Q2_K", "Q3_K_S", "Q3_K_M", "Q3_K_L",
-            "Q4_K_S", "Q4_K_M", "Q4_0", "Q4_1",
-            "Q5_K_S", "Q5_K_M", "Q5_0", "Q5_1",
-            "Q6_K", "Q8_0", "F16", "F32",
-            "IQ4_XS", "IQ4_NL", "IQ3_XXS", "IQ3_XS"
-        };
-
-        foreach (var pattern in quantPatterns)
-        {
-            if (filename.Contains(pattern, StringComparison.OrdinalIgnoreCase))
-                return pattern;
-        }
-
-        return null;
     }
 
     private static int GetQuantizationPriority(string? quantization)
