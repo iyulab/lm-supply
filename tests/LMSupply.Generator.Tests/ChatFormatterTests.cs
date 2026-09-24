@@ -202,6 +202,42 @@ public class ChatFormatterTests
     }
 
     [Fact]
+    public void MistralChatFormatter_TwoLeadingSystemMessages_BothReachTheFirstUserTurn()
+    {
+        // A system prompt followed by a conversation summary (what history compactors emit).
+        // Before: the second system message was dropped, and because it then sat at index 0,
+        // the first one was never written either.
+        var formatter = new MistralChatFormatter();
+        var messages = new[]
+        {
+            ChatMessage.System("Be helpful."),
+            ChatMessage.System("[Previous conversation summary]: we discussed X."),
+            ChatMessage.User("Continue."),
+        };
+
+        var result = formatter.FormatPrompt(messages);
+
+        result.Should().Be("<s>[INST] Be helpful.\n\n[Previous conversation summary]: we discussed X.\n\nContinue. [/INST]");
+    }
+
+    [Fact]
+    public void MistralChatFormatter_SystemMessageAfterAssistant_RidesInTheNextUserTurn()
+    {
+        var formatter = new MistralChatFormatter();
+        var messages = new[]
+        {
+            ChatMessage.User("Hello!"),
+            ChatMessage.Assistant("Hi!"),
+            ChatMessage.System("Answer in one word."),
+            ChatMessage.User("How are you?"),
+        };
+
+        var result = formatter.FormatPrompt(messages);
+
+        result.Should().Contain("[INST] Answer in one word.\n\nHow are you? [/INST]");
+    }
+
+    [Fact]
     public void MistralChatFormatter_GetStopSequences_ReturnsExpected()
     {
         var formatter = new MistralChatFormatter();

@@ -4,7 +4,21 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [0.73.0] - unreleased
+## [0.73.1] - unreleased
+
+### Fixed
+
+- **A chat that starts with two system messages no longer fails on Qwen 3.x (llama-server backend).** A system prompt
+  followed by a second system message (a conversation summary, for example) is valid in the OpenAI chat format, but
+  Qwen 3.x chat templates reject any system message after the first, and the call failed with HTTP 500 ("System
+  message must be at the beginning"). A leading run of system messages is now sent as one, joined by a blank line.
+  The same applies when the model prepends its own tool prompt to a caller's system prompt. The token-budget trim
+  counts the merged form. System messages later in the conversation are sent as before.
+- **The Mistral prompt format keeps every system message.** A second system message was dropped, and when it was the
+  first message left after the first one was taken out, the system prompt was dropped too. Every system message now
+  rides in the next `[INST]` block, several in a row joined by a blank line.
+
+## [0.73.0] - 2026-09-24
 
 ### Added
 

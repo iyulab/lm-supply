@@ -62,6 +62,68 @@ public class LlamaServerGeneratorModelHelperTests
         LlamaServerGeneratorModel.EstimateTotalLayers(exactly_2gb).Should().Be(28);
     }
 
+    // ─── FoldLeadingSystemMessages / PrepareServerMessages ───
+    // Qwen 3.x chat templates raise "System message must be at the beginning" for any system
+    // message after index 0; llama-server then answers HTTP 500.
+
+    [Fact]
+    public void FoldLeadingSystemMessages_TwoLeadingSystems_MergesIntoOneAtIndexZero()
+    {
+        var messages = new[]
+        {
+            ChatMessage.System("You are helpful."),
+            ChatMessage.System("[Previous conversation summary]: earlier turns."),
+            ChatMessage.Assistant("ok"),
+            ChatMessage.User("next"),
+        };
+
+        var result = LlamaServerGeneratorModel.FoldLeadingSystemMessages(messages);
+
+        result.Select(m => m.Role).Should().Equal(ChatRole.System, ChatRole.Assistant, ChatRole.User);
+        result[0].Content.Should().Be("You are helpful.\n\n[Previous conversation summary]: earlier turns.");
+        result[1].Should().Be(messages[2]);
+        result[2].Should().Be(messages[3]);
+    }
+
+    [Fact]
+    public void FoldLeadingSystemMessages_SingleOrNoLeadingSystem_ReturnsTheSameMessages()
+    {
+        var one = new[] { ChatMessage.System("s"), ChatMessage.User("u") };
+        var none = new[] { ChatMessage.User("u"), ChatMessage.System("late") };
+
+        LlamaServerGeneratorModel.FoldLeadingSystemMessages(one).Should().Equal(one);
+        LlamaServerGeneratorModel.FoldLeadingSystemMessages(none).Should().Equal(none,
+            because: "only a leading run is folded; a later system message stays where the caller put it");
+    }
+
+    [Fact]
+    public void PrepareServerMessages_ToolFragmentPlusCallerSystemPrompt_SendsOneSystemMessage()
+    {
+        // The fragment this model prepends for Gemma 4 is itself a second system message
+        // whenever the caller already has a system prompt.
+        var formatter = new Gemma4ChatFormatter();
+        var schema = BuildSchema("""{ "type":"object", "properties":{ "path":{"type":"string"} }, "required":["path"] }""");
+        var options = new GenerationOptions
+        {
+            Tools = [new ChatToolDefinition("WriteFile", "Write a file", schema)],
+        };
+        var messages = new[]
+        {
+            ChatMessage.System("You are helpful."),
+            ChatMessage.System("[Previous conversation summary]: earlier turns."),
+            ChatMessage.User("write /tmp/x"),
+        };
+
+        var result = LlamaServerGeneratorModel.PrepareServerMessages(messages, options, formatter);
+
+        result.Count(m => m.Role == ChatRole.System).Should().Be(1);
+        result[0].Role.Should().Be(ChatRole.System);
+        result[0].Content.Should().Contain("Required parameters")
+            .And.Contain("You are helpful.")
+            .And.EndWith("[Previous conversation summary]: earlier turns.");
+        result[1].Should().Be(messages[2]);
+    }
+
     // ─── MaybeInjectToolPromptFragment (Option D-1, 2026-04-30) ───
 
     private static JsonElement BuildSchema(string json) => JsonDocument.Parse(json).RootElement;

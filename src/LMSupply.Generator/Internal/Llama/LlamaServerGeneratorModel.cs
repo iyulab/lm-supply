@@ -563,9 +563,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         {
             var trimmedMessages = await TrimToFitContextAsync(messages, options, cancellationToken);
             // Convert to llama-server format
-            var augmentedMessages = MaybeInjectToolPromptFragment(trimmedMessages, options.Tools, _chatFormatter, options.Thinking == ThinkingMode.On);
-            augmentedMessages = MaybeInjectThinkingToken(augmentedMessages, options.Thinking == ThinkingMode.On, _chatFormatter);
-            var serverMessages = ConvertMessages(augmentedMessages);
+            var serverMessages = ConvertMessages(PrepareServerMessages(trimmedMessages, options, _chatFormatter));
             var chatOptions = CreateChatOptions(options);
 
             // Client-side token limit as safety net
@@ -771,9 +769,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         try
         {
             var trimmedMessages = await TrimToFitContextAsync(messages, options, cancellationToken);
-            var augmentedMessages = MaybeInjectToolPromptFragment(trimmedMessages, options.Tools, _chatFormatter, options.Thinking == ThinkingMode.On);
-            augmentedMessages = MaybeInjectThinkingToken(augmentedMessages, options.Thinking == ThinkingMode.On, _chatFormatter);
-            var serverMessages = ConvertMessages(augmentedMessages);
+            var serverMessages = ConvertMessages(PrepareServerMessages(trimmedMessages, options, _chatFormatter));
             var chatOptions = CreateChatOptions(options);
 
             // Client-side token limit as safety net
@@ -937,9 +933,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         try
         {
             var trimmedMessages = await TrimToFitContextAsync(messages, options, cancellationToken);
-            var augmentedMessages = MaybeInjectToolPromptFragment(trimmedMessages, options.Tools, _chatFormatter, options.Thinking == ThinkingMode.On);
-            augmentedMessages = MaybeInjectThinkingToken(augmentedMessages, options.Thinking == ThinkingMode.On, _chatFormatter);
-            var serverMessages = ConvertMessages(augmentedMessages);
+            var serverMessages = ConvertMessages(PrepareServerMessages(trimmedMessages, options, _chatFormatter));
             var chatOptions = CreateChatOptions(options);
 
             var response = await _serverLease.Client.GenerateChatWithToolsAsync(
@@ -1535,6 +1529,50 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         return list;
     }
 
+    /// <summary>
+    /// Builds the message list sent to llama-server: tool prompt fragment, thinking token,
+    /// then <see cref="FoldLeadingSystemMessages"/>. The token-budget trim runs the same
+    /// pipeline so it counts what is actually sent.
+    /// </summary>
+    internal static IReadOnlyList<ChatMessage> PrepareServerMessages(
+        IEnumerable<ChatMessage> messages,
+        GenerationOptions options,
+        IChatFormatter formatter)
+    {
+        var thinking = options.Thinking == ThinkingMode.On;
+        var augmented = MaybeInjectToolPromptFragment(messages, options.Tools, formatter, thinking);
+        augmented = MaybeInjectThinkingToken(augmented, thinking, formatter);
+        return FoldLeadingSystemMessages(augmented);
+    }
+
+    /// <summary>
+    /// Merges a leading run of system messages into one, joined by a blank line.
+    /// </summary>
+    /// <remarks>
+    /// Several system messages in a row are valid in the OpenAI chat format (a system prompt
+    /// followed by a conversation summary, or the tool prompt fragment this model prepends),
+    /// but llama-server renders them through the model's own Jinja chat template, and some
+    /// templates (Qwen 3.x) raise "System message must be at the beginning" for any system
+    /// message after index 0 — the request then fails with HTTP 500. One merged system
+    /// message is accepted by every template. System messages later in the conversation
+    /// are left in place.
+    /// </remarks>
+    internal static IReadOnlyList<ChatMessage> FoldLeadingSystemMessages(IEnumerable<ChatMessage> messages)
+    {
+        var list = messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
+        var run = 0;
+        while (run < list.Count && list[run].Role == ChatRole.System)
+            run++;
+        if (run < 2)
+            return list;
+
+        var merged = ChatMessage.System(string.Join("\n\n", list.Take(run).Select(m => m.Content)));
+        var result = new List<ChatMessage>(list.Count - run + 1) { merged };
+        for (var i = run; i < list.Count; i++)
+            result.Add(list[i]);
+        return result;
+    }
+
     internal static IEnumerable<ChatMessage> MaybeInjectToolPromptFragment(
         IEnumerable<ChatMessage> messages,
         IReadOnlyList<ChatToolDefinition>? tools,
@@ -1633,9 +1671,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
 
         while (true)
         {
-            var augmented = MaybeInjectToolPromptFragment(list, options.Tools, _chatFormatter, options.Thinking == ThinkingMode.On);
-            augmented = MaybeInjectThinkingToken(augmented, options.Thinking == ThinkingMode.On, _chatFormatter);
-            var prompt = _chatFormatter.FormatPrompt(augmented);
+            var prompt = _chatFormatter.FormatPrompt(PrepareServerMessages(list, options, _chatFormatter));
             var tokenCount = await _serverLease.Client.CountTokensAsync(prompt, cancellationToken);
 
             if (tokenCount <= inputBudget)

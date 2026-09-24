@@ -27,33 +27,28 @@ public sealed class MistralChatFormatter : IChatFormatter
     public string FormatPrompt(IEnumerable<ChatMessage> messages)
     {
         var sb = new StringBuilder();
-        var messagesList = messages.ToList();
-        string? systemMessage = null;
-
-        // Extract system message if present
-        var systemMsgIndex = messagesList.FindIndex(m => m.Role == ChatRole.System);
-        if (systemMsgIndex >= 0)
-        {
-            systemMessage = messagesList[systemMsgIndex].Content;
-            messagesList.RemoveAt(systemMsgIndex);
-        }
+        // The format has no system turn: system text rides in the next [INST] block.
+        // Every system message is carried (several in a row are joined), none is dropped.
+        var pendingSystem = new List<string>();
 
         sb.Append(BosToken);
 
-        for (var i = 0; i < messagesList.Count; i++)
+        foreach (var message in messages)
         {
-            var message = messagesList[i];
-
-            if (message.Role == ChatRole.User)
+            if (message.Role == ChatRole.System)
+            {
+                pendingSystem.Add(message.Content);
+            }
+            else if (message.Role == ChatRole.User)
             {
                 sb.Append(InstStart);
                 sb.Append(' ');
 
-                // Include system message with first user message
-                if (systemMessage != null && i == 0)
+                if (pendingSystem.Count > 0)
                 {
-                    sb.Append(systemMessage);
+                    sb.Append(string.Join("\n\n", pendingSystem));
                     sb.Append("\n\n");
+                    pendingSystem.Clear();
                 }
 
                 sb.Append(message.Content);
