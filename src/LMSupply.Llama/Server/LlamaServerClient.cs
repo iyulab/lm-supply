@@ -178,6 +178,9 @@ public sealed class LlamaServerClient : IDisposable
                 continue;
             }
 
+            if (ReportedUsage(chunk) is { } usage)
+                yield return new ChatStreamData { Usage = usage };
+
             var choice = chunk?.Choices?.FirstOrDefault();
             if (choice is null)
                 continue;
@@ -196,6 +199,19 @@ public sealed class LlamaServerClient : IDisposable
                 };
             }
         }
+    }
+
+    /// <summary>
+    /// The server's token accounting from a streamed chunk: the OpenAI-compatible <c>usage</c> object when present,
+    /// else llama.cpp's <c>timings</c>. Null when the chunk carries neither.
+    /// </summary>
+    private static ChatCompletionUsage? ReportedUsage(ChatCompletionChunk? chunk)
+    {
+        if (chunk?.Usage is { } usage)
+            return usage;
+        if (chunk?.Timings is { PromptN: { } prompt, PredictedN: { } predicted })
+            return new ChatCompletionUsage { PromptTokens = prompt, CompletionTokens = predicted, TotalTokens = prompt + predicted };
+        return null;
     }
 
     /// <summary>
@@ -343,6 +359,8 @@ public sealed class LlamaServerClient : IDisposable
                 {
                     TextDelta = string.IsNullOrEmpty(chunk.Content) ? null : chunk.Content,
                     FinishReason = MapStopType(chunk.StopType),
+                    PromptTokens = chunk.TokensEvaluated,
+                    CompletionTokens = chunk.TokensPredicted,
                 };
                 break;
             }
@@ -576,6 +594,8 @@ public sealed class LlamaServerClient : IDisposable
             RepeatLastN = options.RepeatLastN,
             Seed = options.Seed != -1 ? options.Seed : null,
             Stream = stream,
+            // The server's token accounting on a streamed response; without it the last chunk carries no usage.
+            StreamOptions = stream ? new ChatStreamOptions { IncludeUsage = true } : null,
             Stop = options.StopSequences?.ToList(),
             Grammar = options.Grammar,
             ResponseFormat = BuildChatResponseFormat(options.Grammar, options.JsonSchema),
@@ -775,6 +795,7 @@ public sealed class CompletionOptions
 internal sealed class ChatCompletionRequest
 {
     public List<ChatCompletionMessage>? Messages { get; set; }
+    public ChatStreamOptions? StreamOptions { get; set; }
     public int? MaxTokens { get; set; }
     public float? Temperature { get; set; }
     public float? TopP { get; set; }
@@ -911,6 +932,24 @@ internal sealed class ChatJsonSchema
 internal sealed class ChatCompletionChunk
 {
     public List<ChatCompletionChoice>? Choices { get; set; }
+
+    /// <summary>OpenAI-compatible usage — on the last chunk when <c>stream_options.include_usage</c> is set.</summary>
+    public ChatCompletionUsage? Usage { get; set; }
+
+    /// <summary>llama.cpp's own accounting, on the last chunk of every build that has it.</summary>
+    public LlamaTimings? Timings { get; set; }
+}
+
+internal sealed class ChatStreamOptions
+{
+    public bool IncludeUsage { get; set; }
+}
+
+/// <summary>llama.cpp's <c>timings</c>: <c>prompt_n</c> tokens evaluated, <c>predicted_n</c> generated (reasoning included).</summary>
+internal sealed class LlamaTimings
+{
+    public int? PromptN { get; set; }
+    public int? PredictedN { get; set; }
 }
 
 internal sealed class ChatCompletionChoice
@@ -967,6 +1006,12 @@ internal sealed class CompletionChunk
 
     /// <summary>On the final chunk: <c>eos</c>, <c>limit</c>, <c>word</c> or <c>none</c>.</summary>
     public string? StopType { get; set; }
+
+    /// <summary>On the final chunk: tokens generated.</summary>
+    public int? TokensPredicted { get; set; }
+
+    /// <summary>On the final chunk: prompt tokens evaluated.</summary>
+    public int? TokensEvaluated { get; set; }
 }
 
 /// <summary>
@@ -984,6 +1029,12 @@ public sealed class CompletionStreamData
     /// server did not say.
     /// </summary>
     public string? FinishReason { get; init; }
+
+    /// <summary>Prompt tokens the server evaluated (final chunk), or null when it did not say.</summary>
+    public int? PromptTokens { get; init; }
+
+    /// <summary>Tokens the server generated (final chunk), or null when it did not say.</summary>
+    public int? CompletionTokens { get; init; }
 }
 
 /// <summary>
@@ -1116,6 +1167,11 @@ public sealed class ChatStreamData
     /// Finish reason (present only on the final chunk).
     /// </summary>
     public string? FinishReason { get; init; }
+
+    /// <summary>
+    /// The server's token accounting for the whole completion (reasoning included), on the chunk that carries it.
+    /// </summary>
+    public ChatCompletionUsage? Usage { get; init; }
 }
 
 /// <summary>

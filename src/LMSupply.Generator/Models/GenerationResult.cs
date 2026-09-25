@@ -30,6 +30,13 @@ public readonly record struct TokenUsage(
     public int TotalTokens => PromptTokens + CompletionTokens;
 
     /// <summary>
+    /// True when the counts are an estimate from the text (about four characters per token) because the backend did
+    /// not report its own. An estimate cannot see a reasoning model's hidden reasoning, which also consumes the output
+    /// budget.
+    /// </summary>
+    public bool IsEstimated { get; init; }
+
+    /// <summary>
     /// Creates an empty token usage instance.
     /// </summary>
     public static TokenUsage Empty => new(0, 0);

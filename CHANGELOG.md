@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.77.0] - Unreleased
+
+### Fixed
+
+- **A streamed GGUF completion reports the server's token counts.** `GenerateChatCompleteResultAsync` and
+  `GenerateCompleteResultAsync` estimated `TokenUsage` from the visible text (about four characters per token). A
+  reasoning model's hidden reasoning never appears in that text, so a call that generated ~480 tokens and stopped at the
+  limit reported ~60. The chat stream now asks for `stream_options.include_usage` and reads the server's `usage`
+  (llama.cpp's `timings` when no usage object is sent); the text completion reads `tokens_evaluated`/`tokens_predicted`.
+  `TokenUsage.IsEstimated` is true only when the server reported nothing and the counts are still an estimate.
+
 ## [0.76.0] - 2026-09-25
 
 ### Changed

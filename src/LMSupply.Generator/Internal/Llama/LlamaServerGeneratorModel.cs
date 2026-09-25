@@ -475,6 +475,19 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     private sealed class CompletionOutcome
     {
         public string? FinishReason { get; set; }
+
+        /// <summary>The server's own token counts, when it reported them.</summary>
+        public int? PromptTokens { get; set; }
+        public int? CompletionTokens { get; set; }
+
+        /// <summary>
+        /// The server's counts where it reported them, else an estimate from the text — marked as one, since a
+        /// reasoning model's hidden reasoning never appears in the text it is estimated from.
+        /// </summary>
+        public TokenUsage ToUsage(string promptText, string content)
+            => PromptTokens is { } prompt && CompletionTokens is { } completion
+                ? new TokenUsage(prompt, completion)
+                : new TokenUsage(TokenUsage.EstimateTokens(promptText), TokenUsage.EstimateTokens(content)) { IsEstimated = true };
     }
 
     private async IAsyncEnumerable<string> GenerateCoreAsync(
@@ -519,6 +532,11 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             {
                 if (data.FinishReason is not null && outcome is not null)
                     outcome.FinishReason = data.FinishReason;
+                if (outcome is not null && data.PromptTokens is { } evaluated && data.CompletionTokens is { } predicted)
+                {
+                    outcome.PromptTokens = evaluated;
+                    outcome.CompletionTokens = predicted;
+                }
 
                 if (data.TextDelta is not { } token)
                     continue;
@@ -601,6 +619,11 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             {
                 if (data.FinishReason is not null && outcome is not null)
                     outcome.FinishReason = data.FinishReason;
+                if (data.Usage is { } usage && outcome is not null)
+                {
+                    outcome.PromptTokens = usage.PromptTokens;
+                    outcome.CompletionTokens = usage.CompletionTokens;
+                }
 
                 var token = data.TextDelta;
                 if (string.IsNullOrEmpty(token))
@@ -674,10 +697,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         }
 
         var content = sb.ToString();
-        return new GenerationResult(
-            content,
-            new TokenUsage(TokenUsage.EstimateTokens(prompt), TokenUsage.EstimateTokens(content)),
-            outcome.FinishReason);
+        return new GenerationResult(content, outcome.ToUsage(prompt, content), outcome.FinishReason);
     }
 
     /// <inheritdoc />
@@ -712,10 +732,9 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         }
 
         var content = sb.ToString();
-        var promptTokens = TokenUsage.EstimateTokens(string.Concat(messageList.Select(m => m.Content)));
         return new GenerationResult(
             content,
-            new TokenUsage(promptTokens, TokenUsage.EstimateTokens(content)),
+            outcome.ToUsage(string.Concat(messageList.Select(m => m.Content)), content),
             outcome.FinishReason);
     }
 
