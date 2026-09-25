@@ -62,12 +62,24 @@ public class LlamaServerLoadModeArgsTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("custom-build")]
-    public void UnknownBuild_KeepsTheLegacyFlags(string? version)
+    [InlineData("external")]
+    public void UnknownBuild_MemoryMapOn_SendsNothing(string? version)
     {
-        // A consumer-provisioned binary of unknown build: the deprecated flags are the only ones
-        // guaranteed to parse on both sides of the gate today, and a wrong guess the other way is
-        // a fatal "unknown argument" before the port is even open.
-        LlamaServerProcess.ResolveLoadModeArgs(true, null, version).Should().Equal("--mmap");
+        // b11146 (v0.5.0) removed --mmap/--no-mmap/--mlock: each is a fatal "invalid argument"
+        // before the port opens (measured). Memory mapping on is llama.cpp's default on every build,
+        // so for a build we cannot read, omitting the flag is the one spelling that parses everywhere.
+        // The presets all set UseMemoryMap = true, so this is the path every preset load takes.
+        LlamaServerProcess.ResolveLoadModeArgs(true, null, version).Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(false, null, new[] { "--no-mmap" })]
+    [InlineData(null, true, new[] { "--mlock" })]
+    public void UnknownBuild_NonDefaultRequest_KeepsTheLegacySpelling(bool? mmap, bool? mlock, string[] expected)
+    {
+        // No spelling of a non-default request parses on both sides of the gate; the legacy one is
+        // kept, and the external-binary probe (LlamaServerBinaryVersion) is what makes this rare.
+        LlamaServerProcess.ResolveLoadModeArgs(mmap, mlock, null).Should().Equal(expected);
     }
 
     [Fact]

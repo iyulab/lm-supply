@@ -123,11 +123,19 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         {
             // Consumer supplied the binary directly. Acquisition — including the cudart companion
             // fetch below — is entirely their responsibility: no network calls, no state tracking.
-            return File.Exists(_options.ServerBinaryPath)
-                ? LlamaServerUpdateResult.NoUpdate(_options.ServerBinaryPath, backend, _options.PinnedVersion ?? "external")
-                : LlamaServerUpdateResult.Failed(
+            if (!File.Exists(_options.ServerBinaryPath))
+            {
+                return LlamaServerUpdateResult.Failed(
                     _options.ServerBinaryPath, backend,
                     $"LlamaServerUpdateOptions.ServerBinaryPath '{_options.ServerBinaryPath}' does not exist.");
+            }
+
+            // Its build still decides which flag spellings it parses, so ask the binary itself
+            // (a declared PinnedVersion wins). "external" means the build could not be read.
+            var version = _options.PinnedVersion
+                ?? await LlamaServerBinaryVersion.ProbeAsync(_options.ServerBinaryPath, cancellationToken)
+                ?? "external";
+            return LlamaServerUpdateResult.NoUpdate(_options.ServerBinaryPath, backend, version);
         }
 
         var result = await GetServerPathCoreAsync(backend, progress, cancellationToken);

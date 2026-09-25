@@ -243,9 +243,10 @@ public sealed class LlamaServerConfig
     /// <summary>
     /// The llama-server build tag the binary at the server path was resolved as (e.g. <c>b10298</c>),
     /// when known. Used to pick the argument spelling the binary understands where llama.cpp has
-    /// renamed a flag — currently <c>--load-mode</c> (b10105+) versus the deprecated
-    /// <c>--mmap</c>/<c>--no-mmap</c>/<c>--mlock</c>. <c>null</c> (a consumer-provisioned binary of
-    /// unknown build) keeps the legacy spelling, which parses on both sides of the gate today.
+    /// renamed a flag — currently <c>--load-mode</c> (b10105+) versus the removed
+    /// <c>--mmap</c>/<c>--no-mmap</c>/<c>--mlock</c>. A consumer-provisioned binary is probed with
+    /// <c>--version</c>; <c>null</c> or an unparsable value means its build is unknown, and only
+    /// spellings that parse on every build are then used where one exists.
     /// </summary>
     public string? ServerVersion { get; init; }
 
@@ -542,10 +543,12 @@ public sealed class LlamaServerProcess : IAsyncDisposable
     /// Translates the memory-map / memory-lock options into the flags the given build parses.
     /// llama.cpp b10105 replaced <c>--mmap</c>/<c>--no-mmap</c>/<c>--mlock</c> with one
     /// <c>--load-mode</c> (<c>none</c> | <c>mmap</c> | <c>mlock</c> = mmap + lock | <c>dio</c>);
-    /// the old flags still parse there but log <c>DEPRECATED</c> on every start and will be removed,
-    /// at which point passing them is a fatal "unknown argument" before the port is open. Builds
-    /// below the gate, and binaries of unknown build, get the legacy flags — the only spelling
-    /// guaranteed to parse on both sides today.
+    /// the old flags were removed in b11146 (v0.5.0), where passing them is a fatal "invalid
+    /// argument" before the port is open. Builds below the gate get the legacy flags. A binary of
+    /// unknown build (one whose <c>--version</c> could not be read) gets no flag for memory mapping
+    /// on — that is llama.cpp's default on both sides of the gate, so omitting it is the only
+    /// spelling that parses everywhere — and the legacy spelling for the non-default requests
+    /// (<c>--no-mmap</c>, <c>--mlock</c>), which no spelling can make safe without the build.
     /// </summary>
     internal static IReadOnlyList<string> ResolveLoadModeArgs(bool? useMemoryMap, bool? useMemoryLock, string? serverVersion)
     {
@@ -571,9 +574,15 @@ public sealed class LlamaServerProcess : IAsyncDisposable
             return args;
         }
 
-        if (useMemoryMap.HasValue)
+        if (useMemoryMap == false)
         {
-            args.Add(useMemoryMap.Value ? "--mmap" : "--no-mmap");
+            args.Add("--no-mmap");
+        }
+        else if (useMemoryMap == true && build.HasValue)
+        {
+            // A known pre-gate build: say what was asked. Unknown build: mmap is the default
+            // everywhere, and "--mmap" no longer parses on b11146+.
+            args.Add("--mmap");
         }
 
         if (useMemoryLock == true)

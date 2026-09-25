@@ -18,6 +18,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   the runtime manager's initialization and several load-path reads probed the GPU whatever the provider, so a CPU
   load brought `nvml.dll` and the CUDA driver (`nvcuda.dll`) into the process. The GPU is now probed only when a GPU or
   `Auto` choice needs it: a CPU embedder load leaves both unloaded (module list), and an `Auto` load still probes.
+- **A llama-server supplied through `ServerBinaryPath` loads on llama.cpp b11146 (v0.5.0) and later.** That build
+  removed `--mmap`/`--no-mmap`/`--mlock`, and an external binary was treated as "unknown build" and sent `--mmap`
+  (every preset asks for memory mapping), so the server exited with "invalid argument: --mmap" before `/health`. An
+  external binary is now asked for its build with `--version` (unless `PinnedVersion` names it), so it gets the
+  spelling it parses; when the build still cannot be read, memory mapping on — llama.cpp's default — is not sent at
+  all. Binaries this library downloads were not affected: their build is known.
 
 ### Added
 

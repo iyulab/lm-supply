@@ -71,8 +71,9 @@ public sealed class LlamaServerUpdateOptions
     /// calls the GitHub "latest release" API — a cache hit for this version makes zero network
     /// calls, a cache miss downloads exactly this tagged asset.
     /// <see cref="LlamaServerUpdateService.CheckAndApplyUpdateAsync"/> also short-circuits: a
-    /// pinned installation never re-checks for or auto-applies a newer version. Ignored if
-    /// <see cref="ServerBinaryPath"/> is also set.
+    /// pinned installation never re-checks for or auto-applies a newer version. When
+    /// <see cref="ServerBinaryPath"/> is also set nothing is downloaded, and this value only declares
+    /// that binary's build (skipping its <c>--version</c> probe).
     /// Default: null (resolves "latest" as before).
     /// </summary>
     public string? PinnedVersion { get; set; }
@@ -80,7 +81,9 @@ public sealed class LlamaServerUpdateOptions
     /// <summary>
     /// Points directly at an already-provisioned llama-server executable. When set, acquisition
     /// (both the "latest version" network call and any download) is skipped entirely — the given
-    /// path is used as-is. Takes precedence over <see cref="PinnedVersion"/>.
+    /// path is used as-is. Takes precedence over <see cref="PinnedVersion"/>. The binary is run once
+    /// with <c>--version</c> to read its build, because llama.cpp renames flags between builds and
+    /// the server is started with the spelling that build parses.
     /// Default: null (binary is acquired/cached as before).
     /// </summary>
     public string? ServerBinaryPath { get; set; }
