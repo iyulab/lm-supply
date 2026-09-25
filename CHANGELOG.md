@@ -14,6 +14,14 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   limit reported ~60. The chat stream now asks for `stream_options.include_usage` and reads the server's `usage`
   (llama.cpp's `timings` when no usage object is sent); the text completion reads `tokens_evaluated`/`tokens_predicted`.
   `TokenUsage.IsEstimated` is true only when the server reported nothing and the counts are still an estimate.
+- **A GGUF model whose llama-server exited recovers on the next call.** A server that was killed, crashed or ran out
+  of GPU memory left the loaded model failing every later call with "connection refused" and nothing saying the server
+  was gone. The next call now starts a new server with the configuration the model was loaded with, and logs a warning
+  with the exit code. The call that was in flight when the server died still fails.
+- **No false "initialized CPU-only" warning with llama.cpp b11146 and later.** Those builds no longer print the device
+  list at the default verbosity, and its absence was read as a GPU runtime that failed to load, on every load, while the
+  GPU was in use. When the startup log says nothing about devices, the binary's `--list-devices` answers instead, and
+  the warning appears only when that lists no accelerated device.
 
 ## [0.76.0] - 2026-09-25
 

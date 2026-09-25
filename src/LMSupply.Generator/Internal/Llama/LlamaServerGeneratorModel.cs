@@ -17,7 +17,12 @@ namespace LMSupply.Generator.Internal.Llama;
 /// </summary>
 internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsSink
 {
-    private readonly ServerLease _serverLease;
+    private ServerLease _serverLease;
+
+    // Leases a server with the configuration this model was loaded with — how a model whose server exited gets a new
+    // one instead of failing every later call on a dead port.
+    private readonly Func<CancellationToken, Task<ServerLease>> _leaseServer;
+    private readonly SemaphoreSlim _restartGate = new(1, 1);
     private readonly IChatFormatter _chatFormatter;
     private readonly GeneratorOptions _options;
     private readonly string _modelPath;
@@ -42,6 +47,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         GgufLoadIdentity identity,
         string modelPath,
         ServerLease serverLease,
+        Func<CancellationToken, Task<ServerLease>> leaseServer,
         IChatFormatter chatFormatter,
         GeneratorOptions options,
         int maxContextLength,
@@ -61,6 +67,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         _identity = identity;
         _modelPath = modelPath;
         _serverLease = serverLease;
+        _leaseServer = leaseServer;
         _chatFormatter = chatFormatter;
         _options = options;
         MaxContextLength = maxContextLength;
@@ -398,10 +405,12 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         if (capturedGpuLayers.HasValue && currentGpuLayers != serverConfig.GpuLayers)
             capturedGpuLayers = currentGpuLayers;
 
+        var restartConfig = serverConfig;
         var model = new LlamaServerGeneratorModel(
             identity,
             modelPath,
             serverLease,
+            ct => LlamaServerPool.Instance.LeaseAsync(serverPath, restartConfig, backend, progress: null, ct),
             chatFormatter,
             options,
             SelectReportedContextLength(options, ggufMetadata, contextLength),
@@ -528,7 +537,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                 ? new ReasoningTokenFilter(options.ExtractReasoningTokens)
                 : null;
 
-            await foreach (var data in _serverLease.Client.GenerateStreamAsync(prompt, completionOptions, cancellationToken))
+            await foreach (var data in (await ClientAsync(cancellationToken)).GenerateStreamAsync(prompt, completionOptions, cancellationToken))
             {
                 if (data.FinishReason is not null && outcome is not null)
                     outcome.FinishReason = data.FinishReason;
@@ -615,7 +624,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
 
             // The structured stream carries the server's finish_reason on its last chunk; the text stream dropped it.
             // Text is the same: content deltas only (reasoning_content is not part of the answer).
-            await foreach (var data in _serverLease.Client.GenerateChatStreamAsync(serverMessages, chatOptions, cancellationToken))
+            await foreach (var data in (await ClientAsync(cancellationToken)).GenerateChatStreamAsync(serverMessages, chatOptions, cancellationToken))
             {
                 if (data.FinishReason is not null && outcome is not null)
                     outcome.FinishReason = data.FinishReason;
@@ -738,6 +747,39 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             outcome.FinishReason);
     }
 
+    /// <summary>
+    /// The client of a running server. A server that has exited — killed, crashed, or out of GPU memory because another
+    /// process took it — is replaced by a new one from the pool with the configuration this model was loaded with, so
+    /// the call that saw it die fails but the next one works. Before 0.77.0 every later call failed on the dead port
+    /// with "connection refused", and nothing said the server was gone.
+    /// </summary>
+    private async ValueTask<LlamaServerClient> ClientAsync(CancellationToken cancellationToken)
+    {
+        if (_serverLease.Server.IsRunning)
+            return _serverLease.Client;
+
+        await _restartGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (_serverLease.Server.IsRunning)
+                return _serverLease.Client;
+
+            var exitCode = _serverLease.Server.ExitCode;
+            Trace.TraceWarning(
+                $"[LlamaServerGeneratorModel] llama-server for '{ModelId}' is no longer running " +
+                $"(exit code {(exitCode?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown")}); starting a new one.");
+
+            var dead = _serverLease;
+            _serverLease = await _leaseServer(cancellationToken).ConfigureAwait(false);
+            await dead.DisposeAsync().ConfigureAwait(false);
+            return _serverLease.Client;
+        }
+        finally
+        {
+            _restartGate.Release();
+        }
+    }
+
     /// <inheritdoc />
     public Task WarmupAsync(CancellationToken cancellationToken = default)
     {
@@ -787,7 +829,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         if (string.IsNullOrEmpty(text))
             return 0;
 
-        return await _serverLease.Client.CountTokensAsync(text, cancellationToken);
+        return await (await ClientAsync(cancellationToken)).CountTokensAsync(text, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -834,7 +876,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             var toolStreamParser = _chatFormatter.CreateToolCallStreamParser();
             var suppressServerCallsWhenParserActive = _chatFormatter.SuppressServerToolCallsWhenParserActive;
 
-            await foreach (var data in _serverLease.Client.GenerateChatStreamAsync(
+            await foreach (var data in (await ClientAsync(cancellationToken)).GenerateChatStreamAsync(
                 serverMessages, chatOptions, cancellationToken))
             {
                 // Safety net: stop if token limit exceeded (finish_reason chunks still pass through)
@@ -977,7 +1019,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             var serverMessages = ConvertMessages(PrepareServerMessages(trimmedMessages, options, _chatFormatter));
             var chatOptions = CreateChatOptions(options);
 
-            var response = await _serverLease.Client.GenerateChatWithToolsAsync(
+            var response = await (await ClientAsync(cancellationToken)).GenerateChatWithToolsAsync(
                 serverMessages, chatOptions, cancellationToken);
 
             var choice = response.Choices?.FirstOrDefault();
@@ -1714,7 +1756,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         while (true)
         {
             var prompt = _chatFormatter.FormatPrompt(PrepareServerMessages(list, options, _chatFormatter));
-            var tokenCount = await _serverLease.Client.CountTokensAsync(prompt, cancellationToken);
+            var tokenCount = await (await ClientAsync(cancellationToken)).CountTokensAsync(prompt, cancellationToken);
 
             if (tokenCount <= inputBudget)
                 return list;

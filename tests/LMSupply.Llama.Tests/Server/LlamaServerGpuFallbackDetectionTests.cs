@@ -63,4 +63,42 @@ public class LlamaServerGpuFallbackDetectionTests
         LlamaServerProcess.StartupLogShowsGpuDevice(log).Should().BeFalse(
             "absent log evidence must not be treated as a GPU device (conservative: warn)");
     }
+
+    // Captured from llama-server b11146 (cuda12) on RTX 4060 with the GPU in use (3.1 GB VRAM, 85-90% utilisation
+    // during generation): the default verbosity no longer prints device_info at all.
+    private const string B11146EngagedLog =
+        "0.00.001.078 I srv  llama_server: initializing ...\n" +
+        "0.00.140.328 I cmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)\n" +
+        "0.05.937.721 I cmn          init: llama threadpool init, n_threads = 24\n" +
+        "0.06.031.603 I srv    load_model: initializing, n_slots = 4, n_ctx_slot = 2048, kv_unified = 'true'\n" +
+        "0.06.041.657 I srv  llama_server: model loaded\n";
+
+    [Fact]
+    public void ALogWithoutADeviceSection_IsNotEvidenceOfACpuFallback()
+    {
+        // Until 0.77.0 this read as "CPU-only" and warned on every load with b11146, while the GPU was working.
+        LlamaServerProcess.StartupLogDeviceEvidence(B11146EngagedLog).Should().BeNull();
+    }
+
+    [Fact]
+    public void DeviceEvidence_ReadsBothOlderLogShapes()
+    {
+        LlamaServerProcess.StartupLogDeviceEvidence(CudaEngagedLog).Should().BeTrue();
+        LlamaServerProcess.StartupLogDeviceEvidence(CpuOnlyLog).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ListDevicesOutput_NamingACudaDevice_ShowsTheGpuLoaded()
+    {
+        // Captured from `llama-server --list-devices` (b11146 and b10964 print the same shape).
+        const string output = "Available devices:\n  CUDA0: NVIDIA GeForce RTX 4060 Laptop GPU (8187 MiB, 7099 MiB free)\n";
+
+        LlamaServerProcess.ListDevicesOutputShowsGpuDevice(output).Should().BeTrue();
+    }
+
+    [Fact]
+    public void ListDevicesOutput_WithNoDevice_ShowsNoGpu()
+    {
+        LlamaServerProcess.ListDevicesOutputShowsGpuDevice("Available devices:\n").Should().BeFalse();
+    }
 }
