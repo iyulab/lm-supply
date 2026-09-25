@@ -73,6 +73,14 @@ public sealed class ModelPreferences
         ForTier(HardwareProfile.Current.Tier);
 
     /// <summary>
+    /// Creates preferences for a load with <paramref name="provider"/>, from <see cref="HardwareProfile.For"/>: an
+    /// explicit <see cref="ExecutionProvider.Cpu"/> ranks quantizations by the CPU tier (system memory) and does not
+    /// probe the GPU; every other provider uses the current hardware, like <see cref="ForCurrentHardware"/>.
+    /// </summary>
+    public static ModelPreferences ForProvider(ExecutionProvider provider) =>
+        ForTier(HardwareProfile.For(provider).Tier);
+
+    /// <summary>
     /// Creates preferences from a quantization hint string (e.g., "fp16", "int8", "q4", "bnb4").
     /// The hinted quantization level is prioritized first, with other levels as fallbacks.
     /// </summary>

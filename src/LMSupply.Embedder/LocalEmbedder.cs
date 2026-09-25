@@ -303,7 +303,7 @@ public static class LocalEmbedder
             using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
             // Use auto-discovery to find ONNX files and config
-            var hwPrefs = ModelPreferences.ForCurrentHardware();
+            var hwPrefs = ModelPreferences.ForProvider(options.Provider);
             var preferences = options.QuantizationHint is { } hint
                 ? new ModelPreferences
                 {
@@ -522,7 +522,7 @@ public static class LocalEmbedder
         // HuggingFace repo ID with auto-discovery
         if (modelId.Contains('/'))
         {
-            var hwPrefs = ModelPreferences.ForCurrentHardware();
+            var hwPrefs = ModelPreferences.ForProvider(options.Provider);
             var preferences = options.QuantizationHint is { } hint
                 ? new ModelPreferences
                 {

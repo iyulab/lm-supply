@@ -370,7 +370,7 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
         if (_modelInfo.UseAutoDiscovery)
         {
             // Use auto-discovery for ONNX files
-            var hwPrefs = ModelPreferences.ForCurrentHardware();
+            var hwPrefs = ModelPreferences.ForProvider(_options.Provider);
             var preferences = new ModelPreferences
             {
                 PreferredSubfolder = _modelInfo.Subfolder,

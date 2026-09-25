@@ -536,7 +536,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: _options.DisableAutoDownload);
 
         // Build hardware-aware preferences with onnx subfolder for Whisper models
-        var hwPrefs = ModelPreferences.ForCurrentHardware();
+        var hwPrefs = ModelPreferences.ForProvider(_options.Provider);
         var preferences = new ModelPreferences
         {
             PreferredSubfolder = "onnx",

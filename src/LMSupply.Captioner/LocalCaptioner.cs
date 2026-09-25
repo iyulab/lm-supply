@@ -95,7 +95,7 @@ public static class LocalCaptioner
             using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
             // Use auto-discovery to find ONNX files and config
-            var hwPrefs = ModelPreferences.ForCurrentHardware();
+            var hwPrefs = ModelPreferences.ForProvider(options.Provider);
             var preferences = options.QuantizationHint is { } hint
                 ? new ModelPreferences
                 {

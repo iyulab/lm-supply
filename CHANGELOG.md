@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.78.0] - Unreleased
+
+### Added
+
+- `ModelPreferences.ForProvider(provider)`: quantization preferences from `HardwareProfile.For(provider)` — an explicit
+  `Cpu` ranks by the CPU tier and does not probe the GPU.
+
+### Fixed
+
+- **An explicit `Provider = Cpu` load by ONNX alias no longer loads the NVIDIA driver libraries.** The ONNX download
+  step of the generator (preset aliases such as `"phi-4-mini"`), embedder, captioner, transcriber and translator read
+  `HardwareProfile.Current` to rank quantizations, and that read probes the GPU (NVML, which brings `nvcuda.dll` with
+  it). 0.76.0 removed the other probe sites; this was the last one on the ONNX paths.
+
+### Changed
+
+- **With an explicit `Cpu`, the quantization ranking for a model without a registry subfolder follows the CPU tier
+  (system memory), not the GPU's.** On a machine with a large GPU, a CPU load could previously prefer FP16 files
+  meant for the GPU tier; it now prefers what the CPU tier ranks first. Pass `QuantizationHint` to choose explicitly.
+
 ## [0.77.0] - 2026-09-26
 
 ### Fixed

@@ -481,7 +481,7 @@ var options = new EmbedderOptions { Provider = ExecutionProvider.Cpu };      // 
 `ExecutionProvider.Cpu` also keeps the GPU out of the process: the hardware probe (NVML, which loads the CUDA driver
 library with it) runs only for a GPU or `Auto` choice, so a CPU load leaves the NVIDIA driver libraries unloaded.
 `HardwareProfile.For(provider)` is the profile a load with that provider works with — for `Cpu`, system memory and a
-CPU tier without a GPU probe.
+CPU tier without a GPU probe. `ModelPreferences.ForProvider(provider)` ranks ONNX quantizations from that profile.
 
 ### Verify GPU Detection
 

@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using LMSupply.Core.Download;
 using LMSupply.Hardware;
 using LMSupply.Pool;
 using LMSupply.Runtime;
@@ -47,6 +48,20 @@ public sealed class CpuOnlyGpuProbeTests
         profile.RecommendedProvider.Should().Be(ExecutionProvider.Cpu);
         profile.GpuInfo.Vendor.Should().Be(GpuVendor.Unknown);
         profile.SystemMemoryBytes.Should().BePositive();
+    }
+
+    [Fact]
+    public void ModelPreferencesForCpu_DoesNotProbe_AndRanksByTheCpuTier()
+    {
+        // The ONNX download paths (generator preset aliases, embedder, captioner, transcriber, translator) build their
+        // quantization preferences before loading; with an explicit Cpu that read used to be HardwareProfile.Current.
+        var before = GpuDetector.ProbeCount;
+
+        var preferences = ModelPreferences.ForProvider(ExecutionProvider.Cpu);
+
+        GpuDetector.ProbeCount.Should().Be(before);
+        preferences.QuantizationPriority.Should().Equal(
+            ModelPreferences.ForTier(HardwareProfile.For(ExecutionProvider.Cpu).Tier).QuantizationPriority);
     }
 
     [Fact]

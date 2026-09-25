@@ -87,7 +87,7 @@ internal static class GeneratorModelLoader
         GeneratorModelRegistry.Default.TryResolve(modelId, out var modelInfo);
 
         // Build preferences from registry info if available
-        var hwPrefs = ModelPreferences.ForCurrentHardware();
+        var hwPrefs = ModelPreferences.ForProvider(options.Provider);
         ModelPreferences preferences;
         if (modelInfo?.Subfolder != null)
         {
