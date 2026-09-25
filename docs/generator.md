@@ -92,6 +92,11 @@ await foreach (var token in generator.GenerateAsync("Write a short story about a
 VRAM budget, or — when VRAM is insufficient — the largest that fits the system RAM budget (CPU). On an
 integrated GPU the llama.cpp backend is CPU (see [llama.md](llama.md#backend-selection)).
 
+`"default"`, `"auto"` and `"gguf:auto"` are one rule (0.76.0; before that `"default"`/`"auto"` never
+considered system RAM). The rule reads the profile of the load's provider: with an explicit
+`Provider = ExecutionProvider.Cpu` the selection uses system RAM alone — the VRAM budget and
+`LMSUPPLY_VRAM_BUDGET_MB` do not apply — and the GPU is not probed.
+
 After the family is chosen, the download step picks the **quantization that fits** the backend-consistent
 budget: a capable host keeps the registry default quant (e.g. `Q4_K_M`), a tight-memory host downscales
 (`Q4 → Q3 → Q2`) so it loads instead of OOMing; if nothing fits, the smallest is used with a warning.
@@ -442,13 +447,13 @@ Auto-selection pool: `qwen3-fast`, `qwen3-default`, `qwen3-balanced`, `qwen3-qua
 
 | Free VRAM | Budget | Selected Model | Reason |
 |-----------|--------|----------------|--------|
-| 0 / CPU only | 0 | `gguf:qwen3-fast` (Qwen 3.5 2B) | FallbackToSmallest — runtime CPU offload |
+| 0 / CPU only / `Provider = Cpu` | 0 | the largest that fits system RAM − 4 GB (e.g. 16 GB RAM → `gguf:qwen3-balanced`); `gguf:qwen3-fast` if none fits | FitsInSystemRam / FallbackToSmallest |
 | 3 GB | ~2.55 GB | `gguf:qwen3-fast` | Fits (~2.25 GB total) |
 | 6 GB | ~5.1 GB | `gguf:qwen3-default` (Qwen 3.5 4B) | Fits (~4.25 GB); thinking ON |
 | 10 GB | ~8.5 GB | `gguf:qwen3-balanced` (Qwen3 8B) | Fits (~7.25 GB) |
 | 24 GB | ~20.4 GB | `gguf:qwen3-quality` (Qwen 3.6 35B MoE) | Fits (~19.0 GB); thinking ON |
 
-> **Low-VRAM laptop guidance.** On Windows laptops with ≤4 GB NVIDIA VRAM (RTX 4050/4060 Laptop, etc.), the auto path will still select `gguf:qwen3-fast` and emit a `FallbackToSmallest` warning to `Trace`. Even the 2B model may exceed budget once Windows compositor + driver reserve their share. For these hosts, prefer the ONNX path explicitly: `LocalGenerator.LoadAsync("phi-4-mini")` (CUDA or CPU). The Trace line `[LocalGenerator.auto] WARNING: ...` indicates this fallback so downstream consumers can intercept it.
+> **Low-VRAM laptop guidance.** On Windows laptops with ≤4 GB NVIDIA VRAM (RTX 4050/4060 Laptop, etc.), no candidate may fit VRAM once the compositor and driver take their share. The auto path then picks the largest model that fits system RAM (`FitsInSystemRam`) and runs it mostly on the CPU — larger and slower than the GPU could run. For a fast small model on these hosts, name it (`gguf:qwen3-fast`) or prefer the ONNX path explicitly: `LocalGenerator.LoadAsync("phi-4-mini")` (CUDA or CPU). The selection and its reason are logged with the `[LocalGenerator.auto]` prefix to `Trace`.
 
 ```csharp
 // Let LMSupply choose the optimal model for your hardware

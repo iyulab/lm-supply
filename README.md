@@ -320,7 +320,7 @@ Scores are on the same 0..1 scale as the ONNX route, and `LocalReranker.IsModelD
 
 **GGUF aliases** (via llama-server):
 
-Gemma 4와 Qwen3 시리즈 중심 레지스트리. `gguf:auto`는 **qwen3 auto-pool** (qwen3-fast/default/balanced/quality)에서 VRAM에 맞는 가장 큰 모델을 자동 선택합니다. Gemma 4 aliases는 명시적으로 지정하거나 하드코딩된 워크로드에 사용하세요.
+Gemma 4와 Qwen3 시리즈 중심 레지스트리. `gguf:auto`(와 `"default"`/`"auto"` — 같은 규칙)는 **qwen3 auto-pool** (qwen3-fast/default/balanced/quality)에서 VRAM에 맞는 가장 큰 모델을, VRAM이 부족하면 시스템 RAM에 맞는 가장 큰 모델을 자동 선택합니다. `Provider = ExecutionProvider.Cpu` 를 명시하면 시스템 RAM만 보고 GPU를 탐지하지 않습니다. Gemma 4 aliases는 명시적으로 지정하거나 하드코딩된 워크로드에 사용하세요.
 
 **Gemma 4 aliases** (Apache 2.0, 멀티모달, 네이티브 function calling; llama.cpp **b8672+** 필요):
 

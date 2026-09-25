@@ -167,7 +167,7 @@ internal static class GeneratorModelLoader
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
 
         // Try to resolve as registry alias first
-        var registryInfo = GgufModelRegistry.Resolve(modelId);
+        var registryInfo = GgufModelRegistry.Resolve(modelId, options.Provider);
         string modelPath;
         string chatFormat;
 

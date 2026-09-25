@@ -41,7 +41,9 @@ public static class LocalGenerator
     /// <remarks>
     /// For <c>"default"</c> and <c>"auto"</c>, the backend and model are selected from the host:
     /// <list type="bullet">
-    ///   <item>Every host → GGUF via llama.cpp (Gemma 4 by default, VRAM-aware; Vulkan on AMD/Intel GPUs).</item>
+    ///   <item>Every host → GGUF via llama.cpp: the largest model of the <c>gguf:auto</c> pool that fits the VRAM
+    ///   budget, else the system RAM budget (Vulkan on AMD/Intel GPUs). The same rule as <c>"gguf:auto"</c>.</item>
+    ///   <item>An explicit <see cref="ExecutionProvider.Cpu"/> selects from system RAM alone and does not probe the GPU.</item>
     ///   <item>ONNX models (Phi-4 Mini) are explicit-only: <c>"phi-4-mini"</c> or a repo id, CUDA or CPU.</item>
     /// </list>
     /// The selection is logged via <c>Trace.TraceInformation</c> with a <c>[LocalGenerator.auto]</c> prefix.
@@ -259,7 +261,7 @@ public static class LocalGenerator
     private static bool IsGgufModelCached(string modelId, GeneratorOptions options, string cacheDir)
     {
         using var downloader = new Internal.Llama.GgufModelDownloader(cacheDir, localFilesOnly: true);
-        var registryInfo = Internal.Llama.GgufModelRegistry.Resolve(modelId);
+        var registryInfo = Internal.Llama.GgufModelRegistry.Resolve(modelId, options.Provider);
         if (registryInfo is not null)
         {
             return downloader.IsRegistryModelCached(registryInfo, options.Provider);
@@ -438,8 +440,9 @@ public static class LocalGenerator
     /// </summary>
     private static (string ModelId, SelectionDiagnostics Diagnostics) SelectAutoModel(GeneratorOptions options)
     {
-        var profile = HardwareProfile.Current;
-        var selection = Internal.Llama.GgufModelRegistry.GetAutoSelection(profile.GpuInfo);
+        // The profile of the load's provider: an explicit Cpu selects from system memory without probing the GPU.
+        var profile = HardwareProfile.For(options.Provider);
+        var selection = Internal.Llama.GgufModelRegistry.GetAutoSelection(options.Provider);
         // Pass the alias (e.g. "gguf:gemma4-fast") rather than RepoId so the downstream
         // loader can re-resolve the registry entry and use its DefaultFile. Passing
         // RepoId would lose the DefaultFile and fall back to GgufFileSelector, which

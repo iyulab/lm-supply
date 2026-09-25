@@ -6,6 +6,20 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [0.76.0] - Unreleased
 
+### Changed
+
+- **Breaking: `"default"`, `"auto"` and `"gguf:auto"` select with one rule, from the profile of the load's provider.**
+  `"default"`/`"auto"` read only the detected GPU and fell back to the smallest model when nothing fit VRAM, while
+  `"gguf:auto"` also considered system RAM — the documented rule for all three. Now all three pick the largest model
+  that fits VRAM, else the largest that fits system RAM (less 4 GB), else the smallest. With an explicit
+  `Provider = ExecutionProvider.Cpu` the selection uses system RAM alone: the VRAM budget (including
+  `LMSUPPLY_VRAM_BUDGET_MB`) does not apply and the GPU is not probed.
+  - A host where no candidate fits VRAM (no GPU, integrated GPU, a small laptop GPU) now gets a larger model from
+    `"default"`/`"auto"` than before, run mostly on the CPU. To keep the previous small model, name it:
+    `gguf:qwen3-fast`.
+  - `Cpu` + `"default"`/`"auto"`/`"gguf:auto"` on a GPU host now gets the model its RAM holds, not the one its GPU
+    holds.
+
 ### Fixed
 
 - **`GetModelInfo().ModelId` names the quantization that was loaded.** When a registry alias's default did not fit the

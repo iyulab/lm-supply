@@ -319,13 +319,20 @@ public static class GgufModelRegistry
     /// <param name="aliasOrRepoId">The alias (e.g., "gguf:gemma4-default", "gemma4-default", "gguf:auto") or full repo ID.</param>
     /// <returns>Model information if found, null otherwise. The <see cref="GgufModelInfo.AliasName"/> is populated for registered aliases.</returns>
     public static GgufModelInfo? Resolve(string aliasOrRepoId)
+        => Resolve(aliasOrRepoId, ExecutionProvider.Auto);
+
+    /// <summary>
+    /// Resolves an alias for a load with <paramref name="provider"/>: <c>"gguf:auto"</c> is selected with
+    /// <see cref="GetAutoSelection(ExecutionProvider)"/>, the same rule as <c>"default"</c>/<c>"auto"</c>.
+    /// </summary>
+    public static GgufModelInfo? Resolve(string aliasOrRepoId, ExecutionProvider provider)
     {
         if (string.IsNullOrWhiteSpace(aliasOrRepoId))
             return null;
 
         // Handle "gguf:auto" alias - select optimal model based on hardware
         if (aliasOrRepoId.Equals("gguf:auto", StringComparison.OrdinalIgnoreCase))
-            return GetAutoModel();
+            return GetAutoSelection(provider).Selected;
 
         // Try direct lookup with gguf: prefix
         if (_models.TryGetValue(aliasOrRepoId, out var info))
@@ -410,6 +417,32 @@ public static class GgufModelRegistry
     {
         var safetyMargin = VramBudget.GetRecommendedSafetyMargin(gpu);
         var availableVram = VramBudget.GetAvailableBytes(gpu, safetyMargin);
+        return Select(availableVram, safetyMargin, systemRamBytes, budgetContextLength, excludeKnownIssues);
+    }
+
+    /// <summary>
+    /// The selection behind <c>"default"</c>, <c>"auto"</c> and <c>"gguf:auto"</c> for a load with
+    /// <paramref name="provider"/> — one rule for all three names. The profile is
+    /// <see cref="HardwareProfile.For"/>: an explicit <see cref="ExecutionProvider.Cpu"/> selects from system
+    /// memory alone (the VRAM budget, including <see cref="VramBudget.BudgetOverrideEnvVar"/>, does not apply to a
+    /// load that ruled the GPU out) and never probes the GPU; any other provider selects from the detected GPU and
+    /// falls back to system memory when no candidate fits VRAM.
+    /// </summary>
+    public static ModelSelectionResult GetAutoSelection(ExecutionProvider provider)
+    {
+        var profile = HardwareProfile.For(provider);
+        return provider == ExecutionProvider.Cpu
+            ? Select(availableVram: 0, safetyMargin: 0, profile.SystemMemoryBytes, DefaultBudgetContextLength, excludeKnownIssues: null)
+            : GetAutoSelection(profile.GpuInfo, profile.SystemMemoryBytes, DefaultBudgetContextLength, excludeKnownIssues: null);
+    }
+
+    private static ModelSelectionResult Select(
+        long availableVram,
+        double safetyMargin,
+        long systemRamBytes,
+        int budgetContextLength,
+        IReadOnlyCollection<string>? excludeKnownIssues)
+    {
         var availableRam = systemRamBytes > SystemRamReservedBytes
             ? systemRamBytes - SystemRamReservedBytes
             : 0L;
