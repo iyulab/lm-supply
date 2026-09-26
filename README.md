@@ -221,6 +221,11 @@ var result = await transcriber.TranscribeAsync("audio.wav");
 Console.WriteLine(result.Text);
 Console.WriteLine($"Language: {result.Language}");
 
+// Who said what: speaker labels per segment (local diarization)
+var meeting = await transcriber.TranscribeAsync("meeting.wav", new TranscribeOptions { Diarize = true });
+foreach (var segment in meeting.Segments)
+    Console.WriteLine($"{segment.Speaker}: {segment.Text}");
+
 // Streaming transcription
 await foreach (var segment in transcriber.TranscribeStreamingAsync("audio.wav"))
 {

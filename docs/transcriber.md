@@ -30,6 +30,7 @@ dotnet add package LMSupply.Transcriber
 - **Multilingual**: Support for 99+ languages with auto-detection
 - **Timestamps**: Segment-level timestamps (word-level timestamps are not produced)
 - **Streaming**: Real-time transcription as audio is processed
+- **Speaker diarization**: `Diarize = true` labels each segment with its speaker (`S1`, `S2`, …), locally (0.79.0+)
 - **GPU Acceleration**: CUDA and CoreML support
 
 ## Available Models
@@ -156,6 +157,39 @@ var options = new TranscribeOptions
 
 Beam search is not offered: the decoder is greedy (or sampling, above temperature 0). Before v0.64.0
 `BeamWidth` existed but nothing read it, and `Temperature` changed nothing.
+
+### Speaker diarization
+
+`Diarize = true` labels every segment with the speaker who said it — `TranscriptionSegment.Speaker` is `"S1"`,
+`"S2"`, … in speaking order, stable within one recording. A label names a voice, not a person; mapping labels to names
+is yours.
+
+```csharp
+var result = await transcriber.TranscribeAsync("meeting.wav", new TranscribeOptions
+{
+    Diarize = true,
+    NumSpeakers = 3          // optional: fixes the count; otherwise it is estimated
+});
+
+foreach (var segment in result.Segments)
+    Console.WriteLine($"{segment.Speaker}: {segment.Text}");
+```
+
+It runs locally, on both Whisper and Parakeet models, with two small models fetched on first use into the same
+cache and under the same `DisableAutoDownload` rule as the transcription model: pyannote segmentation-3.0 (MIT,
+~6 MB) and a WeSpeaker ResNet34 speaker embedding (CC-BY-4.0, ~27 MB). The pipeline is pyannote's:
+- 10-second windows with a 1-second step, each yielding up to three local speakers;
+- one voice embedding per window and speaker;
+- complete-linkage clustering on cosine distance;
+- each segment takes the speaker whose turns overlap it most.
+
+- **`NumSpeakers`** — set it when you know the count; it is more reliable than the estimate.
+- **`SpeakerThreshold`** — the cosine-distance cut when the count is estimated (default 0.5). Smaller finds more
+  speakers, larger fewer. Tune it on your own recordings if voices merge or split.
+- With Whisper, segments follow speech (timestamp tokens are turned on) rather than 30-second windows.
+- At most two speakers are detected at the same instant. A segment in which the speaker changes takes the one who
+  talks longer in it.
+- It needs the whole recording, so `TranscribeStreamingAsync` rejects `Diarize` (`NotSupportedException`).
 
 ### Model Configuration
 

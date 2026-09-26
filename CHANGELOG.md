@@ -8,6 +8,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ### Added
 
+- **Transcription can say who spoke.** `TranscribeOptions.Diarize = true` labels each `TranscriptionSegment.Speaker`
+  (`"S1"`, `"S2"`, … in speaking order) with local speaker diarization — pyannote segmentation-3.0 plus a WeSpeaker
+  speaker embedding, fetched on first use into the model cache. `NumSpeakers` fixes the count; `SpeakerThreshold`
+  tunes the estimate. Works on Whisper and Parakeet models; the streaming call rejects it (it needs the whole
+  recording).
+
 - **A streamed chat turn reports the server's token counts.** `GenerateChatStreamAsync`'s last chunk carries
   `ChatStreamChunk.Usage` (`PromptTokens`, `CompletionTokens`, `TotalTokens`) on the llama-server path — the same
   counts `GenerateChatWithToolsAsync` reports, hidden reasoning included, so a streaming consumer no longer has to
