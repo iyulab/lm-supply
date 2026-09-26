@@ -333,7 +333,7 @@ public sealed record LlamaServerInfo
     /// <summary>
     /// Base URL for API calls.
     /// </summary>
-    public string BaseUrl => $"http://localhost:{Port}";
+    public string BaseUrl => $"http://{LlamaServerProcess.LoopbackHost}:{Port}";
 
     /// <summary>
     /// Model path being served.
@@ -366,6 +366,13 @@ public sealed record LlamaServerInfo
 /// </summary>
 public sealed class LlamaServerProcess : IAsyncDisposable
 {
+    /// <summary>
+    /// The address the server listens on and every client connects to. A literal, not <c>localhost</c>: <c>localhost</c>
+    /// resolves to <c>::1</c> first, the server listens on IPv4 only, and on Windows a refused IPv6 connect takes about two
+    /// seconds — so every new connection (the startup health poll, the first request of each client) paid it.
+    /// </summary>
+    public const string LoopbackHost = "127.0.0.1";
+
     private readonly ProcessGuardian _guardian;
     private readonly LlamaServerConfig _config;
     private readonly string _serverPath;
@@ -606,7 +613,7 @@ public sealed class LlamaServerProcess : IAsyncDisposable
             "--n-gpu-layers", _config.GpuLayers.ToString(CultureInfo.InvariantCulture),
             "--batch-size", _config.BatchSize.ToString(CultureInfo.InvariantCulture),
             "--parallel", _config.Parallel.ToString(CultureInfo.InvariantCulture),
-            "--host", "127.0.0.1", // Only listen on localhost for security
+            "--host", LoopbackHost, // Only listen on loopback for security
             "--cont-batching",     // Enable continuous batching for better throughput
             "--jinja"              // Enable Jinja template processing for native tool calling support
         };
@@ -794,7 +801,7 @@ public sealed class LlamaServerProcess : IAsyncDisposable
 
             try
             {
-                var response = await _httpClient.GetAsync($"http://localhost:{_port}/health", cancellationToken);
+                var response = await _httpClient.GetAsync($"http://{LoopbackHost}:{_port}/health", cancellationToken);
                 if (response.IsSuccessStatusCode)
                 {
                     return null;
@@ -869,7 +876,7 @@ public sealed class LlamaServerProcess : IAsyncDisposable
 
         try
         {
-            var response = await _httpClient.GetAsync($"http://localhost:{_port}/health", cancellationToken);
+            var response = await _httpClient.GetAsync($"http://{LoopbackHost}:{_port}/health", cancellationToken);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
