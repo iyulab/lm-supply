@@ -854,170 +854,188 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             var trimmedMessages = await TrimToFitContextAsync(messages, options, cancellationToken);
             var serverMessages = ConvertMessages(PrepareServerMessages(trimmedMessages, options, _chatFormatter));
             var chatOptions = CreateChatOptions(options);
+            var source = (await ClientAsync(cancellationToken)).GenerateChatStreamAsync(serverMessages, chatOptions, cancellationToken);
 
-            // Client-side token limit as safety net
-            var maxTokens = options.ResolveMaxOutputTokens();
-            var tokenCount = 0;
-
-            // Initialize reasoning token filter if needed
-            var useReasoningFilter = options.FilterReasoningTokens || options.ExtractReasoningTokens;
-            var reasoningFilter = useReasoningFilter
-                ? new ReasoningTokenFilter(options.ExtractReasoningTokens)
-                : null;
-
-            // Initialize formatter-supplied tool-call wrapper parser if any. When present AND
-            // the formatter's grammar channel never produces a usable delta (the Gemma 4 case,
-            // SuppressServerToolCallsWhenParserActive == true), the parser is the sole tool-call
-            // source for the turn. When the formatter's grammar channel usually works (the
-            // ChatML/Qwen case, == false), server deltas win per-chunk and the parser only fills
-            // in the chunks where the server gave nothing — see ToolCallStreamCoexistence.
-            // (ecosystem ISSUE Option D-5, 2026-05-01 — Gemma 4 wrapper extraction;
-            // Option D-8, 2026-08-17 — ChatML coexist mode.)
-            var toolStreamParser = _chatFormatter.CreateToolCallStreamParser();
-            var suppressServerCallsWhenParserActive = _chatFormatter.SuppressServerToolCallsWhenParserActive;
-
-            // The finish reason is held back to one final chunk that also carries the server's usage: with
-            // include_usage the usage arrives on a separate chunk after finish_reason, and the parser/filter
-            // flushes below can still release text — a consumer that stops reading at FinishReason must
-            // not lose either.
-            string? finishReason = null;
-            ChatTokenUsage? usage = null;
-
-            await foreach (var data in (await ClientAsync(cancellationToken)).GenerateChatStreamAsync(
-                serverMessages, chatOptions, cancellationToken))
+            await foreach (var chunk in ShapeChatStream(
+                source, options, _chatFormatter.CreateToolCallStreamParser(),
+                _chatFormatter.SuppressServerToolCallsWhenParserActive, cancellationToken))
             {
-                if (data.FinishReason is not null)
-                    finishReason = data.FinishReason;
-                if (data.Usage is { } reported)
-                    usage = new ChatTokenUsage
-                    {
-                        PromptTokens = reported.PromptTokens,
-                        CompletionTokens = reported.CompletionTokens,
-                        TotalTokens = reported.TotalTokens,
-                    };
-
-                // Safety net: stop if token limit exceeded
-                if (data.TextDelta is not null && maxTokens > 0 && ++tokenCount > maxTokens)
-                {
-                    finishReason = "length";
-                    usage = null;
-                    break;
-                }
-
-                // Convert tool call deltas from server types to Generator types.
-                IReadOnlyList<ChatToolCallDelta>? serverToolCallDeltas = null;
-                if (data.ToolCallDeltas is { Count: > 0 })
-                {
-                    serverToolCallDeltas = data.ToolCallDeltas.Select(tc => new ChatToolCallDelta
-                    {
-                        Index = tc.Index,
-                        Id = tc.Id,
-                        Name = tc.Function?.Name,
-                        Arguments = tc.Function?.Arguments
-                    }).ToList();
-                }
-
-                IReadOnlyList<ChatToolCallDelta>? toolCallDeltas =
-                    toolStreamParser is null ? serverToolCallDeltas : null;
-
-                // b8994+: reasoning_content arrives as ReasoningDelta (separate from content).
-                // Route it to ChatStreamChunk.ReasoningDelta when extraction is requested;
-                // silently discard when only filtering is requested (server already separates it).
-                string? reasoningDelta = null;
-                if (data.ReasoningDelta is not null && options.ExtractReasoningTokens)
-                    reasoningDelta = data.ReasoningDelta;
-
-                // Apply reasoning filter to text delta (old-server path: <think> tags in content).
-                var text = data.TextDelta;
-                if (text is not null && reasoningFilter is not null)
-                {
-                    text = reasoningFilter.Process(text);
-                    if (string.IsNullOrEmpty(text))
-                        text = null;
-                }
-
-                // Route remaining text through the formatter-supplied wrapper parser.
-                if (toolStreamParser is not null)
-                {
-                    if (suppressServerCallsWhenParserActive)
-                    {
-                        // Gemma 4 class: the parser is the sole source whenever it is registered.
-                        if (text is not null)
-                        {
-                            var parsed = toolStreamParser.Feed(text);
-                            text = parsed.Text;
-                            if (parsed.ToolCalls is { Count: > 0 })
-                            {
-                                toolCallDeltas = parsed.ToolCalls;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // ChatML/Qwen class: server deltas win per chunk; the parser only fills
-                        // in chunks where the server gave nothing.
-                        var (resolvedText, resolvedCalls) =
-                            ToolCallStreamCoexistence.Resolve(text, serverToolCallDeltas, toolStreamParser);
-                        text = resolvedText;
-                        toolCallDeltas = resolvedCalls;
-                    }
-                }
-
-                // Yield structured chunk
-                if (text is not null || reasoningDelta is not null || toolCallDeltas is not null)
-                {
-                    yield return new ChatStreamChunk
-                    {
-                        Text = text,
-                        ReasoningDelta = reasoningDelta,
-                        ToolCalls = toolCallDeltas,
-                    };
-                }
+                yield return chunk;
             }
-
-            // Flush remaining reasoning content
-            if (reasoningFilter is not null)
-            {
-                var remaining = reasoningFilter.Flush();
-                if (!string.IsNullOrEmpty(remaining))
-                {
-                    var residual = remaining;
-                    IReadOnlyList<ChatToolCallDelta>? residualCalls = null;
-                    if (toolStreamParser is not null)
-                    {
-                        var parsed = toolStreamParser.Feed(residual);
-                        residual = parsed.Text;
-                        residualCalls = parsed.ToolCalls;
-                    }
-                    if (residual is not null || residualCalls is not null)
-                    {
-                        yield return new ChatStreamChunk { Text = residual, ToolCalls = residualCalls };
-                    }
-                }
-            }
-
-            // Flush formatter-supplied parser (releases trailing text outside any wrapper;
-            // incomplete wrapper bodies are discarded — see Gemma4ToolCallStreamParser).
-            if (toolStreamParser is not null)
-            {
-                var flushed = toolStreamParser.Flush();
-                if (flushed.Text is not null || flushed.ToolCalls is { Count: > 0 })
-                {
-                    yield return new ChatStreamChunk
-                    {
-                        Text = flushed.Text,
-                        ToolCalls = flushed.ToolCalls
-                    };
-                }
-            }
-
-            if (finishReason is not null || usage is not null)
-                yield return new ChatStreamChunk { FinishReason = finishReason, Usage = usage };
         }
         finally
         {
             _concurrencyLimiter.Release();
         }
+    }
+
+    /// <summary>
+    /// Shapes llama-server stream data into <see cref="ChatStreamChunk"/>s: the output-token safety limit, reasoning
+    /// routing/filtering, formatter tool-call parsing, and one final chunk carrying the finish reason and usage.
+    /// Separated from the server call so the shaping is testable over a synthetic stream.
+    /// </summary>
+    internal static async IAsyncEnumerable<ChatStreamChunk> ShapeChatStream(
+        IAsyncEnumerable<ChatStreamData> source,
+        GenerationOptions options,
+        IToolCallStreamParser? toolStreamParser,
+        bool suppressServerCallsWhenParserActive,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        // Client-side token limit as safety net
+        var maxTokens = options.ResolveMaxOutputTokens();
+        var tokenCount = 0;
+
+        // Initialize reasoning token filter if needed
+        var useReasoningFilter = options.FilterReasoningTokens || options.ExtractReasoningTokens;
+        var reasoningFilter = useReasoningFilter
+            ? new ReasoningTokenFilter(options.ExtractReasoningTokens)
+            : null;
+
+        // toolStreamParser is the formatter-supplied tool-call wrapper parser, if any. When present AND
+        // the formatter's grammar channel never produces a usable delta (the Gemma 4 case,
+        // SuppressServerToolCallsWhenParserActive == true), the parser is the sole tool-call
+        // source for the turn. When the formatter's grammar channel usually works (the
+        // ChatML/Qwen case, == false), server deltas win per-chunk and the parser only fills
+        // in the chunks where the server gave nothing — see ToolCallStreamCoexistence.
+        // (ecosystem ISSUE Option D-5, 2026-05-01 — Gemma 4 wrapper extraction;
+        // Option D-8, 2026-08-17 — ChatML coexist mode.)
+
+        // The finish reason is held back to one final chunk that also carries the server's usage: with
+        // include_usage the usage arrives on a separate chunk after finish_reason, and the parser/filter
+        // flushes below can still release text — a consumer that stops reading at FinishReason must
+        // not lose either.
+        string? finishReason = null;
+        ChatTokenUsage? usage = null;
+
+        await foreach (var data in source.WithCancellation(cancellationToken))
+        {
+            if (data.FinishReason is not null)
+                finishReason = data.FinishReason;
+            if (data.Usage is { } reported)
+                usage = new ChatTokenUsage
+                {
+                    PromptTokens = reported.PromptTokens,
+                    CompletionTokens = reported.CompletionTokens,
+                    TotalTokens = reported.TotalTokens,
+                };
+
+            // Safety net: stop if token limit exceeded
+            if (data.TextDelta is not null && maxTokens > 0 && ++tokenCount > maxTokens)
+            {
+                finishReason = "length";
+                usage = null;
+                break;
+            }
+
+            // Convert tool call deltas from server types to Generator types.
+            IReadOnlyList<ChatToolCallDelta>? serverToolCallDeltas = null;
+            if (data.ToolCallDeltas is { Count: > 0 })
+            {
+                serverToolCallDeltas = data.ToolCallDeltas.Select(tc => new ChatToolCallDelta
+                {
+                    Index = tc.Index,
+                    Id = tc.Id,
+                    Name = tc.Function?.Name,
+                    Arguments = tc.Function?.Arguments
+                }).ToList();
+            }
+
+            IReadOnlyList<ChatToolCallDelta>? toolCallDeltas =
+                toolStreamParser is null ? serverToolCallDeltas : null;
+
+            // b8994+: reasoning_content arrives as ReasoningDelta (separate from content).
+            // Route it to ChatStreamChunk.ReasoningDelta when extraction is requested;
+            // silently discard when only filtering is requested (server already separates it).
+            string? reasoningDelta = null;
+            if (data.ReasoningDelta is not null && options.ExtractReasoningTokens)
+                reasoningDelta = data.ReasoningDelta;
+
+            // Apply reasoning filter to text delta (old-server path: <think> tags in content).
+            var text = data.TextDelta;
+            if (text is not null && reasoningFilter is not null)
+            {
+                text = reasoningFilter.Process(text);
+                if (string.IsNullOrEmpty(text))
+                    text = null;
+            }
+
+            // Route remaining text through the formatter-supplied wrapper parser.
+            if (toolStreamParser is not null)
+            {
+                if (suppressServerCallsWhenParserActive)
+                {
+                    // Gemma 4 class: the parser is the sole source whenever it is registered.
+                    if (text is not null)
+                    {
+                        var parsed = toolStreamParser.Feed(text);
+                        text = parsed.Text;
+                        if (parsed.ToolCalls is { Count: > 0 })
+                        {
+                            toolCallDeltas = parsed.ToolCalls;
+                        }
+                    }
+                }
+                else
+                {
+                    // ChatML/Qwen class: server deltas win per chunk; the parser only fills
+                    // in chunks where the server gave nothing.
+                    var (resolvedText, resolvedCalls) =
+                        ToolCallStreamCoexistence.Resolve(text, serverToolCallDeltas, toolStreamParser);
+                    text = resolvedText;
+                    toolCallDeltas = resolvedCalls;
+                }
+            }
+
+            // Yield structured chunk
+            if (text is not null || reasoningDelta is not null || toolCallDeltas is not null)
+            {
+                yield return new ChatStreamChunk
+                {
+                    Text = text,
+                    ReasoningDelta = reasoningDelta,
+                    ToolCalls = toolCallDeltas,
+                };
+            }
+        }
+
+        // Flush remaining reasoning content
+        if (reasoningFilter is not null)
+        {
+            var remaining = reasoningFilter.Flush();
+            if (!string.IsNullOrEmpty(remaining))
+            {
+                var residual = remaining;
+                IReadOnlyList<ChatToolCallDelta>? residualCalls = null;
+                if (toolStreamParser is not null)
+                {
+                    var parsed = toolStreamParser.Feed(residual);
+                    residual = parsed.Text;
+                    residualCalls = parsed.ToolCalls;
+                }
+                if (residual is not null || residualCalls is not null)
+                {
+                    yield return new ChatStreamChunk { Text = residual, ToolCalls = residualCalls };
+                }
+            }
+        }
+
+        // Flush formatter-supplied parser (releases trailing text outside any wrapper;
+        // incomplete wrapper bodies are discarded — see Gemma4ToolCallStreamParser).
+        if (toolStreamParser is not null)
+        {
+            var flushed = toolStreamParser.Flush();
+            if (flushed.Text is not null || flushed.ToolCalls is { Count: > 0 })
+            {
+                yield return new ChatStreamChunk
+                {
+                    Text = flushed.Text,
+                    ToolCalls = flushed.ToolCalls
+                };
+            }
+        }
+
+        if (finishReason is not null || usage is not null)
+            yield return new ChatStreamChunk { FinishReason = finishReason, Usage = usage };
     }
 
     /// <summary>
