@@ -101,7 +101,9 @@ public class ModelRegistryTests
     [Fact]
     public void GetAliases_ShouldReturnAllAliasesAsAliasInfo()
     {
-        var aliases = _registry.GetAliases();
+        // A registry of its own: GgufAliasTests (a parallel class) registers user aliases on the shared Default,
+        // and "every alias is a system alias" only holds for a registry nobody else writes to.
+        var aliases = new RerankerModelRegistry(DefaultModels.All).GetAliases();
 
         var aliasNames = aliases.Select(a => a.Name).ToList();
         aliasNames.Should().Contain(["auto", "default", "quality", "fast", "multilingual", "large"]);
