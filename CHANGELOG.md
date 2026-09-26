@@ -17,6 +17,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   exposes the raw object as `LlamaServerTimings` on `ChatStreamData.Timings`, `ChatCompletionFullResponse.Timings` and
   `CompletionStreamData.Timings`.
 
+### Fixed
+- **`GenerateChatWithUsageAsync` returns the backend's own count, finish reason and timings.** It estimated usage from
+  the streamed text and did not mark the result `IsEstimated`. A reasoning model's hidden tokens were therefore
+  missing from what looked like a measured count, and the finish reason was dropped. The lm-supply console's chat
+  endpoint served that estimate. The method now delegates to `GenerateChatCompleteResultAsync`, as its raw twin
+  `GenerateWithUsageAsync` has done since 0.73.0.
+
 ## [0.79.3] - 2026-09-26
 
 ### Changed
