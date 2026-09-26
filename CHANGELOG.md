@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.79.3] - Unreleased
+
+### Changed
+- **Every LMSupply package is marked `IsAotCompatible`, and builds clean under the trimming/AOT analyzers.** 0.78.0 made the JSON paths work in trimmed/AOT hosts at run time; the analyzers still flagged 32 calls (the `JsonSerializerOptions` overloads) in LMSupply.Core, LMSupply.Llama and LMSupply.Synthesizer. Those now use the `JsonTypeInfo` overloads, taken from the same options, so behaviour is unchanged. A trimmed or AOT consumer no longer sees warnings from these packages, and a new reflection-only call fails LMSupply's own build.
+
 ## [0.79.2] - 2026-09-26
 
 ### Fixed

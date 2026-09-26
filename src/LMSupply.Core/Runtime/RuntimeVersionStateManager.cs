@@ -312,7 +312,7 @@ public sealed class RuntimeVersionStateManager : IDisposable
         try
         {
             var json = await File.ReadAllTextAsync(_stateFilePath, ct);
-            _cachedState = JsonSerializer.Deserialize<RuntimeVersionStateFile>(json, JsonOptions)
+            _cachedState = JsonSerializer.Deserialize(json, JsonOptions.TypeInfo<RuntimeVersionStateFile>())
                 ?? new RuntimeVersionStateFile();
         }
         catch (JsonException)
@@ -335,7 +335,7 @@ public sealed class RuntimeVersionStateManager : IDisposable
 
         // Atomic write using temp file
         var tempPath = _stateFilePath + ".tmp";
-        var json = JsonSerializer.Serialize(state, JsonOptions);
+        var json = JsonSerializer.Serialize(state, JsonOptions.TypeInfoOf(state));
 
         await File.WriteAllTextAsync(tempPath, json, ct);
 

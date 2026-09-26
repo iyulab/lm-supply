@@ -264,7 +264,7 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
             if (File.Exists(configPath))
             {
                 var configJson = await File.ReadAllTextAsync(configPath, cancellationToken);
-                _config = JsonSerializer.Deserialize<VitsConfig>(configJson, s_caseInsensitiveJsonOptions);
+                _config = JsonSerializer.Deserialize(configJson, (System.Text.Json.Serialization.Metadata.JsonTypeInfo<VitsConfig>)s_caseInsensitiveJsonOptions.GetTypeInfo(typeof(VitsConfig)));
             }
 
             // Load model

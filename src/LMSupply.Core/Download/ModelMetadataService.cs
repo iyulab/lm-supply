@@ -140,7 +140,7 @@ public sealed class ModelMetadataService : IDisposable
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        var apiResponse = JsonSerializer.Deserialize<HfApiResponse>(json, JsonOptions);
+        var apiResponse = JsonSerializer.Deserialize(json, JsonOptions.TypeInfo<HfApiResponse>());
 
         if (apiResponse is null)
             return null;
@@ -195,7 +195,7 @@ public sealed class ModelMetadataService : IDisposable
         try
         {
             var json = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<ModelMetadata>(json, JsonOptions);
+            return JsonSerializer.Deserialize(json, JsonOptions.TypeInfo<ModelMetadata>());
         }
         catch (Exception ex)
         {
@@ -217,7 +217,7 @@ public sealed class ModelMetadataService : IDisposable
 
         try
         {
-            var json = JsonSerializer.Serialize(metadata, JsonOptions);
+            var json = JsonSerializer.Serialize(metadata, JsonOptions.TypeInfoOf(metadata));
             await File.WriteAllTextAsync(filePath, json, cancellationToken);
         }
         catch (Exception ex)

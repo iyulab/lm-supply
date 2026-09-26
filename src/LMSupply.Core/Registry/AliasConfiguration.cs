@@ -82,8 +82,8 @@ public static class AliasConfiguration
     /// </summary>
     public static Dictionary<string, Dictionary<string, string>> ParseAliasJson(string json)
     {
-        var doc = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(
-            json, JsonOptions);
+        var doc = JsonSerializer.Deserialize(
+            json, JsonOptions.TypeInfo<Dictionary<string, Dictionary<string, string>>>());
         return doc ?? [];
     }
 

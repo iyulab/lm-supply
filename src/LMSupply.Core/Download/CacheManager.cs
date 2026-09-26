@@ -444,7 +444,7 @@ public static class CacheManager
                 return null;
 
             var json = File.ReadAllText(metadataPath);
-            return System.Text.Json.JsonSerializer.Deserialize<ModelMetadata>(json, s_jsonOptions);
+            return System.Text.Json.JsonSerializer.Deserialize(json, s_jsonOptions.TypeInfo<ModelMetadata>());
         }
         catch (Exception ex)
         {

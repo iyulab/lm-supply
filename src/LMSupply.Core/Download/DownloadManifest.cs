@@ -34,7 +34,7 @@ public sealed class DownloadManifest
     {
         manifest.CompletedAt = DateTimeOffset.UtcNow;
         var path = Path.Combine(directoryPath, FileName);
-        var json = JsonSerializer.Serialize(manifest, s_jsonOptions);
+        var json = JsonSerializer.Serialize(manifest, s_jsonOptions.TypeInfoOf(manifest));
 
         // Retry on transient file lock (e.g., rapid host restart releasing handles).
         await FileIoRetry.ExecuteAsync(() => File.WriteAllTextAsync(path, json));
@@ -49,7 +49,7 @@ public sealed class DownloadManifest
         try
         {
             var json = await File.ReadAllTextAsync(path);
-            return JsonSerializer.Deserialize<DownloadManifest>(json, s_jsonOptions);
+            return JsonSerializer.Deserialize(json, s_jsonOptions.TypeInfo<DownloadManifest>());
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -69,7 +69,7 @@ public sealed class DownloadManifest
         try
         {
             var json = File.ReadAllText(path);
-            return JsonSerializer.Deserialize<DownloadManifest>(json, s_jsonOptions);
+            return JsonSerializer.Deserialize(json, s_jsonOptions.TypeInfo<DownloadManifest>());
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
         {

@@ -63,7 +63,7 @@ public sealed class NuGetPackageResolver : IDisposable
             }
 
             var url = $"{NuGetFlatContainerBase}/{normalizedId}/index.json";
-            var response = await _httpClient.GetFromJsonAsync<VersionsResponse>(url, CoreJsonOptions.Web, cancellationToken);
+            var response = await _httpClient.GetFromJsonAsync(url, CoreJsonOptions.Web.TypeInfo<VersionsResponse>(), cancellationToken);
 
             var versions = response?.Versions ?? [];
             // Sort descending by semantic version (latest first)

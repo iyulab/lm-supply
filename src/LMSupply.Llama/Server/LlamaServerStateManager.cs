@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using LMSupply.Json;
 
 namespace LMSupply.Llama.Server;
 
@@ -391,7 +392,7 @@ public sealed class LlamaServerStateManager : IDisposable
         try
         {
             var json = await File.ReadAllTextAsync(_stateFilePath, cancellationToken);
-            _cachedState = JsonSerializer.Deserialize<LlamaServerStateFile>(json, JsonOptions)
+            _cachedState = JsonSerializer.Deserialize(json, JsonOptions.TypeInfo<LlamaServerStateFile>())
                 ?? new LlamaServerStateFile();
         }
         catch (JsonException)
@@ -409,7 +410,7 @@ public sealed class LlamaServerStateManager : IDisposable
 
         // Atomic write: write to temp file, then rename
         var tempPath = _stateFilePath + ".tmp";
-        var json = JsonSerializer.Serialize(stateFile, JsonOptions);
+        var json = JsonSerializer.Serialize(stateFile, JsonOptions.TypeInfoOf(stateFile));
 
         await File.WriteAllTextAsync(tempPath, json, cancellationToken);
         File.Move(tempPath, _stateFilePath, overwrite: true);

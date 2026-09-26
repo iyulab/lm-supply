@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using LMSupply.Exceptions;
+using LMSupply.Json;
 
 namespace LMSupply.Llama.Server;
 
@@ -73,7 +74,7 @@ public sealed class LlamaServerClient : IDisposable
 
         var request = BuildChatRequest(messages, options, stream: true);
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
+        var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/v1/chat/completions")
@@ -107,7 +108,7 @@ public sealed class LlamaServerClient : IDisposable
             ChatCompletionChunk? chunk;
             try
             {
-                chunk = JsonSerializer.Deserialize<ChatCompletionChunk>(data, JsonOptions);
+                chunk = JsonSerializer.Deserialize(data, JsonOptions.TypeInfo<ChatCompletionChunk>());
             }
             catch (Exception ex)
             {
@@ -138,7 +139,7 @@ public sealed class LlamaServerClient : IDisposable
 
         var request = BuildChatRequest(messages, options, stream: true);
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
+        var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/v1/chat/completions")
@@ -172,7 +173,7 @@ public sealed class LlamaServerClient : IDisposable
             ChatCompletionChunk? chunk;
             try
             {
-                chunk = JsonSerializer.Deserialize<ChatCompletionChunk>(data, JsonOptions);
+                chunk = JsonSerializer.Deserialize(data, JsonOptions.TypeInfo<ChatCompletionChunk>());
             }
             catch (Exception ex)
             {
@@ -246,7 +247,7 @@ public sealed class LlamaServerClient : IDisposable
 
         var request = BuildChatRequest(messages, options, stream: false);
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
+        var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         using var response = await _httpClient.PostAsync(
@@ -257,7 +258,7 @@ public sealed class LlamaServerClient : IDisposable
         await EnsureSuccessOrThrowContextExceptionAsync(response, _maxContextLength, cancellationToken);
 
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-        var result = JsonSerializer.Deserialize<ChatCompletionFullResponse>(responseJson, JsonOptions);
+        var result = JsonSerializer.Deserialize(responseJson, JsonOptions.TypeInfo<ChatCompletionFullResponse>());
 
         return result ?? new ChatCompletionFullResponse();
     }
@@ -312,7 +313,7 @@ public sealed class LlamaServerClient : IDisposable
             JsonSchema = ParseStructuredSchema(options.Grammar, options.JsonSchema)
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
+        var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/completion")
@@ -343,7 +344,7 @@ public sealed class LlamaServerClient : IDisposable
             CompletionChunk? chunk;
             try
             {
-                chunk = JsonSerializer.Deserialize<CompletionChunk>(data, JsonOptions);
+                chunk = JsonSerializer.Deserialize(data, JsonOptions.TypeInfo<CompletionChunk>());
             }
             catch (Exception ex)
             {
@@ -413,7 +414,7 @@ public sealed class LlamaServerClient : IDisposable
         CancellationToken cancellationToken = default)
     {
         var request = new TokenizeRequest { Content = text };
-        var json = JsonSerializer.Serialize(request, JsonOptions);
+        var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         using var response = await _httpClient.PostAsync(
@@ -424,7 +425,7 @@ public sealed class LlamaServerClient : IDisposable
         response.EnsureSuccessStatusCode();
 
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-        var result = JsonSerializer.Deserialize<TokenizeResponse>(responseJson, JsonOptions);
+        var result = JsonSerializer.Deserialize(responseJson, JsonOptions.TypeInfo<TokenizeResponse>());
 
         return result?.Tokens?.Count ?? 0;
     }
@@ -458,7 +459,7 @@ public sealed class LlamaServerClient : IDisposable
             Input = inputs.Count == 1 ? inputs[0] : inputs
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
+        var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         using var response = await _httpClient.PostAsync(
@@ -469,7 +470,7 @@ public sealed class LlamaServerClient : IDisposable
         response.EnsureSuccessStatusCode();
 
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-        var embeddingResponse = JsonSerializer.Deserialize<EmbeddingResponse>(responseJson, JsonOptions);
+        var embeddingResponse = JsonSerializer.Deserialize(responseJson, JsonOptions.TypeInfo<EmbeddingResponse>());
 
         if (embeddingResponse?.Data == null || embeddingResponse.Data.Count == 0)
         {
@@ -504,7 +505,7 @@ public sealed class LlamaServerClient : IDisposable
             TopN = Math.Min(topN, documents.Count)
         };
 
-        var json = JsonSerializer.Serialize(request, JsonOptions);
+        var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         using var response = await _httpClient.PostAsync(
@@ -515,7 +516,7 @@ public sealed class LlamaServerClient : IDisposable
         response.EnsureSuccessStatusCode();
 
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-        var rerankResponse = JsonSerializer.Deserialize<RerankResponse>(responseJson, JsonOptions);
+        var rerankResponse = JsonSerializer.Deserialize(responseJson, JsonOptions.TypeInfo<RerankResponse>());
 
         return rerankResponse?.Results ?? [];
     }

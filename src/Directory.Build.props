@@ -5,5 +5,8 @@
   <!-- Only src/ projects are published to NuGet -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
+    <!-- Trimming/AOT analyzers on every package: a trimmed or AOT host (file-based `dotnet run app.cs` is one) loads
+         models, and a new reflection-only JSON call fails the build here instead of there. -->
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 </Project>
