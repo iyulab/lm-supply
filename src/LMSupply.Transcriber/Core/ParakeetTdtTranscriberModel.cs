@@ -57,6 +57,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel
     private double _frameSeconds = HopSeconds * DefaultSubsamplingFactor;
     private bool _initialized;
     private bool _disposed;
+    private readonly Diarization.DiarizationStage _diarization;
 
     public ParakeetTdtTranscriberModel(TranscriberOptions options, TranscriberModelInfo modelInfo)
     {
@@ -64,6 +65,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel
         _modelInfo = modelInfo ?? throw new ArgumentNullException(nameof(modelInfo));
         _hiddenSize = modelInfo.HiddenSize;
         _numMelBins = modelInfo.NumMelBins;
+        _diarization = new Diarization.DiarizationStage(options);
     }
 
     public string ModelId => _modelInfo.Id;
@@ -97,6 +99,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel
         TranscribeOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        Diarization.DiarizationStage.RejectOnStreaming(options);
         ValidateOptions(options);
         await EnsureInitializedAsync(cancellationToken);
         var samples = await AudioProcessor.LoadAudioAsync(audioPath, cancellationToken);
@@ -114,6 +117,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel
     private async Task<TranscriptionResult> TranscribeSamplesAsync(float[] samples, TranscribeOptions? options, CancellationToken cancellationToken)
     {
         ValidateOptions(options);
+        Diarization.DiarizationStage.Validate(options);
         await EnsureInitializedAsync(cancellationToken);
 
         var stopwatch = Stopwatch.StartNew();
@@ -125,7 +129,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel
         }
         stopwatch.Stop();
 
-        return new TranscriptionResult
+        var result = new TranscriptionResult
         {
             Text = string.Join(" ", segments.Select(s => s.Text)).Trim(),
             Language = options?.Language ?? "und",
@@ -134,6 +138,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel
             DurationSeconds = AudioProcessor.GetDurationSeconds(samples),
             InferenceTimeMs = stopwatch.Elapsed.TotalMilliseconds
         };
+        return await _diarization.ApplyAsync(result, samples, options, cancellationToken);
     }
 
     private static void ValidateOptions(TranscribeOptions? options)
@@ -364,6 +369,6 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel
         _encoder?.Dispose();
         _decoderJoint?.Dispose();
         _initLock.Dispose();
-        return ValueTask.CompletedTask;
+        return _diarization.DisposeAsync();
     }
 }

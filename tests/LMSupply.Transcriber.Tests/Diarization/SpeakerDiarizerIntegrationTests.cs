@@ -54,6 +54,27 @@ public class SpeakerDiarizerIntegrationTests
         }
     }
 
+    /// <summary>
+    /// The user-facing path: a Whisper transcription of a multi-speaker recording with <c>Diarize</c> labels every
+    /// segment, the labels follow the diarizer's turns, and without <c>Diarize</c> nothing is labelled.
+    /// </summary>
+    [Fact]
+    public async Task TranscribeWithDiarize_LabelsSegmentsBySpeaker()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var path = await RecordingAsync(ct);
+        await using var model = await LocalTranscriber.LoadAsync("default", cancellationToken: ct);
+
+        var labelled = await model.TranscribeAsync(path, new TranscribeOptions { Diarize = true, Language = "zh" }, ct);
+        var plain = await model.TranscribeAsync(path, new TranscribeOptions { Language = "zh" }, ct);
+
+        labelled.Segments.Should().NotBeEmpty();
+        labelled.Segments.Should().OnlyContain(s => s.Speaker != null);
+        labelled.Segments.Select(s => s.Speaker).Distinct().Should().HaveCount(2, "sherpa's reference finds two voices at 0.5");
+        labelled.Segments[0].Speaker.Should().Be("S1", "labels are numbered in speaking order");
+        plain.Segments.Should().OnlyContain(s => s.Speaker == null);
+    }
+
     [Fact]
     public async Task AFixedSpeakerCount_OverridesTheThreshold()
     {

@@ -102,13 +102,22 @@ public sealed class TranscriptionSegment
     public IReadOnlyList<WordTimestamp>? Words { get; init; }
 
     /// <summary>
+    /// Gets the speaker of this segment when <see cref="TranscribeOptions.Diarize"/> was set: a label stable within
+    /// one recording, numbered in speaking order (<c>"S1"</c>, <c>"S2"</c>, …). It names a voice, not a person —
+    /// mapping labels to names is the caller's. Null when diarization was not requested, or when no speaker was
+    /// found in the recording.
+    /// </summary>
+    public string? Speaker { get; init; }
+
+    /// <summary>
     /// Gets the duration of this segment in seconds.
     /// </summary>
     public double Duration => End - Start;
 
     /// <inheritdoc/>
-    public override string ToString() =>
-        $"[{TimeSpan.FromSeconds(Start):mm\\:ss\\.ff} --> {TimeSpan.FromSeconds(End):mm\\:ss\\.ff}] {Text}";
+    public override string ToString() => Speaker is null
+        ? $"[{TimeSpan.FromSeconds(Start):mm\\:ss\\.ff} --> {TimeSpan.FromSeconds(End):mm\\:ss\\.ff}] {Text}"
+        : $"[{TimeSpan.FromSeconds(Start):mm\\:ss\\.ff} --> {TimeSpan.FromSeconds(End):mm\\:ss\\.ff}] {Speaker}: {Text}";
 }
 
 /// <summary>

@@ -32,6 +32,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
     private string? _modelPath;
     private bool _isInitialized;
     private bool _isDisposed;
+    private readonly Diarization.DiarizationStage _diarization;
 
     /// <inheritdoc />
     public string ModelId => _modelInfo?.Id ?? _options.ModelId;
@@ -60,6 +61,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
     public OnnxTranscriberModel(TranscriberOptions options)
     {
         _options = options.Clone();
+        _diarization = new Diarization.DiarizationStage(_options);
     }
 
     public async Task WarmupAsync(CancellationToken cancellationToken = default)
@@ -101,6 +103,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         TranscribeOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        Diarization.DiarizationStage.RejectOnStreaming(options);
         await EnsureInitializedAsync(cancellationToken);
         ValidateTranslateSupport(options);
         var samples = await AudioProcessor.LoadAudioAsync(audioPath, cancellationToken);
@@ -159,11 +162,17 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         TranscribeOptions? options,
         CancellationToken cancellationToken)
     {
+        Diarization.DiarizationStage.Validate(options);
         await EnsureInitializedAsync(cancellationToken);
         ValidateTranslateSupport(options);
 
         var sw = Stopwatch.StartNew();
         var duration = AudioProcessor.GetDurationSeconds(samples);
+
+        // Speaker labels need segments that follow speech: without timestamp tokens a short input is one segment.
+        var callerOptions = options;
+        if (options is { Diarize: true, WordTimestamps: false })
+            options = options.WithTimestampTokens();
 
         var allSegments = new List<TranscriptionSegment>();
         string? language = null;
@@ -187,7 +196,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         var (postSegments, postText) = SegmentPostProcessor.Process(allSegments, options);
         sw.Stop();
 
-        return new TranscriptionResult
+        var result = new TranscriptionResult
         {
             Text = postText,
             Language = language ?? "en",
@@ -196,6 +205,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
             DurationSeconds = duration,
             InferenceTimeMs = sw.Elapsed.TotalMilliseconds
         };
+        return await _diarization.ApplyAsync(result, samples, callerOptions, cancellationToken);
     }
 
     // One window's final segments, already on the input's timeline.
@@ -582,6 +592,6 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         _decoderSession?.Dispose();
         _tokenizer?.Dispose();
         _lock.Dispose();
-        return ValueTask.CompletedTask;
+        return _diarization.DisposeAsync();
     }
 }

@@ -153,6 +153,34 @@ public sealed class TranscribeOptions
     public float NoSpeechThreshold { get; set; } = 0.6f;
 
     /// <summary>
+    /// Gets or sets whether to label each segment with its speaker (<see cref="TranscriptionSegment.Speaker"/>).
+    /// Runs local speaker diarization over the whole recording — pyannote segmentation-3.0 (MIT, ~6 MB) and a
+    /// WeSpeaker ResNet34 speaker embedding (CC-BY-4.0, ~27 MB), downloaded on first use to the same cache, under the
+    /// same <see cref="TranscriberOptions.DisableAutoDownload"/> rule, as the transcription model. A segment takes the
+    /// speaker whose turns overlap it most (the nearest turn when none does); Whisper decodes with timestamp tokens
+    /// so segments follow speech rather than 30-second windows. At most two speakers are detected at the same
+    /// instant, and a segment spanning a speaker change takes the one who talks longer in it. Needs the whole
+    /// recording, so the streaming call rejects it.
+    /// <para>Default: false</para>
+    /// </summary>
+    public bool Diarize { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of speakers, when known. Fixes the speaker count and takes precedence over
+    /// <see cref="SpeakerThreshold"/>. Only read with <see cref="Diarize"/>.
+    /// <para>Default: null (estimated from the audio)</para>
+    /// </summary>
+    public int? NumSpeakers { get; set; }
+
+    /// <summary>
+    /// Gets or sets the cosine-distance cut between speakers when <see cref="NumSpeakers"/> is not set: two voices
+    /// closer than this are one speaker. Smaller values find more speakers, larger values fewer. Only read with
+    /// <see cref="Diarize"/>.
+    /// <para>Default: null (0.5, tuned for the bundled embedding model)</para>
+    /// </summary>
+    public float? SpeakerThreshold { get; set; }
+
+    /// <summary>
     /// A copy that decodes with timestamp tokens — what long-form seeking needs. A memberwise copy, so
     /// an option added later is carried without this method having to know about it.
     /// </summary>
