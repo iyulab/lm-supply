@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.79.2] - Unreleased
+
+### Fixed
+- **Transcribing from a stream now hears the audio at the right speed, and accepts MP3.** `TranscribeAsync(Stream …)` decoded a WAV as it was — no mono mix-down, no resampling to 16 kHz — so anything but 16 kHz mono (a 44.1 kHz stereo recording, say) reached the model as audio at the wrong speed and came back as noise. An MP3 stream threw, though the file overload decodes MP3. The stream path now does what the file path does, recognising MP3 from its first bytes.
+
 ## [0.79.1] - 2026-09-26
 
 ### Fixed

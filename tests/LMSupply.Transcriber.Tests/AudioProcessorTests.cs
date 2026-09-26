@@ -178,4 +178,81 @@ public class AudioProcessorTests
         samples.Length.Should().BeInRange((int)(expectedSamples * 0.9), (int)(expectedSamples * 1.3));
         samples.Should().Contain(s => s != 0f, "a decoded 440Hz tone should not be silent");
     }
+    // --- LoadAudioAsync(Stream): the same result as the file overload ---
+
+    // A 44.1 kHz stereo WAV used to come back from the stream overload un-resampled and still interleaved (16 000
+    // "samples" per second of 44.1 kHz frames, audio at the wrong speed). It now matches the file overload.
+    [Fact]
+    public async Task LoadAudioAsync_StereoWavStream_MatchesTheFileOverload()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"lms-stereo-{Guid.NewGuid():N}.wav");
+        try
+        {
+            WriteStereoTone(path, sampleRate: 44100, seconds: 1.0);
+            var fromFile = await AudioProcessor.LoadAudioAsync(path, TestContext.Current.CancellationToken);
+            await using var stream = File.OpenRead(path);
+            var fromStream = await AudioProcessor.LoadAudioAsync(stream, TestContext.Current.CancellationToken);
+
+            fromFile.Length.Should().BeInRange(15800, 16200, "one second at 16 kHz");
+            fromStream.Length.Should().Be(fromFile.Length);
+            Correlation(fromFile, fromStream).Should().BeGreaterThan(0.999);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    // The file overload decodes MP3; the stream overload threw. A stream has no extension, so the container is sniffed.
+    [Fact]
+    public async Task LoadAudioAsync_Mp3Stream_MatchesTheFileOverload()
+    {
+        var mp3Path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "tone-440hz-1s.mp3");
+        var fromFile = await AudioProcessor.LoadAudioAsync(mp3Path, TestContext.Current.CancellationToken);
+
+        var fromBytes = await AudioProcessor.LoadAudioAsync(await File.ReadAllBytesAsync(mp3Path, TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+
+        fromBytes.Length.Should().Be(fromFile.Length);
+        Correlation(fromFile, fromBytes).Should().BeGreaterThan(0.999);
+    }
+
+    [Theory]
+    [InlineData(new byte[] { (byte)'I', (byte)'D', (byte)'3', 4 }, true)]
+    [InlineData(new byte[] { 0xFF, 0xFB, 0x90, 0x00 }, true)]
+    [InlineData(new byte[] { (byte)'R', (byte)'I', (byte)'F', (byte)'F' }, false)]
+    public void LooksLikeMp3_RecognisesTheContainer(byte[] head, bool expected)
+    {
+        using var stream = new MemoryStream(head);
+
+        AudioProcessor.LooksLikeMp3(stream).Should().Be(expected);
+        stream.Position.Should().Be(0);
+    }
+
+    private static void WriteStereoTone(string path, int sampleRate, double seconds)
+    {
+        using var writer = new NAudio.Wave.WaveFileWriter(path, new NAudio.Wave.WaveFormat(sampleRate, 16, 2));
+        var frames = (int)(sampleRate * seconds);
+        for (var i = 0; i < frames; i++)
+        {
+            var value = (float)(0.5 * Math.Sin(2 * Math.PI * 440 * i / sampleRate));
+            writer.WriteSample(value); // left
+            writer.WriteSample(value); // right
+        }
+    }
+
+    private static double Correlation(float[] a, float[] b)
+    {
+        var n = Math.Min(a.Length, b.Length);
+        double ma = 0, mb = 0;
+        for (var i = 0; i < n; i++) { ma += a[i]; mb += b[i]; }
+        ma /= n; mb /= n;
+        double num = 0, da = 0, db = 0;
+        for (var i = 0; i < n; i++)
+        {
+            num += (a[i] - ma) * (b[i] - mb);
+            da += (a[i] - ma) * (a[i] - ma);
+            db += (b[i] - mb) * (b[i] - mb);
+        }
+        return num / Math.Sqrt(da * db);
+    }
 }

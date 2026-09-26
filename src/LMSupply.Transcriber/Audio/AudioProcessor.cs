@@ -83,9 +83,31 @@ internal static class AudioProcessor
 
     private static float[] LoadAudioFromStream(MemoryStream stream)
     {
-        using var reader = new WaveFileReader(stream);
-        var waveProvider = reader.ToSampleProvider();
-        return ProcessSampleProvider(waveProvider, reader.TotalTime);
+        // The same processing as a file: mono, then resampled to 16 kHz. This path used to read the WAV as it was —
+        // a 44.1 kHz stereo stream came back as 16 000 samples per second of *interleaved 44.1 kHz frames*, audio at
+        // the wrong speed that the model transcribed as noise — and an MP3 stream threw, though the file overload
+        // decodes MP3. A stream has no extension, so the container is recognised from its first bytes.
+        using WaveStream reader = LooksLikeMp3(stream)
+            ? new Mp3FileReaderBase(stream, wf => new Mp3FrameDecompressor(wf))
+            : new WaveFileReader(stream);
+        return ProcessAudioReader(reader);
+    }
+
+    /// <summary>
+    /// An ID3v2 tag or an MPEG audio frame sync (11 set bits) at the start; a RIFF/WAVE header is not. The stream is left at
+    /// its start.
+    /// </summary>
+    internal static bool LooksLikeMp3(MemoryStream stream)
+    {
+        Span<byte> head = stackalloc byte[3];
+        var start = stream.Position;
+        var read = stream.Read(head);
+        stream.Position = start;
+        if (read < 2)
+            return false;
+        if (read == 3 && head[0] == (byte)'I' && head[1] == (byte)'D' && head[2] == (byte)'3')
+            return true;
+        return head[0] == 0xFF && (head[1] & 0xE0) == 0xE0;
     }
 
     private static float[] ProcessAudioReader(WaveStream reader)
