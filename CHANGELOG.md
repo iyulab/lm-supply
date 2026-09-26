@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.81.0] - Unreleased
+
+### Added
+- **The llama-server request timeout can be set per load.** `LlamaOptions.RequestTimeout` (`TimeSpan?`, null keeps the
+  5-minute `LlamaServerConfig.DefaultRequestTimeout`, `Timeout.InfiniteTimeSpan` means no limit) reaches the server
+  client. Before, a CPU-only tool-calling loop whose round took longer than 5 minutes failed at exactly 300 s with no
+  setting to change it. The limit covers a whole non-streamed completion, or a streamed one until the server starts answering,
+  and expiry still throws `TaskCanceledException` with an inner `TimeoutException`.
+
+### Fixed
+- **Loads that share a pooled server keep their own request timeout.** `ServerLease.Client` is now a view per lease
+  over the pooled connections. Before, the server's client carried the limit of whichever caller started it, for every
+  later caller of the same model. This includes the embedder and reranker, which lease the same way.
+- **Passing `LlamaOptions` without `GpuLayerCount` keeps the VRAM fit.** An unset count already meant "all layers" at
+  launch, but the fit that lowers it to what VRAM holds only ran for an explicit `-1`. Setting one unrelated property,
+  such as a timeout or `Threads`, therefore offloaded every layer regardless of VRAM and relied on the out-of-memory
+  retry. Unset now means `-1` everywhere.
+
 ## [0.80.0] - 2026-09-26
 
 ### Added

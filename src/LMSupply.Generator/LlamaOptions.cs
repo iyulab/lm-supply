@@ -116,6 +116,21 @@ public sealed class LlamaOptions
     public TimeSpan? StartupStallTimeout { get; set; }
 
     /// <summary>
+    /// Gets or sets the limit on a single request to llama-server — a whole non-streamed completion
+    /// (every tool-calling round is one), or a streamed one until the server starts answering. <c>null</c> keeps
+    /// <see cref="LlamaServerConfig.DefaultRequestTimeout"/> (5 minutes);
+    /// <see cref="Timeout.InfiniteTimeSpan"/> means no limit.
+    /// </summary>
+    /// <remarks>
+    /// Raise it on hardware where one completion can take longer than that — a CPU-only machine
+    /// answering a tool-calling round whose prompt has grown with earlier tool results. Expiry
+    /// throws <see cref="TaskCanceledException"/> with an inner <see cref="TimeoutException"/>.
+    /// The limit belongs to this load: another load of the same model that shares the server keeps
+    /// its own.
+    /// </remarks>
+    public TimeSpan? RequestTimeout { get; set; }
+
+    /// <summary>
     /// Gets or sets the quantization type for KV cache keys.
     /// Auto selects Q8_0 for CUDA/Metal/Hip (Vulkan b8500+), F16 for CPU/SYCL.
     /// </summary>

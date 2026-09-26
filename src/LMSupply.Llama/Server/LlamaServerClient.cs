@@ -19,6 +19,7 @@ public sealed class LlamaServerClient : IDisposable
     private readonly string _baseUrl;
     private readonly bool _ownsHttpClient;
     private readonly int _maxContextLength;
+    private readonly TimeSpan? _requestTimeout;
 
     /// <summary>The wire options every request and response uses (snake_case, nulls omitted, source-generated metadata).</summary>
     internal static readonly JsonSerializerOptions JsonOptions = new()
@@ -36,11 +37,15 @@ public sealed class LlamaServerClient : IDisposable
     /// <paramref name="requestTimeout"/> only applies to the client created in that case — a caller
     /// supplying their own <paramref name="httpClient"/> owns its timeout too.</param>
     /// <param name="maxContextLength">Model context window size — carried in ContextLengthExceededException on overflow.</param>
-    /// <param name="requestTimeout">Timeout for the internally-created HttpClient. Defaults to 5
-    /// minutes, not .NET's 100-second default — local/CPU-bound inference, especially a multi-step
-    /// tool-calling loop where each round's prompt grows with prior tool results, routinely exceeds
-    /// 100 seconds per completion on hardware without a GPU. Ignored when <paramref name="httpClient"/>
-    /// is supplied.</param>
+    /// <param name="requestTimeout">Limit on each request this client sends when it owns its
+    /// HttpClient. Defaults to 5 minutes, not .NET's 100-second default — local/CPU-bound inference,
+    /// especially a multi-step tool-calling loop where each round's prompt grows with prior tool
+    /// results, routinely exceeds 100 seconds per completion on hardware without a GPU.
+    /// <see cref="Timeout.InfiniteTimeSpan"/> means no limit. It covers the same span
+    /// <see cref="HttpClient.Timeout"/> would — up to the response headers for streamed calls, the
+    /// whole body otherwise — and expiry throws the same shape (<see cref="TaskCanceledException"/>
+    /// with an inner <see cref="TimeoutException"/>). Ignored when <paramref name="httpClient"/> is
+    /// supplied.</param>
     public LlamaServerClient(
         string baseUrl,
         HttpClient? httpClient = null,
@@ -57,8 +62,71 @@ public sealed class LlamaServerClient : IDisposable
         }
         else
         {
-            _httpClient = new HttpClient { Timeout = requestTimeout ?? TimeSpan.FromMinutes(5) };
+            // The limit is applied per request (SendWithTimeoutAsync), not on the HttpClient, so that
+            // views over this client (WithRequestTimeout) can carry their own limit on the same
+            // connection pool.
+            _httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
             _ownsHttpClient = true;
+            _requestTimeout = ValidateRequestTimeout(requestTimeout ?? LlamaServerConfig.DefaultRequestTimeout);
+        }
+    }
+
+    private LlamaServerClient(LlamaServerClient owner, TimeSpan requestTimeout)
+    {
+        _baseUrl = owner._baseUrl;
+        _maxContextLength = owner._maxContextLength;
+        _httpClient = owner._httpClient;
+        _ownsHttpClient = false;
+        _requestTimeout = ValidateRequestTimeout(requestTimeout);
+    }
+
+    /// <summary>
+    /// A client for the same server that shares this client's connections but limits each request
+    /// to <paramref name="requestTimeout"/>. Disposing the view does not dispose the connections.
+    /// </summary>
+    /// <remarks>
+    /// A pooled server is shared by every caller that loads the same model; each caller's lease
+    /// gets its own view, so one caller's limit never becomes another's.
+    /// </remarks>
+    internal LlamaServerClient WithRequestTimeout(TimeSpan requestTimeout) => new(this, requestTimeout);
+
+    /// <summary>The per-request limit this client applies; <see langword="null"/> when the caller supplied the HttpClient (its own timeout governs).</summary>
+    internal TimeSpan? RequestTimeout => _requestTimeout;
+
+    private static TimeSpan ValidateRequestTimeout(TimeSpan value) =>
+        value == Timeout.InfiniteTimeSpan || value > TimeSpan.Zero
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value,
+                "Request timeout must be positive or Timeout.InfiniteTimeSpan.");
+
+    private Task<HttpResponseMessage> PostWithTimeoutAsync(string url, HttpContent content, CancellationToken cancellationToken) =>
+        SendWithTimeoutAsync(
+            new HttpRequestMessage(HttpMethod.Post, url) { Content = content },
+            HttpCompletionOption.ResponseContentRead,
+            cancellationToken);
+
+    /// <summary>
+    /// Sends with this client's request limit, over exactly the span <see cref="HttpClient.Timeout"/>
+    /// covers, and reports expiry the way HttpClient does.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendWithTimeoutAsync(
+        HttpRequestMessage request,
+        HttpCompletionOption completionOption,
+        CancellationToken cancellationToken)
+    {
+        if (_requestTimeout is not { } limit || limit == Timeout.InfiniteTimeSpan)
+            return await _httpClient.SendAsync(request, completionOption, cancellationToken);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(limit);
+        try
+        {
+            return await _httpClient.SendAsync(request, completionOption, cts.Token);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested && cts.IsCancellationRequested)
+        {
+            var message = $"The request to llama-server was canceled because the request timeout of {limit.TotalSeconds:0.###} seconds elapsed.";
+            throw new TaskCanceledException(message, new TimeoutException(message, ex));
         }
     }
 
@@ -82,7 +150,7 @@ public sealed class LlamaServerClient : IDisposable
             Content = content
         };
 
-        using var response = await _httpClient.SendAsync(
+        using var response = await SendWithTimeoutAsync(
             httpRequest,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
@@ -147,7 +215,7 @@ public sealed class LlamaServerClient : IDisposable
             Content = content
         };
 
-        using var response = await _httpClient.SendAsync(
+        using var response = await SendWithTimeoutAsync(
             httpRequest,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
@@ -253,7 +321,7 @@ public sealed class LlamaServerClient : IDisposable
         var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        using var response = await _httpClient.PostAsync(
+        using var response = await PostWithTimeoutAsync(
             $"{_baseUrl}/v1/chat/completions",
             content,
             cancellationToken);
@@ -324,7 +392,7 @@ public sealed class LlamaServerClient : IDisposable
             Content = content
         };
 
-        using var response = await _httpClient.SendAsync(
+        using var response = await SendWithTimeoutAsync(
             httpRequest,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
@@ -398,7 +466,10 @@ public sealed class LlamaServerClient : IDisposable
     {
         try
         {
-            var response = await _httpClient.GetAsync($"{_baseUrl}/health", cancellationToken);
+            using var response = await SendWithTimeoutAsync(
+                new HttpRequestMessage(HttpMethod.Get, $"{_baseUrl}/health"),
+                HttpCompletionOption.ResponseContentRead,
+                cancellationToken);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -421,7 +492,7 @@ public sealed class LlamaServerClient : IDisposable
         var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        using var response = await _httpClient.PostAsync(
+        using var response = await PostWithTimeoutAsync(
             $"{_baseUrl}/tokenize",
             content,
             cancellationToken);
@@ -466,7 +537,7 @@ public sealed class LlamaServerClient : IDisposable
         var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        using var response = await _httpClient.PostAsync(
+        using var response = await PostWithTimeoutAsync(
             $"{_baseUrl}/v1/embeddings",
             content,
             cancellationToken);
@@ -512,7 +583,7 @@ public sealed class LlamaServerClient : IDisposable
         var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        using var response = await _httpClient.PostAsync(
+        using var response = await PostWithTimeoutAsync(
             $"{_baseUrl}/v1/rerank",
             content,
             cancellationToken);

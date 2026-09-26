@@ -119,7 +119,7 @@ public sealed class LlamaServerPool : IAsyncDisposable
         {
             if (pooledServer.TryLease())
             {
-                return new ServerLease(pooledServer, this);
+                return new ServerLease(pooledServer, this, config.RequestTimeout);
             }
 
             // Server is busy or dead, try to create new one
@@ -134,7 +134,7 @@ public sealed class LlamaServerPool : IAsyncDisposable
             {
                 if (pooledServer.TryLease())
                 {
-                    return new ServerLease(pooledServer, this);
+                    return new ServerLease(pooledServer, this, config.RequestTimeout);
                 }
             }
 
@@ -178,7 +178,7 @@ public sealed class LlamaServerPool : IAsyncDisposable
 
             _servers[key] = newPooledServer;
 
-            return new ServerLease(newPooledServer, this);
+            return new ServerLease(newPooledServer, this, config.RequestTimeout);
         }
         finally
         {
@@ -452,10 +452,13 @@ public sealed class ServerLease : IAsyncDisposable
     private readonly LlamaServerPool _pool;
     private bool _disposed;
 
-    internal ServerLease(PooledServer server, LlamaServerPool pool)
+    internal ServerLease(PooledServer server, LlamaServerPool pool, TimeSpan requestTimeout)
     {
         _server = server;
         _pool = pool;
+        // This lease's own view: the pooled server is shared by every caller that loads the same
+        // model, and the client it was created with carries the first caller's limit.
+        Client = server.Client.WithRequestTimeout(requestTimeout);
     }
 
     /// <summary>
@@ -466,7 +469,7 @@ public sealed class ServerLease : IAsyncDisposable
     /// <summary>
     /// Gets the HTTP client for the server.
     /// </summary>
-    public LlamaServerClient Client => _server.Client;
+    public LlamaServerClient Client { get; }
 
     /// <summary>
     /// Gets the backend being used.

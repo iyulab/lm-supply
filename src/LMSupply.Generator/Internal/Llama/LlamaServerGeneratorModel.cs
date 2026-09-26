@@ -196,8 +196,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         long? capturedVramTotalBytes = null;
         bool capturedContextFloored = false;
 
-        // Auto-calculate GPU layer count based on actual VRAM budget when using default (-1 = all)
-        if (llamaOpts.GpuLayerCount == -1 && backend != LlamaServerBackend.Cpu)
+        // Auto-calculate GPU layer count based on actual VRAM budget when using default (-1 = all).
+        if (NeedsVramFit(llamaOpts, backend))
         {
             var fileSize = new FileInfo(modelPath).Length;
             var profile = Hardware.HardwareProfile.Current;
@@ -359,6 +359,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             ServerVersion = serverVersion,
             StartupTimeout = llamaOpts.StartupTimeout ?? LlamaServerConfig.DefaultStartupTimeout,
             StartupStallTimeout = llamaOpts.StartupStallTimeout ?? LlamaServerConfig.DefaultStartupStallTimeout,
+            RequestTimeout = llamaOpts.RequestTimeout ?? LlamaServerConfig.DefaultRequestTimeout,
             ShutdownTimeout = TimeSpan.FromSeconds(10),
             AdditionalArgs = additionalArgs.Count > 0 ? additionalArgs : null
         };
@@ -1455,6 +1456,15 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     /// because everything after this point (the VRAM fit, the context estimate, the server launch) reads
     /// the count.
     /// </summary>
+    /// <summary>
+    /// Whether the GPU layer count is left to the VRAM fit: "all layers" on a GPU backend. Unset counts as
+    /// -1, as it does for the context estimate and the server launch — a caller that passes
+    /// <see cref="LlamaOptions"/> to change one knob (a timeout, the thread count) must not lose the fit and
+    /// offload every layer regardless of VRAM.
+    /// </summary>
+    internal static bool NeedsVramFit(LlamaOptions opts, LlamaServerBackend backend) =>
+        (opts.GpuLayerCount ?? -1) == -1 && backend != LlamaServerBackend.Cpu;
+
     internal static LlamaOptions ChooseLlamaOptions(GeneratorOptions options, string modelPath, GgufMetadata? ggufMetadata)
         => ResolveGpuOffloadRatio(
             options.LlamaOptions ?? GetVramAwareLlamaOptions(modelPath, ggufMetadata, options.Provider),
@@ -1532,6 +1542,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         LoraScale = src.LoraScale,
         StartupTimeout = src.StartupTimeout,
         StartupStallTimeout = src.StartupStallTimeout,
+        RequestTimeout = src.RequestTimeout,
         AdditionalArgs = src.AdditionalArgs,
     };
 

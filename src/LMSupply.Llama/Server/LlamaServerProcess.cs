@@ -307,12 +307,23 @@ public sealed class LlamaServerConfig
     public TimeSpan ShutdownTimeout { get; init; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
-    /// Timeout for a single chat completion HTTP request to the running server.
-    /// Defaults to 5 minutes, not HttpClient's 100-second default — local/CPU-bound inference,
-    /// especially a multi-step tool-calling loop where each round's prompt grows with prior tool
-    /// results, routinely exceeds 100 seconds per completion on hardware without a GPU.
+    /// Default for <see cref="RequestTimeout"/>: 5 minutes.
     /// </summary>
-    public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromMinutes(5);
+    public static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Limit on a single HTTP request to the running server (a non-streamed completion as a whole,
+    /// a streamed one up to its first response headers). Default: <see cref="DefaultRequestTimeout"/>
+    /// (5 minutes), not HttpClient's 100 seconds — local/CPU-bound inference, especially a
+    /// multi-step tool-calling loop where each round's prompt grows with prior tool results,
+    /// routinely exceeds 100 seconds per completion on hardware without a GPU.
+    /// <see cref="Timeout.InfiniteTimeSpan"/> means no limit.
+    /// </summary>
+    /// <remarks>
+    /// Applies to the lease that asked for it, not to the server process: callers that share a
+    /// pooled server (same model, backend, context size and mode) each keep their own limit.
+    /// </remarks>
+    public TimeSpan RequestTimeout { get; init; } = DefaultRequestTimeout;
 }
 
 /// <summary>

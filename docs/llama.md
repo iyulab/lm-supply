@@ -172,7 +172,10 @@ var options = new GeneratorOptions
 
         // Startup wait (see below) — both optional
         StartupStallTimeout = TimeSpan.FromMinutes(3),
-        StartupTimeout = TimeSpan.FromMinutes(15)
+        StartupTimeout = TimeSpan.FromMinutes(15),
+
+        // Per-request limit (see below) — optional
+        RequestTimeout = TimeSpan.FromMinutes(20)
     }
 };
 
@@ -199,6 +202,20 @@ Both are exposed on `LlamaOptions` for the generator and default from `LlamaServ
 embedder and reranker. When the wait gives up, the exception says which limit fired and what the
 process looked like (elapsed, seconds since the last activity, working set, CPU time) ahead of the
 captured stderr.
+
+### Request timeout — one completion, not the whole session
+
+**`RequestTimeout`** (default **5 min**) bounds a single request to the running server: a whole
+non-streamed completion — every round of a tool-calling loop is one — or a streamed one until the server starts
+answering. The default is already above HttpClient's 100 s, but a CPU-only machine answering a tool round
+whose prompt has grown with earlier tool results can take longer; raise it there, or pass
+`Timeout.InfiniteTimeSpan` for no limit. Expiry throws `TaskCanceledException` with an inner
+`TimeoutException`; your own cancellation token still throws a plain `OperationCanceledException`.
+
+The limit belongs to the load that set it. Loads of the same model share one server process, and each
+keeps its own limit. Setting only `RequestTimeout` (or any other single `LlamaOptions` property) keeps
+the VRAM-based GPU offload fit: an unset `GpuLayerCount` means "all layers, as many as fit", the same
+as `-1`.
 
 `UseMemoryMap` / `UseMemoryLock` are passed as `--load-mode` (`mmap` | `none` | `mlock` = mmap + lock)
 on llama-server b10105 and later, where the old `--mmap`/`--no-mmap`/`--mlock` flags are deprecated;
