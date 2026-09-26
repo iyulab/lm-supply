@@ -307,10 +307,31 @@ public static class GgufModelRegistry
 
     /// <summary>
     /// System RAM reserved for the OS and other processes when computing the CPU fit budget.
-    /// Mirrors the <c>ramOverhead</c> reservation in <see cref="MemoryEstimator.EstimateForGguf"/>
-    /// (4 GB) so RAM-aware model selection and the downstream offload estimate agree.
+    /// Equals the <c>ramOverhead</c> reservation in <see cref="MemoryEstimator.EstimateForGguf"/> (4 GB), but
+    /// selection is stricter than that estimate on purpose: <see cref="SystemRamBudgetBytes"/> also caps the
+    /// budget at <see cref="SystemRamModelShare"/> of system RAM, because a default pick must leave the machine
+    /// usable while the estimate only answers whether an explicitly chosen model can load.
     /// </summary>
     public const long SystemRamReservedBytes = 4L * 1024 * 1024 * 1024;
+
+    /// <summary>
+    /// The largest share of system RAM an automatically selected model may occupy when it runs from RAM
+    /// (nothing fits VRAM). Unlike VRAM, system memory is shared with the OS and every other application,
+    /// so a default must not claim most of it: on a 32 GB host this keeps the pick at an 8B-class model
+    /// instead of a ~20 GB one. A caller that wants the larger model names it.
+    /// </summary>
+    public const double SystemRamModelShare = 0.5;
+
+    /// <summary>
+    /// The RAM budget for automatic selection: system RAM less <see cref="SystemRamReservedBytes"/>,
+    /// capped at <see cref="SystemRamModelShare"/> of system RAM.
+    /// </summary>
+    public static long SystemRamBudgetBytes(long systemRamBytes)
+    {
+        if (systemRamBytes <= SystemRamReservedBytes)
+            return 0L;
+        return Math.Min(systemRamBytes - SystemRamReservedBytes, (long)(systemRamBytes * SystemRamModelShare));
+    }
 
     /// <summary>
     /// Resolves an alias to model information.
@@ -443,9 +464,7 @@ public static class GgufModelRegistry
         int budgetContextLength,
         IReadOnlyCollection<string>? excludeKnownIssues)
     {
-        var availableRam = systemRamBytes > SystemRamReservedBytes
-            ? systemRamBytes - SystemRamReservedBytes
-            : 0L;
+        var availableRam = SystemRamBudgetBytes(systemRamBytes);
 
         var poolFiltered = _models.Where(kv => _autoSelectionAliases.Contains(kv.Key));
 

@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.79.0] - Unreleased
+
+### Added
+
+- **A streamed chat turn reports the server's token counts.** `GenerateChatStreamAsync`'s last chunk carries
+  `ChatStreamChunk.Usage` (`PromptTokens`, `CompletionTokens`, `TotalTokens`) on the llama-server path — the same
+  counts `GenerateChatWithToolsAsync` reports, hidden reasoning included, so a streaming consumer no longer has to
+  re-tokenize the visible text. Null on the ONNX path, and when the output-token safety limit cuts the stream.
+
+### Changed
+
+- **Breaking (selection): automatic selection no longer lets a model take more than half of system RAM.** When nothing
+  fits VRAM, `"default"`/`"auto"`/`"gguf:auto"` pick the largest model within min(system RAM − 4 GB, system RAM ÷ 2)
+  (`GgufModelRegistry.SystemRamBudgetBytes`). Before, a 32 GB host with a small GPU got `gguf:qwen3-quality` — a
+  ~20 GB download that then held most of the machine's memory; it now gets `gguf:qwen3-balanced`. A 64 GB host still
+  gets `qwen3-quality`. Hosts where a model fits VRAM are unaffected. To keep the larger model, name it.
+- `GenerateChatStreamAsync` (llama-server path) emits `FinishReason` on one final chunk, after any text or tool calls
+  released when the stream ends. Before, it could arrive before those trailing chunks.
+
 ## [0.78.0] - 2026-09-26
 
 ### Added

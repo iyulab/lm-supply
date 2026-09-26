@@ -28,6 +28,14 @@ public sealed record ChatStreamChunk
     /// Values: "stop", "tool_calls", "length".
     /// </summary>
     public string? FinishReason { get; init; }
+
+    /// <summary>
+    /// Token accounting reported by the backend, present only on the final chunk (the one carrying
+    /// <see cref="FinishReason"/>). <see cref="ChatTokenUsage.CompletionTokens"/> includes reasoning the
+    /// stream may not have shown. Null when the backend does not report usage (the ONNX path does not;
+    /// llama-server does), or when the stream was cut client-side by the output-token safety limit.
+    /// </summary>
+    public ChatTokenUsage? Usage { get; init; }
 }
 
 /// <summary>

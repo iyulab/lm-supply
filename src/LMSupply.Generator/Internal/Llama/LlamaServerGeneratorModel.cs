@@ -876,13 +876,31 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             var toolStreamParser = _chatFormatter.CreateToolCallStreamParser();
             var suppressServerCallsWhenParserActive = _chatFormatter.SuppressServerToolCallsWhenParserActive;
 
+            // The finish reason is held back to one final chunk that also carries the server's usage: with
+            // include_usage the usage arrives on a separate chunk after finish_reason, and the parser/filter
+            // flushes below can still release text — a consumer that stops reading at FinishReason must
+            // not lose either.
+            string? finishReason = null;
+            ChatTokenUsage? usage = null;
+
             await foreach (var data in (await ClientAsync(cancellationToken)).GenerateChatStreamAsync(
                 serverMessages, chatOptions, cancellationToken))
             {
-                // Safety net: stop if token limit exceeded (finish_reason chunks still pass through)
+                if (data.FinishReason is not null)
+                    finishReason = data.FinishReason;
+                if (data.Usage is { } reported)
+                    usage = new ChatTokenUsage
+                    {
+                        PromptTokens = reported.PromptTokens,
+                        CompletionTokens = reported.CompletionTokens,
+                        TotalTokens = reported.TotalTokens,
+                    };
+
+                // Safety net: stop if token limit exceeded
                 if (data.TextDelta is not null && maxTokens > 0 && ++tokenCount > maxTokens)
                 {
-                    yield return new ChatStreamChunk { FinishReason = "length" };
+                    finishReason = "length";
+                    usage = null;
                     break;
                 }
 
@@ -946,14 +964,13 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                 }
 
                 // Yield structured chunk
-                if (text is not null || reasoningDelta is not null || toolCallDeltas is not null || data.FinishReason is not null)
+                if (text is not null || reasoningDelta is not null || toolCallDeltas is not null)
                 {
                     yield return new ChatStreamChunk
                     {
                         Text = text,
                         ReasoningDelta = reasoningDelta,
                         ToolCalls = toolCallDeltas,
-                        FinishReason = data.FinishReason
                     };
                 }
             }
@@ -993,6 +1010,9 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                     };
                 }
             }
+
+            if (finishReason is not null || usage is not null)
+                yield return new ChatStreamChunk { FinishReason = finishReason, Usage = usage };
         }
         finally
         {

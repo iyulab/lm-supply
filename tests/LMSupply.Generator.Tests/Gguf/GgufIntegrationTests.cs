@@ -104,6 +104,35 @@ public class GgufIntegrationTests
     }
 
     /// <summary>
+    /// A streamed chat turn ends with one chunk carrying both the finish reason and the server's token counts —
+    /// reasoning included, which the visible text cannot show — the same counts the non-streamed call reports.
+    /// </summary>
+    [Fact]
+    public async Task GenerateChatStreamAsync_WithGgufModel_ReportsServerUsageOnTheFinalChunk()
+    {
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", cancellationToken: TestContext.Current.CancellationToken);
+        var messages = new[] { ChatMessage.User("Is 17 a prime number? Answer yes or no.") };
+        var options = new GenerationOptions { MaxTokens = 512, Temperature = 0f, Thinking = ThinkingMode.On };
+
+        var chunks = new List<ChatStreamChunk>();
+        await foreach (var chunk in model.GenerateChatStreamAsync(messages, options, TestContext.Current.CancellationToken))
+            chunks.Add(chunk);
+
+        chunks.Count(c => c.FinishReason is not null).Should().Be(1);
+        var last = chunks[^1];
+        last.FinishReason.Should().NotBeNull("the finish reason is on the last chunk, after any flushed text");
+        last.Usage.Should().NotBeNull("llama-server reports usage on a streamed call");
+        chunks.Take(chunks.Count - 1).Should().OnlyContain(c => c.Usage == null);
+
+        var visible = string.Concat(chunks.Select(c => c.Text));
+        var visibleTokens = await model.CountTokensAsync(visible, TestContext.Current.CancellationToken);
+        last.Usage!.CompletionTokens.Should().BeGreaterThan(visibleTokens, "hidden reasoning is counted too");
+
+        var whole = await model.GenerateChatWithToolsAsync(messages, options, TestContext.Current.CancellationToken);
+        last.Usage.Should().BeEquivalentTo(whole.Usage, "greedy decoding of the same prompt generates the same tokens");
+    }
+
+    /// <summary>
     /// Tests chat generation with a GGUF model.
     /// </summary>
     [Fact]

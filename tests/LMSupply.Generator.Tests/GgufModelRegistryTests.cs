@@ -343,9 +343,36 @@ public class GgufModelRegistryTests
             GgufModelRegistry.DefaultBudgetContextLength, excludeKnownIssues: null);
 
         result.Reason.Should().Be(ModelSelectionReason.FitsInSystemRam);
-        // 32GB - 4GB reserved = 28GB RAM budget; the largest auto-pool model that fits wins.
+        // 32GB: min(32 - 4 reserved, 32 × 50%) = 16GB RAM budget; the largest auto-pool model within it wins.
+        // The ~18GB qwen3-quality would fit 28GB, but a default must not take most of a shared machine's memory.
+        result.Selected.AliasName.Should().Be("gguf:qwen3-balanced");
+        result.AvailableSystemRamBytes.Should().Be(16L * 1024 * 1024 * 1024);
+    }
+
+    [Fact]
+    public void GetAutoSelection_NoVramAndVeryLargeRam_SelectsTheLargeModel()
+    {
+        // 64GB: min(60, 32) = 32GB budget — the large model now takes at most half the machine.
+        var gpu = new GpuInfo { Vendor = GpuVendor.Unknown };
+        var result = GgufModelRegistry.GetAutoSelection(
+            gpu, systemRamBytes: 64L * 1024 * 1024 * 1024,
+            GgufModelRegistry.DefaultBudgetContextLength, excludeKnownIssues: null);
+
+        result.Reason.Should().Be(ModelSelectionReason.FitsInSystemRam);
         result.Selected.AliasName.Should().Be("gguf:qwen3-quality");
-        result.AvailableSystemRamBytes.Should().Be(28L * 1024 * 1024 * 1024);
+        result.AvailableSystemRamBytes.Should().Be(32L * 1024 * 1024 * 1024);
+    }
+
+    [Theory]
+    [InlineData(4L, 0L)]    // at or below the reserve: nothing
+    [InlineData(6L, 2L)]    // small host: the reserve binds (6 - 4 < 3)
+    [InlineData(8L, 4L)]    // the two limits meet
+    [InlineData(16L, 8L)]   // the share binds (16 - 4 = 12 > 8)
+    [InlineData(32L, 16L)]
+    public void SystemRamBudget_IsTheSmallerOfReserveAndShare(long ramGb, long expectedGb)
+    {
+        const long Gb = 1024L * 1024 * 1024;
+        GgufModelRegistry.SystemRamBudgetBytes(ramGb * Gb).Should().Be(expectedGb * Gb);
     }
 
     [Fact]

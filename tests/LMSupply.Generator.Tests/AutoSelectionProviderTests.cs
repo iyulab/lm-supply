@@ -31,7 +31,7 @@ public sealed class AutoSelectionProviderTests : IDisposable
         selection.AvailableVramBytes.Should().Be(0);
         selection.Reason.Should().NotBe(ModelSelectionReason.Fits);
         var ram = HardwareProfile.For(ExecutionProvider.Cpu).SystemMemoryBytes;
-        selection.AvailableSystemRamBytes.Should().Be(Math.Max(0, ram - GgufModelRegistry.SystemRamReservedBytes));
+        selection.AvailableSystemRamBytes.Should().Be(GgufModelRegistry.SystemRamBudgetBytes(ram));
     }
 
     [Fact]

@@ -89,7 +89,9 @@ await foreach (var token in generator.GenerateAsync("Write a short story about a
 > DirectML provider. `auto`/`default` is GGUF on every host; ONNX models are explicit-only (CUDA or CPU).
 
 `gguf:auto` selects the largest Qwen3 model (`qwen3-fast/default/balanced/quality` pool) that fits the
-VRAM budget, or — when VRAM is insufficient — the largest that fits the system RAM budget (CPU). On an
+VRAM budget, or — when VRAM is insufficient — the largest that fits the system RAM budget (CPU): system RAM
+less 4 GB, and at most half of system RAM (0.79.0 — before that a 32 GB host could get the ~18 GB `qwen3-quality`
+by default; system memory is shared, a default must not take most of it). On an
 integrated GPU the llama.cpp backend is CPU (see [llama.md](llama.md#backend-selection)).
 
 `"default"`, `"auto"` and `"gguf:auto"` are one rule (0.76.0; before that `"default"`/`"auto"` never
@@ -447,13 +449,13 @@ Auto-selection pool: `qwen3-fast`, `qwen3-default`, `qwen3-balanced`, `qwen3-qua
 
 | Free VRAM | Budget | Selected Model | Reason |
 |-----------|--------|----------------|--------|
-| 0 / CPU only / `Provider = Cpu` | 0 | the largest that fits system RAM − 4 GB (e.g. 16 GB RAM → `gguf:qwen3-balanced`); `gguf:qwen3-fast` if none fits | FitsInSystemRam / FallbackToSmallest |
+| 0 / CPU only / `Provider = Cpu` | 0 | the largest that fits min(system RAM − 4 GB, system RAM ÷ 2) (16–32 GB RAM → `gguf:qwen3-balanced`, 64 GB → `gguf:qwen3-quality`); `gguf:qwen3-fast` if none fits | FitsInSystemRam / FallbackToSmallest |
 | 3 GB | ~2.55 GB | `gguf:qwen3-fast` | Fits (~2.25 GB total) |
 | 6 GB | ~5.1 GB | `gguf:qwen3-default` (Qwen 3.5 4B) | Fits (~4.25 GB); thinking ON |
 | 10 GB | ~8.5 GB | `gguf:qwen3-balanced` (Qwen3 8B) | Fits (~7.25 GB) |
 | 24 GB | ~20.4 GB | `gguf:qwen3-quality` (Qwen 3.6 35B MoE) | Fits (~19.0 GB); thinking ON |
 
-> **Low-VRAM laptop guidance.** On Windows laptops with ≤4 GB NVIDIA VRAM (RTX 4050/4060 Laptop, etc.), no candidate may fit VRAM once the compositor and driver take their share. The auto path then picks the largest model that fits system RAM (`FitsInSystemRam`) and runs it mostly on the CPU — larger and slower than the GPU could run. For a fast small model on these hosts, name it (`gguf:qwen3-fast`) or prefer the ONNX path explicitly: `LocalGenerator.LoadAsync("phi-4-mini")` (CUDA or CPU). The selection and its reason are logged with the `[LocalGenerator.auto]` prefix to `Trace`.
+> **Low-VRAM laptop guidance.** On Windows laptops with ≤4 GB NVIDIA VRAM (RTX 4050/4060 Laptop, etc.), no candidate may fit VRAM once the compositor and driver take their share. The auto path then picks the largest model that fits the system RAM budget (`FitsInSystemRam`; at most half of system RAM) and runs it mostly on the CPU — larger and slower than the GPU could run. For a fast small model on these hosts, name it (`gguf:qwen3-fast`) or prefer the ONNX path explicitly: `LocalGenerator.LoadAsync("phi-4-mini")` (CUDA or CPU). The selection and its reason are logged with the `[LocalGenerator.auto]` prefix to `Trace`.
 
 ```csharp
 // Let LMSupply choose the optimal model for your hardware
@@ -853,7 +855,7 @@ await foreach (var token in model.GenerateChatAsync(messages, options))
 }
 ```
 
-When `Thinking = ThinkingMode.On`, LMSupply prepends `<|think|>` to the first system message before sending the request to llama-server. The server (b8994+) separates internal reasoning into a `reasoning_content` field. On the streaming text path LMSupply skips those tokens, so the caller only receives the final response; `GenerateChatStreamAsync` exposes them as `ChatStreamChunk.ReasoningDelta` when `ExtractReasoningTokens = true`. The non-streaming `GenerateChatWithToolsAsync` (0.66.0+) always carries them as `ChatCompletionResult.Reasoning`, next to `ChatCompletionResult.Usage` (the server's `prompt_tokens` / `completion_tokens`), so a bridge can show or drop the reasoning itself — and an empty `Content` with `FinishReason == "length"` is explainable (the budget went to reasoning; see `ThinkingMode.Off` for a tight budget).
+When `Thinking = ThinkingMode.On`, LMSupply prepends `<|think|>` to the first system message before sending the request to llama-server. The server (b8994+) separates internal reasoning into a `reasoning_content` field. On the streaming text path LMSupply skips those tokens, so the caller only receives the final response; `GenerateChatStreamAsync` exposes them as `ChatStreamChunk.ReasoningDelta` when `ExtractReasoningTokens = true`, and its last chunk (the one with `FinishReason`) carries `ChatStreamChunk.Usage` — the server's token counts, reasoning included (0.79.0+; null on the ONNX path). The non-streaming `GenerateChatWithToolsAsync` (0.66.0+) always carries them as `ChatCompletionResult.Reasoning`, next to `ChatCompletionResult.Usage` (the server's `prompt_tokens` / `completion_tokens`), so a bridge can show or drop the reasoning itself — and an empty `Content` with `FinishReason == "length"` is explainable (the budget went to reasoning; see `ThinkingMode.Off` for a tight budget).
 
 **Thinking + tool calling:** When `Thinking = ThinkingMode.On` and tools are provided, the Gemma 4 tool prompt fragment (see note above) is automatically reduced to compact required-params hints. This avoids doubling the tool schema (Jinja2 structured schema + text fragment) in the system prompt, which would increase context pressure on small models.
 
