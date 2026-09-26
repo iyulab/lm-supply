@@ -17,6 +17,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   step of the generator (preset aliases such as `"phi-4-mini"`), embedder, captioner, transcriber and translator read
   `HardwareProfile.Current` to rank quantizations, and that read probes the GPU (NVML, which brings `nvcuda.dll` with
   it). 0.76.0 removed the other probe sites; this was the last one on the ONNX paths.
+- **A trimmed or AOT host — including a file-based `dotnet run app.cs`, which is AOT by default — can load and run a
+  GGUF model.** Every JSON read and write in LMSupply (llama-server requests and responses, the server and runtime state
+  files, download manifests, hub and NuGet listings, the VITS config) used reflection-based `System.Text.Json`, so such a
+  host failed with "Reflection-based serialization has been disabled" before the first load. They now resolve through
+  source-generated `JsonSerializerContext`s, and the core, llama, generator and synthesizer test suites run with
+  reflection-based serialization off so a type left out fails in CI.
 
 ### Changed
 
