@@ -8,7 +8,7 @@ namespace LMSupply.Pool;
 /// </summary>
 /// <typeparam name="TModel">The model type.</typeparam>
 /// <typeparam name="TOptions">The options type.</typeparam>
-public sealed class ModelPool<TModel, TOptions> : IAsyncDisposable
+public sealed class ModelPool<TModel, TOptions> : IAsyncDisposable, IDisposable
     where TModel : IAsyncDisposable
     where TOptions : class
 {
@@ -165,6 +165,12 @@ public sealed class ModelPool<TModel, TOptions> : IAsyncDisposable
     }
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
+
+    /// <summary>
+    /// Disposes synchronously by blocking on <see cref="DisposeAsync"/> — for a host that disposes the pool with
+    /// <c>using</c> or through a synchronously disposed container scope, which would otherwise throw.
+    /// </summary>
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()

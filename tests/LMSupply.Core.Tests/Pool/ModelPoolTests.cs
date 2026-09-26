@@ -66,6 +66,22 @@ public class ModelPoolTests
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
+    [Fact]
+    public async Task SynchronousDispose_ReleasesEveryLoadedModel()
+    {
+        // A host that disposes with `using` or a synchronously disposed container scope. Before 0.81.1 the pool was
+        // async-only, so either path threw instead of releasing the models.
+        var loader = new FakeLoader();
+        var pool = new ModelPool<FakeModel, object>(loader, Options(maxLoadedModels: 2));
+        await pool.GetOrLoadAsync("a", cancellationToken: TestContext.Current.CancellationToken);
+        await pool.GetOrLoadAsync("b", cancellationToken: TestContext.Current.CancellationToken);
+
+        ((IDisposable)pool).Dispose();
+
+        loader.Loaded.Values.Should().OnlyContain(m => m.Disposed);
+        pool.LoadedModelCount.Should().Be(0);
+    }
+
     // Memory is fixed and ample, so the hardware probe is never consulted and never the reason to evict.
     private static ModelPoolOptions Options(int maxLoadedModels) => new()
     {
