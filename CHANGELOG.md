@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [0.80.0] - Unreleased
+## [0.80.0] - 2026-09-26
 
 ### Added
 - **A generation result reports how fast the server generated it.** `GenerationResult.Timings`
