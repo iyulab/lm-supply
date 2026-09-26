@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [0.79.1] - Unreleased
+## [0.79.1] - 2026-09-26
 
 ### Fixed
 - **Loading a GGUF model on Windows no longer waits about two extra seconds per connection.** The llama-server listens on `127.0.0.1`, but the startup health poll and every client connected to `http://localhost:…`, which resolves to `::1` first; on Windows a refused IPv6 connect takes about 2 s (measured 2,042 ms against 2 ms). Both now use `LlamaServerProcess.LoopbackHost` (`127.0.0.1`), and `LlamaServerInfo.BaseUrl` returns that address.
