@@ -166,6 +166,10 @@ await foreach (var token in model.GenerateChatAsync(messages))
     Console.Write(token);
 }
 
+// Why it ended, what it cost and how fast the server ran it (llama-server; reasoning tokens included)
+var result = await model.GenerateChatCompleteResultAsync(messages);
+Console.WriteLine($"{result.FinishReason} · {result.Usage.CompletionTokens} tokens · {result.Timings?.CompletionTokensPerSecond:F1} tok/s");
+
 // Builder form
 var generator = await TextGeneratorBuilder.Create()
     .WithDefaultModel()  // Hardware-aware: a GGUF model sized to the host (CUDA / Metal / Vulkan / CPU)
