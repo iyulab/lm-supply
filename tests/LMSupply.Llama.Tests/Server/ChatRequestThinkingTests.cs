@@ -14,19 +14,13 @@ namespace LMSupply.Llama.Tests.Server;
 /// </summary>
 public class ChatRequestThinkingTests
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-    };
-
     private static JsonDocument Serialize(ChatCompletionOptions options)
     {
         var request = LlamaServerClient.BuildChatRequest(
             new[] { new ChatCompletionMessage { Role = "user", Content = "hi" } },
             options,
             stream: true);
-        return JsonDocument.Parse(JsonSerializer.Serialize(request, JsonOptions));
+        return JsonDocument.Parse(JsonSerializer.Serialize(request, LlamaServerClient.JsonOptions));
     }
 
     [Fact]

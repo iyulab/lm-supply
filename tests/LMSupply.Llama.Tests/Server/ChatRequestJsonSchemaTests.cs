@@ -17,13 +17,6 @@ namespace LMSupply.Llama.Tests.Server;
 /// </summary>
 public class ChatRequestJsonSchemaTests
 {
-    // Mirrors LlamaServerClient.JsonOptions.
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-    };
-
     // The exact array schema from the Forge ForgeLens repro (upstream-021).
     private const string ArraySchema =
         """{"type":"array","items":{"enum":["VA","NNVA","NVA"]}}""";
@@ -37,7 +30,7 @@ public class ChatRequestJsonSchemaTests
             new[] { new ChatCompletionMessage { Role = "user", Content = "hi" } },
             options,
             stream: true);
-        return JsonDocument.Parse(JsonSerializer.Serialize(request, JsonOptions));
+        return JsonDocument.Parse(JsonSerializer.Serialize(request, LlamaServerClient.JsonOptions));
     }
 
     [Fact]
@@ -143,7 +136,7 @@ public class ChatRequestJsonSchemaTests
             JsonSchema = LlamaServerClient.ParseStructuredSchema(grammar: null, jsonSchema: ObjectSchema)
         };
 
-        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(req, JsonOptions));
+        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(req, LlamaServerClient.JsonOptions));
 
         doc.RootElement.TryGetProperty("json_schema", out var js).Should().BeTrue();
         js.ValueKind.Should().Be(JsonValueKind.Object,

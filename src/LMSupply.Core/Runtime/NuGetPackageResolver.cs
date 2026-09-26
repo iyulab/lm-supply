@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using LMSupply.Json;
 
 namespace LMSupply.Runtime;
 
@@ -62,7 +63,7 @@ public sealed class NuGetPackageResolver : IDisposable
             }
 
             var url = $"{NuGetFlatContainerBase}/{normalizedId}/index.json";
-            var response = await _httpClient.GetFromJsonAsync<VersionsResponse>(url, cancellationToken);
+            var response = await _httpClient.GetFromJsonAsync<VersionsResponse>(url, CoreJsonOptions.Web, cancellationToken);
 
             var versions = response?.Versions ?? [];
             // Sort descending by semantic version (latest first)
@@ -144,6 +145,6 @@ public sealed class NuGetPackageResolver : IDisposable
         _cacheLock.Dispose();
     }
 
-    private sealed record VersionsResponse(
+    internal sealed record VersionsResponse(
         [property: JsonPropertyName("versions")] string[] Versions);
 }

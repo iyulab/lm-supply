@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using LMSupply.Json;
 
 namespace LMSupply;
 
@@ -26,6 +27,7 @@ public static class AliasConfiguration
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
+        TypeInfoResolver = CoreJsonContext.Default,
         PropertyNameCaseInsensitive = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true

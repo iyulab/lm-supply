@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using LMSupply.Json;
 
 namespace LMSupply.Runtime;
 
@@ -11,6 +12,7 @@ public sealed class RuntimeVersionStateManager : IDisposable
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
+        TypeInfoResolver = CoreJsonContext.Default,
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull

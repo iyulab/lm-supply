@@ -15,7 +15,8 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
 {
     private static readonly JsonSerializerOptions s_caseInsensitiveJsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        TypeInfoResolver = SynthesizerJsonContext.Default
     };
 
     private readonly SynthesizerOptions _options;

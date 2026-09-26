@@ -175,7 +175,9 @@ internal static class ToolCallTextParser
     {
         try
         {
-            return JsonSerializer.Deserialize<string>("\"" + rawWithEscapes + "\"") ?? "{}";
+            // JsonDocument, not JsonSerializer.Deserialize<string>: no reflection metadata needed (trimmed/AOT hosts).
+            using var doc = JsonDocument.Parse("\"" + rawWithEscapes + "\"");
+            return doc.RootElement.GetString() ?? "{}";
         }
         catch (JsonException)
         {

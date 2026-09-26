@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using LMSupply.Core.Download;
+using LMSupply.Json;
 
 namespace LMSupply.Download;
 
@@ -10,6 +11,7 @@ public sealed class DownloadManifest
 
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
+        TypeInfoResolver = CoreJsonContext.Default,
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull

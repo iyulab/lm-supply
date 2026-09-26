@@ -14,7 +14,8 @@ public sealed class LlamaServerStateManager : IDisposable
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        TypeInfoResolver = LlamaJsonContext.Default
     };
 
     private readonly string _cacheDirectory;

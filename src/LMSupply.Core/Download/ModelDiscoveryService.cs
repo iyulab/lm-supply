@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using LMSupply.Download;
 using LMSupply.Exceptions;
+using LMSupply.Json;
 
 namespace LMSupply.Core.Download;
 
@@ -170,7 +171,7 @@ public sealed class ModelDiscoveryService : IDisposable
 
             response.EnsureSuccessStatusCode();
 
-            var files = await response.Content.ReadFromJsonAsync<List<RepoFile>>(cancellationToken)
+            var files = await response.Content.ReadFromJsonAsync<List<RepoFile>>(CoreJsonOptions.Web, cancellationToken)
                 ?? throw new InvalidOperationException($"Failed to parse repository file list for '{repoId}'");
 
             // Recursively fetch subdirectories
@@ -218,7 +219,7 @@ public sealed class ModelDiscoveryService : IDisposable
             if (!response.IsSuccessStatusCode)
                 return [];
 
-            var files = await response.Content.ReadFromJsonAsync<List<RepoFile>>(cancellationToken) ?? [];
+            var files = await response.Content.ReadFromJsonAsync<List<RepoFile>>(CoreJsonOptions.Web, cancellationToken) ?? [];
 
             var result = new List<RepoFile>();
             foreach (var file in files)
@@ -998,7 +999,7 @@ public sealed class ModelDiscoveryService : IDisposable
 
         try
         {
-            return JsonSerializer.Deserialize<List<RepoFile>>(File.ReadAllText(cachePath));
+            return JsonSerializer.Deserialize<List<RepoFile>>(File.ReadAllText(cachePath), CoreJsonOptions.Plain);
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -1025,7 +1026,7 @@ public sealed class ModelDiscoveryService : IDisposable
                 return null;
 
             await using var stream = File.OpenRead(cachePath);
-            return await JsonSerializer.DeserializeAsync<List<RepoFile>>(stream, cancellationToken: cancellationToken);
+            return await JsonSerializer.DeserializeAsync<List<RepoFile>>(stream, CoreJsonOptions.Plain, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -1051,7 +1052,7 @@ public sealed class ModelDiscoveryService : IDisposable
                 Directory.CreateDirectory(dir);
 
             await using var stream = File.Create(cachePath);
-            await JsonSerializer.SerializeAsync(stream, files, cancellationToken: cancellationToken);
+            await JsonSerializer.SerializeAsync(stream, files, CoreJsonOptions.Plain, cancellationToken);
         }
         catch (Exception ex)
         {

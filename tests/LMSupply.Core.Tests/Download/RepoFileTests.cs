@@ -91,7 +91,7 @@ public class RepoFileTests
     {
         var json = """{"path":"onnx/model.onnx","type":"file","size":1048576,"oid":"abc123"}""";
 
-        var file = JsonSerializer.Deserialize<RepoFile>(json);
+        var file = JsonSerializer.Deserialize<RepoFile>(json, LMSupply.Json.CoreJsonOptions.Web);
 
         file.Should().NotBeNull();
         file!.Path.Should().Be("onnx/model.onnx");
@@ -105,7 +105,7 @@ public class RepoFileTests
     {
         var json = """{"path":"readme.md","type":"file","size":512}""";
 
-        var file = JsonSerializer.Deserialize<RepoFile>(json);
+        var file = JsonSerializer.Deserialize<RepoFile>(json, LMSupply.Json.CoreJsonOptions.Web);
 
         file!.Oid.Should().BeNull();
     }

@@ -193,7 +193,7 @@ public class Gemma4StaticValidationTests
     public void Gemma4ChatFormatter_RenderToolPromptFragment_ListsRequiredParams()
     {
         var formatter = new Gemma4ChatFormatter();
-        var parameters = JsonSerializer.Deserialize<JsonElement>(
+        var parameters = TestJson.ParseElement(
             """
             {
                 "type": "object",
@@ -272,7 +272,7 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
     private static readonly ChatToolDefinition WeatherTool = new(
         "get_weather",
         "Return current weather for a city.",
-        JsonSerializer.Deserialize<JsonElement>(
+        TestJson.ParseElement(
             """
             {
                 "type": "object",
@@ -431,4 +431,5 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
         args.Should().Contain("city", because: "required param 'city' must appear in the JSON args");
         output.WriteLine($"  → tool call args: {args}");
     }
+
 }

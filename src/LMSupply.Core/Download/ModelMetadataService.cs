@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using LMSupply.Json;
 
 namespace LMSupply.Download;
 
@@ -20,6 +21,7 @@ public sealed class ModelMetadataService : IDisposable
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
+        TypeInfoResolver = CoreJsonContext.Default,
         PropertyNameCaseInsensitive = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
@@ -234,7 +236,7 @@ public sealed class ModelMetadataService : IDisposable
     /// <summary>
     /// Internal class for deserializing HuggingFace API response.
     /// </summary>
-    private sealed class HfApiResponse
+    internal sealed class HfApiResponse
     {
         [JsonPropertyName("id")]
         public string? Id { get; set; }
@@ -273,7 +275,7 @@ public sealed class ModelMetadataService : IDisposable
         public CardData? CardData { get; set; }
     }
 
-    private sealed class CardData
+    internal sealed class CardData
     {
         [JsonPropertyName("description")]
         public string? Description { get; set; }

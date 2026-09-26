@@ -19,10 +19,12 @@ public sealed class LlamaServerClient : IDisposable
     private readonly bool _ownsHttpClient;
     private readonly int _maxContextLength;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    /// <summary>The wire options every request and response uses (snake_case, nulls omitted, source-generated metadata).</summary>
+    internal static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        TypeInfoResolver = LlamaJsonContext.Default
     };
 
     /// <summary>
@@ -410,7 +412,7 @@ public sealed class LlamaServerClient : IDisposable
         string text,
         CancellationToken cancellationToken = default)
     {
-        var request = new { content = text };
+        var request = new TokenizeRequest { Content = text };
         var json = JsonSerializer.Serialize(request, JsonOptions);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -1320,6 +1322,11 @@ public sealed class RerankResult
 #endregion
 
 #region Tokenize Response Models
+
+internal sealed class TokenizeRequest
+{
+    public required string Content { get; init; }
+}
 
 internal sealed class TokenizeResponse
 {

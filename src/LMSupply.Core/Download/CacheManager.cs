@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using LMSupply.Json;
 
 namespace LMSupply.Download;
 
@@ -9,6 +10,7 @@ public static class CacheManager
 {
     private static readonly System.Text.Json.JsonSerializerOptions s_jsonOptions = new()
     {
+        TypeInfoResolver = CoreJsonContext.Default,
         PropertyNameCaseInsensitive = true
     };
 
