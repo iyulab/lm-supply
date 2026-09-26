@@ -72,7 +72,35 @@ public class LlamaServerClientChatResponseTests
             cancellationToken: TestContext.Current.CancellationToken);
 
         response.Usage.Should().BeNull();
+        response.Timings.Should().BeNull();
         response.Choices![0].Message!.ReasoningContent.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GenerateChatWithToolsAsync_CarriesTheServerTimings()
+    {
+        // b11146's non-streamed response carries timings at the top level, next to usage.
+        const string body = """
+            {"choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],
+             "usage":{"completion_tokens":40,"prompt_tokens":13,"total_tokens":53},
+             "timings":{"cache_n":9,"prompt_n":4,"prompt_ms":21.541,"prompt_per_second":185.69240053850797,
+                        "predicted_n":40,"predicted_ms":276.711,"predicted_per_second":140.94127085659767}}
+            """;
+        using var httpClient = new HttpClient(new FakeHandler(HttpStatusCode.OK, body))
+        {
+            BaseAddress = new Uri("http://localhost:9999")
+        };
+        var client = new LlamaServerClient("http://localhost:9999", httpClient, 4096);
+
+        var response = await client.GenerateChatWithToolsAsync(
+            [new ChatCompletionMessage { Role = "user", Content = "hi" }],
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        response.Timings.Should().NotBeNull();
+        response.Timings!.CacheN.Should().Be(9);
+        response.Timings.PromptN.Should().Be(4);
+        response.Timings.PredictedMs.Should().Be(276.711);
+        response.Timings.PredictedPerSecond.Should().BeApproximately(140.941, 0.001);
     }
 
     private sealed class FakeHandler(HttpStatusCode status, string body) : HttpMessageHandler

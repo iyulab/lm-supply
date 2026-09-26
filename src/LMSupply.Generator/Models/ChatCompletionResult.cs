@@ -40,6 +40,12 @@ public sealed record ChatCompletionResult
     /// not report it (the ONNX path does not; llama-server does).
     /// </summary>
     public ChatTokenUsage? Usage { get; init; }
+
+    /// <summary>
+    /// How long the backend spent on this completion and how fast it went, as the backend measured it. Null when the
+    /// backend does not report timings (the ONNX path does not; llama-server does).
+    /// </summary>
+    public GenerationTimings? Timings { get; init; }
 }
 
 /// <summary>

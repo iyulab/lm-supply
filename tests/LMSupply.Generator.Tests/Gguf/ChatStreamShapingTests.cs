@@ -27,6 +27,11 @@ public class ChatStreamShapingTests
 
     private static readonly ChatCompletionUsage ServerUsage = new() { PromptTokens = 41, CompletionTokens = 512, TotalTokens = 553 };
 
+    private static readonly LlamaServerTimings ServerTimings = new()
+    {
+        CacheN = 9, PromptN = 32, PromptMs = 21.5, PromptPerSecond = 185.7, PredictedN = 512, PredictedMs = 4300.0, PredictedPerSecond = 119.0,
+    };
+
     private static async Task<List<ChatStreamChunk>> ShapeAsync(
         IAsyncEnumerable<ChatStreamData> source, GenerationOptions? options = null, IToolCallStreamParser? parser = null)
     {
@@ -51,6 +56,28 @@ public class ChatStreamShapingTests
         last.Usage.Should().BeEquivalentTo(new ChatTokenUsage { PromptTokens = 41, CompletionTokens = 512, TotalTokens = 553 });
         chunks.Take(chunks.Count - 1).Should().OnlyContain(c => c.Usage == null && c.FinishReason == null);
         string.Concat(chunks.Select(c => c.Text)).Should().Be("yes");
+    }
+
+    [Fact]
+    public async Task ServerTimings_RideTheSameFinalChunk_AsTheServerReportedThem()
+    {
+        var chunks = await ShapeAsync(Stream(
+            new ChatStreamData { TextDelta = "yes" },
+            new ChatStreamData { FinishReason = "stop" },
+            new ChatStreamData { Usage = ServerUsage, Timings = ServerTimings }));
+
+        var last = chunks[^1];
+        last.FinishReason.Should().Be("stop");
+        last.Timings.Should().BeEquivalentTo(new GenerationTimings
+        {
+            CachedPromptTokens = 9,
+            PromptTokensEvaluated = 32,
+            PromptDuration = TimeSpan.FromMilliseconds(21.5),
+            PromptTokensPerSecond = 185.7,
+            CompletionDuration = TimeSpan.FromMilliseconds(4300.0),
+            CompletionTokensPerSecond = 119.0,
+        });
+        chunks.Take(chunks.Count - 1).Should().OnlyContain(c => c.Timings == null);
     }
 
     [Fact]
@@ -83,12 +110,13 @@ public class ChatStreamShapingTests
                 new ChatStreamData { TextDelta = "b" },
                 new ChatStreamData { TextDelta = "c" },
                 new ChatStreamData { FinishReason = "stop" },
-                new ChatStreamData { Usage = ServerUsage }),
+                new ChatStreamData { Usage = ServerUsage, Timings = ServerTimings }),
             new GenerationOptions { MaxTokens = 2 });
 
         string.Concat(chunks.Select(c => c.Text)).Should().Be("ab");
         chunks[^1].FinishReason.Should().Be("length");
         chunks[^1].Usage.Should().BeNull("the stream was cut before the server reported its count");
+        chunks.Should().OnlyContain(c => c.Timings == null, "the server's timings describe a completion the consumer did not get");
     }
 
     /// <summary>Holds the last three characters of every delta and releases them on flush.</summary>

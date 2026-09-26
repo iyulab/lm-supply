@@ -181,8 +181,11 @@ public sealed class LlamaServerClient : IDisposable
                 continue;
             }
 
-            if (ReportedUsage(chunk) is { } usage)
-                yield return new ChatStreamData { Usage = usage };
+            // usage and timings share the last chunk on current builds (b11146: the include_usage chunk with empty
+            // choices), but neither is assumed to arrive with the other.
+            var usage = ReportedUsage(chunk);
+            if (usage is not null || chunk?.Timings is not null)
+                yield return new ChatStreamData { Usage = usage, Timings = chunk?.Timings };
 
             var choice = chunk?.Choices?.FirstOrDefault();
             if (choice is null)
@@ -364,6 +367,7 @@ public sealed class LlamaServerClient : IDisposable
                     FinishReason = MapStopType(chunk.StopType),
                     PromptTokens = chunk.TokensEvaluated,
                     CompletionTokens = chunk.TokensPredicted,
+                    Timings = chunk.Timings,
                 };
                 break;
             }
@@ -940,7 +944,7 @@ internal sealed class ChatCompletionChunk
     public ChatCompletionUsage? Usage { get; set; }
 
     /// <summary>llama.cpp's own accounting, on the last chunk of every build that has it.</summary>
-    public LlamaTimings? Timings { get; set; }
+    public LlamaServerTimings? Timings { get; set; }
 }
 
 internal sealed class ChatStreamOptions
@@ -948,11 +952,40 @@ internal sealed class ChatStreamOptions
     public bool IncludeUsage { get; set; }
 }
 
-/// <summary>llama.cpp's <c>timings</c>: <c>prompt_n</c> tokens evaluated, <c>predicted_n</c> generated (reasoning included).</summary>
-internal sealed class LlamaTimings
+/// <summary>
+/// llama.cpp's <c>timings</c> object, as the server reports it. Prompt figures cover only the tokens evaluated for this
+/// request (<c>prompt_n</c>), not those reused from the prompt cache (<c>cache_n</c>), so a rate derived from the
+/// OpenAI-compatible <c>usage.prompt_tokens</c> is wrong whenever the cache hits — use the server's rates.
+/// </summary>
+public sealed class LlamaServerTimings
 {
+    /// <summary>Prompt tokens reused from the server's prompt cache (<c>cache_n</c>).</summary>
+    [JsonPropertyName("cache_n")]
+    public int? CacheN { get; set; }
+
+    /// <summary>Prompt tokens evaluated for this request (<c>prompt_n</c>).</summary>
+    [JsonPropertyName("prompt_n")]
     public int? PromptN { get; set; }
+
+    /// <summary>Time spent evaluating the prompt, in milliseconds (<c>prompt_ms</c>).</summary>
+    [JsonPropertyName("prompt_ms")]
+    public double? PromptMs { get; set; }
+
+    /// <summary>Prompt evaluation rate the server measured (<c>prompt_per_second</c>).</summary>
+    [JsonPropertyName("prompt_per_second")]
+    public double? PromptPerSecond { get; set; }
+
+    /// <summary>Tokens generated, reasoning included (<c>predicted_n</c>).</summary>
+    [JsonPropertyName("predicted_n")]
     public int? PredictedN { get; set; }
+
+    /// <summary>Time spent generating, in milliseconds (<c>predicted_ms</c>).</summary>
+    [JsonPropertyName("predicted_ms")]
+    public double? PredictedMs { get; set; }
+
+    /// <summary>Generation rate the server measured (<c>predicted_per_second</c>).</summary>
+    [JsonPropertyName("predicted_per_second")]
+    public double? PredictedPerSecond { get; set; }
 }
 
 internal sealed class ChatCompletionChoice
@@ -1015,6 +1048,9 @@ internal sealed class CompletionChunk
 
     /// <summary>On the final chunk: prompt tokens evaluated.</summary>
     public int? TokensEvaluated { get; set; }
+
+    /// <summary>On the final chunk: llama.cpp's timings.</summary>
+    public LlamaServerTimings? Timings { get; set; }
 }
 
 /// <summary>
@@ -1038,6 +1074,9 @@ public sealed class CompletionStreamData
 
     /// <summary>Tokens the server generated (final chunk), or null when it did not say.</summary>
     public int? CompletionTokens { get; init; }
+
+    /// <summary>The server's timings for the whole completion (final chunk), or null when it did not send them.</summary>
+    public LlamaServerTimings? Timings { get; init; }
 }
 
 /// <summary>
@@ -1175,6 +1214,11 @@ public sealed class ChatStreamData
     /// The server's token accounting for the whole completion (reasoning included), on the chunk that carries it.
     /// </summary>
     public ChatCompletionUsage? Usage { get; init; }
+
+    /// <summary>
+    /// The server's timings for the whole completion, on the chunk that carries them. Null on builds that do not send them.
+    /// </summary>
+    public LlamaServerTimings? Timings { get; init; }
 }
 
 /// <summary>
@@ -1188,6 +1232,11 @@ public sealed class ChatCompletionFullResponse
     /// Token accounting the server reports for the completion (OpenAI-compatible <c>usage</c> object).
     /// </summary>
     public ChatCompletionUsage? Usage { get; set; }
+
+    /// <summary>
+    /// llama.cpp's <c>timings</c> for the completion. Null on builds that do not send them.
+    /// </summary>
+    public LlamaServerTimings? Timings { get; set; }
 }
 
 /// <summary>

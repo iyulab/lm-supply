@@ -489,6 +489,9 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         public int? PromptTokens { get; set; }
         public int? CompletionTokens { get; set; }
 
+        /// <summary>The server's timings, when it reported them; null once the client-side cap cut the stream.</summary>
+        public GenerationTimings? Timings { get; set; }
+
         /// <summary>
         /// The server's counts where it reported them, else an estimate from the text — marked as one, since a
         /// reasoning model's hidden reasoning never appears in the text it is estimated from.
@@ -546,6 +549,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                     outcome.PromptTokens = evaluated;
                     outcome.CompletionTokens = predicted;
                 }
+                if (outcome is not null && data.Timings is { } rawTimings)
+                    outcome.Timings = ToGenerationTimings(rawTimings);
 
                 if (data.TextDelta is not { } token)
                     continue;
@@ -554,7 +559,10 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                 {
                     // The client-side cap cut the stream before the server said why: that is the output limit.
                     if (outcome is not null)
+                    {
                         outcome.FinishReason = "length";
+                        outcome.Timings = null;
+                    }
                     break;
                 }
 
@@ -633,6 +641,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                     outcome.PromptTokens = usage.PromptTokens;
                     outcome.CompletionTokens = usage.CompletionTokens;
                 }
+                if (data.Timings is { } chatTimings && outcome is not null)
+                    outcome.Timings = ToGenerationTimings(chatTimings);
 
                 var token = data.TextDelta;
                 if (string.IsNullOrEmpty(token))
@@ -641,7 +651,10 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                 if (maxTokens > 0 && ++tokenCount > maxTokens)
                 {
                     if (outcome is not null)
+                    {
                         outcome.FinishReason = "length";
+                        outcome.Timings = null;
+                    }
                     break;
                 }
 
@@ -706,7 +719,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         }
 
         var content = sb.ToString();
-        return new GenerationResult(content, outcome.ToUsage(prompt, content), outcome.FinishReason);
+        return new GenerationResult(content, outcome.ToUsage(prompt, content), outcome.FinishReason) { Timings = outcome.Timings };
     }
 
     /// <inheritdoc />
@@ -744,7 +757,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         return new GenerationResult(
             content,
             outcome.ToUsage(string.Concat(messageList.Select(m => m.Content)), content),
-            outcome.FinishReason);
+            outcome.FinishReason)
+        { Timings = outcome.Timings };
     }
 
     /// <summary>
@@ -906,6 +920,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         // not lose either.
         string? finishReason = null;
         ChatTokenUsage? usage = null;
+        GenerationTimings? timings = null;
 
         await foreach (var data in source.WithCancellation(cancellationToken))
         {
@@ -918,12 +933,15 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                     CompletionTokens = reported.CompletionTokens,
                     TotalTokens = reported.TotalTokens,
                 };
+            if (data.Timings is { } reportedTimings)
+                timings = ToGenerationTimings(reportedTimings);
 
             // Safety net: stop if token limit exceeded
             if (data.TextDelta is not null && maxTokens > 0 && ++tokenCount > maxTokens)
             {
                 finishReason = "length";
                 usage = null;
+                timings = null;
                 break;
             }
 
@@ -1034,8 +1052,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             }
         }
 
-        if (finishReason is not null || usage is not null)
-            yield return new ChatStreamChunk { FinishReason = finishReason, Usage = usage };
+        if (finishReason is not null || usage is not null || timings is not null)
+            yield return new ChatStreamChunk { FinishReason = finishReason, Usage = usage, Timings = timings };
     }
 
     /// <summary>
@@ -1082,7 +1100,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                         CompletionTokens = usage.CompletionTokens,
                         TotalTokens = usage.TotalTokens,
                     }
-                    : null
+                    : null,
+                Timings = response.Timings is { } timings ? ToGenerationTimings(timings) : null
             };
         }
         finally
@@ -1090,6 +1109,16 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             _concurrencyLimiter.Release();
         }
     }
+
+    internal static GenerationTimings ToGenerationTimings(LlamaServerTimings t) => new()
+    {
+        CachedPromptTokens = t.CacheN,
+        PromptTokensEvaluated = t.PromptN,
+        PromptDuration = t.PromptMs is { } promptMs ? TimeSpan.FromMilliseconds(promptMs) : null,
+        PromptTokensPerSecond = t.PromptPerSecond,
+        CompletionDuration = t.PredictedMs is { } predictedMs ? TimeSpan.FromMilliseconds(predictedMs) : null,
+        CompletionTokensPerSecond = t.PredictedPerSecond,
+    };
 
     private static IEnumerable<ChatCompletionMessage> ConvertMessages(IEnumerable<ChatMessage> messages)
     {

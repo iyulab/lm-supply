@@ -13,7 +13,15 @@ namespace LMSupply.Generator.Models;
 public readonly record struct GenerationResult(
     string Content,
     TokenUsage Usage,
-    string? FinishReason = null);
+    string? FinishReason = null)
+{
+    /// <summary>
+    /// How long the backend spent on this generation and how fast it went, as the backend measured it. Null when the
+    /// backend does not report timings (the ONNX path does not; llama-server does), and when
+    /// <see cref="GenerationOptions.MaxTokens"/> cut the stream client-side.
+    /// </summary>
+    public GenerationTimings? Timings { get; init; }
+}
 
 /// <summary>
 /// Token usage statistics for a generation operation.

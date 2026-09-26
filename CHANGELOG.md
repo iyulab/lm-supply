@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.80.0] - Unreleased
+
+### Added
+- **A generation result reports how fast the server generated it.** `GenerationResult.Timings`
+  (`GenerateCompleteResultAsync`, `GenerateChatCompleteResultAsync`), `ChatCompletionResult.Timings` and the last chunk
+  of `GenerateChatStreamAsync` (`ChatStreamChunk.Timings`) carry llama-server's own `timings` as `GenerationTimings`: `CompletionTokensPerSecond`,
+  `PromptTokensPerSecond`, `CompletionDuration`, `PromptDuration`, `CachedPromptTokens` and `PromptTokensEvaluated`.
+  These are the server's values, not derived from `Usage`. A rate computed from the visible text overstates a reasoning
+  model's decode speed, and `Usage.PromptTokens` includes prompt-cache hits the server never evaluated. Null on the
+  ONNX path, on server builds without `timings`, and when `MaxTokens` cuts the stream client-side. LMSupply.Llama
+  exposes the raw object as `LlamaServerTimings` on `ChatStreamData.Timings`, `ChatCompletionFullResponse.Timings` and
+  `CompletionStreamData.Timings`.
+
 ## [0.79.3] - 2026-09-26
 
 ### Changed

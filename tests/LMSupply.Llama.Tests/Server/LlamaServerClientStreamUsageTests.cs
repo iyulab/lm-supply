@@ -70,6 +70,45 @@ public class LlamaServerClientStreamUsageTests
         usage.CompletionTokens.Should().Be(77);
     }
 
+    // b11146's last streamed chunk, verbatim apart from id/model/created: usage and timings together, empty choices,
+    // and a cache hit that makes usage.prompt_tokens (13) differ from the tokens actually evaluated (prompt_n 4).
+    private const string B11146FinalChunk =
+        "data: {\"choices\":[],\"object\":\"chat.completion.chunk\",\"usage\":{\"completion_tokens\":40,\"prompt_tokens\":13," +
+        "\"total_tokens\":53,\"prompt_tokens_details\":{\"cached_tokens\":9}},\"timings\":{\"cache_n\":9,\"prompt_n\":4," +
+        "\"prompt_ms\":21.541,\"prompt_per_token_ms\":5.38525,\"prompt_per_second\":185.69240053850797,\"predicted_n\":40," +
+        "\"predicted_ms\":327.69,\"predicted_per_token_ms\":8.402307692307692,\"predicted_per_second\":119.01492264030028}}\n\n";
+
+    [Fact]
+    public async Task ServerTimings_AreSurfacedWithTheUsage_FieldForField()
+    {
+        var (data, _) = await StreamAsync(
+            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"length\"}]}\n\n" + B11146FinalChunk + "data: [DONE]\n\n");
+
+        var final = data.Single(d => d.Usage is not null);
+        final.Usage!.PromptTokens.Should().Be(13, "usage counts the cached prompt tokens too");
+        final.Timings.Should().NotBeNull();
+        final.Timings!.CacheN.Should().Be(9);
+        final.Timings.PromptN.Should().Be(4);
+        final.Timings.PromptMs.Should().Be(21.541);
+        final.Timings.PromptPerSecond.Should().BeApproximately(185.692, 0.001);
+        final.Timings.PredictedN.Should().Be(40);
+        final.Timings.PredictedMs.Should().Be(327.69);
+        final.Timings.PredictedPerSecond.Should().BeApproximately(119.015, 0.001,
+            "the server's rate, which is not predicted_n / predicted_ms (it measures from the first generated token on)");
+    }
+
+    [Fact]
+    public async Task TimingsWithoutUsageOrCounts_AreStillSurfaced()
+    {
+        var (data, _) = await StreamAsync(
+            "data: {\"choices\":[],\"timings\":{\"predicted_ms\":10.0,\"predicted_per_second\":50.0}}\n\n" +
+            "data: [DONE]\n\n");
+
+        var carrier = data.Single(d => d.Timings is not null);
+        carrier.Usage.Should().BeNull("there are no counts to report");
+        carrier.Timings!.PredictedPerSecond.Should().Be(50.0);
+    }
+
     [Fact]
     public async Task NoAccountingInTheStream_SurfacesNoUsage()
     {
@@ -77,6 +116,6 @@ public class LlamaServerClientStreamUsageTests
             "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"},\"finish_reason\":\"stop\"}]}\n\n" +
             "data: [DONE]\n\n");
 
-        data.Should().OnlyContain(d => d.Usage == null);
+        data.Should().OnlyContain(d => d.Usage == null && d.Timings == null);
     }
 }

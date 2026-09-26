@@ -36,6 +36,12 @@ public sealed record ChatStreamChunk
     /// llama-server does), or when the stream was cut client-side by the output-token safety limit.
     /// </summary>
     public ChatTokenUsage? Usage { get; init; }
+
+    /// <summary>
+    /// The backend's timings for the whole completion, present only on the final chunk (with <see cref="Usage"/>).
+    /// Null under the same conditions as <see cref="Usage"/>, and on llama-server builds that do not send timings.
+    /// </summary>
+    public GenerationTimings? Timings { get; init; }
 }
 
 /// <summary>

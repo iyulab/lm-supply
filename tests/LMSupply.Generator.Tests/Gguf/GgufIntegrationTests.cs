@@ -104,6 +104,35 @@ public class GgufIntegrationTests
     }
 
     /// <summary>
+    /// Every llama-server result path carries the server's own timings: the raw prompt result, the chat result, the
+    /// chat-with-tools result and the last chunk of the chat stream. A rate taken from the visible text cannot stand
+    /// in for them, since a reasoning model generates tokens the text never shows.
+    /// </summary>
+    [Fact]
+    public async Task EveryResultPath_WithGgufModel_CarriesTheServerTimings()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", cancellationToken: ct);
+        var options = new GenerationOptions { MaxTokens = 32, Temperature = 0f, Thinking = ThinkingMode.Off };
+        ChatMessage[] messages = [ChatMessage.User("Name three colours.")];
+
+        var raw = await model.GenerateCompleteResultAsync("The sky is blue because", options, ct);
+        var chat = await model.GenerateChatCompleteResultAsync(messages, options, ct);
+        var tools = await model.GenerateChatWithToolsAsync(messages, options, ct);
+        ChatStreamChunk? last = null;
+        await foreach (var chunk in model.GenerateChatStreamAsync(messages, options, ct))
+            last = chunk;
+
+        foreach (var (path, timings) in new[] { ("raw", raw.Timings), ("chat", chat.Timings), ("tools", tools.Timings), ("stream", last?.Timings) })
+        {
+            timings.Should().NotBeNull(path);
+            timings!.CompletionTokensPerSecond.Should().BePositive(path);
+            timings.CompletionDuration.Should().BeGreaterThan(TimeSpan.Zero, path);
+            timings.PromptTokensEvaluated.Should().NotBeNull(path);
+        }
+    }
+
+    /// <summary>
     /// A streamed chat turn ends with one chunk carrying both the finish reason and the server's token counts —
     /// reasoning included, which the visible text cannot show — the same counts the non-streamed call reports.
     /// </summary>

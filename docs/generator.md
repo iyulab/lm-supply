@@ -64,6 +64,25 @@ if (result.FinishReason == "length")
 }
 ```
 
+On the llama-server backend, `GenerationResult`, `ChatCompletionResult` and the last chunk of `GenerateChatStreamAsync`
+also carry the server's own accounting (0.80.0+ for timings): `Usage` (prompt/completion tokens, reasoning included)
+and `Timings` (`GenerationTimings`: `CompletionTokensPerSecond`, `PromptTokensPerSecond`, the two durations, and
+`CachedPromptTokens`). Show the decode
+speed from `Timings` rather than dividing tokens by wall-clock time: a reasoning model generates tokens the stream
+never shows, and prompt tokens served from the cache are counted in `Usage` but not evaluated. Both are null on the
+ONNX backend and when `MaxTokens` cuts the stream client-side.
+
+```csharp
+ChatStreamChunk? last = null;
+await foreach (var chunk in generator.GenerateChatStreamAsync(messages))
+{
+    Console.Write(chunk.Text);
+    last = chunk;
+}
+if (last?.Timings?.CompletionTokensPerSecond is { } rate)
+    Console.WriteLine($" ({rate:F1} tok/s)");
+```
+
 ### Streaming Generation
 
 ```csharp

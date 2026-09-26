@@ -50,6 +50,29 @@ public class LlamaServerClientCompletionFinishReasonTests
     }
 
     [Fact]
+    public async Task GenerateStreamAsync_LastChunk_CarriesTheServerTimings()
+    {
+        // b11146's final /completion chunk on a second call with the same prompt: tokens_evaluated counts the whole
+        // prompt (5), while the timings say one token came from the cache and four were evaluated.
+        var client = Client(Sse(
+            """{"content":" the","stop":false}""",
+            """{"content":"","stop":true,"stop_type":"limit","tokens_predicted":20,"tokens_evaluated":5,"tokens_cached":24,"timings":{"cache_n":1,"prompt_n":4,"prompt_ms":25.502,"prompt_per_token_ms":6.3755,"prompt_per_second":156.85044310250177,"predicted_n":20,"predicted_ms":153.301,"predicted_per_token_ms":8.068473684210526,"predicted_per_second":123.93917847894014}}"""));
+
+        var chunks = new List<CompletionStreamData>();
+        await foreach (var chunk in client.GenerateStreamAsync("prompt", cancellationToken: TestContext.Current.CancellationToken))
+            chunks.Add(chunk);
+
+        var last = chunks[^1];
+        last.PromptTokens.Should().Be(5);
+        last.Timings.Should().NotBeNull();
+        last.Timings!.CacheN.Should().Be(1);
+        last.Timings.PromptN.Should().Be(4);
+        last.Timings.PredictedMs.Should().Be(153.301);
+        last.Timings.PredictedPerSecond.Should().BeApproximately(123.939, 0.001);
+        chunks.Take(chunks.Count - 1).Should().OnlyContain(c => c.Timings == null);
+    }
+
+    [Fact]
     public async Task GenerateAsync_TextStream_IsUnchanged()
     {
         var client = Client(Sse(
