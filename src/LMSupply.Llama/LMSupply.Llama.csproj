@@ -10,6 +10,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="LMSupply.Generator" />
     <InternalsVisibleTo Include="LMSupply.Embedder" />
+    <InternalsVisibleTo Include="LMSupply.Reranker" />
     <InternalsVisibleTo Include="LMSupply.Llama.Tests" />
   </ItemGroup>
 

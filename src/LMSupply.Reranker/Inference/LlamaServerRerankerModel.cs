@@ -17,7 +17,8 @@ namespace LMSupply.Reranker.Inference;
 /// </remarks>
 internal sealed class LlamaServerRerankerModel : IRerankerModel
 {
-    private readonly ServerLease _serverLease;
+    // The server lease, replaced with a new server (same configuration) when the held one has exited.
+    private readonly RestartingLease<ServerLease> _lease;
     private readonly RerankerOptions _options;
     private readonly string _modelPath;
     private bool _disposed;
@@ -26,11 +27,12 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
         string modelId,
         string modelPath,
         ServerLease serverLease,
+        Func<CancellationToken, Task<ServerLease>> relet,
         RerankerOptions options)
     {
         ModelId = modelId;
         _modelPath = modelPath;
-        _serverLease = serverLease;
+        _lease = RestartingServerLease.Create(serverLease, relet, $"LlamaServerRerankerModel '{modelId}'");
         _options = options;
     }
 
@@ -115,6 +117,7 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
             modelId,
             modelPath,
             serverLease,
+            ct => LlamaServerPool.Instance.LeaseAsync(serverPath, serverConfig, backend, null, ct),
             options);
     }
 
@@ -125,11 +128,11 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
     public long? EstimatedMemoryBytes => File.Exists(_modelPath) ? new FileInfo(_modelPath).Length * 2 : null;
 
     /// <inheritdoc />
-    public bool IsGpuActive => _serverLease.Backend != LlamaServerBackend.Cpu;
+    public bool IsGpuActive => _lease.Current.Backend != LlamaServerBackend.Cpu;
 
     /// <inheritdoc />
     public IReadOnlyList<string> ActiveProviders => IsGpuActive
-        ? [$"llama-server-{_serverLease.Backend}", "CPU"]
+        ? [$"llama-server-{_lease.Current.Backend}", "CPU"]
         : ["llama-server-CPU"];
 
     /// <inheritdoc />
@@ -150,7 +153,7 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
             return [];
         }
 
-        var results = await _serverLease.Client.RerankAsync(
+        var results = await (await _lease.GetAsync(cancellationToken).ConfigureAwait(false)).Client.RerankAsync(
             query,
             docList,
             topK ?? docList.Count,
@@ -223,7 +226,7 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
             return [];
         }
 
-        var results = await _serverLease.Client.RerankAsync(
+        var results = await (await _lease.GetAsync(cancellationToken).ConfigureAwait(false)).Client.RerankAsync(
             query,
             docList,
             docList.Count,
@@ -279,7 +282,7 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
         SizeBytes = EstimatedMemoryBytes ?? 0,
         OnnxFile = "", // N/A for GGUF
         TokenizerFile = "", // N/A - llama-server handles tokenization
-        Description = $"GGUF reranker model via llama-server-{_serverLease.Backend}"
+        Description = $"GGUF reranker model via llama-server-{_lease.Current.Backend}"
     };
 
     private void ThrowIfDisposed()
@@ -293,6 +296,6 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
             return;
 
         _disposed = true;
-        await _serverLease.DisposeAsync();
+        await _lease.DisposeAsync();
     }
 }

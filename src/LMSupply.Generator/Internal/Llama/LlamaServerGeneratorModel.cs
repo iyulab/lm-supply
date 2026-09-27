@@ -17,12 +17,8 @@ namespace LMSupply.Generator.Internal.Llama;
 /// </summary>
 internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsSink
 {
-    private ServerLease _serverLease;
-
-    // Leases a server with the configuration this model was loaded with — how a model whose server exited gets a new
-    // one instead of failing every later call on a dead port.
-    private readonly Func<CancellationToken, Task<ServerLease>> _leaseServer;
-    private readonly SemaphoreSlim _restartGate = new(1, 1);
+    // The server lease, replaced with a new server (same configuration) when the held one has exited.
+    private readonly RestartingLease<ServerLease> _lease;
     private readonly IChatFormatter _chatFormatter;
     private readonly GeneratorOptions _options;
     private readonly string _modelPath;
@@ -66,8 +62,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         ModelId = identity.ModelId;
         _identity = identity;
         _modelPath = modelPath;
-        _serverLease = serverLease;
-        _leaseServer = leaseServer;
+        _lease = RestartingServerLease.Create(serverLease, leaseServer, $"LlamaServerGeneratorModel '{identity.ModelId}'");
         _chatFormatter = chatFormatter;
         _options = options;
         MaxContextLength = maxContextLength;
@@ -454,11 +449,11 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     public IChatFormatter ChatFormatter => _chatFormatter;
 
     /// <inheritdoc />
-    public bool IsGpuActive => _serverLease.Backend != LlamaServerBackend.Cpu;
+    public bool IsGpuActive => _lease.Current.Backend != LlamaServerBackend.Cpu;
 
     /// <inheritdoc />
     public IReadOnlyList<string> ActiveProviders => IsGpuActive
-        ? new[] { $"llama-server-{_serverLease.Backend}", "CPU" }
+        ? new[] { $"llama-server-{_lease.Current.Backend}", "CPU" }
         : new[] { "llama-server-CPU" };
 
     /// <inheritdoc />
@@ -470,7 +465,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     /// <summary>
     /// Gets the startup log from the llama-server process for diagnostics.
     /// </summary>
-    public string? ServerStartupLog => _serverLease.Server.Info?.StartupLog;
+    public string? ServerStartupLog => _lease.Current.Server.Info?.StartupLog;
 
     /// <inheritdoc />
     public IAsyncEnumerable<string> GenerateAsync(
@@ -768,36 +763,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     /// the call that saw it die fails but the next one works. Before 0.77.0 every later call failed on the dead port
     /// with "connection refused", and nothing said the server was gone.
     /// </summary>
-    private async ValueTask<LlamaServerClient> ClientAsync(CancellationToken cancellationToken)
-    {
-        if (_serverLease.Server.IsRunning)
-            return _serverLease.Client;
-
-        await _restartGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            if (_serverLease.Server.IsRunning)
-                return _serverLease.Client;
-
-            var exitCode = _serverLease.Server.ExitCode;
-            var lastLines = _serverLease.Server.RecentLog
-                .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .TakeLast(20);
-            Trace.TraceWarning(
-                $"[LlamaServerGeneratorModel] llama-server for '{ModelId}' is no longer running " +
-                $"(exit code {(exitCode?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown")}); starting a new one. " +
-                $"Its last output:{Environment.NewLine}{string.Join(Environment.NewLine, lastLines)}");
-
-            var dead = _serverLease;
-            _serverLease = await _leaseServer(cancellationToken).ConfigureAwait(false);
-            await dead.DisposeAsync().ConfigureAwait(false);
-            return _serverLease.Client;
-        }
-        finally
-        {
-            _restartGate.Release();
-        }
-    }
+    private async ValueTask<LlamaServerClient> ClientAsync(CancellationToken cancellationToken) =>
+        (await _lease.GetAsync(cancellationToken).ConfigureAwait(false)).Client;
 
     /// <inheritdoc />
     public Task WarmupAsync(CancellationToken cancellationToken = default)
@@ -816,10 +783,10 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         _modelPath,
         MaxContextLength,
         _chatFormatter.FormatName,
-        $"llama-server-{_serverLease.Backend}")
+        $"llama-server-{_lease.Current.Backend}")
     {
         GgufMetadata = _ggufMetadata,
-        BackendLog = _serverLease.Server.Info?.StartupLog,
+        BackendLog = _lease.Current.Server.Info?.StartupLog,
         RuntimeVersion = _serverVersion,
         Diagnostics = _diagnostics,
         AdjustedContextLength = ResolveAdjustedContextLength(MaxContextLength, _effectiveContextLength),
@@ -1864,6 +1831,6 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         _concurrencyLimiter.Dispose();
 
         // Return server to pool (does not terminate the server)
-        await _serverLease.DisposeAsync();
+        await _lease.DisposeAsync();
     }
 }

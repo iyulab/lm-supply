@@ -14,6 +14,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   derives from `InferenceException`. A failure while the server is still running is unchanged. A generator's next call
   on the same model starts a new server, as before.
 
+### Fixed
+- **GGUF embedders and rerankers recover from a dead llama-server.** A pooled embedding or reranking server that
+  exited (killed, crashed, out of memory) made every later call on that model fail on the dead port, until the model
+  was reloaded. The next call now starts a new server with the same configuration, as the generator has done since
+  0.77.0. The call that saw the server die still fails, now with `InferenceBackendExitedException`. All three model
+  types share one replacement rule.
+
 ## [0.84.0] - 2026-09-27
 
 ### Added

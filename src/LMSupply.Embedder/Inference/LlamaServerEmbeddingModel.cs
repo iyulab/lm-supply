@@ -10,7 +10,8 @@ namespace LMSupply.Embedder.Inference;
 /// </summary>
 internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
 {
-    private readonly ServerLease _serverLease;
+    // The server lease, replaced with a new server (same configuration) when the held one has exited.
+    private readonly RestartingLease<ServerLease> _lease;
     private readonly EmbedderOptions _options;
     private readonly string _modelPath;
     private bool _disposed;
@@ -22,6 +23,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         string modelId,
         string modelPath,
         ServerLease serverLease,
+        Func<CancellationToken, Task<ServerLease>> relet,
         int dimensions,
         EmbedderOptions options,
         VectorSpaceDescriptor vectorSpace,
@@ -33,7 +35,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         ModelId = modelId;
         VectorSpaceRevision = vectorSpace.Revision;
         _modelPath = modelPath;
-        _serverLease = serverLease;
+        _lease = RestartingServerLease.Create(serverLease, relet, $"LlamaServerEmbeddingModel '{modelId}'");
         Dimensions = dimensions;
         _options = options;
     }
@@ -181,6 +183,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             modelId,
             modelPath,
             serverLease,
+            ct => LlamaServerPool.Instance.LeaseAsync(serverPath, serverConfig, backend, null, ct),
             dimensions,
             options,
             vectorSpace,
@@ -201,11 +204,11 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
     public long? EstimatedMemoryBytes => File.Exists(_modelPath) ? new FileInfo(_modelPath).Length * 2 : null;
 
     /// <inheritdoc />
-    public bool IsGpuActive => _serverLease.Backend != LlamaServerBackend.Cpu;
+    public bool IsGpuActive => _lease.Current.Backend != LlamaServerBackend.Cpu;
 
     /// <inheritdoc />
     public IReadOnlyList<string> ActiveProviders => IsGpuActive
-        ? [$"llama-server-{_serverLease.Backend}", "CPU"]
+        ? [$"llama-server-{_lease.Current.Backend}", "CPU"]
         : ["llama-server-CPU"];
 
     /// <inheritdoc />
@@ -216,7 +219,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
     {
         ThrowIfDisposed();
 
-        var embedding = await _serverLease.Client.GenerateEmbeddingAsync(text, cancellationToken);
+        var embedding = await (await _lease.GetAsync(cancellationToken).ConfigureAwait(false)).Client.GenerateEmbeddingAsync(text, cancellationToken);
 
         if (_options.NormalizeEmbeddings)
         {
@@ -231,7 +234,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
     {
         ThrowIfDisposed();
 
-        var embeddings = await _serverLease.Client.GenerateEmbeddingsBatchAsync(texts, cancellationToken);
+        var embeddings = await (await _lease.GetAsync(cancellationToken).ConfigureAwait(false)).Client.GenerateEmbeddingsBatchAsync(texts, cancellationToken);
 
         if (_options.NormalizeEmbeddings)
         {
@@ -306,7 +309,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         DoLowerCase = _options.DoLowerCase,
         QueryPrefix = _queryPrefix,
         PassagePrefix = _passagePrefix,
-        Description = $"GGUF embedding model via llama-server-{_serverLease.Backend}"
+        Description = $"GGUF embedding model via llama-server-{_lease.Current.Backend}"
     };
 
     /// <summary>
@@ -341,6 +344,6 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             return;
 
         _disposed = true;
-        await _serverLease.DisposeAsync();
+        await _lease.DisposeAsync();
     }
 }
