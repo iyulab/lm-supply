@@ -229,6 +229,8 @@ Console.WriteLine($"Language: {result.Language}");
 var meeting = await transcriber.TranscribeAsync("meeting.wav", new TranscribeOptions { Diarize = true });
 foreach (var segment in meeting.Segments)
     Console.WriteLine($"{segment.Speaker}: {segment.Text}");
+// The diarization models download on first use; to fetch them at an install step instead, load with
+// new TranscriberOptions { PreloadDiarization = true }. LocalTranscriber.IsDiarizationDownloadedAsync() checks the cache.
 
 // Streaming transcription
 await foreach (var segment in transcriber.TranscribeStreamingAsync("audio.wav"))

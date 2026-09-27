@@ -40,7 +40,7 @@ public class SpeakerDiarizerIntegrationTests
         var ct = TestContext.Current.CancellationToken;
         var samples = await AudioProcessor.LoadAudioAsync(await RecordingAsync(ct), ct);
         await using var diarizer = await SpeakerDiarizer.LoadAsync(
-            CacheManager.GetDefaultCacheDirectory(), localFilesOnly: false, ExecutionProvider.Cpu, ct);
+            CacheManager.GetDefaultCacheDirectory(), localFilesOnly: false, ExecutionProvider.Cpu, progress: null, ct);
 
         var turns = diarizer.Diarize(samples, cancellationToken: ct);
 
@@ -81,7 +81,7 @@ public class SpeakerDiarizerIntegrationTests
         var ct = TestContext.Current.CancellationToken;
         var samples = await AudioProcessor.LoadAudioAsync(await RecordingAsync(ct), ct);
         await using var diarizer = await SpeakerDiarizer.LoadAsync(
-            CacheManager.GetDefaultCacheDirectory(), localFilesOnly: false, ExecutionProvider.Cpu, ct);
+            CacheManager.GetDefaultCacheDirectory(), localFilesOnly: false, ExecutionProvider.Cpu, progress: null, ct);
 
         var turns = diarizer.Diarize(samples, numSpeakers: 4, cancellationToken: ct);
 

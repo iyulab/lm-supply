@@ -22,7 +22,7 @@ namespace LMSupply.Transcriber.Core;
 /// 힌트 또는 <c>"und"</c>다, 번역·단어 타임스탬프·빔 서치는 지원하지 않는다. 자동 선택(<c>"auto"</c>) 후보에는 들어가지 않는다 —
 /// 별칭이나 저장소 id를 명시해야만 이 경로가 열린다.
 /// </remarks>
-internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel
+internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarization.IDiarizationPreload
 {
     private const string PreprocessorFile = "nemo128.onnx";
     private const string VocabFile = "vocab.txt";
@@ -59,14 +59,23 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel
     private bool _disposed;
     private readonly Diarization.DiarizationStage _diarization;
 
-    public ParakeetTdtTranscriberModel(TranscriberOptions options, TranscriberModelInfo modelInfo)
+    // Reported by the download the first initialization makes (LocalTranscriber.LoadAsync warms up at once).
+    private readonly IProgress<DownloadProgress>? _downloadProgress;
+
+    public ParakeetTdtTranscriberModel(
+        TranscriberOptions options, TranscriberModelInfo modelInfo, IProgress<DownloadProgress>? downloadProgress = null)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _downloadProgress = downloadProgress;
         _modelInfo = modelInfo ?? throw new ArgumentNullException(nameof(modelInfo));
         _hiddenSize = modelInfo.HiddenSize;
         _numMelBins = modelInfo.NumMelBins;
         _diarization = new Diarization.DiarizationStage(options);
     }
+
+    Task Diarization.IDiarizationPreload.PreloadDiarizationAsync(
+        IProgress<DownloadProgress>? progress, CancellationToken cancellationToken)
+        => _diarization.EnsureLoadedAsync(progress, cancellationToken);
 
     public string ModelId => _modelInfo.Id;
 
@@ -343,6 +352,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel
         return await downloader.DownloadModelAsync(
             _modelInfo.Id,
             files: [_modelInfo.EncoderFile, _modelInfo.DecoderFile, PreprocessorFile, VocabFile, ConfigFile],
+            progress: _downloadProgress,
             cancellationToken: cancellationToken);
     }
 

@@ -47,10 +47,20 @@ public static class LocalTranscriber
         options.ModelId = baseId;
         options.QuantizationHint ??= qualifier;
 
-        var transcriber = CreateModel(options);
+        var transcriber = CreateModel(options, progress);
+        try
+        {
+            // Eagerly initialize and warm up the model (the download, if any, reports through progress)
+            await transcriber.WarmupAsync(cancellationToken);
 
-        // Eagerly initialize and warm up the model
-        await transcriber.WarmupAsync(cancellationToken);
+            if (options.PreloadDiarization && transcriber is Diarization.IDiarizationPreload preload)
+                await preload.PreloadDiarizationAsync(progress, cancellationToken);
+        }
+        catch
+        {
+            await transcriber.DisposeAsync();
+            throw;
+        }
 
         return transcriber;
     }
@@ -60,12 +70,12 @@ public static class LocalTranscriber
     /// directory, from its <c>config.json</c>). Everything that is not a known Parakeet TDT export takes the Whisper path —
     /// which is what every previously supported id did.
     /// </summary>
-    private static ITranscriberModel CreateModel(TranscriberOptions options)
+    private static ITranscriberModel CreateModel(TranscriberOptions options, IProgress<DownloadProgress>? progress)
     {
         if (Registry.TryResolve(options.ModelId, out var info) && info is not null
             && TranscriberArchitectures.IsParakeetTdt(info.Architecture))
         {
-            return new ParakeetTdtTranscriberModel(options, info);
+            return new ParakeetTdtTranscriberModel(options, info, progress);
         }
 
         if (Directory.Exists(options.ModelId)
@@ -86,10 +96,10 @@ public static class LocalTranscriber
                 IsMultilingual = true,
                 SupportedLanguages = template.SupportedLanguages,
                 License = template.License
-            });
+            }, progress);
         }
 
-        return new OnnxTranscriberModel(options);
+        return new OnnxTranscriberModel(options, progress);
     }
 
     /// <summary>
@@ -106,6 +116,24 @@ public static class LocalTranscriber
     {
         return LoadAsync(options?.ModelId ?? "default", options, progress, cancellationToken);
     }
+
+    /// <summary>
+    /// Whether the speaker-diarization models that <see cref="TranscribeOptions.Diarize"/> uses are in the cache, complete —
+    /// that is, whether a diarized call (or a load with <see cref="TranscriberOptions.PreloadDiarization"/>) would open them
+    /// without a download. Makes no network request and loads nothing.
+    /// </summary>
+    /// <param name="options">Only <see cref="LMSupplyOptionsBase.CacheDirectory"/> is read; null means the default cache.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static Task<bool> IsDiarizationDownloadedAsync(
+        TranscriberOptions? options = null, CancellationToken cancellationToken = default)
+        => Diarization.SpeakerDiarizer.IsCachedAsync(
+            options?.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory(), cancellationToken);
+
+    /// <summary>
+    /// Bytes the speaker-diarization models take when downloaded (pyannote segmentation-3.0 + WeSpeaker ResNet34,
+    /// about 32.5 MB) — for a consent screen that lists what a load will fetch.
+    /// </summary>
+    public static long DiarizationDownloadSizeBytes => Diarization.SpeakerDiarizer.DownloadSizeBytes;
 
     /// <summary>
     /// Gets a list of pre-configured model aliases available for use.

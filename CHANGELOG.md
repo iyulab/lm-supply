@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.82.0] - Unreleased
+
+### Added
+- **The speaker-diarization models can be fetched ahead and checked without a request.** Set
+  `TranscriberOptions.PreloadDiarization = true` and `LocalTranscriber.LoadAsync` fetches and loads the pair that
+  `TranscribeOptions.Diarize` uses (pyannote segmentation-3.0 + WeSpeaker ResNet34) together with the transcription
+  model. It reports through the same `progress` and follows the same `DisableAutoDownload` rule. With downloads disabled
+  and the pair not cached, the load fails with `ModelNotFoundException`, not a later diarized call.
+  `LocalTranscriber.IsDiarizationDownloadedAsync(options)` says whether a diarized call would open both files from the
+  cache. It makes no request and writes nothing. `LocalTranscriber.DiarizationDownloadSizeBytes` is the pair's size
+  (32,523,463 bytes). Before, the pair could only arrive silently on the first diarized call, and nothing named it.
+
+### Fixed
+- **`LocalTranscriber.LoadAsync` reports download progress.** It accepted an `IProgress<DownloadProgress>` and never
+  passed it to the download, so a caller received no progress for the transcription model (Whisper or Parakeet).
+- A load that fails after the model object is created (warm-up, or the diarization preload) now disposes it.
+
 ## [0.81.1] - 2026-09-27
 
 ### Fixed

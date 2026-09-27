@@ -37,7 +37,7 @@ internal sealed class DiarizationStage : IAsyncDisposable
         if (options?.Diarize != true)
             return result;
 
-        var diarizer = await GetDiarizerAsync(cancellationToken);
+        var diarizer = await EnsureLoadedAsync(progress: null, cancellationToken);
         var turns = diarizer.Diarize(
             samples,
             options.NumSpeakers ?? 0,
@@ -105,7 +105,12 @@ internal sealed class DiarizationStage : IAsyncDisposable
         return labelled;
     }
 
-    private async Task<SpeakerDiarizer> GetDiarizerAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Fetches (under <see cref="TranscriberOptions.DisableAutoDownload"/>) and loads the diarization pair once; later
+    /// calls return the loaded pair. <see cref="TranscriberOptions.PreloadDiarization"/> calls this from the load.
+    /// </summary>
+    public async Task<SpeakerDiarizer> EnsureLoadedAsync(
+        IProgress<DownloadProgress>? progress, CancellationToken cancellationToken)
     {
         if (_diarizer is { } ready)
             return ready;
@@ -116,6 +121,7 @@ internal sealed class DiarizationStage : IAsyncDisposable
                 _options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory(),
                 _options.DisableAutoDownload,
                 _options.Provider,
+                progress,
                 cancellationToken);
         }
         finally

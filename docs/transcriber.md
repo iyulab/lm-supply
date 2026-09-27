@@ -191,6 +191,33 @@ cache and under the same `DisableAutoDownload` rule as the transcription model: 
   talks longer in it.
 - It needs the whole recording, so `TranscribeStreamingAsync` rejects `Diarize` (`NotSupportedException`).
 
+**Fetching the pair ahead** (0.82.0+). By default the pair downloads on the first `Diarize = true` call. Where downloads
+may happen only at a known step (an install or consent screen, an offline machine prepared ahead), fetch it with the
+transcription model instead:
+
+```csharp
+// Install step: one load fetches the transcription model and the diarization pair through the same progress.
+var install = new TranscriberOptions { PreloadDiarization = true };
+await using (await LocalTranscriber.LoadAsync("default", install, new Progress<DownloadProgress>(p =>
+    Console.WriteLine($"{p.FileName}: {p.BytesDownloaded}/{p.TotalBytes}"))))
+{
+}
+
+// Later, without a request: diarize only when the pair is on disk.
+var diarize = await LocalTranscriber.IsDiarizationDownloadedAsync();
+Console.WriteLine($"Diarization models ({LocalTranscriber.DiarizationDownloadSizeBytes / 1_000_000} MB) cached: {diarize}");
+```
+
+- `PreloadDiarization` obeys `DisableAutoDownload`: with downloads disabled and the pair not cached, the load fails
+  (`ModelNotFoundException`) the way a missing transcription model does — not later, in the middle of a transcription.
+- `IsDiarizationDownloadedAsync` reads only `CacheDirectory` from the options, makes no request and writes nothing. It
+  is true when a diarized call would open both files without a download.
+- `DiarizationDownloadSizeBytes` is the pair's size as the repositories list it (32.5 MB), for a consent screen.
+- The load's `progress` reports one sequence per model: the transcription model's files, then the two diarization
+  files. (Before 0.82.0 `LoadAsync` accepted `progress` but never passed it to the download.)
+- `LocalTranscriber.Pool` keys models by id only: a pooled model that was loaded without `PreloadDiarization` is
+  returned as is, and its pair loads on the first diarized call.
+
 ### Model Configuration
 
 ```csharp

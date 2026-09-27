@@ -25,6 +25,25 @@ public sealed class TranscriberOptions : LMSupplyOptionsBase
     public bool DisableAutoDownload { get; set; }
 
     /// <summary>
+    /// Gets or sets whether <see cref="LocalTranscriber.LoadAsync(string, TranscriberOptions?, IProgress{DownloadProgress}?, CancellationToken)"/>
+    /// also fetches and loads the speaker-diarization models that <see cref="TranscribeOptions.Diarize"/> uses, instead of
+    /// on the first diarized call. The fetch reports through the load's <c>progress</c> (one sequence per model, after the
+    /// transcription model's) and obeys <see cref="DisableAutoDownload"/>: with downloads disabled and the pair not cached,
+    /// the load fails the same way a missing transcription model does.
+    /// <para>
+    /// Use it where downloads may happen only at a known step (an install or consent screen, an offline machine prepared
+    /// ahead). <see cref="LocalTranscriber.IsDiarizationDownloadedAsync"/> answers whether the pair is already cached;
+    /// <see cref="LocalTranscriber.DiarizationDownloadSizeBytes"/> is its size.
+    /// </para>
+    /// <para>
+    /// Applies to the load that creates the model. <see cref="LocalTranscriber.Pool"/> keys models by id only, so a pooled
+    /// model loaded without it is returned as is — its pair still loads on the first diarized call.
+    /// </para>
+    /// <para>Default: false</para>
+    /// </summary>
+    public bool PreloadDiarization { get; set; }
+
+    /// <summary>
     /// Creates a copy of these options.
     /// </summary>
     public TranscriberOptions Clone() => new()
@@ -34,6 +53,7 @@ public sealed class TranscriberOptions : LMSupplyOptionsBase
         Provider = Provider,
         LogLevel = LogLevel,
         DisableAutoDownload = DisableAutoDownload,
+        PreloadDiarization = PreloadDiarization,
         ThreadCount = ThreadCount,
         QuantizationHint = QuantizationHint
     };
@@ -160,7 +180,9 @@ public sealed class TranscribeOptions
     /// speaker whose turns overlap it most (the nearest turn when none does); Whisper decodes with timestamp tokens
     /// so segments follow speech rather than 30-second windows. At most two speakers are detected at the same
     /// instant, and a segment spanning a speaker change takes the one who talks longer in it. Needs the whole
-    /// recording, so the streaming call rejects it.
+    /// recording, so the streaming call rejects it. To fetch the pair ahead (an install or consent step), load with
+    /// <see cref="TranscriberOptions.PreloadDiarization"/>; <see cref="LocalTranscriber.IsDiarizationDownloadedAsync"/>
+    /// tells whether it is cached.
     /// <para>Default: false</para>
     /// </summary>
     public bool Diarize { get; set; }

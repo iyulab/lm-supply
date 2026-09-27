@@ -15,7 +15,7 @@ namespace LMSupply.Transcriber.Core;
 /// <summary>
 /// ONNX-based implementation of Whisper transcription model.
 /// </summary>
-internal sealed class OnnxTranscriberModel : ITranscriberModel
+internal sealed class OnnxTranscriberModel : ITranscriberModel, Diarization.IDiarizationPreload
 {
     private readonly TranscriberOptions _options;
     private readonly SemaphoreSlim _lock = new(1, 1);
@@ -58,11 +58,19 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
     /// <inheritdoc />
     public long? EstimatedMemoryBytes => _modelInfo?.SizeBytes * 2;
 
-    public OnnxTranscriberModel(TranscriberOptions options)
+    // Reported by the download the first initialization makes (LocalTranscriber.LoadAsync warms up at once).
+    private readonly IProgress<DownloadProgress>? _downloadProgress;
+
+    public OnnxTranscriberModel(TranscriberOptions options, IProgress<DownloadProgress>? downloadProgress = null)
     {
         _options = options.Clone();
+        _downloadProgress = downloadProgress;
         _diarization = new Diarization.DiarizationStage(_options);
     }
+
+    Task Diarization.IDiarizationPreload.PreloadDiarizationAsync(
+        IProgress<DownloadProgress>? progress, CancellationToken cancellationToken)
+        => _diarization.EnsureLoadedAsync(progress, cancellationToken);
 
     public async Task WarmupAsync(CancellationToken cancellationToken = default)
     {
@@ -564,6 +572,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         var (modelPath, discovery) = await downloader.DownloadWithDiscoveryAsync(
             _modelInfo.Id,
             preferences: preferences,
+            progress: _downloadProgress,
             cancellationToken: cancellationToken);
 
         return (modelPath, discovery);

@@ -1,3 +1,4 @@
+using LMSupply.Exceptions;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
@@ -38,18 +39,48 @@ internal sealed class SpeakerDiarizer : IAsyncDisposable
     private readonly InferenceSession _embedding;
     private readonly KaldiFbank _fbank = new();
 
+    /// <summary>
+    /// True when both files would be opened from the cache without a request — the downloader's own rule in local-only
+    /// mode (present, not an LFS pointer, and the length its manifest recorded). Never touches the network.
+    /// </summary>
+    public static async Task<bool> IsCachedAsync(string cacheDirectory, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await FetchAsync(cacheDirectory, localFilesOnly: true, progress: null, cancellationToken);
+            return true;
+        }
+        catch (ModelNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<(string Segmentation, string Embedding)> FetchAsync(
+        string cacheDirectory, bool localFilesOnly, IProgress<DownloadProgress>? progress, CancellationToken cancellationToken)
+    {
+        using var downloader = new HuggingFaceDownloader(cacheDirectory, localFilesOnly: localFilesOnly);
+        var segDir = await downloader.DownloadModelAsync(
+            SegmentationRepo, [SegmentationFile], progress: progress, cancellationToken: cancellationToken);
+        var embDir = await downloader.DownloadModelAsync(
+            EmbeddingRepo, [EmbeddingFile], progress: progress, cancellationToken: cancellationToken);
+        return (segDir, embDir);
+    }
+
     private SpeakerDiarizer(InferenceSession segmentation, InferenceSession embedding)
     {
         _segmentation = segmentation;
         _embedding = embedding;
     }
 
+    /// <summary>Bytes the pair takes on disk, as the repositories list them (2026-09-27).</summary>
+    internal const long DownloadSizeBytes = 5_992_913 + 26_530_550;
+
     public static async Task<SpeakerDiarizer> LoadAsync(
-        string cacheDirectory, bool localFilesOnly, ExecutionProvider provider, CancellationToken cancellationToken)
+        string cacheDirectory, bool localFilesOnly, ExecutionProvider provider,
+        IProgress<DownloadProgress>? progress, CancellationToken cancellationToken)
     {
-        using var downloader = new HuggingFaceDownloader(cacheDirectory, localFilesOnly: localFilesOnly);
-        var segDir = await downloader.DownloadModelAsync(SegmentationRepo, [SegmentationFile], cancellationToken: cancellationToken);
-        var embDir = await downloader.DownloadModelAsync(EmbeddingRepo, [EmbeddingFile], cancellationToken: cancellationToken);
+        var (segDir, embDir) = await FetchAsync(cacheDirectory, localFilesOnly, progress, cancellationToken);
 
         var segmentation = await OnnxSessionFactory.CreateAsync(Path.Combine(segDir, SegmentationFile), provider, cancellationToken: cancellationToken);
         try
