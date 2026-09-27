@@ -32,7 +32,6 @@ Console.WriteLine($"{result.SourceLanguage} → {result.TargetLanguage}");
 |-------|-----------|-------|------|-------------|
 | `default` | Ko → En | OPUS-MT | 35.5 | Default |
 | `ko-en` | Ko → En | OPUS-MT | 35.5 | Korean to English |
-| `en-ko` | En → Ko | OPUS-MT | 28.0 | English to Korean |
 | `ja-en` | Ja → En | OPUS-MT | 32.0 | Japanese to English |
 | `zh-en` | Zh → En | OPUS-MT | 30.5 | Chinese to English |
 

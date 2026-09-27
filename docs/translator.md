@@ -41,7 +41,6 @@ Console.WriteLine($"Source: {result.SourceLanguage} → Target: {result.TargetLa
 |-------|-----------|-------|------|------|-------------|
 | `default` | Ko → En | OPUS-MT | ~300MB | 35.5 | Korean to English (default) |
 | `ko-en` | Ko → En | OPUS-MT | ~300MB | 35.5 | Korean to English |
-| `en-ko` | En → Ko | OPUS-MT | ~300MB | 28.0 | English to Korean |
 | `ja-en` | Ja → En | OPUS-MT | ~300MB | 32.0 | Japanese to English |
 | `zh-en` | Zh → En | OPUS-MT | ~300MB | 30.5 | Chinese to English |
 
@@ -130,7 +129,7 @@ if (result.InferenceTimeMs.HasValue)
 // Get all available model aliases
 var models = LocalTranslator.GetAvailableModels();
 Console.WriteLine(string.Join(", ", models));
-// Output: default, ko-en, en-ko, ja-en, zh-en
+// Output: default, ko-en, ja-en, zh-en
 
 // Get detailed model information
 var allModels = LocalTranslator.GetAllModels();
@@ -145,15 +144,19 @@ foreach (var model in allModels)
 ```csharp
 // Load translators for different directions
 await using var koToEn = await LocalTranslator.LoadAsync("ko-en");
-await using var enToKo = await LocalTranslator.LoadAsync("en-ko");
+await using var jaToEn = await LocalTranslator.LoadAsync("ja-en");
 
 // Korean to English
 var english = await koToEn.TranslateAsync("안녕하세요");
 Console.WriteLine(english.TranslatedText); // "Hello"
 
-// English to Korean
-var korean = await enToKo.TranslateAsync("Hello");
-Console.WriteLine(korean.TranslatedText); // "안녕하세요"
+// Japanese to English
+var fromJapanese = await jaToEn.TranslateAsync("こんにちは");
+Console.WriteLine(fromJapanese.TranslatedText); // "Hello"
+```
+
+There is no English → Korean alias: no ONNX export of an OPUS-MT English-Korean model is published under
+`onnx-community` or `Xenova`. Load one you export yourself by path or repository id
 ```
 
 ## GPU Acceleration

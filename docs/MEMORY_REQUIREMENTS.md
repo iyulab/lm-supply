@@ -189,7 +189,6 @@ Piper TTS models are lightweight:
 
 | Model | Size | Est. Memory | Direction |
 |-------|------|-------------|-----------|
-| opus-mt-en-ko | ~300MB | ~600MB | EN→KO |
 | opus-mt-ko-en | ~300MB | ~600MB | KO→EN |
 | opus-mt-en-zh | ~300MB | ~600MB | EN→ZH |
 | opus-mt-zh-en | ~300MB | ~600MB | ZH→EN |

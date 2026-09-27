@@ -9,7 +9,7 @@ public sealed class TranslatorOptions : LMSupplyOptionsBase
     /// Gets or sets the model identifier.
     /// <para>Supports:</para>
     /// <list type="bullet">
-    /// <item>Preset aliases: "default", "ko-en", "en-ko", "fast"</item>
+    /// <item>Preset aliases: "default", "ko-en", "ja-en", "zh-en"</item>
     /// <item>HuggingFace model IDs: "Helsinki-NLP/opus-mt-ko-en"</item>
     /// <item>Local file paths: "/path/to/model.onnx"</item>
     /// </list>

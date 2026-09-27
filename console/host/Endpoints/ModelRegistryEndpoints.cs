@@ -188,11 +188,14 @@ public static class ModelRegistryEndpoints
         Type = "translator",
         DisplayName = "Translator",
         Description = "Neural machine translation models",
-        Models =
-        [
-            new ModelAliasInfo { AliasName = "default", RepoId = "facebook/nllb-200-distilled-600M", Description = "NLLB 200 (200+ languages)", IsCached = cachedRepoIds.Contains("facebook/nllb-200-distilled-600M") },
-            new ModelAliasInfo { AliasName = "fast", RepoId = "Helsinki-NLP/opus-mt-en-ko", Description = "OPUS MT (language pairs)", IsCached = cachedRepoIds.Contains("Helsinki-NLP/opus-mt-en-ko") },
-        ]
+        // From the registry, so the listing names what LocalTranslator actually loads.
+        Models = [.. LMSupply.Translator.LocalTranslator.GetAllModels().Select(m => new ModelAliasInfo
+        {
+            AliasName = m.AliasName,
+            RepoId = m.Id,
+            Description = $"{m.DisplayName} ({m.SourceLanguage} -> {m.TargetLanguage})",
+            IsCached = cachedRepoIds.Contains(m.Id)
+        })]
     };
 
     private static ModelTypeInfo CreateCaptionerModels(HashSet<string> cachedRepoIds) => new()

@@ -40,7 +40,7 @@ public sealed record DeepLTranslation
 public sealed record TranslateRequest
 {
     /// <summary>
-    /// Model ID (e.g., "en-ko", "ko-en", or HuggingFace repo ID)
+    /// Model ID (e.g., "ko-en", "ja-en", or HuggingFace repo ID)
     /// </summary>
     public string Model { get; init; } = "default";
 

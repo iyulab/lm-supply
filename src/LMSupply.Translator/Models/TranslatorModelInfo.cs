@@ -44,7 +44,10 @@ public sealed class TranslatorModelInfo : IModelInfoBase, IModelMemoryInfo
     public float ParametersM { get; init; }
 
     /// <summary>
-    /// Gets or sets the approximate model size in bytes.
+    /// Gets or sets the size in bytes of the model's full-precision export (encoder + merged decoder) — the figure memory
+    /// estimates are based on. It is not what a load downloads: with auto-discovery the load takes the quantization
+    /// <see cref="LMSupplyOptionsBase.QuantizationHint"/> or the hardware tier picks (fp16 or int8 where the repository
+    /// publishes them, often half of this or less).
     /// </summary>
     public long SizeBytes { get; init; }
 

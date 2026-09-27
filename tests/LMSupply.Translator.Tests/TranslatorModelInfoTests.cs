@@ -173,9 +173,10 @@ public class TranslatorModelInfoTests
         DefaultModels.All.Should().Contain(m => m.AliasName == "ko-en");
     }
 
+    // "en-ko" pointed at a repository that does not exist; no load of it could ever succeed.
     [Fact]
-    public void DefaultModels_All_ShouldContainEnKoModel()
+    public void DefaultModels_All_HasNoEnKoAlias()
     {
-        DefaultModels.All.Should().Contain(m => m.AliasName == "en-ko");
+        DefaultModels.All.Should().NotContain(m => m.AliasName == "en-ko");
     }
 }

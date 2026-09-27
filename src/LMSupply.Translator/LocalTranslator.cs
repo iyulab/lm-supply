@@ -24,7 +24,7 @@ public static class LocalTranslator
     /// Loads a translation model by name or path.
     /// </summary>
     /// <param name="modelIdOrPath">
-    /// Either a model alias (e.g., "default", "ko-en", "en-ko"),
+    /// Either a model alias (e.g., "default", "ko-en", "ja-en"),
     /// a HuggingFace model ID (e.g., "Helsinki-NLP/opus-mt-ko-en"),
     /// or a local path to ONNX model files.
     /// </param>

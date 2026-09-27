@@ -75,7 +75,7 @@ public class DownloadStartTests
     [Theory]
     [InlineData("default")]
     [InlineData("ko-en")]
-    [InlineData("en-ko")]
+    [InlineData("ja-en")]
     public async Task Translator_DownloadStarts_ForAlias(string alias)
     {
         await VerifyDownloadStartsAsync(

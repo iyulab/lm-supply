@@ -6,7 +6,7 @@ namespace LMSupply.Console.Host.Models.Requests;
 public sealed record TranslateRequest
 {
     /// <summary>
-    /// 모델 ID (예: "default", "ko-en", "en-ko")
+    /// 모델 ID (예: "default", "ko-en", "ja-en")
     /// </summary>
     public string ModelId { get; init; } = "default";
 

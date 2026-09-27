@@ -417,7 +417,7 @@ public class InfrastructureFunctionalTests
     [InlineData("Captioner")]
     public void CONSISTENCY_StandardDomains_GetAvailableModels_ContainsFast(string domain)
     {
-        // Note: Translator uses language-pair aliases (ko-en, en-ko), not "fast"
+        // Note: Translator uses language-pair aliases (ko-en, ja-en), not "fast"
         var models = domain switch
         {
             "Embedder" => LocalEmbedder.GetAvailableModels().ToList(),

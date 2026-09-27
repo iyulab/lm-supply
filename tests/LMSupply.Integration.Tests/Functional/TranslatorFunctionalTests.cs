@@ -7,7 +7,7 @@ namespace LMSupply.Integration.Tests.Functional;
 /// <summary>
 /// Comprehensive functional tests for the Translator domain.
 /// Tests L (loading), I (inference), Q (quality), E (edge cases) axes.
-/// Uses OPUS-MT models for ko-en / en-ko translation.
+/// Uses OPUS-MT models for ko-en / ja-en translation.
 /// Requires GPU + network access. Run locally only.
 /// </summary>
 [Trait("Category", "Functional")]
@@ -223,12 +223,12 @@ public class TranslatorFunctionalTests
 
     [Fact]
     [Trait("Axis", "Loading")]
-    public async Task L_EnKoAlias_LoadsSuccessfully()
+    public async Task L_JaEnAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalTranslator.LoadAsync("en-ko", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranslator.LoadAsync("ja-en", cancellationToken: TestContext.Current.CancellationToken);
 
-        model.SourceLanguage.Should().Be("en");
-        model.TargetLanguage.Should().Be("ko");
+        model.SourceLanguage.Should().Be("ja");
+        model.TargetLanguage.Should().Be("en");
     }
 
     [Fact]
@@ -249,33 +249,6 @@ public class TranslatorFunctionalTests
 
         model.ActiveProviders.Should().NotBeNull();
         model.RequestedProvider.Should().BeDefined();
-    }
-
-    [Fact]
-    [Trait("Axis", "Inference")]
-    public async Task I_EnglishToKorean_BasicTranslation()
-    {
-        await using var model = await LocalTranslator.LoadAsync("en-ko", cancellationToken: TestContext.Current.CancellationToken);
-
-        var result = await model.TranslateAsync("Hello, nice to meet you.", TestContext.Current.CancellationToken);
-
-        result.TranslatedText.Should().NotBeNullOrEmpty();
-    }
-
-    [Fact]
-    [Trait("Axis", "Quality")]
-    public async Task Q_RoundTrip_PreservesSemanticMeaning()
-    {
-        await using var koEn = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
-        await using var enKo = await LocalTranslator.LoadAsync("en-ko", cancellationToken: TestContext.Current.CancellationToken);
-
-        var original = "오늘 날씨가 좋습니다.";
-        var english = await koEn.TranslateAsync(original, TestContext.Current.CancellationToken);
-        var backToKorean = await enKo.TranslateAsync(english.TranslatedText, TestContext.Current.CancellationToken);
-
-        // Round-trip may not be identical but should produce non-empty result
-        backToKorean.TranslatedText.Should().NotBeNullOrEmpty(
-            "round-trip translation should produce text");
     }
 
     // ── Static Tests: Model Registry Validation (no model loading) ─
@@ -314,7 +287,7 @@ public class TranslatorFunctionalTests
         var models = LocalTranslator.GetAllModels().ToList();
 
         models.Count.Should().BeGreaterThanOrEqualTo(2,
-            "registry should have at least 2 translation models (ko-en, en-ko)");
+            "registry should have at least 2 translation models (ko-en, ja-en)");
     }
 
     [Fact]
@@ -351,12 +324,12 @@ public class TranslatorFunctionalTests
 
     [Fact]
     [Trait("Axis", "Loading")]
-    public void L_GetAvailableModels_ContainsBothKoEnDirections()
+    public void L_GetAvailableModels_ContainsTheIntoEnglishPairs()
     {
         var models = LocalTranslator.GetAvailableModels().ToList();
 
-        models.Should().Contain("ko-en", "should have Korean→English");
-        models.Should().Contain("en-ko", "should have English→Korean");
+        models.Should().Contain(["ko-en", "ja-en", "zh-en"]);
+        models.Should().NotContain("en-ko", "no English→Korean ONNX export is published");
     }
 
     [Fact]
@@ -460,7 +433,7 @@ public class TranslatorFunctionalTests
         clone.RepetitionPenalty.Should().Be(1.2f);
 
         // Verify independence
-        clone.ModelId = "en-ko";
+        clone.ModelId = "ja-en";
         clone.MaxLength = 1024;
         original.ModelId.Should().Be("ko-en", "original should not be affected by clone mutation");
         original.MaxLength.Should().Be(256, "original should not be affected by clone mutation");

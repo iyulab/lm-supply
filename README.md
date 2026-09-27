@@ -371,7 +371,6 @@ Gemma 4와 Qwen3 시리즈 중심 레지스트리. `gguf:auto`(와 `"default"`/`
 | Alias | Direction | Model | Best For |
 |-------|-----------|-------|----------|
 | `ko-en` | Korean → English | OPUS-MT | Korean translation |
-| `en-ko` | English → Korean | OPUS-MT | Korean translation |
 | `ja-en` | Japanese → English | OPUS-MT | Japanese translation |
 | `zh-en` | Chinese → English | OPUS-MT | Chinese translation |
 | `multilingual` | Many → English | mBART/M2M100 | 100+ languages |

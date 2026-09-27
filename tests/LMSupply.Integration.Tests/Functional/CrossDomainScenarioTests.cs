@@ -252,29 +252,28 @@ public class CrossDomainScenarioTests
         // Pipeline completes — caption→generate→re-caption works end-to-end
     }
 
-    // ── Scenario: Transcribe → Translate ─────────────────────────────
+    // ── Scenario: Translate → Synthesize → Transcribe ────────────────
+    // The translator runs into English only (no English→Korean ONNX export is published), so the pipeline starts with it.
 
     [Fact]
-    [Trait("Scenario", "Transcribe-Translate")]
-    public async Task Scenario_TranscribeToTranslate_PipelineCompletes()
+    [Trait("Scenario", "Translate-Synthesize-Transcribe")]
+    public async Task Scenario_TranslateSynthesizeTranscribe_PipelineCompletes()
     {
-        // 1. Synthesize some speech first (so we have audio to transcribe)
+        // 1. Translate Korean into English
+        await using var translator = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
+        var translation = await translator.TranslateAsync("오늘 날씨가 좋습니다.", TestContext.Current.CancellationToken);
+        translation.TranslatedText.Should().NotBeNullOrEmpty("the translator should produce English text");
+
+        // 2. Speak the translation
         await using var synthesizer = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
-        var synthesis = await synthesizer.SynthesizeAsync("Hello, how are you today?", cancellationToken: TestContext.Current.CancellationToken);
-        var wavBytes = synthesis.ToWavBytes();
+        var synthesis = await synthesizer.SynthesizeAsync(translation.TranslatedText, cancellationToken: TestContext.Current.CancellationToken);
 
-        // 2. Transcribe the speech to text
+        // 3. Transcribe the speech back to text
         await using var transcriber = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
-        var transcription = await transcriber.TranscribeAsync(wavBytes, cancellationToken: TestContext.Current.CancellationToken);
+        var transcription = await transcriber.TranscribeAsync(synthesis.ToWavBytes(), cancellationToken: TestContext.Current.CancellationToken);
 
-        transcription.Text.Should().NotBeNullOrEmpty("transcription should produce text");
-
-        // 3. Translate the transcription to Korean
-        await using var translator = await LocalTranslator.LoadAsync("en-ko", cancellationToken: TestContext.Current.CancellationToken);
-        var translation = await translator.TranslateAsync(transcription.Text, TestContext.Current.CancellationToken);
-
-        translation.TranslatedText.Should().NotBeNullOrEmpty(
-            "Synthesize → Transcribe → Translate pipeline should produce translated text");
+        transcription.Text.Should().NotBeNullOrEmpty(
+            "Translate → Synthesize → Transcribe pipeline should produce text");
     }
 
     // ── Scenario: Generate → Embed → similarity check ────────────────

@@ -13,7 +13,7 @@ public class LocalTranslatorTests
         models.Should().NotBeEmpty();
         models.Should().Contain("default");
         models.Should().Contain("ko-en");
-        models.Should().Contain("en-ko");
+        models.Should().Contain("ja-en");
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public class LocalTranslatorTests
         var zhEnModels = models.Where(m => m.SourceLanguage == "zh" && m.TargetLanguage == "en");
 
         koEnModels.Should().NotBeEmpty();
-        enKoModels.Should().NotBeEmpty();
+        enKoModels.Should().BeEmpty("no English-to-Korean ONNX export is published");
         jaEnModels.Should().NotBeEmpty();
         zhEnModels.Should().NotBeEmpty();
     }
@@ -60,7 +60,6 @@ public class LocalTranslatorTests
 
     [Theory]
     [InlineData("ko-en", "ko", "en")]
-    [InlineData("en-ko", "en", "ko")]
     [InlineData("ja-en", "ja", "en")]
     [InlineData("zh-en", "zh", "en")]
     public void ResolveAlias_ShouldMatchExpectedLanguagePairs(

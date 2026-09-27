@@ -20,7 +20,7 @@ public static class DefaultModels
         SourceLanguage = "ko",
         TargetLanguage = "en",
         ParametersM = 74f,
-        SizeBytes = 300_000_000,
+        SizeBytes = 445_854_852,
         BleuScore = 35.5f,
         MaxLength = 512,
         VocabSize = 65000,
@@ -42,36 +42,13 @@ public static class DefaultModels
         SourceLanguage = "ko",
         TargetLanguage = "en",
         ParametersM = 74f,
-        SizeBytes = 300_000_000,
+        SizeBytes = 445_854_852,
         BleuScore = 35.5f,
         MaxLength = 512,
         VocabSize = 65000,
         // UseAutoDiscovery = true (default), encoder/decoder files auto-discovered
         TokenizerFile = "source.spm",
         Description = "Korean to English translation using OPUS-MT.",
-        License = "Apache-2.0"
-    };
-
-    /// <summary>
-    /// OPUS-MT English to Korean.
-    /// Apache 2.0 license.
-    /// </summary>
-    public static TranslatorModelInfo OpusMtEnKo { get; } = new()
-    {
-        Id = "onnx-community/opus-mt-en-ko",
-        AliasName = "en-ko",
-        DisplayName = "OPUS-MT En-Ko",
-        Architecture = "MarianMT",
-        SourceLanguage = "en",
-        TargetLanguage = "ko",
-        ParametersM = 74f,
-        SizeBytes = 300_000_000,
-        BleuScore = 28.0f,
-        MaxLength = 512,
-        VocabSize = 65000,
-        // UseAutoDiscovery = true (default), encoder/decoder files auto-discovered
-        TokenizerFile = "source.spm",
-        Description = "English to Korean translation using OPUS-MT.",
         License = "Apache-2.0"
     };
 
@@ -88,7 +65,7 @@ public static class DefaultModels
         SourceLanguage = "ja",
         TargetLanguage = "en",
         ParametersM = 74f,
-        SizeBytes = 300_000_000,
+        SizeBytes = 428_286_352,
         BleuScore = 32.0f,
         MaxLength = 512,
         VocabSize = 65000,
@@ -111,7 +88,7 @@ public static class DefaultModels
         SourceLanguage = "zh",
         TargetLanguage = "en",
         ParametersM = 74f,
-        SizeBytes = 300_000_000,
+        SizeBytes = 445_854_852,
         BleuScore = 30.5f,
         MaxLength = 512,
         VocabSize = 65000,
@@ -128,7 +105,6 @@ public static class DefaultModels
     [
         OpusMtKoEn,
         OpusMtKoEnAlias,
-        OpusMtEnKo,
         OpusMtJaEn,
         OpusMtZhEn
     ];

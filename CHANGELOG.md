@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.87.0] - Unreleased
+
+### Removed
+- **Breaking: the Translator alias `en-ko` and `DefaultModels.OpusMtEnKo`.** They pointed at `onnx-community/opus-mt-en-ko`,
+  a repository that does not exist, so every load of the alias failed. No ONNX export of an OPUS-MT English-to-Korean model
+  is published under `onnx-community` or `Xenova`. Migration: load a model you exported yourself by path or repository id.
+
+### Fixed
+- **Translator `SizeBytes` states the full-precision size.** Every alias said 300 MB, which matched no file set in the
+  repositories. It now gives the full-precision encoder + merged decoder: 445.9 MB for `ko-en` and `zh-en`, 428.3 MB
+  for `ja-en`. The doc says a load downloads the quantization the hint or hardware tier picks, often half of this or
+  less. Memory estimates read this figure, so they are larger than before.
+- The console host's model listing for the translator came from a hand-written list. That list named two repositories
+  the library never loads (`facebook/nllb-200-distilled-600M` as `default`, and the missing `opus-mt-en-ko`). It now
+  comes from the registry.
+
+### Changed
+- `GgufModelInfo.EstimatedSizeBytes` documents that it is the registry file's size. A load may download a smaller
+  quantization when that file does not fit the memory budget.
+
 ## [0.86.0] - 2026-09-27
 
 ### Added

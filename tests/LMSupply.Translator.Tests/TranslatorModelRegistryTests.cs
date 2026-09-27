@@ -24,7 +24,7 @@ public class TranslatorModelRegistryTests
 
         aliasNames.Should().Contain("default");
         aliasNames.Should().Contain("ko-en");
-        aliasNames.Should().Contain("en-ko");
+        aliasNames.Should().Contain("ja-en");
         aliasNames.Should().Contain("ja-en");
         aliasNames.Should().Contain("zh-en");
     }
@@ -32,7 +32,6 @@ public class TranslatorModelRegistryTests
     [Theory]
     [InlineData("default")]
     [InlineData("ko-en")]
-    [InlineData("en-ko")]
     [InlineData("ja-en")]
     [InlineData("zh-en")]
     public void Resolve_WithValidAlias_ShouldReturnModelInfo(string alias)

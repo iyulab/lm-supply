@@ -71,7 +71,9 @@ public sealed record GgufModelInfo : IModelInfoBase, IModelMemoryInfo
     public string? Subfolder { get; init; }
 
     /// <summary>
-    /// Estimated model file size in bytes for VRAM budget calculations.
+    /// Size in bytes of the registry's file (the quantization <see cref="QuantizationType"/> names), for VRAM budget
+    /// calculations. Not always the download: when that file does not fit the machine's memory budget, the downloader takes
+    /// a smaller quantization of the same model.
     /// </summary>
     public long? EstimatedSizeBytes { get; init; }
 
