@@ -327,7 +327,9 @@ public class CrossDomainScenarioTests
         var transcribedEmb = await embedder.EmbedAsync(transcription.Text, TestContext.Current.CancellationToken);
         var unrelatedEmb = await embedder.EmbedAsync("Database query optimization techniques", TestContext.Current.CancellationToken);
 
-        // 4. TTS→STT output should be semantically closer to original than to unrelated text
+        // 4. TTS→STT output should be semantically closer to original than to unrelated text.
+        // Weak: this passes on unintelligible audio too (the synthesizer has no G2P yet). SynthesizerIntelligibilityFacts is the
+        // real check.
         var relevantSim = LocalEmbedder.CosineSimilarity(originalEmb, transcribedEmb);
         var unrelatedSim = LocalEmbedder.CosineSimilarity(originalEmb, unrelatedEmb);
 

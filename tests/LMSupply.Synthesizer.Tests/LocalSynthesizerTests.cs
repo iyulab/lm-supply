@@ -43,7 +43,7 @@ public class LocalSynthesizerTests
 
         // Assert
         models.Should().Contain("korean");
-        models.Should().Contain("japanese");
+        models.Should().NotContain("japanese", "its voice file was never published");
         models.Should().Contain("chinese");
         models.Should().Contain("british");
     }

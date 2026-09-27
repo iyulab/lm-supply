@@ -24,7 +24,6 @@ public class SynthesizerModelRegistryTests
     [InlineData("quality")]
     [InlineData("british")]
     [InlineData("korean")]
-    [InlineData("japanese")]
     [InlineData("chinese")]
     public void TryResolve_ReturnsModelByAlias(string alias)
     {
@@ -93,7 +92,7 @@ public class SynthesizerModelRegistryTests
         aliasNames.Should().Contain("quality");
         aliasNames.Should().Contain("british");
         aliasNames.Should().Contain("korean");
-        aliasNames.Should().Contain("japanese");
+        aliasNames.Should().NotContain("japanese");
         aliasNames.Should().Contain("chinese");
     }
 
@@ -221,14 +220,6 @@ public class DefaultModelsTests
     }
 
     [Fact]
-    public void JaJp_IsJapaneseModel()
-    {
-        // Assert
-        DefaultModels.JaJp.AliasName.Should().Be("japanese");
-        DefaultModels.JaJp.Language.Should().Be("ja-JP");
-    }
-
-    [Fact]
     public void ZhCn_IsChineseModel()
     {
         // Assert
@@ -240,14 +231,13 @@ public class DefaultModelsTests
     public void All_ContainsAllDefaultModels()
     {
         // Assert
-        DefaultModels.All.Should().HaveCount(8);
+        DefaultModels.All.Should().HaveCount(7);
         DefaultModels.All.Should().Contain(DefaultModels.EnUsLjSpeech);
         DefaultModels.All.Should().Contain(DefaultModels.EnUsLessac);
         DefaultModels.All.Should().Contain(DefaultModels.EnUsRyan);
         DefaultModels.All.Should().Contain(DefaultModels.EnUsAmy);
         DefaultModels.All.Should().Contain(DefaultModels.EnGbSemaine);
         DefaultModels.All.Should().Contain(DefaultModels.KoKr);
-        DefaultModels.All.Should().Contain(DefaultModels.JaJp);
         DefaultModels.All.Should().Contain(DefaultModels.ZhCn);
     }
 

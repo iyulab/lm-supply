@@ -6,6 +6,11 @@ namespace LMSupply.Synthesizer;
 /// <summary>
 /// Main entry point for loading and using text-to-speech synthesis models.
 /// </summary>
+/// <remarks>
+/// Known issue: there is no text-to-phoneme (G2P) step yet. Text is mapped letter by letter to fixed ids, not to the phoneme
+/// ids the Piper voices expect, so the output is voice-like noise rather than intelligible speech, and non-Latin text is
+/// near-silent. See the package README.
+/// </remarks>
 public static class LocalSynthesizer
 {
     /// <summary>

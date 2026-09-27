@@ -12,9 +12,18 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `british` (Semaine) and `korean` (KSS) are CC BY-NC-SA 4.0, which is non-commercial. `quality` (Amy) is unspecified,
   and `chinese` (Huayan) is unknown. Check a voice's license before shipping it.
 - **The `korean` voice named a build that was never published** (`ko_KR-kss-x_low`), so every load failed. It now loads
-  `ko_KR-kss-medium` (63 MB, 22,050 Hz).
+  `ko_KR-kss-medium` (63 MB, 22,050 Hz). Loading is fixed, but Korean text still produces near-silence: see the known issue below.
 - A repository the Hub will not list (401) is reported as possibly nonexistent. Before, the message said only "private
   repository, set HF_TOKEN", but the Hub also answers 401 for a repository that does not exist.
+
+### Removed
+- **Breaking: the Synthesizer alias `japanese` and `DefaultModels.JaJp`.** The voice it named (`ja_JP-jsut-medium`) was
+  never published, so every load failed. Piper's only Japanese voice needs a Japanese phonemizer, which this package does
+  not have (see the known issue).
+
+### Known issue
+- **Known issue — the output is not yet intelligible speech.** The synthesizer has no text-to-phoneme step: it maps letters to fixed ids instead of the phoneme ids the Piper voices were trained on, so what comes out is voice-like noise (a Whisper transcript of "The weather is beautiful today." read back "tube of warrior practitioner"), and text in non-Latin scripts comes out as near-silence. This has been the case since the Synthesizer was added. Loading, voices, WAV output and streaming work; the
+  text-to-phoneme step is missing.
 
 ### Changed
 - **Breaking: the default voice is LJSpeech** (`en_US-ljspeech-medium`, public domain). Before, it was Lessac, whose license

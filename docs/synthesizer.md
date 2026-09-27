@@ -2,6 +2,8 @@
 
 Text-to-speech synthesis using VITS/Piper models with ONNX Runtime.
 
+> **Known issue — the output is not yet intelligible speech.** The synthesizer has no text-to-phoneme step: it maps letters to fixed ids instead of the phoneme ids the Piper voices were trained on, so what comes out is voice-like noise (a Whisper transcript of "The weather is beautiful today." read back "tube of warrior practitioner"), and text in non-Latin scripts comes out as near-silence. Everything around it (loading, voices, WAV output, streaming) works; the text-to-phoneme step is missing.
+
 ## Quick Start
 
 ```csharp
@@ -44,7 +46,6 @@ dotnet add package LMSupply.Synthesizer
 | `quality` | Amy | en-US | 22050 Hz | ~64MB | High-quality US English female |
 | `british` | Semaine | en-GB | 22050 Hz | ~64MB | British English female |
 | `korean` | KSS (medium) | ko-KR | 22050 Hz | ~63MB | Korean female |
-| `japanese` | JSUT | ja-JP | 22050 Hz | ~64MB | Japanese female |
 | `chinese` | Huayan | zh-CN | 22050 Hz | ~64MB | Mandarin Chinese female |
 
 ## API Usage
@@ -286,7 +287,6 @@ before shipping a voice:
 | `quality` | Unspecified |
 | `british` | CC BY-NC-SA 4.0 |
 | `korean` | CC BY-NC-SA 4.0 |
-| `japanese` | Unknown |
 | `chinese` | Unknown |
 
 Until 0.88.0 every voice was labelled MIT, which was the engine's license, not the voice's.

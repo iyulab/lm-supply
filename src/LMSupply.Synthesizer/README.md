@@ -2,6 +2,8 @@
 
 Local text-to-speech synthesis using VITS/Piper models.
 
+> **Known issue — the output is not yet intelligible speech.** The synthesizer has no text-to-phoneme step: it maps letters to fixed ids instead of the phoneme ids the Piper voices were trained on, so what comes out is voice-like noise (a Whisper transcript of "The weather is beautiful today." read back "tube of warrior practitioner"), and text in non-Latin scripts comes out as near-silence.
+
 ## Features
 
 - **Zero-config**: Models download automatically from HuggingFace
@@ -37,7 +39,6 @@ await synthesizer.SynthesizeToFileAsync("Hello world!", "output.wav");
 | `quality` | Amy | en-US | High-quality female |
 | `british` | Semaine | en-GB | British female |
 | `korean` | KSS | ko-KR | Korean female |
-| `japanese` | JSUT | ja-JP | Japanese female |
 | `chinese` | Huayan | zh-CN | Mandarin female |
 
 ## GPU Acceleration

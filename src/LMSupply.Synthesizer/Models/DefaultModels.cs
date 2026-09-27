@@ -139,28 +139,6 @@ public static class DefaultModels
     };
 
     /// <summary>
-    /// Japanese (JSUT) - Japanese voice.
-    /// Voice license: dataset license not verified (the pinned voice does not exist), ~64MB.
-    /// Path in repo: ja/ja_JP/jsut/medium/
-    /// </summary>
-    public static SynthesizerModelInfo JaJp { get; } = new()
-    {
-        Id = "rhasspy/piper-voices",
-        AliasName = "japanese",
-        DisplayName = "Japanese",
-        Architecture = "VITS",
-        Language = "ja-JP",
-        VoiceName = "ja/ja_JP/jsut/medium",
-        NumSpeakers = 1,
-        SampleRate = 22050,
-        ModelFile = "ja_JP-jsut-medium.onnx",
-        ConfigFile = "ja_JP-jsut-medium.onnx.json",
-        SizeBytes = 64_000_000,
-        Description = "Japanese female voice.",
-        License = "Unknown"
-    };
-
-    /// <summary>
     /// Chinese (Mandarin) - Chinese voice.
     /// Voice license: unknown (its model card says so), ~64MB.
     /// Path in repo: zh/zh_CN/huayan/medium/
@@ -193,7 +171,6 @@ public static class DefaultModels
         EnUsAmy,
         EnGbSemaine,
         KoKr,
-        JaJp,
         ZhCn
     ];
 }

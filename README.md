@@ -245,6 +245,8 @@ await foreach (var segment in transcriber.TranscribeStreamingAsync("audio.wav"))
 
 ### Text-to-Speech (Synthesizer)
 
+> **Known issue — the output is not yet intelligible speech.** The synthesizer has no text-to-phoneme step: it maps letters to fixed ids instead of the phoneme ids the Piper voices were trained on, so what comes out is voice-like noise (a Whisper transcript of "The weather is beautiful today." read back "tube of warrior practitioner"), and text in non-Latin scripts comes out as near-silence. Loading, voice selection and the audio API work; the speech itself does not yet.
+
 ```csharp
 using LMSupply.Synthesizer;
 
@@ -395,7 +397,6 @@ Gemma 4와 Qwen3 시리즈 중심 레지스트리. `gguf:auto`(와 `"default"`/`
 | `quality` | Amy | en-US | 22050 Hz | Unspecified |
 | `british` | Semaine | en-GB | 22050 Hz | CC BY-NC-SA 4.0 |
 | `korean` | KSS | ko-KR | 22050 Hz | CC BY-NC-SA 4.0 |
-| `japanese` | JSUT | ja-JP | 22050 Hz | Unknown |
 | `chinese` | Huayan | zh-CN | 22050 Hz | Unknown |
 
 Piper's code is MIT; each voice carries the license of its recordings (`SynthesizerModelInfo.License`), and most are

@@ -4,8 +4,9 @@ using LMSupply.Synthesizer;
 namespace LMSupply.Integration.Tests.Functional;
 
 /// <summary>
-/// The voices the registry changed in 0.88.0 load and speak: the new default (LJ Speech) and the Korean voice, which used
-/// to name an x_low build that was never published.
+/// The voices the registry changed in 0.88.0 load and produce audio: the new default (LJ Speech) and the Korean voice, which
+/// used to name an x_low build that was never published. Loading only — whether the audio is speech is
+/// <see cref="SynthesizerIntelligibilityFacts"/>'s question.
 /// </summary>
 [Trait("Category", "Integration")]
 public sealed class SynthesizerVoiceRegistryFunctionalTests
