@@ -387,15 +387,19 @@ Gemma 4와 Qwen3 시리즈 중심 레지스트리. `gguf:auto`(와 `"default"`/`
 
 ### Synthesizer (Piper TTS)
 
-| Alias | Voice | Language | Sample Rate | Best For |
-|-------|-------|----------|-------------|----------|
-| `default` | Lessac | en-US | 22050 Hz | Balanced quality |
-| `fast` | Ryan | en-US | 16000 Hz | Ultra-fast synthesis |
-| `quality` | Amy | en-US | 22050 Hz | High quality |
-| `british` | Semaine | en-GB | 22050 Hz | British English |
-| `korean` | KSS | ko-KR | 22050 Hz | Korean |
-| `japanese` | JSUT | ja-JP | 22050 Hz | Japanese |
-| `chinese` | Huayan | zh-CN | 22050 Hz | Mandarin Chinese |
+| Alias | Voice | Language | Sample Rate | Voice license |
+|-------|-------|----------|-------------|---------------|
+| `default` | LJSpeech | en-US | 22050 Hz | Public domain |
+| `lessac` | Lessac | en-US | 22050 Hz | Blizzard 2013 research (non-commercial) |
+| `fast` | Ryan | en-US | 16000 Hz | CC BY-NC-SA 4.0 |
+| `quality` | Amy | en-US | 22050 Hz | Unspecified |
+| `british` | Semaine | en-GB | 22050 Hz | CC BY-NC-SA 4.0 |
+| `korean` | KSS | ko-KR | 22050 Hz | CC BY-NC-SA 4.0 |
+| `japanese` | JSUT | ja-JP | 22050 Hz | Unknown |
+| `chinese` | Huayan | zh-CN | 22050 Hz | Unknown |
+
+Piper's code is MIT; each voice carries the license of its recordings (`SynthesizerModelInfo.License`), and most are
+non-commercial. `default` is the one voice an application may ship without a license review.
 
 ---
 

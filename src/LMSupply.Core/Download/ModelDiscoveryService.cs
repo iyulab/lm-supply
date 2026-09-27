@@ -198,7 +198,9 @@ public sealed class ModelDiscoveryService : IDisposable
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
         {
             throw new UnauthorizedAccessException(
-                $"Access denied to repository '{repoId}'. Set HF_TOKEN environment variable for private repositories.",
+                // The Hub answers 401, not 404, to an anonymous request for a repository that does not exist.
+                $"Access denied to repository '{repoId}': it does not exist, or it is private or gated (the Hub answers both with 401). " +
+                "Check the repository id; for a private or gated repository set the HF_TOKEN environment variable.",
                 ex);
         }
     }

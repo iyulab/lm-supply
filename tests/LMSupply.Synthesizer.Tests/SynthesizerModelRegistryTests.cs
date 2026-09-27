@@ -161,13 +161,29 @@ public class SynthesizerModelRegistryTests
 
 public class DefaultModelsTests
 {
+    // The default is the one voice an application may ship without a license review: LJ Speech is public domain.
     [Fact]
-    public void EnUsLessac_IsDefaultModel()
+    public void EnUsLjSpeech_IsDefaultModel_AndPublicDomain()
     {
-        // Assert
-        DefaultModels.EnUsLessac.AliasName.Should().Be("default");
-        DefaultModels.EnUsLessac.Language.Should().Be("en-US");
+        DefaultModels.EnUsLjSpeech.AliasName.Should().Be("default");
+        DefaultModels.EnUsLjSpeech.Language.Should().Be("en-US");
+        DefaultModels.EnUsLjSpeech.VoiceName.Should().Be("en/en_US/ljspeech/medium");
+        DefaultModels.EnUsLjSpeech.License.Should().Be("Public-Domain");
+    }
+
+    [Fact]
+    public void EnUsLessac_KeepsItsVoiceUnderItsOwnAlias()
+    {
+        DefaultModels.EnUsLessac.AliasName.Should().Be("lessac");
         DefaultModels.EnUsLessac.VoiceName.Should().Be("en/en_US/lessac/medium");
+    }
+
+    // Piper's code is MIT; its voices are licensed by their recordings, and most are non-commercial. Every entry states the
+    // voice's own license from its model card — none may fall back to the engine's.
+    [Fact]
+    public void NoVoiceIsLabelledWithTheEnginesLicense()
+    {
+        DefaultModels.All.Should().NotContain(m => m.License == "MIT");
     }
 
     [Fact]
@@ -224,7 +240,8 @@ public class DefaultModelsTests
     public void All_ContainsAllDefaultModels()
     {
         // Assert
-        DefaultModels.All.Should().HaveCount(7);
+        DefaultModels.All.Should().HaveCount(8);
+        DefaultModels.All.Should().Contain(DefaultModels.EnUsLjSpeech);
         DefaultModels.All.Should().Contain(DefaultModels.EnUsLessac);
         DefaultModels.All.Should().Contain(DefaultModels.EnUsRyan);
         DefaultModels.All.Should().Contain(DefaultModels.EnUsAmy);

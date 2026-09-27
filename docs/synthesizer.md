@@ -7,7 +7,7 @@ Text-to-speech synthesis using VITS/Piper models with ONNX Runtime.
 ```csharp
 using LMSupply.Synthesizer;
 
-// Load the default model (English US Lessac)
+// Load the default model (English US LJSpeech, public domain)
 var synthesizer = await LocalSynthesizer.LoadAsync("default");
 
 // Synthesize speech from text
@@ -38,11 +38,12 @@ dotnet add package LMSupply.Synthesizer
 
 | Alias | Voice | Language | Sample Rate | Size | Description |
 |-------|-------|----------|-------------|------|-------------|
-| `default` | Lessac | en-US | 22050 Hz | ~64MB | High-quality US English female |
+| `default` | LJSpeech | en-US | 22050 Hz | ~64MB | US English female (public domain) |
+| `lessac` | Lessac | en-US | 22050 Hz | ~64MB | High-quality US English female |
 | `fast` | Ryan | en-US | 16000 Hz | ~16MB | Fast US English male |
 | `quality` | Amy | en-US | 22050 Hz | ~64MB | High-quality US English female |
 | `british` | Semaine | en-GB | 22050 Hz | ~64MB | British English female |
-| `korean` | KSS | ko-KR | 22050 Hz | ~64MB | Korean female |
+| `korean` | KSS (medium) | ko-KR | 22050 Hz | ~63MB | Korean female |
 | `japanese` | JSUT | ja-JP | 22050 Hz | ~64MB | Japanese female |
 | `chinese` | Huayan | zh-CN | 22050 Hz | ~64MB | Mandarin Chinese female |
 
@@ -274,4 +275,18 @@ public interface ISynthesizerModel : IDisposable, IAsyncDisposable
 
 ## License
 
-All default Piper voices are MIT licensed.
+Piper's code is MIT, but each voice is licensed by the recordings it was trained on — read `SynthesizerModelInfo.License`
+before shipping a voice:
+
+| Alias | Voice license (from the voice's model card) |
+|-------|---------------------------------------------|
+| `default` | Public domain (LJ Speech) |
+| `lessac` | Blizzard 2013 Lessac research license (non-commercial) |
+| `fast` | CC BY-NC-SA 4.0 |
+| `quality` | Unspecified |
+| `british` | CC BY-NC-SA 4.0 |
+| `korean` | CC BY-NC-SA 4.0 |
+| `japanese` | Unknown |
+| `chinese` | Unknown |
+
+Until 0.88.0 every voice was labelled MIT, which was the engine's license, not the voice's.

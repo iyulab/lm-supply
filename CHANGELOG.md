@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.88.0] - Unreleased
+
+### Fixed
+- **Every Synthesizer voice was labelled MIT, which is the Piper engine's license, not the voices'.** Each entry's `License`
+  now states its voice's license from the model card. `lessac` is the Blizzard 2013 research license. `fast` (Ryan),
+  `british` (Semaine) and `korean` (KSS) are CC BY-NC-SA 4.0, which is non-commercial. `quality` (Amy) is unspecified,
+  and `chinese` (Huayan) is unknown. Check a voice's license before shipping it.
+- **The `korean` voice named a build that was never published** (`ko_KR-kss-x_low`), so every load failed. It now loads
+  `ko_KR-kss-medium` (63 MB, 22,050 Hz).
+- A repository the Hub will not list (401) is reported as possibly nonexistent. Before, the message said only "private
+  repository, set HF_TOKEN", but the Hub also answers 401 for a repository that does not exist.
+
+### Changed
+- **Breaking: the default voice is LJSpeech** (`en_US-ljspeech-medium`, public domain). Before, it was Lessac, whose license
+  does not allow commercial use. Lessac stays available as the alias `lessac`.
+
 ## [0.87.0] - 2026-09-28
 
 ### Removed

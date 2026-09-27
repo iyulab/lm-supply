@@ -6,7 +6,7 @@ Local text-to-speech synthesis using VITS/Piper models.
 
 - **Zero-config**: Models download automatically from HuggingFace
 - **GPU Acceleration**: CUDA, DirectML (Windows), CoreML (macOS)
-- **MIT Licensed**: Piper VITS voices
+- **Licensing stated per voice**: Piper's code is MIT; each voice's own license is in `SynthesizerModelInfo.License` (the default voice is public domain)
 - **Multiple Languages**: English, Korean, Japanese, Chinese, and more
 
 ## Quick Start
@@ -31,7 +31,8 @@ await synthesizer.SynthesizeToFileAsync("Hello world!", "output.wav");
 
 | Alias | Voice | Language | Description |
 |-------|-------|----------|-------------|
-| `default` | Lessac | en-US | High-quality female |
+| `default` | LJSpeech | en-US | Female (public domain) |
+| `lessac` | Lessac | en-US | High-quality female |
 | `fast` | Ryan | en-US | Fast male voice |
 | `quality` | Amy | en-US | High-quality female |
 | `british` | Semaine | en-GB | British female |

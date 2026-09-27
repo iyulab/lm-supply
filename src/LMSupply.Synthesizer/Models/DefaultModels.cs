@@ -7,14 +7,36 @@ namespace LMSupply.Synthesizer.Models;
 public static class DefaultModels
 {
     /// <summary>
-    /// English US (Lessac) - High quality, default voice.
-    /// MIT license, ~64MB.
+    /// English US (LJSpeech) - the default voice: the only one here whose recordings are public domain, so an application
+    /// may ship it without a license review. ~64MB.
+    /// Path in repo: en/en_US/ljspeech/medium/
+    /// </summary>
+    public static SynthesizerModelInfo EnUsLjSpeech { get; } = new()
+    {
+        Id = "rhasspy/piper-voices",
+        AliasName = "default",
+        DisplayName = "English US (LJSpeech)",
+        Architecture = "VITS",
+        Language = "en-US",
+        VoiceName = "en/en_US/ljspeech/medium",
+        NumSpeakers = 1,
+        SampleRate = 22050,
+        ModelFile = "en_US-ljspeech-medium.onnx",
+        ConfigFile = "en_US-ljspeech-medium.onnx.json",
+        SizeBytes = 63_531_379,
+        Description = "US English female voice (LJ Speech, public domain).",
+        License = "Public-Domain"
+    };
+
+    /// <summary>
+    /// English US (Lessac) - High quality female voice.
+    /// Voice license: Blizzard 2013 Lessac research license (non-commercial), ~64MB.
     /// Path in repo: en/en_US/lessac/medium/
     /// </summary>
     public static SynthesizerModelInfo EnUsLessac { get; } = new()
     {
         Id = "rhasspy/piper-voices",
-        AliasName = "default",
+        AliasName = "lessac",
         DisplayName = "English US (Lessac)",
         Architecture = "VITS",
         Language = "en-US",
@@ -25,12 +47,12 @@ public static class DefaultModels
         ConfigFile = "en_US-lessac-medium.onnx.json",
         SizeBytes = 63_200_000,
         Description = "High-quality US English female voice.",
-        License = "MIT"
+        License = "Blizzard-2013-Lessac (non-commercial research)"
     };
 
     /// <summary>
     /// English US (Ryan) - Fast, lightweight voice.
-    /// MIT license, ~16MB.
+    /// Voice license: CC BY-NC-SA 4.0 (non-commercial), ~16MB.
     /// Path in repo: en/en_US/ryan/low/
     /// </summary>
     public static SynthesizerModelInfo EnUsRyan { get; } = new()
@@ -47,12 +69,12 @@ public static class DefaultModels
         ConfigFile = "en_US-ryan-low.onnx.json",
         SizeBytes = 16_000_000,
         Description = "Fast US English male voice, optimized for speed.",
-        License = "MIT"
+        License = "CC-BY-NC-SA-4.0"
     };
 
     /// <summary>
     /// English US (Amy) - High quality female voice.
-    /// MIT license, ~64MB.
+    /// Voice license: unspecified in its model card, ~64MB.
     /// Path in repo: en/en_US/amy/medium/
     /// </summary>
     public static SynthesizerModelInfo EnUsAmy { get; } = new()
@@ -69,12 +91,12 @@ public static class DefaultModels
         ConfigFile = "en_US-amy-medium.onnx.json",
         SizeBytes = 64_000_000,
         Description = "High-quality US English female voice.",
-        License = "MIT"
+        License = "Unspecified (see the voice's MODEL_CARD)"
     };
 
     /// <summary>
     /// English GB (Semaine) - British English voice.
-    /// MIT license, ~64MB.
+    /// Voice license: CC BY-NC-SA 4.0 (non-commercial), ~64MB.
     /// Path in repo: en/en_GB/semaine/medium/
     /// </summary>
     public static SynthesizerModelInfo EnGbSemaine { get; } = new()
@@ -91,13 +113,13 @@ public static class DefaultModels
         ConfigFile = "en_GB-semaine-medium.onnx.json",
         SizeBytes = 64_000_000,
         Description = "British English female voice.",
-        License = "MIT"
+        License = "CC-BY-NC-SA-4.0"
     };
 
     /// <summary>
-    /// Korean (KSS) - Korean voice.
-    /// MIT license, ~15MB.
-    /// Path in repo: ko/ko_KR/kss/x_low/
+    /// Korean (KSS) - Korean voice (medium; there is no x_low build).
+    /// Voice license: CC BY-NC-SA 4.0 (non-commercial), ~63MB.
+    /// Path in repo: ko/ko_KR/kss/medium/
     /// </summary>
     public static SynthesizerModelInfo KoKr { get; } = new()
     {
@@ -106,19 +128,19 @@ public static class DefaultModels
         DisplayName = "Korean (KSS)",
         Architecture = "VITS",
         Language = "ko-KR",
-        VoiceName = "ko/ko_KR/kss/x_low",
+        VoiceName = "ko/ko_KR/kss/medium",
         NumSpeakers = 1,
         SampleRate = 22050,
-        ModelFile = "ko_KR-kss-x_low.onnx",
-        ConfigFile = "ko_KR-kss-x_low.onnx.json",
-        SizeBytes = 15_000_000,
+        ModelFile = "ko_KR-kss-medium.onnx",
+        ConfigFile = "ko_KR-kss-medium.onnx.json",
+        SizeBytes = 63_221_984,
         Description = "Korean female voice.",
-        License = "MIT"
+        License = "CC-BY-NC-SA-4.0"
     };
 
     /// <summary>
     /// Japanese (JSUT) - Japanese voice.
-    /// MIT license, ~64MB.
+    /// Voice license: dataset license not verified (the pinned voice does not exist), ~64MB.
     /// Path in repo: ja/ja_JP/jsut/medium/
     /// </summary>
     public static SynthesizerModelInfo JaJp { get; } = new()
@@ -135,12 +157,12 @@ public static class DefaultModels
         ConfigFile = "ja_JP-jsut-medium.onnx.json",
         SizeBytes = 64_000_000,
         Description = "Japanese female voice.",
-        License = "MIT"
+        License = "Unknown"
     };
 
     /// <summary>
     /// Chinese (Mandarin) - Chinese voice.
-    /// MIT license, ~64MB.
+    /// Voice license: unknown (its model card says so), ~64MB.
     /// Path in repo: zh/zh_CN/huayan/medium/
     /// </summary>
     public static SynthesizerModelInfo ZhCn { get; } = new()
@@ -157,7 +179,7 @@ public static class DefaultModels
         ConfigFile = "zh_CN-huayan-medium.onnx.json",
         SizeBytes = 64_000_000,
         Description = "Mandarin Chinese female voice.",
-        License = "MIT"
+        License = "Unknown"
     };
 
     /// <summary>
@@ -165,6 +187,7 @@ public static class DefaultModels
     /// </summary>
     public static IReadOnlyList<SynthesizerModelInfo> All { get; } =
     [
+        EnUsLjSpeech,
         EnUsLessac,
         EnUsRyan,
         EnUsAmy,
