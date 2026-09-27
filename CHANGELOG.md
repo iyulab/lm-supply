@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [0.87.0] - Unreleased
+## [0.87.0] - 2026-09-28
 
 ### Removed
 - **Breaking: the Translator alias `en-ko` and `DefaultModels.OpusMtEnKo`.** They pointed at `onnx-community/opus-mt-en-ko`,
