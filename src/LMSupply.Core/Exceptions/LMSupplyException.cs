@@ -265,6 +265,46 @@ public class InferenceBackendException : InferenceException
 }
 
 /// <summary>
+/// Exception thrown when a request fails because the inference backend process (e.g. llama-server) exited while
+/// serving it — a crash, a kill (the kernel's out-of-memory killer, another process reclaiming the GPU), or a shutdown.
+/// Without it the caller sees only the transport failure ("connection refused", "the response ended prematurely"),
+/// which does not say the server is gone. The exit code and the server's last output say why.
+/// </summary>
+/// <remarks>The next request on the same model may succeed: a generator replaces a dead server on its next call.</remarks>
+public class InferenceBackendExitedException : InferenceException
+{
+    /// <summary>The backend process's exit code, or <see langword="null"/> when it could not be read.</summary>
+    public int? ExitCode { get; }
+
+    /// <summary>The last lines the backend wrote before it exited, oldest first; empty when it wrote none.</summary>
+    public string RecentLog { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="InferenceBackendExitedException"/> class.
+    /// </summary>
+    /// <param name="exitCode">The backend process's exit code, or null when unknown.</param>
+    /// <param name="recentLog">The backend's last output lines.</param>
+    /// <param name="innerException">The transport failure the request saw.</param>
+    public InferenceBackendExitedException(int? exitCode, string recentLog, Exception innerException)
+        : base(FormatMessage(exitCode, recentLog), innerException)
+    {
+        ExitCode = exitCode;
+        RecentLog = recentLog ?? string.Empty;
+    }
+
+    private static string FormatMessage(int? exitCode, string? recentLog)
+    {
+        var code = exitCode?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown";
+        var lines = (recentLog ?? string.Empty)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var tail = lines.Length == 0
+            ? " It wrote no output."
+            : $" Its last output:{Environment.NewLine}{string.Join(Environment.NewLine, lines.TakeLast(20))}";
+        return $"The inference backend process exited (exit code {code}) while serving the request.{tail}";
+    }
+}
+
+/// <summary>
 /// Exception thrown when tokenization fails.
 /// </summary>
 public class TokenizationException : LMSupplyException

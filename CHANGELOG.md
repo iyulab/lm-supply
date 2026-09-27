@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.85.0] - Unreleased
+
+### Added
+- **A request that fails because llama-server exited now says so: `InferenceBackendExitedException`.** It carries the
+  server's `ExitCode` and `RecentLog`, and wraps the transport failure the request saw. Before, the caller got only
+  "connection refused" or "the response ended prematurely", which does not say the server is gone. This covers every
+  generation, embedding and reranking call on a pooled llama-server, including a stream cut part-way through. It
+  derives from `InferenceException`. A failure while the server is still running is unchanged. A generator's next call
+  on the same model starts a new server, as before.
+
 ## [0.84.0] - 2026-09-27
 
 ### Added

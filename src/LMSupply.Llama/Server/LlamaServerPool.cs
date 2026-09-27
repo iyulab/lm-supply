@@ -172,6 +172,7 @@ public sealed class LlamaServerPool : IAsyncDisposable
                 serverProcess.Info!.BaseUrl,
                 maxContextLength: config.ContextSize,
                 requestTimeout: config.RequestTimeout);
+            client.AttachServer(serverProcess);
 
             var newPooledServer = new PooledServer(key, serverProcess, client, config.ModelPath, backend);
             newPooledServer.TryLease();

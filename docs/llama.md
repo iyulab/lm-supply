@@ -40,6 +40,7 @@ llama-server operates in different modes depending on the use case:
 - **Server pooling**: Efficient server instance reuse across multiple requests
 - **Mode-aware pooling**: Separate server instances for generation, embedding, and reranking
 - **Server output kept for diagnosis**: `LlamaServerProcess.RecentLog` holds the last 200 lines the server wrote (stderr and stdout), still readable after it exits — read it with `ExitCode` when a server dies mid-request; `Info.StartupLog` is the complete log up to readiness
+- **A dead server is named in the failure**: a request that fails because the server exited throws `InferenceBackendExitedException` (`ExitCode`, `RecentLog`) instead of a bare transport error
 
 ## Supported Backends
 

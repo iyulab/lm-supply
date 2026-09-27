@@ -20,6 +20,7 @@ public sealed class LlamaServerClient : IDisposable
     private readonly bool _ownsHttpClient;
     private readonly int _maxContextLength;
     private readonly TimeSpan? _requestTimeout;
+    private Func<ServerState>? _serverState;
 
     /// <summary>The wire options every request and response uses (snake_case, nulls omitted, source-generated metadata).</summary>
     internal static readonly JsonSerializerOptions JsonOptions = new()
@@ -78,6 +79,7 @@ public sealed class LlamaServerClient : IDisposable
         _httpClient = owner._httpClient;
         _ownsHttpClient = false;
         _requestTimeout = ValidateRequestTimeout(requestTimeout);
+        _serverState = owner._serverState;
     }
 
     /// <summary>
@@ -133,7 +135,7 @@ public sealed class LlamaServerClient : IDisposable
     /// <summary>
     /// Generates a streaming chat completion.
     /// </summary>
-    public async IAsyncEnumerable<string> GenerateChatAsync(
+    private async IAsyncEnumerable<string> GenerateChatCoreAsync(
         IEnumerable<ChatCompletionMessage> messages,
         ChatCompletionOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -198,7 +200,7 @@ public sealed class LlamaServerClient : IDisposable
     /// Generates a streaming chat completion with structured data.
     /// Returns text deltas, tool call deltas, and finish reason.
     /// </summary>
-    public async IAsyncEnumerable<ChatStreamData> GenerateChatStreamAsync(
+    private async IAsyncEnumerable<ChatStreamData> GenerateChatStreamCoreAsync(
         IEnumerable<ChatCompletionMessage> messages,
         ChatCompletionOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -309,7 +311,7 @@ public sealed class LlamaServerClient : IDisposable
     /// <summary>
     /// Generates a non-streaming chat completion with full response including tool calls.
     /// </summary>
-    public async Task<ChatCompletionFullResponse> GenerateChatWithToolsAsync(
+    private async Task<ChatCompletionFullResponse> GenerateChatWithToolsCoreAsync(
         IEnumerable<ChatCompletionMessage> messages,
         ChatCompletionOptions? options = null,
         CancellationToken cancellationToken = default)
@@ -354,7 +356,7 @@ public sealed class LlamaServerClient : IDisposable
     /// the last one carries <see cref="CompletionStreamData.FinishReason"/> — <c>"length"</c> when the server
     /// stopped at <c>n_predict</c>, <c>"stop"</c> at the end-of-sequence token or a stop word.
     /// </summary>
-    public async IAsyncEnumerable<CompletionStreamData> GenerateStreamAsync(
+    private async IAsyncEnumerable<CompletionStreamData> GenerateStreamCoreAsync(
         string prompt,
         CompletionOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -484,7 +486,7 @@ public sealed class LlamaServerClient : IDisposable
     /// <summary>
     /// Counts the number of tokens in the given text using the server's tokenizer.
     /// </summary>
-    public async Task<int> CountTokensAsync(
+    private async Task<int> CountTokensCoreAsync(
         string text,
         CancellationToken cancellationToken = default)
     {
@@ -525,7 +527,7 @@ public sealed class LlamaServerClient : IDisposable
     /// Generates embeddings for multiple text inputs in batch.
     /// Requires server started with --embedding flag.
     /// </summary>
-    public async Task<float[][]> GenerateEmbeddingsBatchAsync(
+    private async Task<float[][]> GenerateEmbeddingsBatchCoreAsync(
         IReadOnlyList<string> inputs,
         CancellationToken cancellationToken = default)
     {
@@ -567,7 +569,7 @@ public sealed class LlamaServerClient : IDisposable
     /// Reranks documents by relevance to a query.
     /// Requires server started with --embedding and --pooling rank flags.
     /// </summary>
-    public async Task<IReadOnlyList<RerankResult>> RerankAsync(
+    private async Task<IReadOnlyList<RerankResult>> RerankCoreAsync(
         string query,
         IReadOnlyList<string> documents,
         int topN = 10,
@@ -634,6 +636,130 @@ public sealed class LlamaServerClient : IDisposable
                 errorBody.Contains("overflow", StringComparison.OrdinalIgnoreCase) ||
                 errorBody.Contains("too large", StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>
+    /// Ties this client to the server process it talks to, so a request that fails because that process exited reports
+    /// <see cref="InferenceBackendExitedException"/> (exit code and the server's last output) instead of the bare
+    /// transport failure. Views made afterwards share it.
+    /// </summary>
+    internal void AttachServer(LlamaServerProcess server) =>
+        AttachServerState(() => new ServerState(server.IsRunning, server.ExitCode, server.RecentLog));
+
+    /// <summary>The seam behind <see cref="AttachServer"/>: reads the server's state when a request fails.</summary>
+    internal void AttachServerState(Func<ServerState> state) => _serverState = state;
+
+    /// <summary>What a failed request needs to know about its server.</summary>
+    internal readonly record struct ServerState(bool IsRunning, int? ExitCode, string RecentLog);
+
+    /// <summary>
+    /// The exception to throw for <paramref name="failure"/>: <see cref="InferenceBackendExitedException"/> when the
+    /// attached server has exited, otherwise <see langword="null"/> (rethrow as is). The process may still be dying when
+    /// the connection is refused or cut, so its exit gets a moment to register.
+    /// </summary>
+    private async Task<Exception?> TranslateFailureAsync(Exception failure)
+    {
+        if (_serverState is not { } read || failure is not (HttpRequestException or IOException))
+            return null;
+
+        var state = read();
+        for (var i = 0; i < 20 && state.IsRunning; i++)
+        {
+            await Task.Delay(100).ConfigureAwait(false);
+            state = read();
+        }
+
+        return state.IsRunning ? null : new InferenceBackendExitedException(state.ExitCode, state.RecentLog, failure);
+    }
+
+    private async Task<T> GuardAsync<T>(Func<Task<T>> call)
+    {
+        try
+        {
+            return await call().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            if (await TranslateFailureAsync(ex).ConfigureAwait(false) is { } translated)
+                throw translated;
+            throw;
+        }
+    }
+
+    private async IAsyncEnumerable<T> GuardStream<T>(
+        IAsyncEnumerable<T> source,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var enumerator = source.GetAsyncEnumerator(cancellationToken);
+        try
+        {
+            while (true)
+            {
+                T item;
+                try
+                {
+                    if (!await enumerator.MoveNextAsync().ConfigureAwait(false))
+                        yield break;
+                    item = enumerator.Current;
+                }
+                catch (Exception ex)
+                {
+                    if (await TranslateFailureAsync(ex).ConfigureAwait(false) is { } translated)
+                        throw translated;
+                    throw;
+                }
+
+                yield return item;
+            }
+        }
+        finally
+        {
+            await enumerator.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <inheritdoc cref="GenerateChatCoreAsync"/>
+    public IAsyncEnumerable<string> GenerateChatAsync(
+        IEnumerable<ChatCompletionMessage> messages,
+        ChatCompletionOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        GuardStream(GenerateChatCoreAsync(messages, options, cancellationToken), cancellationToken);
+
+    /// <inheritdoc cref="GenerateChatStreamCoreAsync"/>
+    public IAsyncEnumerable<ChatStreamData> GenerateChatStreamAsync(
+        IEnumerable<ChatCompletionMessage> messages,
+        ChatCompletionOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        GuardStream(GenerateChatStreamCoreAsync(messages, options, cancellationToken), cancellationToken);
+
+    /// <inheritdoc cref="GenerateChatWithToolsCoreAsync"/>
+    public Task<ChatCompletionFullResponse> GenerateChatWithToolsAsync(
+        IEnumerable<ChatCompletionMessage> messages,
+        ChatCompletionOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        GuardAsync(() => GenerateChatWithToolsCoreAsync(messages, options, cancellationToken));
+
+    /// <inheritdoc cref="GenerateStreamCoreAsync"/>
+    public IAsyncEnumerable<CompletionStreamData> GenerateStreamAsync(
+        string prompt,
+        CompletionOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        GuardStream(GenerateStreamCoreAsync(prompt, options, cancellationToken), cancellationToken);
+
+    /// <inheritdoc cref="CountTokensCoreAsync"/>
+    public Task<int> CountTokensAsync(string text, CancellationToken cancellationToken = default) =>
+        GuardAsync(() => CountTokensCoreAsync(text, cancellationToken));
+
+    /// <inheritdoc cref="GenerateEmbeddingsBatchCoreAsync"/>
+    public Task<float[][]> GenerateEmbeddingsBatchAsync(IReadOnlyList<string> inputs, CancellationToken cancellationToken = default) =>
+        GuardAsync(() => GenerateEmbeddingsBatchCoreAsync(inputs, cancellationToken));
+
+    /// <inheritdoc cref="RerankCoreAsync"/>
+    public Task<IReadOnlyList<RerankResult>> RerankAsync(
+        string query,
+        IReadOnlyList<string> documents,
+        int topN = 10,
+        CancellationToken cancellationToken = default) =>
+        GuardAsync(() => RerankCoreAsync(query, documents, topN, cancellationToken));
 
     public void Dispose()
     {
