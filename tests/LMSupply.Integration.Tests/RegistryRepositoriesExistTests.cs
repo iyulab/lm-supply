@@ -83,8 +83,12 @@ public sealed class RegistryRepositoriesExistTests
                 var repo = (StringProperty(model, "Id") ?? StringProperty(model, "RepoId"))?.Split(':')[0];
                 if (repo is null || repo.Count(c => c == '/') != 1 || Path.IsPathRooted(repo))
                     continue;
+                // An interactive (encoder + decoder) segmenter entry keeps the semantic models' OnnxFile default; it loads only
+                // its EncoderFile and DecoderFile.
+                var interactive = model.GetType().GetProperty("IsInteractive")?.GetValue(model) is true;
                 var pinned = model.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance)
                     .Where(p => p.PropertyType == typeof(string) && p.Name.EndsWith("File", StringComparison.Ordinal))
+                    .Where(p => !(interactive && p.Name == "OnnxFile"))
                     .Select(p => (string?)p.GetValue(model))
                     .Where(v => !string.IsNullOrEmpty(v))
                     .Select(v => v!)

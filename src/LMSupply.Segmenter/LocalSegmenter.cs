@@ -1,4 +1,5 @@
 using LMSupply.Segmenter.Core;
+using LMSupply.Segmenter.Interactive;
 using LMSupply.Segmenter.Models;
 
 namespace LMSupply.Segmenter;
@@ -47,10 +48,55 @@ public static class LocalSegmenter
         options.ModelId = baseId;
         options.QuantizationHint ??= qualifier;
 
+        if (SegmenterModelRegistry.Default.TryResolve(options.ModelId, out var resolved) && resolved is { IsInteractive: true })
+        {
+            throw new ArgumentException(
+                $"'{modelIdOrPath}' is a prompt-based (interactive) model; load it with LocalSegmenter.LoadInteractiveAsync.",
+                nameof(modelIdOrPath));
+        }
+
         var segmenter = new OnnxSegmenterModel(options, progress);
 
         // Eagerly initialize and warm up the model
         await segmenter.WarmupAsync(cancellationToken);
+
+        return segmenter;
+    }
+
+    /// <summary>
+    /// Loads a prompt-based (interactive) segmentation model — segment what a point or box points at — and warms it up.
+    /// </summary>
+    /// <param name="modelIdOrAlias">An interactive model alias; <c>"interactive"</c> (MobileSAM) is the one registered.</param>
+    /// <param name="options">Optional configuration options (provider, cache directory, downloads).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A segmenter whose <see cref="IInteractiveSegmenter.CreateSessionAsync(string, CancellationToken)"/> encodes an image once for many prompts.</returns>
+    /// <exception cref="ArgumentException">The id does not name an interactive model.</exception>
+    public static async Task<IInteractiveSegmenter> LoadInteractiveAsync(
+        string modelIdOrAlias = "interactive",
+        SegmenterOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        options ??= new SegmenterOptions();
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+
+        var modelInfo = SegmenterModelRegistry.Default.Resolve(modelIdOrAlias);
+        if (!modelInfo.IsInteractive)
+        {
+            throw new ArgumentException(
+                $"'{modelIdOrAlias}' is not an interactive model; load it with LocalSegmenter.LoadAsync.", nameof(modelIdOrAlias));
+        }
+
+        options.ModelId = modelInfo.Id;
+        var segmenter = new MobileSamModel(options, modelInfo);
+        try
+        {
+            await segmenter.WarmupAsync(cancellationToken);
+        }
+        catch
+        {
+            await segmenter.DisposeAsync();
+            throw;
+        }
 
         return segmenter;
     }

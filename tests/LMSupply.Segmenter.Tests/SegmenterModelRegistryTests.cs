@@ -111,12 +111,12 @@ public class SegmenterModelRegistryTests
     }
 
     [Fact]
-    public void DefaultModels_ShouldHaveApache2License()
+    public void DefaultModels_SemanticModelsAreApache2_AndMobileSamIsMit()
     {
         var models = _registry.GetAvailableModels();
 
-        // All ONNX models use Apache-2.0 license
-        models.Should().OnlyContain(m => m.License == "Apache-2.0");
+        models.Where(m => !m.IsInteractive).Should().OnlyContain(m => m.License == "Apache-2.0");
+        models.Single(m => m.IsInteractive).License.Should().Be("MIT", "the MobileSAM ONNX export (Acly/MobileSAM) is MIT");
     }
 
     [Fact]
@@ -125,11 +125,12 @@ public class SegmenterModelRegistryTests
         var model = _registry.Resolve("interactive");
 
         model.Architecture.Should().Be("MobileSAM");
-        model.Id.Should().Be("ChaoningZhang/MobileSAM");
-        model.License.Should().Be("Apache-2.0");
+        // ChaoningZhang/MobileSAM is the GitHub project; the Hugging Face repository with ONNX files is Acly/MobileSAM.
+        model.Id.Should().Be("Acly/MobileSAM");
+        model.License.Should().Be("MIT");
         model.IsInteractive.Should().BeTrue();
         model.EncoderFile.Should().Be("mobile_sam_image_encoder.onnx");
-        model.DecoderFile.Should().Be("mobile_sam_mask_decoder.onnx");
+        model.DecoderFile.Should().Be("sam_mask_decoder_multi.onnx");
     }
 
     [Fact]

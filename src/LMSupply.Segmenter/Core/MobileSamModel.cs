@@ -108,13 +108,15 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
         var originalWidth = image.Width;
         var originalHeight = image.Height;
 
-        // Preprocess image for encoder
-        var inputTensor = PreprocessImage(image);
+        // Preprocess image for encoder: SAM resizes the longest side to 1024 and keeps the aspect ratio; the prompts
+        // and the decoder's orig_im_size follow the same scale.
+        var encoderInput = _encoderSession!.Session.InputMetadata.First();
+        var inputTensor = PreprocessImage(image, includesPreprocessing: encoderInput.Value.Dimensions.Length == 3);
 
         // Run encoder to get image embedding
         var inputs = new List<NamedOnnxValue>
         {
-            NamedOnnxValue.CreateFromTensor("image", inputTensor)
+            NamedOnnxValue.CreateFromTensor(encoderInput.Key, inputTensor)
         };
 
         DenseTensor<float> imageEmbedding;
@@ -147,17 +149,31 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
             _decoderSession!);
     }
 
-    private static DenseTensor<float> PreprocessImage(Image<Rgb24> image)
+    /// <summary>The scale SAM applies to an image of this size: its longest side becomes <see cref="ImageEncoderSize"/>.</summary>
+    internal static float LongestSideScale(int width, int height) => (float)ImageEncoderSize / Math.Max(width, height);
+
+    /// <summary>
+    /// The encoder input for <paramref name="image"/>, resized so its longest side is 1024 with the aspect ratio kept. An encoder
+    /// exported with its preprocessing included takes the resized pixels as <c>[H, W, 3]</c> in 0..255 and normalizes and pads
+    /// itself; a bare encoder takes <c>[1, 3, 1024, 1024]</c>, normalized with SAM's pixel mean/std and zero-padded
+    /// bottom-right.
+    /// </summary>
+    internal static DenseTensor<float> PreprocessImage(Image<Rgb24> image, bool includesPreprocessing)
     {
-        // Resize to 1024x1024 (SAM input size)
-        var resized = image.Clone();
-        resized.Mutate(x => x.Resize(ImageEncoderSize, ImageEncoderSize));
+        var scale = LongestSideScale(image.Width, image.Height);
+        var width = Math.Max(1, (int)Math.Round(image.Width * scale));
+        var height = Math.Max(1, (int)Math.Round(image.Height * scale));
+        using var resized = image.Clone(x => x.Resize(width, height));
 
-        // SAM uses ImageNet normalization
-        var mean = new[] { 0.485f, 0.456f, 0.406f };
-        var std = new[] { 0.229f, 0.224f, 0.225f };
+        // SAM's pixel statistics, on the 0..255 scale.
+        ReadOnlySpan<float> mean = [123.675f, 116.28f, 103.53f];
+        ReadOnlySpan<float> std = [58.395f, 57.12f, 57.375f];
+        var meanArr = mean.ToArray();
+        var stdArr = std.ToArray();
 
-        var tensor = new DenseTensor<float>([1, 3, ImageEncoderSize, ImageEncoderSize]);
+        var tensor = includesPreprocessing
+            ? new DenseTensor<float>([height, width, 3])
+            : new DenseTensor<float>([1, 3, ImageEncoderSize, ImageEncoderSize]);
 
         resized.ProcessPixelRows(accessor =>
         {
@@ -167,9 +183,18 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
                 for (int x = 0; x < accessor.Width; x++)
                 {
                     var pixel = row[x];
-                    tensor[0, 0, y, x] = (pixel.R / 255f - mean[0]) / std[0];
-                    tensor[0, 1, y, x] = (pixel.G / 255f - mean[1]) / std[1];
-                    tensor[0, 2, y, x] = (pixel.B / 255f - mean[2]) / std[2];
+                    if (includesPreprocessing)
+                    {
+                        tensor[y, x, 0] = pixel.R;
+                        tensor[y, x, 1] = pixel.G;
+                        tensor[y, x, 2] = pixel.B;
+                    }
+                    else
+                    {
+                        tensor[0, 0, y, x] = (pixel.R - meanArr[0]) / stdArr[0];
+                        tensor[0, 1, y, x] = (pixel.G - meanArr[1]) / stdArr[1];
+                        tensor[0, 2, y, x] = (pixel.B - meanArr[2]) / stdArr[2];
+                    }
                 }
             }
         });
@@ -306,8 +331,6 @@ internal sealed class MobileSamSession : IInteractiveSession
     private readonly RecoverableOnnxSession _decoderSession;
     private bool _disposed;
 
-    private const int ImageEncoderSize = 1024;
-
     public int ImageWidth { get; }
     public int ImageHeight { get; }
     public bool IsReady => !_disposed;
@@ -355,7 +378,8 @@ internal sealed class MobileSamSession : IInteractiveSession
 
         // Prepare prompts
         var (pointCoords, pointLabels) = PreparePointPrompts(pointsList, box);
-        var hasMask = new DenseTensor<float>(new float[] { 1 }, [1]);
+        // No previous mask: has_mask_input = 0 (1 makes the decoder condition on the all-zero mask_input).
+        var hasMask = new DenseTensor<float>(new float[] { 0 }, [1]);
         var maskInput = new DenseTensor<float>([1, 1, 256, 256]);
         var origImSize = new DenseTensor<float>(new float[] { ImageHeight, ImageWidth }, [2]);
 
@@ -429,18 +453,16 @@ internal sealed class MobileSamSession : IInteractiveSession
         List<PointPrompt> points,
         BoxPrompt? box)
     {
-        var totalPoints = points.Count + (box != null ? 2 : 0);
-        if (totalPoints == 0)
-        {
-            // No prompts - use a dummy point (SAM requires at least one)
-            totalPoints = 1;
-        }
+        // SAM's prompt encoding: without a box, a padding point (0, 0) labelled -1 follows the points — the decoder was
+        // exported expecting it (the official ONNX example appends it the same way).
+        var totalPoints = points.Count + (box != null ? 2 : 1);
 
         var coords = new DenseTensor<float>([1, totalPoints, 2]);
         var labels = new DenseTensor<float>([1, totalPoints]);
 
-        var scaleX = (float)ImageEncoderSize / ImageWidth;
-        var scaleY = (float)ImageEncoderSize / ImageHeight;
+        // One scale for both axes: the encoder saw the image resized by its longest side, aspect kept.
+        var scaleX = MobileSamModel.LongestSideScale(ImageWidth, ImageHeight);
+        var scaleY = scaleX;
 
         int idx = 0;
 
@@ -467,12 +489,11 @@ internal sealed class MobileSamSession : IInteractiveSession
             idx++;
         }
 
-        // If no prompts, add dummy point
-        if (idx == 0)
+        if (box == null)
         {
-            coords[0, 0, 0] = ImageWidth / 2f * scaleX;
-            coords[0, 0, 1] = ImageHeight / 2f * scaleY;
-            labels[0, 0] = -1; // Ignored label
+            coords[0, idx, 0] = 0;
+            coords[0, idx, 1] = 0;
+            labels[0, idx] = -1; // padding point
         }
 
         return (coords, labels);
@@ -508,7 +529,11 @@ internal sealed class MobileSamSession : IInteractiveSession
         bool multimask,
         double inferenceTimeMs)
     {
-        var numMasks = multimask ? (int)masksTensor.Dimensions[1] : 1;
+        // A decoder that returns all four mask tokens puts the single-mask prediction first and the three multimask
+        // candidates after it (SAM's token order); a single-mask decoder returns one.
+        var available = (int)masksTensor.Dimensions[1];
+        var first = multimask && available > 1 ? 1 : 0;
+        var numMasks = multimask ? available - first : 1;
         var maskHeight = (int)masksTensor.Dimensions[2];
         var maskWidth = (int)masksTensor.Dimensions[3];
 
@@ -517,7 +542,7 @@ internal sealed class MobileSamSession : IInteractiveSession
 
         // Get IoU scores
         var scores = new List<(int Index, float Score)>();
-        for (int i = 0; i < numMasks; i++)
+        for (int i = first; i < first + numMasks; i++)
         {
             scores.Add((i, iouTensor[0, i]));
         }

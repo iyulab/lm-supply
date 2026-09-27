@@ -13,8 +13,21 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   and `chinese` (Huayan) is unknown. Check a voice's license before shipping it.
 - **The `korean` voice named a build that was never published** (`ko_KR-kss-x_low`), so every load failed. It now loads
   `ko_KR-kss-medium` (63 MB, 22,050 Hz). Loading is fixed, but Korean text still produces near-silence: see the known issue below.
+- **MobileSAM prompts now follow SAM's input contract**, so masks land where the prompt is:
+  - The image is resized by its longest side with the aspect ratio kept. It used to be stretched to 1024×1024, which
+    misplaced masks on non-square images.
+  - Both axes of the prompt coordinates use that one scale.
+  - A first prompt sends `has_mask_input = 0`. It used to send 1, so the decoder conditioned on an empty mask.
+  - A point prompt without a box gets SAM's padding point.
+  - `multimask` returns the three multimask candidates instead of mixing in the single-mask token.
 - A repository the Hub will not list (401) is reported as possibly nonexistent. Before, the message said only "private
   repository, set HF_TOKEN", but the Hub also answers 401 for a repository that does not exist.
+
+### Added
+- **`LocalSegmenter.LoadInteractiveAsync()`: interactive (point/box prompt) segmentation you can actually load.**
+  `IInteractiveSegmenter` was public, but no public method returned one, and the `interactive` alias named a GitHub
+  project (`ChaoningZhang/MobileSAM`) instead of a Hugging Face repository. The alias now loads the MobileSAM ONNX
+  export `Acly/MobileSAM` (MIT). `LoadAsync("interactive")` throws and points here.
 
 ### Removed
 - **Breaking: the Synthesizer alias `japanese` and `DefaultModels.JaJp`.** The voice it named (`ja_JP-jsut-medium`) was

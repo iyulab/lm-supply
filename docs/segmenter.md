@@ -45,7 +45,7 @@ Console.WriteLine($"Class at (100,100): {segmenter.ClassLabels[classId]}");
 | `fast` | SegFormer-B1 | ~55MB | 42.2 | Balanced speed and accuracy |
 | `quality` | SegFormer-B2 | ~110MB | 46.5 | Higher accuracy |
 | `large` | SegFormer-B5 | ~340MB | 51.0 | Highest accuracy |
-| `interactive` | MobileSAM | ~40MB | - | Point/box prompt segmentation |
+| `interactive` | MobileSAM | ~45MB | - | Point/box prompt segmentation (`LoadInteractiveAsync`) |
 
 All semantic segmentation models are trained on ADE20K (150 classes) with MIT license.
 
@@ -123,15 +123,21 @@ var result = await segmenter.SegmentAsync(imageBytes);
 
 ### Interactive Segmentation with MobileSAM
 
-MobileSAM supports point and box prompts for interactive segmentation:
+MobileSAM segments what a point or a box points at (0.88.0+; before, the alias pointed at a repository that did not exist
+and no public method returned an interactive segmenter):
 
 ```csharp
-// Load MobileSAM for interactive segmentation
-await using var samModel = await LocalSegmenter.LoadAsync("interactive");
+await using var sam = await LocalSegmenter.LoadInteractiveAsync();          // "interactive" (MobileSAM, MIT)
 
-// Note: Interactive segmentation uses the IInteractiveSegmenter interface
-// which provides point and box prompt-based segmentation
+// One session encodes the image once; each prompt then runs only the small decoder.
+await using var session = await sam.CreateSessionAsync("photo.jpg");
+var result = await session.SegmentAsync([new PointPrompt(520, 250, PointLabel.Foreground)]);
+bool[,] mask = result.BestMask.Mask;                                          // [y, x], original image size
+
+var boxed = await session.SegmentAsync(new BoxPrompt(400, 130, 240, 240));   // x, y, width, height
 ```
+
+`LocalSegmenter.LoadAsync("interactive")` throws: the semantic-segmentation entry point cannot run a prompt-based model.
 
 ### Accessing Class Labels
 

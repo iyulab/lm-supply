@@ -36,7 +36,7 @@ Console.WriteLine($"Class at (100,100): {segmenter.ClassLabels[classId]}");
 | `fast` | SegFormer-B1 | ~55MB | 42.2 | Balanced |
 | `quality` | SegFormer-B2 | ~110MB | 46.5 | Higher accuracy |
 | `large` | SegFormer-B5 | ~340MB | 51.0 | Highest accuracy |
-| `interactive` | MobileSAM | ~40MB | - | Point/box prompts |
+| `interactive` | MobileSAM | ~45MB | - | Point/box prompts — `LocalSegmenter.LoadInteractiveAsync()` |
 
 ## GPU Acceleration
 

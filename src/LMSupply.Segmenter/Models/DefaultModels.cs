@@ -94,25 +94,25 @@ public static class DefaultModels
     };
 
     /// <summary>
-    /// MobileSAM - Lightweight Segment Anything Model.
-    /// Apache-2.0 license, interactive point/box prompt segmentation.
+    /// MobileSAM - Lightweight Segment Anything Model, interactive point/box prompt segmentation.
+    /// ONNX export of the MobileSAM weights (encoder with its preprocessing included + SAM's four-token mask decoder), MIT.
     /// </summary>
     public static SegmenterModelInfo MobileSAM { get; } = new()
     {
-        Id = "ChaoningZhang/MobileSAM",
+        Id = "Acly/MobileSAM",
         AliasName = "interactive",
         DisplayName = "MobileSAM",
         Architecture = "MobileSAM",
         ParametersM = 9.8f,
-        SizeBytes = 40_000_000,
+        SizeBytes = 44_653_652,
         MIoU = 0, // Not applicable for prompt-based
         InputSize = 1024,
         NumClasses = 1, // Binary segmentation
         EncoderFile = "mobile_sam_image_encoder.onnx",
-        DecoderFile = "mobile_sam_mask_decoder.onnx",
+        DecoderFile = "sam_mask_decoder_multi.onnx",
         Dataset = "SA-1B",
         Description = "MobileSAM for interactive segmentation. Supports point and box prompts.",
-        License = "Apache-2.0"
+        License = "MIT"
     };
 
     /// <summary>
