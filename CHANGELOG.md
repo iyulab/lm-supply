@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [0.83.0] - Unreleased
+## [0.83.0] - 2026-09-27
 
 ### Fixed
 - **`LocalDetector`, `LocalSegmenter`, `LocalSynthesizer` and `LocalTranslator` report download progress.** Their
