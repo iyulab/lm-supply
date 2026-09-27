@@ -62,9 +62,13 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
     /// </summary>
     public string TargetLanguage => _modelInfo.TargetLanguage;
 
-    public OnnxTranslatorModel(TranslatorOptions options)
+    // Reported by the download the first initialization makes (Local*.LoadAsync warms up at once).
+    private readonly IProgress<DownloadProgress>? _downloadProgress;
+
+    public OnnxTranslatorModel(TranslatorOptions options, IProgress<DownloadProgress>? downloadProgress = null)
     {
         _options = options.Clone();
+        _downloadProgress = downloadProgress;
         _modelInfo = TranslatorModelRegistry.Default.Resolve(options.ModelId);
     }
 
@@ -385,6 +389,7 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
             var (modelDir, discovery) = await downloader.DownloadWithDiscoveryAsync(
                 _modelInfo.Id,
                 preferences: preferences,
+                progress: _downloadProgress,
                 cancellationToken: cancellationToken);
 
             // Store discovered file paths (preserve relative path structure for subfolder support)
@@ -415,6 +420,7 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
                     "tokenizer.json",
                     _modelInfo.TokenizerFile
                 ],
+                progress: _downloadProgress,
                 cancellationToken: cancellationToken);
 
             _resolvedEncoderFile = encoderFile;

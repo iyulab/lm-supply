@@ -96,7 +96,10 @@ public sealed class HuggingFaceDownloaderAdoptionTests : IDisposable
         Assert.True(File.Exists(Path.Combine(snapshot, "model.onnx")), "an offline load reads a read-only cache and writes nothing");
     }
 
-    /// <summary>Answers the tree listing with the given files and sizes; serves only <c>onnx/model.onnx</c> when asked to.</summary>
+    /// <summary>
+    /// Answers the recursive tree listing (one page) with the given files, their directories, and sizes; serves only
+    /// <c>onnx/model.onnx</c> when asked to.
+    /// </summary>
     private sealed class ListingHub((string Path, long Size)[] files, bool serveModel = false) : HttpMessageHandler
     {
         private readonly List<string> _paths = [];
@@ -120,18 +123,13 @@ public sealed class HuggingFaceDownloaderAdoptionTests : IDisposable
                 _paths.Add(path);
             }
 
-            if (path == $"/api/models/{Repo}/tree/main")
+            if (path == $"/api/models/{Repo}/tree/main"
+                && request.RequestUri.Query.Contains("recursive=true", StringComparison.Ordinal))
             {
-                var root = files.Where(f => !f.Path.Contains('/')).Select(f => $$$"""{"path":"{{{f.Path}}}","type":"file","size":{{{f.Size}}}}""");
-                var dirs = files.Where(f => f.Path.Contains('/')).Select(f => f.Path.Split('/')[0]).Distinct().Select(d => $$$"""{"path":"{{{d}}}","type":"directory"}""");
-                return Ok("[" + string.Join(",", root.Concat(dirs)) + "]");
-            }
-
-            if (path.StartsWith($"/api/models/{Repo}/tree/main/", StringComparison.Ordinal))
-            {
-                var dir = path[$"/api/models/{Repo}/tree/main/".Length..];
-                var inDir = files.Where(f => f.Path.StartsWith(dir + "/", StringComparison.Ordinal)).Select(f => $$$"""{"path":"{{{f.Path}}}","type":"file","size":{{{f.Size}}}}""");
-                return Ok("[" + string.Join(",", inDir) + "]");
+                var dirs = files.Where(f => f.Path.Contains('/')).Select(f => f.Path[..f.Path.LastIndexOf('/')]).Distinct()
+                    .Select(d => $$$"""{"path":"{{{d}}}","type":"directory"}""");
+                var all = files.Select(f => $$$"""{"path":"{{{f.Path}}}","type":"file","size":{{{f.Size}}}}""");
+                return Ok("[" + string.Join(",", dirs.Concat(all)) + "]");
             }
 
             if (serveModel && path == $"/{Repo}/resolve/main/onnx/model.onnx")

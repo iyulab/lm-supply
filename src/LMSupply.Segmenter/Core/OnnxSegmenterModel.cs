@@ -45,9 +45,13 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
     /// </summary>
     public IReadOnlyList<string> ClassLabels => Ade20kLabels.Labels;
 
-    public OnnxSegmenterModel(SegmenterOptions options)
+    // Reported by the download the first initialization makes (Local*.LoadAsync warms up at once).
+    private readonly IProgress<DownloadProgress>? _downloadProgress;
+
+    public OnnxSegmenterModel(SegmenterOptions options, IProgress<DownloadProgress>? downloadProgress = null)
     {
         _options = options.Clone();
+        _downloadProgress = downloadProgress;
         _modelInfo = SegmenterModelRegistry.Default.Resolve(options.ModelId);
     }
 
@@ -322,6 +326,7 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
         var result = await resolver.ResolveModelAsync(
             _modelInfo.Id,
             expectedOnnxFile: _modelInfo.OnnxFile,
+            progress: _downloadProgress,
             cancellationToken: cancellationToken);
 
         return result.ModelPath;

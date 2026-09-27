@@ -47,7 +47,7 @@ public static class LocalDetector
         options.ModelId = baseId;
         options.QuantizationHint ??= qualifier;
 
-        var detector = new OnnxDetectorModel(options);
+        var detector = new OnnxDetectorModel(options, progress);
 
         // Eagerly initialize and warm up the model
         await detector.WarmupAsync(cancellationToken);

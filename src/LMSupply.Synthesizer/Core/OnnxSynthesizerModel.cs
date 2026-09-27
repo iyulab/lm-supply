@@ -48,9 +48,13 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
     public string? Voice => _modelInfo?.VoiceName;
     public int SampleRate => _config?.Audio?.SampleRate ?? 22050;
 
-    public OnnxSynthesizerModel(SynthesizerOptions options)
+    // Reported by the download the first initialization makes (Local*.LoadAsync warms up at once).
+    private readonly IProgress<DownloadProgress>? _downloadProgress;
+
+    public OnnxSynthesizerModel(SynthesizerOptions options, IProgress<DownloadProgress>? downloadProgress = null)
     {
         _options = options.Clone();
+        _downloadProgress = downloadProgress;
     }
 
     public async Task WarmupAsync(CancellationToken cancellationToken = default)
@@ -314,6 +318,7 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
             _modelInfo.Id,
             files: [_modelInfo.ModelFile, _modelInfo.ConfigFile],
             subfolder: _modelInfo.VoiceName,
+            progress: _downloadProgress,
             cancellationToken: cancellationToken);
 
         return modelPath;

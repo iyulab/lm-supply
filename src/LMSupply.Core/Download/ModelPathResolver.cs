@@ -80,12 +80,14 @@ public sealed class ModelPathResolver : IDisposable
     /// <param name="modelIdOrPath">Model ID (HuggingFace) or local path.</param>
     /// <param name="expectedOnnxFile">Expected ONNX filename (e.g., "model.onnx").</param>
     /// <param name="preferences">Download preferences for HuggingFace models.</param>
+    /// <param name="progress">Optional progress reporting for the download, if one is made.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Resolution result containing paths and discovery info.</returns>
     public async Task<ResolveResult> ResolveModelAsync(
         string modelIdOrPath,
         string expectedOnnxFile = "model.onnx",
         ModelPreferences? preferences = null,
+        IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         // Check if it's a local file path
@@ -168,6 +170,7 @@ public sealed class ModelPathResolver : IDisposable
         var (modelDir, discovery) = await _downloader.DownloadWithDiscoveryAsync(
             repoId,
             preferences: preferences,
+            progress: progress,
             cancellationToken: cancellationToken);
 
         // Use discovery result to find ONNX file in correct directory
@@ -209,6 +212,7 @@ public sealed class ModelPathResolver : IDisposable
     /// <param name="expectedEncoderFile">Expected encoder filename.</param>
     /// <param name="expectedDecoderFile">Expected decoder filename.</param>
     /// <param name="preferences">Download preferences for HuggingFace models.</param>
+    /// <param name="progress">Optional progress reporting for the download, if one is made.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Resolution result with encoder/decoder paths.</returns>
     public async Task<EncoderDecoderResolveResult> ResolveEncoderDecoderAsync(
@@ -216,6 +220,7 @@ public sealed class ModelPathResolver : IDisposable
         string expectedEncoderFile = "encoder_model.onnx",
         string expectedDecoderFile = "decoder_model_merged.onnx",
         ModelPreferences? preferences = null,
+        IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         // Check if it's a local directory path
@@ -246,6 +251,7 @@ public sealed class ModelPathResolver : IDisposable
         var (modelDir, discovery) = await _downloader.DownloadWithDiscoveryAsync(
             repoId,
             preferences: preferences,
+            progress: progress,
             cancellationToken: cancellationToken);
 
         // Use discovery result for path resolution

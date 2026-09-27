@@ -156,37 +156,38 @@ public sealed class ModelDiscoveryService : IDisposable
         if (cached is not null)
             return cached;
 
-        var url = $"{ApiBaseUrl}/{repoId}/tree/{revision}";
+        // One recursive listing, paged by the Link header — not one request per directory. A repository with
+        // hundreds of directories (a voice collection) used to cost a request each: about a minute, and the
+        // anonymous API quota (500 requests per 5 minutes per IP) in a single load.
+        var url = $"{ApiBaseUrl}/{repoId}/tree/{revision}?recursive=true&expand=false";
+        var allFiles = new List<RepoFile>();
 
         try
         {
-            var response = await _httpClient.GetAsync(url, cancellationToken);
-
-            if (response.StatusCode == HttpStatusCode.NotFound)
+            for (var page = 0; url is not null; page++)
             {
-                throw new ModelNotFoundException(
-                    $"Repository '{repoId}' not found on HuggingFace.",
-                    repoId);
-            }
-
-            response.EnsureSuccessStatusCode();
-
-            var files = await response.Content.ReadFromJsonAsync(CoreJsonOptions.Web.TypeInfo<List<RepoFile>>(), cancellationToken)
-                ?? throw new InvalidOperationException($"Failed to parse repository file list for '{repoId}'");
-
-            // Recursively fetch subdirectories
-            var allFiles = new List<RepoFile>();
-            foreach (var file in files)
-            {
-                if (file.IsFile)
+                if (page >= MaxListingPages)
                 {
-                    allFiles.Add(file);
+                    throw new InvalidOperationException(
+                        $"Repository '{repoId}' listing did not end after {MaxListingPages} pages.");
                 }
-                else if (file.IsDirectory)
+
+                using var response = await _httpClient.GetAsync(url, cancellationToken);
+
+                if (response.StatusCode == HttpStatusCode.NotFound)
                 {
-                    var subFiles = await ListDirectoryFilesAsync(repoId, file.Path, revision, cancellationToken);
-                    allFiles.AddRange(subFiles);
+                    throw new ModelNotFoundException(
+                        $"Repository '{repoId}' not found on HuggingFace.",
+                        repoId);
                 }
+
+                response.EnsureSuccessStatusCode();
+
+                var entries = await response.Content.ReadFromJsonAsync(CoreJsonOptions.Web.TypeInfo<List<RepoFile>>(), cancellationToken)
+                    ?? throw new InvalidOperationException($"Failed to parse repository file list for '{repoId}'");
+
+                allFiles.AddRange(entries.Where(e => e.IsFile));
+                url = NextPageUrl(response);
             }
 
             // Cache the result
@@ -202,46 +203,30 @@ public sealed class ModelDiscoveryService : IDisposable
         }
     }
 
-    /// <summary>
-    /// Lists files in a specific directory of a repository.
-    /// </summary>
-    private async Task<List<RepoFile>> ListDirectoryFilesAsync(
-        string repoId,
-        string path,
-        string revision,
-        CancellationToken cancellationToken)
+    // The API pages at 1000 entries; this bounds a listing that keeps pointing at a next page.
+    private const int MaxListingPages = 1000;
+
+    /// <summary>The <c>rel="next"</c> target of the response's <c>Link</c> header, or null on the last page.</summary>
+    internal static string? NextPageUrl(HttpResponseMessage response)
     {
-        var url = $"{ApiBaseUrl}/{repoId}/tree/{revision}/{path}";
+        if (!response.Headers.TryGetValues("Link", out var values))
+            return null;
 
-        try
+        foreach (var value in values)
         {
-            var response = await _httpClient.GetAsync(url, cancellationToken);
-            if (!response.IsSuccessStatusCode)
-                return [];
-
-            var files = await response.Content.ReadFromJsonAsync(CoreJsonOptions.Web.TypeInfo<List<RepoFile>>(), cancellationToken) ?? [];
-
-            var result = new List<RepoFile>();
-            foreach (var file in files)
+            foreach (var link in value.Split(','))
             {
-                if (file.IsFile)
-                {
-                    result.Add(file);
-                }
-                else if (file.IsDirectory)
-                {
-                    var subFiles = await ListDirectoryFilesAsync(repoId, file.Path, revision, cancellationToken);
-                    result.AddRange(subFiles);
-                }
-            }
+                var parts = link.Split(';');
+                if (parts.Length < 2 || !parts.Skip(1).Any(p => p.Trim().Equals("rel=\"next\"", StringComparison.OrdinalIgnoreCase)))
+                    continue;
 
-            return result;
+                var target = parts[0].Trim();
+                if (target.StartsWith('<') && target.EndsWith('>'))
+                    return target[1..^1];
+            }
         }
-        catch (Exception ex)
-        {
-            Trace.TraceInformation($"[ModelDiscoveryService] Directory listing failed: {ex.Message}");
-            return [];
-        }
+
+        return null;
     }
 
     /// <summary>

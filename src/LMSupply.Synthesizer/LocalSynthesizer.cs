@@ -46,7 +46,7 @@ public static class LocalSynthesizer
         options.ModelId = baseId;
         options.QuantizationHint ??= qualifier;
 
-        var synthesizer = new OnnxSynthesizerModel(options);
+        var synthesizer = new OnnxSynthesizerModel(options, progress);
 
         // Eagerly initialize and warm up the model
         await synthesizer.WarmupAsync(cancellationToken);

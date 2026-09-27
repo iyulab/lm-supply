@@ -47,7 +47,7 @@ public static class LocalSegmenter
         options.ModelId = baseId;
         options.QuantizationHint ??= qualifier;
 
-        var segmenter = new OnnxSegmenterModel(options);
+        var segmenter = new OnnxSegmenterModel(options, progress);
 
         // Eagerly initialize and warm up the model
         await segmenter.WarmupAsync(cancellationToken);

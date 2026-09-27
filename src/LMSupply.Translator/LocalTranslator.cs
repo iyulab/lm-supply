@@ -47,7 +47,7 @@ public static class LocalTranslator
         options.ModelId = baseId;
         options.QuantizationHint ??= qualifier;
 
-        var translator = new OnnxTranslatorModel(options);
+        var translator = new OnnxTranslatorModel(options, progress);
 
         // Eagerly initialize and warm up the model
         await translator.WarmupAsync(cancellationToken);

@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.83.0] - Unreleased
+
+### Fixed
+- **`LocalDetector`, `LocalSegmenter`, `LocalSynthesizer` and `LocalTranslator` report download progress.** Their
+  `LoadAsync(…, IProgress<DownloadProgress>? progress, …)` accepted a progress sink and never passed it to the download,
+  so a caller saw nothing while the model was fetched. This is the same defect 0.82.0 fixed in `LocalTranscriber`.
+- **Listing a repository takes one request per 1000 files, not one per directory.** `ModelDiscoveryService` (used for
+  file sizes before a download and for model discovery) walked the Hugging Face tree API one directory per request.
+  On a repository with hundreds of directories this took about a minute before the first byte: the default
+  `LocalSynthesizer` voice waited 56 s. It also used up the anonymous API quota (500 requests per 5 minutes per IP) in
+  one load, so every later request from the same machine got HTTP 429. The listing is now one recursive request that
+  follows the `Link` header's next page. A page that fails is an error. Before, a directory whose listing failed was
+  silently left out of the result.
+
+### Changed
+- `ModelPathResolver.ResolveModelAsync` and `ResolveEncoderDecoderAsync` take an optional
+  `IProgress<DownloadProgress>? progress` (before the `CancellationToken`). **Breaking** only for a caller that passes
+  arguments positionally or was compiled against 0.82.0: recompile, and name the token if you pass it positionally.
+
 ## [0.82.0] - 2026-09-27
 
 ### Added

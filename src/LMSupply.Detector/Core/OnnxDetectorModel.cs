@@ -54,9 +54,13 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     /// </summary>
     public IReadOnlyList<string> ClassLabels => _modelInfo.ClassLabels;
 
-    public OnnxDetectorModel(DetectorOptions options)
+    // Reported by the download the first initialization makes (Local*.LoadAsync warms up at once).
+    private readonly IProgress<DownloadProgress>? _downloadProgress;
+
+    public OnnxDetectorModel(DetectorOptions options, IProgress<DownloadProgress>? downloadProgress = null)
     {
         _options = options.Clone();
+        _downloadProgress = downloadProgress;
         _modelInfo = DetectorModelRegistry.Default.Resolve(options.ModelId);
         _layout = options.OutputLayout ?? _modelInfo.OutputLayout;
         _inputFormat = options.InputFormat ?? _modelInfo.InputFormat;
@@ -713,6 +717,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         var result = await resolver.ResolveModelAsync(
             _modelInfo.Id,
             expectedOnnxFile: _modelInfo.OnnxFile,
+            progress: _downloadProgress,
             cancellationToken: cancellationToken);
 
         return result.ModelPath;
