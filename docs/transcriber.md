@@ -213,6 +213,17 @@ Console.WriteLine($"Diarization models ({LocalTranscriber.DiarizationDownloadSiz
 - `IsDiarizationDownloadedAsync` reads only `CacheDirectory` from the options, makes no request and writes nothing. It
   is true when a diarized call would open both files without a download.
 - `DiarizationDownloadSizeBytes` is the pair's size as the repositories list it (32.5 MB), for a consent screen.
+- `GetDownloadSizeBytesAsync(options)` (0.86.0+) is the whole download of `LoadAsync` with the same options: the files
+  the load picks — the quantization from `QuantizationHint` (or a `:int8` qualifier), otherwise this machine's hardware
+  tier — plus the pair when `PreloadDiarization` is set. It reads the repository listing once (cached for a day and
+  reused by the load) and downloads nothing; a model on local disk adds 0. `TranscriberModelInfo.SizeBytes` is the
+  full-precision export's size and is **not** what a load downloads: for `default` it says 290 MB, while a load on a typical machine
+  takes the int8 pair, about 81 MB.
+
+```csharp
+var install = new TranscriberOptions { PreloadDiarization = true };
+long bytes = await LocalTranscriber.GetDownloadSizeBytesAsync(install);   // the figure the consent screen states
+```
 - The load's `progress` reports one sequence per model: the transcription model's files, then the two diarization
   files. (Before 0.82.0 `LoadAsync` accepted `progress` but never passed it to the download.)
 - `LocalTranscriber.Pool` keys models by id only: a pooled model that was loaded without `PreloadDiarization` is

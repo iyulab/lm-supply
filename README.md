@@ -233,6 +233,8 @@ foreach (var segment in meeting.Segments)
     Console.WriteLine($"{segment.Speaker}: {segment.Text}");
 // The diarization models download on first use; to fetch them at an install step instead, load with
 // new TranscriberOptions { PreloadDiarization = true }. LocalTranscriber.IsDiarizationDownloadedAsync() checks the cache.
+// For a consent screen: LocalTranscriber.GetDownloadSizeBytesAsync(options) is what that load downloads (the quantization it
+// picks, plus the pair when PreloadDiarization is set) — TranscriberModelInfo.SizeBytes is the full-precision export's size.
 
 // Streaming transcription
 await foreach (var segment in transcriber.TranscribeStreamingAsync("audio.wav"))

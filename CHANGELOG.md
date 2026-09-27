@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.86.0] - Unreleased
+
+### Added
+- **`LocalTranscriber.GetDownloadSizeBytesAsync`: how much a load will download, before it runs.** Given the options
+  a load will use, it returns the bytes of the files that load fetches. The quantization follows `QuantizationHint`
+  (or a `:int8` qualifier), otherwise the machine's hardware tier, as the load decides. It adds the diarization pair
+  when `PreloadDiarization` is set. It reads the repository listing (cached, and reused by the load) and downloads
+  nothing. `TranscriberModelInfo.SizeBytes` is the full-precision export's size and was never the download: `default`
+  lists 290 MB while a load on a typical machine fetches the int8 pair, about 81 MB.
+- **`HuggingFaceDownloader.PlanWithDiscoveryAsync` / `PlanModelAsync`: the files a download would fetch, with their
+  listed sizes (`DownloadPlan`).** Each uses the same selection as its download method (`DownloadWithDiscoveryAsync` /
+  `DownloadModelAsync`), so the plan and the download fetch the same files.
+
+### Changed
+- `TranscriberModelInfo.SizeBytes` documents what it is: the full-precision export's size used for model selection and
+  memory estimates, not the download size. Its value is unchanged.
+
 ## [0.85.0] - 2026-09-27
 
 ### Added

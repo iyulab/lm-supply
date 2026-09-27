@@ -553,29 +553,54 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel, Diarization.IDia
         var cacheDir = _options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: _options.DisableAutoDownload);
 
-        // Build hardware-aware preferences with onnx subfolder for Whisper models
-        var hwPrefs = ModelPreferences.ForProvider(_options.Provider);
-        var preferences = new ModelPreferences
-        {
-            PreferredSubfolder = "onnx",
-            PreferLowMemory = hwPrefs.PreferLowMemory,
-            QuantizationPriority = _options.QuantizationHint is { } hint
-                ? ModelPreferences.ForQuantizationHint(hint).QuantizationPriority
-                : hwPrefs.QuantizationPriority,
-            PreferredProvider = _options.Provider != ExecutionProvider.Auto
-                ? _options.Provider : hwPrefs.PreferredProvider,
-            RequireMatchedQuantization = true
-        };
-
         // Use discovery-based download to automatically find all model files
         // including external data files (*.onnx_data) for large models
         var (modelPath, discovery) = await downloader.DownloadWithDiscoveryAsync(
             _modelInfo.Id,
-            preferences: preferences,
+            preferences: DownloadPreferences(_options),
             progress: _downloadProgress,
             cancellationToken: cancellationToken);
 
         return (modelPath, discovery);
+    }
+
+    /// <summary>
+    /// What a load of <paramref name="modelInfo"/> with <paramref name="options"/> would download — the same repository,
+    /// preferences and discovery the load uses; null for a model on local disk.
+    /// </summary>
+    internal static async Task<DownloadPlan?> PlanDownloadAsync(
+        TranscriberOptions options, TranscriberModelInfo modelInfo, CancellationToken cancellationToken)
+    {
+        if (Directory.Exists(modelInfo.Id))
+            return null;
+        var parentDir = Path.GetDirectoryName(modelInfo.Id);
+        if (parentDir != null && Directory.Exists(parentDir))
+            return null;
+
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+        return await downloader.PlanWithDiscoveryAsync(
+            modelInfo.Id, DownloadPreferences(options), cancellationToken: cancellationToken);
+    }
+
+    // Hardware-aware preferences with the onnx subfolder Whisper exports use. The quantization is the hint when one
+    // is given, else the order the provider's hardware tier prefers (int8 first on a medium tier, int4 on a low one)
+    // — which is why the registry's full-precision SizeBytes is not what a load downloads, and why the download
+    // differs between machines.
+    private static ModelPreferences DownloadPreferences(TranscriberOptions options)
+    {
+        var hwPrefs = ModelPreferences.ForProvider(options.Provider);
+        return new ModelPreferences
+        {
+            PreferredSubfolder = "onnx",
+            PreferLowMemory = hwPrefs.PreferLowMemory,
+            QuantizationPriority = options.QuantizationHint is { } hint
+                ? ModelPreferences.ForQuantizationHint(hint).QuantizationPriority
+                : hwPrefs.QuantizationPriority,
+            PreferredProvider = options.Provider != ExecutionProvider.Auto
+                ? options.Provider : hwPrefs.PreferredProvider,
+            RequireMatchedQuantization = true
+        };
     }
 
     private void ConfigureSessionOptions(SessionOptions options)

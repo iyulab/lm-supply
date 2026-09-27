@@ -111,8 +111,8 @@ public sealed class HuggingFaceDownloader : IDisposable
         if (!_localFilesOnly)
             Directory.CreateDirectory(modelDir);
 
-        // Download all discovered files, preserving directory structure
-        var allFiles = discovery.GetAllFiles().ToList();
+        // Download all discovered files, preserving directory structure (the same list PlanWithDiscoveryAsync answers)
+        var allFiles = DiscoveredFiles(discovery);
         var totalFileCount = allFiles.Count;
         var fileIndex = 0;
         var manifestFiles = new List<ManifestFileEntry>();
@@ -176,6 +176,83 @@ public sealed class HuggingFaceDownloader : IDisposable
 
         return (modelDir, discovery);
     }
+
+    /// <summary>
+    /// The files <see cref="DownloadWithDiscoveryAsync"/> would fetch for the same arguments, with their listed
+    /// lengths — chosen by the same discovery, so the plan and the download cannot disagree. Downloads nothing; the
+    /// repository listing it reads is cached, so a download that follows makes no second listing request. With
+    /// local files only it answers from the cached listing or the download manifest, like the download.
+    /// </summary>
+    /// <exception cref="ModelNotFoundException">The repository does not exist, or (local files only) was never listed into this cache.</exception>
+    public async Task<DownloadPlan> PlanWithDiscoveryAsync(
+        string repoId,
+        ModelPreferences? preferences = null,
+        string revision = "main",
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
+
+        using var discoveryService = CreateDiscoveryService();
+        var discovery = await discoveryService.DiscoverModelAsync(repoId, preferences, revision, cancellationToken);
+
+        return new DownloadPlan
+        {
+            RepoId = repoId,
+            Revision = revision,
+            Files = [.. DiscoveredFiles(discovery).Select(f => new PlannedFile(f, SizeOf(discovery, f, repoId)))]
+        };
+
+        static long SizeOf(ModelDiscoveryResult discovery, string file, string repoId) =>
+            discovery.FileSizes.TryGetValue(file, out var size) && size > 0
+                ? size
+                : throw new ModelDownloadException(
+                    $"The listing of '{repoId}' gives no length for '{file}', so the download size is unknown.", repoId);
+    }
+
+    /// <summary>
+    /// The files <see cref="DownloadModelAsync"/> would fetch for the same arguments, with their listed lengths: each
+    /// file where the download would take it from (the subfolder, or the repository root for a tokenizer or config
+    /// file the subfolder lacks). A file the repository does not have is left out, as the download skips it; a
+    /// missing ONNX graph throws, as the download does. Downloads nothing; the listing it reads is cached.
+    /// </summary>
+    /// <exception cref="ModelDownloadException">A required file is not in the repository.</exception>
+    /// <exception cref="ModelNotFoundException">The repository does not exist, or (local files only) was never listed into this cache.</exception>
+    public async Task<DownloadPlan> PlanModelAsync(
+        string repoId,
+        IEnumerable<string>? files = null,
+        string revision = "main",
+        string? subfolder = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
+
+        // Unlike the download, a failed listing is not tolerated: the answer would be a guess.
+        using var discoveryService = CreateDiscoveryService();
+        var listing = (await discoveryService.ListRepositoryFilesAsync(repoId, revision, cancellationToken))
+            .Where(f => f.IsFile)
+            .GroupBy(f => f.Path, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First().Size, StringComparer.Ordinal);
+
+        var planned = new List<PlannedFile>();
+        foreach (var file in files ?? GetDefaultModelFiles())
+        {
+            var inLocation = string.IsNullOrEmpty(subfolder) ? file : $"{subfolder}/{file}";
+            if (listing.TryGetValue(inLocation, out var size))
+                planned.Add(new PlannedFile(inLocation, size));
+            else if (!string.IsNullOrEmpty(subfolder) && IsTokenizerOrConfigFile(file) && listing.TryGetValue(file, out var rootSize))
+                planned.Add(new PlannedFile(file, rootSize));
+            else if (IsCriticalFile(file))
+            {
+                var location = string.IsNullOrEmpty(subfolder) ? "root" : $"'{subfolder}/' and root";
+                throw new ModelDownloadException(
+                    $"Required file '{file}' not found in repository '{repoId}' (searched in {location}).", repoId);
+            }
+        }
+
+        return new DownloadPlan { RepoId = repoId, Revision = revision, Files = planned };
+    }
+
+    private static List<string> DiscoveredFiles(ModelDiscoveryResult discovery) => [.. discovery.GetAllFiles()];
 
     /// <summary>
     /// Downloads a model from HuggingFace and returns the local directory path.

@@ -39,13 +39,7 @@ public static class LocalTranscriber
         CancellationToken cancellationToken = default)
     {
         options ??= new TranscriberOptions();
-        // An unsupported provider is refused here, before any model resolution or download (0.67.1).
-        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
-
-        // Parse variant qualifier (e.g., "large:fp16" → modelId="large", hint="fp16")
-        var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
-        options.ModelId = baseId;
-        options.QuantizationHint ??= qualifier;
+        PrepareOptions(modelIdOrPath, options);
 
         var transcriber = CreateModel(options, progress);
         try
@@ -64,6 +58,62 @@ public static class LocalTranscriber
 
         return transcriber;
     }
+
+    // Shared by the load and the size query, so that "large:fp16" resolves the same way in both.
+    private static void PrepareOptions(string modelIdOrPath, TranscriberOptions options)
+    {
+        // An unsupported provider is refused here, before any model resolution or download (0.67.1).
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+
+        // Parse variant qualifier (e.g., "large:fp16" → modelId="large", hint="fp16")
+        var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
+        options.ModelId = baseId;
+        options.QuantizationHint ??= qualifier;
+    }
+
+    /// <summary>
+    /// Bytes <see cref="LoadAsync(string, TranscriberOptions?, IProgress{DownloadProgress}?, CancellationToken)"/> would
+    /// download for the same arguments into an empty cache — the files that load picks (the quantization follows
+    /// <see cref="LMSupplyOptionsBase.QuantizationHint"/>, or without one this machine's hardware tier, exactly as the
+    /// load decides), plus the speaker-diarization pair when <see cref="TranscriberOptions.PreloadDiarization"/> is set.
+    /// For a consent screen or a disk budget ahead of an install step; <see cref="TranscriberModelInfo.SizeBytes"/> is the
+    /// full-precision export's size and is not what a load downloads.
+    /// </summary>
+    /// <remarks>
+    /// Reads the repository listing (one request, cached for a day and reused by the load that follows); downloads and
+    /// loads nothing. The figure is the whole download whatever the cache already holds — <see cref="IsDiarizationDownloadedAsync"/>
+    /// and the model cache answer what is present. A model on local disk downloads nothing, so it adds 0. With
+    /// <see cref="TranscriberOptions.DisableAutoDownload"/> the listing comes from the cache only, as the load's does.
+    /// </remarks>
+    /// <param name="modelIdOrPath">A model alias, HuggingFace id or local path, as for <c>LoadAsync</c>; a <c>:variant</c> qualifier is honoured.</param>
+    /// <param name="options">The options the load will use; not modified.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="Exceptions.ModelNotFoundException">The repository does not exist, or (downloads disabled) was never listed into this cache.</exception>
+    public static async Task<long> GetDownloadSizeBytesAsync(
+        string modelIdOrPath,
+        TranscriberOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        options = options?.Clone() ?? new TranscriberOptions();
+        PrepareOptions(modelIdOrPath, options);
+
+        var plan = Registry.TryResolve(options.ModelId, out var info) && info is not null
+                   && TranscriberArchitectures.IsParakeetTdt(info.Architecture)
+            ? await ParakeetTdtTranscriberModel.PlanDownloadAsync(options, info, cancellationToken)
+            : Directory.Exists(options.ModelId)
+                ? null
+                : await OnnxTranscriberModel.PlanDownloadAsync(options, Registry.Resolve(options.ModelId), cancellationToken);
+
+        return (plan?.TotalBytes ?? 0) + (options.PreloadDiarization ? DiarizationDownloadSizeBytes : 0);
+    }
+
+    /// <summary>
+    /// <see cref="GetDownloadSizeBytesAsync(string, TranscriberOptions?, CancellationToken)"/> for
+    /// <see cref="TranscriberOptions.ModelId"/> — the size query that matches <see cref="LoadAsync(TranscriberOptions?, IProgress{DownloadProgress}?, CancellationToken)"/>.
+    /// </summary>
+    public static Task<long> GetDownloadSizeBytesAsync(
+        TranscriberOptions? options, CancellationToken cancellationToken = default)
+        => GetDownloadSizeBytesAsync(options?.ModelId ?? "default", options, cancellationToken);
 
     /// <summary>
     /// Picks the model family from the registry entry's <see cref="TranscriberModelInfo.Architecture"/> (or, for a local

@@ -34,7 +34,11 @@ public sealed class TranscriberModelInfo : IModelInfoBase, IModelMemoryInfo
     public float ParametersM { get; init; }
 
     /// <summary>
-    /// Gets or sets the model size in bytes.
+    /// Gets or sets the approximate size in bytes of the model's full-precision export — the figure model selection and
+    /// memory estimates are based on. It is <b>not</b> what a load downloads: a Whisper load takes the quantization
+    /// <see cref="LMSupplyOptionsBase.QuantizationHint"/> or the hardware tier picks (int8 by default on most machines,
+    /// roughly a quarter of this). <see cref="LocalTranscriber.GetDownloadSizeBytesAsync(string, TranscriberOptions?, CancellationToken)"/>
+    /// answers the download for the options a load will use.
     /// </summary>
     public long SizeBytes { get; init; }
 

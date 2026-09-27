@@ -348,13 +348,28 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarizati
 
         var cacheDir = _options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: _options.DisableAutoDownload);
-        // 파일을 명시한다 — 이 저장소는 저장소 루트에 두 양자화 변형을 나란히 두므로 discovery의 whisper용 «onnx 하위 폴더» 규칙이 맞지 않는다.
         return await downloader.DownloadModelAsync(
             _modelInfo.Id,
-            files: [_modelInfo.EncoderFile, _modelInfo.DecoderFile, PreprocessorFile, VocabFile, ConfigFile],
+            files: DownloadFiles(_modelInfo),
             progress: _downloadProgress,
             cancellationToken: cancellationToken);
     }
+
+    /// <summary>What a load of <paramref name="modelInfo"/> would download — the same files; null for a local directory.</summary>
+    internal static async Task<DownloadPlan?> PlanDownloadAsync(
+        TranscriberOptions options, TranscriberModelInfo modelInfo, CancellationToken cancellationToken)
+    {
+        if (Directory.Exists(modelInfo.Id))
+            return null;
+
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+        return await downloader.PlanModelAsync(modelInfo.Id, DownloadFiles(modelInfo), cancellationToken: cancellationToken);
+    }
+
+    // 파일을 명시한다 — 이 저장소는 저장소 루트에 두 양자화 변형을 나란히 두므로 discovery의 whisper용 «onnx 하위 폴더» 규칙이 맞지 않는다.
+    private static string[] DownloadFiles(TranscriberModelInfo modelInfo)
+        => [modelInfo.EncoderFile, modelInfo.DecoderFile, PreprocessorFile, VocabFile, ConfigFile];
 
     private static string Require(string path)
         => File.Exists(path) ? path : throw new FileNotFoundException($"Parakeet TDT model file not found: {path}");
