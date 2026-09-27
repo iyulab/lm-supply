@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Fixed
+- **The console host's `/api/registry/models` names what each domain loads.** The transcriber, synthesizer, captioner, OCR,
+  detector and segmenter lists were written by hand and had drifted to repositories the library never loads (for example
+  Tesseract for OCR, YOLOv8 for the detector, SAM ViT for the segmenter). They now come from each domain's registry.
+
 ## [0.88.0] - 2026-09-28
 
 ### Fixed

@@ -1,5 +1,11 @@
 using LMSupply.Console.Host.Infrastructure;
 using LMSupply.Console.Host.Services;
+using LMSupply.Captioner;
+using LMSupply.Detector;
+using LMSupply.Ocr;
+using LMSupply.Segmenter;
+using LMSupply.Synthesizer;
+using LMSupply.Transcriber;
 using LMSupply.Generator;
 using LMSupply.ImageGenerator.Models;
 
@@ -157,92 +163,52 @@ public static class ModelRegistryEndpoints
         ]
     };
 
-    private static ModelTypeInfo CreateTranscriberModels(HashSet<string> cachedRepoIds) => new()
+    // The domains below list their registry, so the console names exactly what each Local* loads. They used to be
+    // hand-written lists that had drifted: OCR named Tesseract, the detector YOLOv8, the segmenter SAM ViT and the
+    // transcriber openai/whisper-*, none of which the library loads.
+    private static ModelTypeInfo FromRegistry<T>(
+        string type, string displayName, string description, IEnumerable<T> models, HashSet<string> cachedRepoIds)
+        where T : IModelInfoBase => new()
     {
-        Type = "transcriber",
-        DisplayName = "Speech Transcriber",
-        Description = "Speech-to-text (Whisper) models",
-        Models =
-        [
-            new ModelAliasInfo { AliasName = "default", RepoId = "openai/whisper-base", Description = "Whisper Base (74M)", IsCached = cachedRepoIds.Contains("openai/whisper-base") },
-            new ModelAliasInfo { AliasName = "fast", RepoId = "openai/whisper-tiny", Description = "Whisper Tiny (39M, fastest)", IsCached = cachedRepoIds.Contains("openai/whisper-tiny") },
-            new ModelAliasInfo { AliasName = "quality", RepoId = "openai/whisper-small", Description = "Whisper Small (244M)", IsCached = cachedRepoIds.Contains("openai/whisper-small") },
-            new ModelAliasInfo { AliasName = "large", RepoId = "openai/whisper-medium", Description = "Whisper Medium (769M)", IsCached = cachedRepoIds.Contains("openai/whisper-medium") },
-        ]
-    };
-
-    private static ModelTypeInfo CreateSynthesizerModels(HashSet<string> cachedRepoIds) => new()
-    {
-        Type = "synthesizer",
-        DisplayName = "Speech Synthesizer",
-        Description = "Text-to-speech (Piper) models",
-        Models =
-        [
-            new ModelAliasInfo { AliasName = "default", RepoId = "rhasspy/piper-voices", Description = "Piper Voices (multi-language)", IsCached = cachedRepoIds.Contains("rhasspy/piper-voices") },
-            new ModelAliasInfo { AliasName = "en-us", RepoId = "rhasspy/piper-voices", Description = "English US voices", IsCached = cachedRepoIds.Contains("rhasspy/piper-voices") },
-        ]
-    };
-
-    private static ModelTypeInfo CreateTranslatorModels(HashSet<string> cachedRepoIds) => new()
-    {
-        Type = "translator",
-        DisplayName = "Translator",
-        Description = "Neural machine translation models",
-        // From the registry, so the listing names what LocalTranslator actually loads.
-        Models = [.. LMSupply.Translator.LocalTranslator.GetAllModels().Select(m => new ModelAliasInfo
+        Type = type,
+        DisplayName = displayName,
+        Description = description,
+        Models = [.. models.Select(m =>
         {
-            AliasName = m.AliasName,
-            RepoId = m.Id,
-            Description = $"{m.DisplayName} ({m.SourceLanguage} -> {m.TargetLanguage})",
-            IsCached = cachedRepoIds.Contains(m.Id)
+            var repoId = m.Id.Split(':')[0];   // «org/name:variant» picks a file inside the repository
+            return new ModelAliasInfo
+            {
+                AliasName = m.AliasName,
+                RepoId = repoId,
+                Description = m.Description ?? m.AliasName,
+                IsCached = cachedRepoIds.Contains(repoId)
+            };
         })]
     };
 
-    private static ModelTypeInfo CreateCaptionerModels(HashSet<string> cachedRepoIds) => new()
-    {
-        Type = "captioner",
-        DisplayName = "Image Captioner",
-        Description = "Image captioning and VQA models",
-        Models =
-        [
-            new ModelAliasInfo { AliasName = "default", RepoId = "microsoft/Florence-2-base", Description = "Florence 2 Base", IsCached = cachedRepoIds.Contains("microsoft/Florence-2-base") },
-            new ModelAliasInfo { AliasName = "quality", RepoId = "microsoft/Florence-2-large", Description = "Florence 2 Large", IsCached = cachedRepoIds.Contains("microsoft/Florence-2-large") },
-        ]
-    };
+    private static ModelTypeInfo CreateTranscriberModels(HashSet<string> cachedRepoIds) => FromRegistry(
+        "transcriber", "Transcriber", "Speech-to-text models", LocalTranscriber.Registry.GetAvailableModels(), cachedRepoIds);
 
-    private static ModelTypeInfo CreateOcrModels(HashSet<string> cachedRepoIds) => new()
-    {
-        Type = "ocr",
-        DisplayName = "OCR",
-        Description = "Optical character recognition models",
-        Models =
-        [
-            new ModelAliasInfo { AliasName = "default", RepoId = "tesseract-ocr/tessdata", Description = "Tesseract (100+ languages)", IsCached = cachedRepoIds.Contains("tesseract-ocr/tessdata") },
-        ]
-    };
+    private static ModelTypeInfo CreateSynthesizerModels(HashSet<string> cachedRepoIds) => FromRegistry(
+        "synthesizer", "Synthesizer", "Text-to-speech voices (Piper) — see the known issue: no text-to-phoneme step yet",
+        LocalSynthesizer.Registry.GetAvailableModels(), cachedRepoIds);
 
-    private static ModelTypeInfo CreateDetectorModels(HashSet<string> cachedRepoIds) => new()
-    {
-        Type = "detector",
-        DisplayName = "Object Detector",
-        Description = "Object detection models",
-        Models =
-        [
-            new ModelAliasInfo { AliasName = "default", RepoId = "ultralytics/yolov8n", Description = "YOLOv8 Nano (3.2M)", IsCached = cachedRepoIds.Contains("ultralytics/yolov8n") },
-            new ModelAliasInfo { AliasName = "quality", RepoId = "ultralytics/yolov8s", Description = "YOLOv8 Small (11M)", IsCached = cachedRepoIds.Contains("ultralytics/yolov8s") },
-        ]
-    };
+    private static ModelTypeInfo CreateTranslatorModels(HashSet<string> cachedRepoIds) => FromRegistry(
+        "translator", "Translator", "Neural machine translation models", LMSupply.Translator.LocalTranslator.Registry.GetAvailableModels(), cachedRepoIds);
 
-    private static ModelTypeInfo CreateSegmenterModels(HashSet<string> cachedRepoIds) => new()
-    {
-        Type = "segmenter",
-        DisplayName = "Image Segmenter",
-        Description = "Image segmentation models",
-        Models =
-        [
-            new ModelAliasInfo { AliasName = "default", RepoId = "facebook/sam-vit-base", Description = "SAM ViT Base", IsCached = cachedRepoIds.Contains("facebook/sam-vit-base") },
-        ]
-    };
+    private static ModelTypeInfo CreateCaptionerModels(HashSet<string> cachedRepoIds) => FromRegistry(
+        "captioner", "Captioner", "Image captioning models", LocalCaptioner.Registry.GetAvailableModels(), cachedRepoIds);
+
+    private static ModelTypeInfo CreateOcrModels(HashSet<string> cachedRepoIds) => FromRegistry<IModelInfoBase>(
+        "ocr", "OCR", "Text detection and recognition models",
+        [.. LocalOcr.DetectionRegistry.GetAvailableModels(), .. LocalOcr.RecognitionRegistry.GetAvailableModels()], cachedRepoIds);
+
+    private static ModelTypeInfo CreateDetectorModels(HashSet<string> cachedRepoIds) => FromRegistry(
+        "detector", "Object Detector", "Object detection models", LocalDetector.Registry.GetAvailableModels(), cachedRepoIds);
+
+    private static ModelTypeInfo CreateSegmenterModels(HashSet<string> cachedRepoIds) => FromRegistry(
+        "segmenter", "Segmenter", "Semantic and interactive (LoadInteractiveAsync) segmentation models",
+        LocalSegmenter.Registry.GetAvailableModels(), cachedRepoIds);
 
     private static ModelTypeInfo CreateImageGeneratorModels(HashSet<string> cachedRepoIds)
     {
