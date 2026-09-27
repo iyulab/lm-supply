@@ -11,7 +11,7 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   server's `ExitCode` and `RecentLog`, and wraps the transport failure the request saw. Before, the caller got only
   "connection refused" or "the response ended prematurely", which does not say the server is gone. This covers every
   generation, embedding and reranking call on a pooled llama-server, including a stream cut part-way through. It
-  derives from `InferenceException`. A failure while the server is still running is unchanged. A generator's next call
+  derives from `InferenceException`. A failure while the server is still running is rethrown as it was, after up to 2 s spent confirming the server has not exited. A generator's next call
   on the same model starts a new server, as before.
 
 ### Fixed

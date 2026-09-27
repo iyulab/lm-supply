@@ -194,6 +194,8 @@ if (!LocalGenerator.IsModelDownloaded("gguf:qwen3-default", options) && !AskUser
 await LlamaServerPool.Instance.ReleaseIdleAsync();
 ```
 
+A GGUF model whose llama-server exits (killed, crashed, out of memory) gets a new server on its next call. The call that saw it die throws `InferenceBackendExitedException`, which carries the server's `ExitCode` and `RecentLog` (its last output lines). `LlamaServerProcess.RecentLog` is readable directly too.
+
 ### Translation
 
 ```csharp
