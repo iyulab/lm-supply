@@ -393,6 +393,7 @@ public sealed class LlamaServerProcess : IAsyncDisposable
     private Process? _process;
     private int _port;
     private bool _disposed;
+    private readonly ServerLogTail _recentLog = new();
 
     /// <summary>
     /// Gets information about the running server.
@@ -406,6 +407,13 @@ public sealed class LlamaServerProcess : IAsyncDisposable
 
     /// <summary>The process exit code once it has exited, else null.</summary>
     public int? ExitCode => _process is { HasExited: true } exited ? exited.ExitCode : null;
+
+    /// <summary>
+    /// The last lines the server wrote (stderr and stdout, at most <see cref="ServerLogTail.DefaultCapacity"/> lines,
+    /// oldest first) — kept for the server's whole life and still readable after it exits, so a server that dies in the
+    /// middle of a request can say why. <see cref="LlamaServerInfo.StartupLog"/> is the complete log up to readiness only.
+    /// </summary>
+    public string RecentLog => _recentLog.ToString();
 
     private LlamaServerProcess(
         string serverPath,
@@ -503,16 +511,19 @@ public sealed class LlamaServerProcess : IAsyncDisposable
             throw new InvalidOperationException(DidNotLaunchMessage(_serverPath, _backend, workingDir));
         }
 
-        // Capture stderr output for diagnostics
+        // Capture output for diagnostics. The complete startup log is kept only until the server is ready (a running
+        // server logs every request, so an unbounded buffer grows for its whole life); after that only the bounded
+        // tail keeps growing. stdout is drained too: a redirected stream nobody reads fills its pipe and stalls the server.
         var stderrBuilder = new System.Text.StringBuilder();
-        _process.ErrorDataReceived += (_, e) =>
+        var startupDone = false;
+        CaptureOutput(_process, _recentLog, line =>
         {
-            if (e.Data != null)
+            if (!Volatile.Read(ref startupDone))
             {
-                stderrBuilder.AppendLine(e.Data);
+                lock (stderrBuilder)
+                    stderrBuilder.AppendLine(line);
             }
-        };
-        _process.BeginErrorReadLine();
+        });
 
         // Wait for server to be ready
         var startTime = DateTimeOffset.UtcNow;
@@ -521,7 +532,9 @@ public sealed class LlamaServerProcess : IAsyncDisposable
         if (failure != null)
         {
             // Collect error output
-            var error = stderrBuilder.ToString();
+            string error;
+            lock (stderrBuilder)
+                error = stderrBuilder.ToString();
             if (string.IsNullOrEmpty(error) && _process.HasExited)
             {
                 error = "Process exited without error output";
@@ -533,7 +546,12 @@ public sealed class LlamaServerProcess : IAsyncDisposable
                 $"Error: {error}");
         }
 
-        var startupLog = stderrBuilder.ToString();
+        string startupLog;
+        lock (stderrBuilder)
+        {
+            Volatile.Write(ref startupDone, true);
+            startupLog = stderrBuilder.ToString();
+        }
 
         Info = new LlamaServerInfo
         {
@@ -868,10 +886,13 @@ public sealed class LlamaServerProcess : IAsyncDisposable
 
     private static bool HasFatalStartupError(System.Text.StringBuilder stderrBuilder)
     {
-        if (stderrBuilder.Length == 0)
-            return false;
-
-        var text = stderrBuilder.ToString();
+        string text;
+        lock (stderrBuilder)
+        {
+            if (stderrBuilder.Length == 0)
+                return false;
+            text = stderrBuilder.ToString();
+        }
         return text.Contains("error while handling argument", StringComparison.Ordinal)
             || text.Contains("error: invalid argument", StringComparison.Ordinal)
             || text.Contains("unknown argument", StringComparison.Ordinal);
@@ -1019,6 +1040,29 @@ public sealed class LlamaServerProcess : IAsyncDisposable
     /// discriminator: it succeeds for a process that has already exited, and fails only for one that
     /// was never created.
     /// </summary>
+    /// <summary>
+    /// Reads both redirected streams into <paramref name="tail"/> for the process's whole life, and hands each stderr
+    /// line to <paramref name="onStderr"/> as well. Both streams, because a redirected stream nobody reads fills its
+    /// pipe and blocks the writer.
+    /// </summary>
+    internal static void CaptureOutput(Process process, ServerLogTail tail, Action<string>? onStderr = null)
+    {
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data == null)
+                return;
+            tail.Append(e.Data);
+            onStderr?.Invoke(e.Data);
+        };
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data != null)
+                tail.Append(e.Data);
+        };
+        process.BeginErrorReadLine();
+        process.BeginOutputReadLine();
+    }
+
     internal static bool HasLaunched(Process? process)
     {
         if (process is null)

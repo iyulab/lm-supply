@@ -39,6 +39,7 @@ llama-server operates in different modes depending on the use case:
 - **Cross-platform**: Windows, Linux, macOS (including Apple Silicon)
 - **Server pooling**: Efficient server instance reuse across multiple requests
 - **Mode-aware pooling**: Separate server instances for generation, embedding, and reranking
+- **Server output kept for diagnosis**: `LlamaServerProcess.RecentLog` holds the last 200 lines the server wrote (stderr and stdout), still readable after it exits — read it with `ExitCode` when a server dies mid-request; `Info.StartupLog` is the complete log up to readiness
 
 ## Supported Backends
 

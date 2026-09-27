@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.84.0] - Unreleased
+
+### Added
+- **`LlamaServerProcess.RecentLog`: what a server wrote last, readable after it dies.** The last 200 lines of the
+  server's output (stderr and stdout), kept for the server's whole life. A server that dies in the middle of a request
+  used to leave the caller only "connection refused"; read `RecentLog` with `ExitCode` to see why. The generator's
+  restart warning for a dead server now includes the last 20 lines.
+
+### Fixed
+- **A long-running server no longer grows memory with its log.** The startup log buffer kept receiving every line the
+  server wrote after it was ready, for its whole life, and nothing read it. It now stops at readiness
+  (`Info.StartupLog` is unchanged); later output goes to the bounded `RecentLog`.
+- **The server's stdout is read.** It was redirected and never read, so a build that writes to stdout would fill the
+  pipe and stall the server.
+
 ## [0.83.0] - 2026-09-27
 
 ### Fixed

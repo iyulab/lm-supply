@@ -780,9 +780,13 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                 return _serverLease.Client;
 
             var exitCode = _serverLease.Server.ExitCode;
+            var lastLines = _serverLease.Server.RecentLog
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .TakeLast(20);
             Trace.TraceWarning(
                 $"[LlamaServerGeneratorModel] llama-server for '{ModelId}' is no longer running " +
-                $"(exit code {(exitCode?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown")}); starting a new one.");
+                $"(exit code {(exitCode?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown")}); starting a new one. " +
+                $"Its last output:{Environment.NewLine}{string.Join(Environment.NewLine, lastLines)}");
 
             var dead = _serverLease;
             _serverLease = await _leaseServer(cancellationToken).ConfigureAwait(false);
