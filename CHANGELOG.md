@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [0.84.0] - Unreleased
+## [0.84.0] - 2026-09-27
 
 ### Added
 - **`LlamaServerProcess.RecentLog`: what a server wrote last, readable after it dies.** The last 200 lines of the
