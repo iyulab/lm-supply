@@ -71,8 +71,8 @@ float[] embedding = await model.EmbedAsync("Hello, world!");
 | [LMSupply.Transcriber](docs/transcriber.md) | Speech → Text (Whisper) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Transcriber.svg)](https://www.nuget.org/packages/LMSupply.Transcriber) |
 | [LMSupply.Synthesizer](docs/synthesizer.md) | Text → Speech (Piper) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Synthesizer.svg)](https://www.nuget.org/packages/LMSupply.Synthesizer) |
 | [LMSupply.Llama](docs/llama.md) | Shared llama-server management for GGUF | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Llama.svg)](https://www.nuget.org/packages/LMSupply.Llama) |
-| LMSupply.Generator.Onnx | Optional ONNX Runtime GenAI backend for `LMSupply.Generator` (ONNX models such as Phi, CUDA). Not needed for GGUF | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Generator.Onnx.svg)](https://www.nuget.org/packages/LMSupply.Generator.Onnx) |
-| LMSupply.ImageGenerator | Text → Image (Latent Consistency Models, 2–4 steps; CUDA / CoreML) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.ImageGenerator.svg)](https://www.nuget.org/packages/LMSupply.ImageGenerator) |
+| LMSupply.Generator.Onnx | Optional ONNX Runtime GenAI backend for `LMSupply.Generator` (ONNX models such as Phi, CUDA). Not needed for GGUF. Enable with `OnnxGeneratorBackend.Register()` once at startup | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Generator.Onnx.svg)](https://www.nuget.org/packages/LMSupply.Generator.Onnx) |
+| LMSupply.ImageGenerator | Text → Image (Latent Consistency Models, 2–4 steps; CUDA / CoreML). Entry point: `LocalImageGenerator.LoadAsync("default")` | [![NuGet](https://img.shields.io/nuget/v/LMSupply.ImageGenerator.svg)](https://www.nuget.org/packages/LMSupply.ImageGenerator) |
 
 Shared infrastructure, pulled in by the packages above — you do not reference these directly: **LMSupply.Core** (HuggingFace
 download, cache, GPU execution providers), **LMSupply.Text.Core** (tokenization and vocabularies) and **LMSupply.Vision.Core**
@@ -145,6 +145,8 @@ foreach (var result in results)
 
 ```csharp
 using LMSupply.Generator;
+using LMSupply.Generator.Models;   // ChatMessage, GenerationOptions
+using LMSupply.Llama.Server;       // LlamaServerPool
 
 // GGUF models — native tool calling support via llama-server
 await using var model = await LocalGenerator.LoadAsync("gguf:auto");  // Hardware-optimized (Qwen3 pool)
@@ -204,15 +206,17 @@ using LMSupply.Translator;
 await using var translator = await LocalTranslator.LoadAsync("ko-en");
 
 // Translate Korean to English
-string english = await translator.TranslateAsync("안녕하세요, 세계!");
-Console.WriteLine(english); // "Hello, world!"
+var result = await translator.TranslateAsync("안녕하세요, 세계!");
+Console.WriteLine(result.TranslatedText); // "Hello, world!"
 
 // Batch translation
-string[] translations = await translator.TranslateBatchAsync(new[]
+var results = await translator.TranslateBatchAsync(new[]
 {
     "첫 번째 문장입니다.",
     "두 번째 문장입니다."
 });
+foreach (var r in results)
+    Console.WriteLine(r.TranslatedText);
 ```
 
 ### Speech Recognition (Transcriber)
@@ -327,7 +331,9 @@ Scores are on the same 0..1 scale as the ONNX route, and `LocalReranker.IsModelD
 
 > `LoadAsync("default")` and `LoadAsync("auto")` both route through this matrix. For explicit selection, use `gguf:*` aliases, ONNX aliases, or a direct HuggingFace repo ID.
 
-**ONNX aliases** (explicit only — `auto`/`default` never select ONNX; CUDA or CPU):
+**ONNX aliases** (explicit only — `auto`/`default` never select ONNX; CUDA or CPU). These need a reference to
+`LMSupply.Generator.Onnx` and a one-time `OnnxGeneratorBackend.Register()` call (namespace `LMSupply.Generator.Onnx`)
+before the first ONNX load:
 
 | Alias | Model | Params | Context | License | Notes |
 |-------|-------|--------|---------|---------|-------|
@@ -373,20 +379,25 @@ Gemma 4와 Qwen3 시리즈 중심 레지스트리. `gguf:auto`(와 `"default"`/`
 
 | Alias | Direction | Model | Best For |
 |-------|-----------|-------|----------|
+| `default` | Korean → English | OPUS-MT | Same as `ko-en` |
 | `ko-en` | Korean → English | OPUS-MT | Korean translation |
 | `ja-en` | Japanese → English | OPUS-MT | Japanese translation |
 | `zh-en` | Chinese → English | OPUS-MT | Chinese translation |
-| `multilingual` | Many → English | mBART/M2M100 | 100+ languages |
 
-### Transcriber (Whisper)
+### Transcriber (Whisper, Parakeet)
 
 | Alias | Model | Params | Size | WER | Best For |
 |-------|-------|--------|------|-----|----------|
 | `fast` | Whisper Tiny | 39M | ~150MB | 7.6% | Ultra-fast transcription |
 | `default` | Whisper Base | 74M | ~290MB | 5.0% | Balanced speed/quality |
 | `quality` | Whisper Small | 244M | ~970MB | 3.4% | Higher accuracy |
+| `medium` | Whisper Medium.en | 769M | ~3GB | 2.9% | English, word-level timestamps |
 | `large` | Whisper Large V3 | 1.5B | ~6GB | 2.5% | Best accuracy |
+| `turbo` | Whisper Large V3 Turbo | 809M | ~3.2GB | 2.7% | Near-V3 quality, much faster |
+| `distil` | Distil-Whisper Large V3 | 756M | ~3GB | 2.8% | Fast distilled model, English |
+| `large-ko` | Whisper Large V3 Turbo (Korean fine-tune) | 809M | ~3.2GB | — | Korean speech |
 | `english` | Whisper Base.en | 74M | ~290MB | 4.3% | English-optimized |
+| `parakeet-tdt` | NVIDIA Parakeet TDT 0.6B v3 (int8, not Whisper) | 600M | ~670MB | — | Fast CPU transcription, 25 European languages; no translation |
 
 ### Synthesizer (Piper TTS)
 
@@ -412,22 +423,24 @@ Use `"auto"` to let LMSupply select the optimal model based on your hardware:
 ```csharp
 // Hardware-optimized model selection
 await using var embedder = await LocalEmbedder.LoadAsync("auto");
-await using var generator = await LocalGenerator.LoadAsync("auto");      // Platform-based: GGUF or ONNX
+await using var generator = await LocalGenerator.LoadAsync("auto");      // GGUF on every host (same rule as "gguf:auto")
 await using var reranker = await LocalReranker.LoadAsync("auto");
 ```
 
 LMSupply detects your hardware and selects models accordingly:
 
-### ONNX Models
+### Embedder, Reranker and Generator
 
-`LocalEmbedder.LoadAsync("auto")` selects the largest model whose estimated size fits available VRAM. Candidates (largest first): BGE-M3 (568M), multilingual-e5-large (560M), nomic-embed-text-v1.5 (137M), multilingual-e5-small (118M). Falls back to multilingual-e5-small when nothing fits.
+- **Embedder** — not tier-based: `LocalEmbedder.LoadAsync("auto")` selects the largest model whose estimated size fits the VRAM budget. Candidates (largest first): BGE-M3 (568M), multilingual-e5-large (560M), nomic-embed-text-v1.5 (137M), multilingual-e5-small (118M). Falls back to multilingual-e5-small when nothing fits.
+- **Generator** — `auto`/`default` never pick an ONNX model; they use the GGUF `gguf:auto` rule (see [GGUF Models](#gguf-models-via-ggufauto) below).
+- **Reranker** — by hardware tier:
 
-| Performance Tier | Hardware | Embedder (auto) | Generator | Reranker |
-|------------------|----------|-----------------|-----------|----------|
-| **Low** | CPU only or GPU <4GB | multilingual-e5-small (118M) | Phi-4-mini (3.8B) | MiniLM-L6 (22M) |
-| **Medium** | GPU 4-8GB | nomic-embed-text-v1.5 (137M) | Phi-4-mini (3.8B) | bge-reranker-base |
-| **High** | GPU 8-16GB | multilingual-e5-large (560M) | Phi-4 (14B) | bge-reranker-large |
-| **Ultra** | GPU 16GB+ | bge-m3 (568M) | Phi-4 (14B) | bge-reranker-large |
+| Performance Tier | Hardware | Reranker (auto) |
+|------------------|----------|-----------------|
+| **Low** | CPU only or GPU <4GB | ms-marco-MiniLM-L-6-v2 (22M) |
+| **Medium** | GPU 4-8GB, or CPU with 16GB+ RAM | bge-reranker-base (278M) — or `multilingual-fast` (GGUF bge-reranker-v2-m3) when a llama-server binary is already cached (`auto` never downloads one) |
+| **High** | GPU 8-16GB | bge-reranker-v2-m3 (568M) |
+| **Ultra** | GPU 16GB+ | bge-reranker-v2-m3 (568M) |
 
 ### GGUF Models (via `gguf:auto`)
 
@@ -533,8 +546,8 @@ dotnet remove package Microsoft.ML.OnnxRuntime.DirectML
 ```
 
 For NVIDIA CUDA support, ensure you have:
-- NVIDIA GPU drivers installed
-- CUDA 11.x or 12.x runtime (LMSupply auto-selects the appropriate version)
+- NVIDIA GPU drivers installed (enough for GGUF models — the llama-server CUDA runtime is downloaded for you)
+- For ONNX sessions: the CUDA 12 runtime and cuDNN 9 installed on the machine (see [GPU Acceleration](#gpu-acceleration)); LMSupply provisions the ONNX Runtime GPU build, tried first as `cuda12` when the driver reports CUDA 12
 
 If inference behaves as though a different provider/version is active than the one you last
 requested, check `RuntimeManager.Instance.ActuallyLoadedRuntimePath` — a native runtime binary
@@ -572,6 +585,7 @@ LMSupply emits operational logs (model auto-selection, GPU layer offload decisio
 To surface LMSupply diagnostics in an ILogger sink (Serilog, Console logging, Application Insights, etc.), attach `LMSupplyTraceListener` at host startup:
 
 ```csharp
+using System.Diagnostics;          // TraceEventType
 using LMSupply.Diagnostics;
 using Microsoft.Extensions.Logging;
 
@@ -605,7 +619,7 @@ When set to a positive integer, the override is applied **before any safety marg
 
 ### Model auto-selection (VRAM- and RAM-aware)
 
-`gguf:auto` picks the largest registered model that fits the available budget. Selection considers the GPU VRAM budget first; when no model fits VRAM it falls back to the **system RAM budget** (`total RAM − 4 GB reserved`) so a low-VRAM, high-RAM machine runs the largest model that fits RAM on CPU instead of dropping to the smallest. Only if neither budget fits does it fall back to the smallest model. The chosen path is reported by `ModelSelectionResult.Reason` (`Fits` → VRAM, `FitsInSystemRam` → CPU/RAM, `FallbackToSmallest`). Example: an integrated-GPU laptop with 32 GB RAM selects an ~8B+ model on CPU rather than a 2B fallback.
+`gguf:auto` picks the largest registered model that fits the available budget. Selection considers the GPU VRAM budget first; when no model fits VRAM it falls back to the **system RAM budget** (`min(total RAM − 4 GB, total RAM × 0.5)`) so a low-VRAM, high-RAM machine runs the largest model that fits RAM on CPU instead of dropping to the smallest. Only if neither budget fits does it fall back to the smallest model. The chosen path is reported by `ModelSelectionResult.Reason` (`Fits` → VRAM, `FitsInSystemRam` → CPU/RAM, `FallbackToSmallest`). Example: an integrated-GPU laptop with 32 GB RAM selects an ~8B+ model on CPU rather than a 2B fallback.
 
 **Quantization-aware downscale (low-spec).** After the model family is chosen, the download step picks the quantization file that fits the *backend-consistent* memory budget (VRAM on a GPU backend, RAM on a CPU/integrated-GPU backend). A capable host keeps the registry's default quant (e.g. `Q4_K_M`); a tight-memory host **downscales to a smaller quant** (`Q4 → Q3 → Q2`) so it loads instead of OOMing on the default. If no quant fits, the smallest is used with a `Trace.TraceWarning` (OOM risk surfaced, not silent). An explicit GPU pin or `preferredQuantization` is honored as-is. A cached quant is reused only when it fits the budget.
 
@@ -652,15 +666,14 @@ await Parallel.ForEachAsync(documents, async (doc, ct) =>
     // Process embedding...
 });
 
-// Or with Task.WhenAll
-var tasks = documents.Select(d => embedder.EmbedAsync(d));
-var embeddings = await Task.WhenAll(tasks);
+// Or embed the whole batch in one call (EmbedAsync(IReadOnlyList<string>))
+float[][] embeddings = await embedder.EmbedAsync(documents);
 ```
 
 **Performance tips:**
 - GPU inference: 2-4 concurrent operations typically optimal
 - CPU inference: Match `MaxDegreeOfParallelism` to core count
-- Use `EmbedBatchAsync()` when available for better throughput
+- Prefer the batch overload `EmbedAsync(IReadOnlyList<string>)` over one call per text for better throughput
 
 ---
 
@@ -692,7 +705,7 @@ await using var generator = await LocalGenerator.LoadAsync("bartowski/Llama-3.2-
 await using var generator = await LocalGenerator.LoadAsync("bartowski/Qwen2.5-Coder-7B-Instruct-GGUF");
 
 // Vision models
-await using var captioner = await LocalCaptioner.LoadAsync("microsoft/Florence-2-base");
+await using var captioner = await LocalCaptioner.LoadAsync("Xenova/vit-gpt2-image-captioning"); // = "default"; ViT-GPT2 is the only supported captioner architecture
 await using var detector = await LocalDetector.LoadAsync("onnx-community/yolov8s");
 ```
 
