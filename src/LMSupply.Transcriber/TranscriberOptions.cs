@@ -188,17 +188,35 @@ public sealed class TranscribeOptions
     public bool Diarize { get; set; }
 
     /// <summary>
-    /// Gets or sets the number of speakers, when known. Fixes the speaker count and takes precedence over
-    /// <see cref="SpeakerThreshold"/>. Only read with <see cref="Diarize"/>.
+    /// Gets or sets the exact number of speakers, when known. Forces the count and takes precedence over
+    /// <see cref="SpeakerThreshold"/>, <see cref="MinSpeakers"/> and <see cref="MaxSpeakers"/>: a recording with fewer
+    /// distinct voices is split to reach it, and when the audio cannot yield that many you get the nearest count it
+    /// can. When you know only how many people could speak (the attendees of a meeting), set
+    /// <see cref="MaxSpeakers"/> instead. Only read with <see cref="Diarize"/>.
     /// <para>Default: null (estimated from the audio)</para>
     /// </summary>
     public int? NumSpeakers { get; set; }
 
     /// <summary>
-    /// Gets or sets the cosine-distance cut between speakers when <see cref="NumSpeakers"/> is not set: two voices
-    /// closer than this are one speaker. Smaller values find more speakers, larger values fewer. Only read with
-    /// <see cref="Diarize"/>.
-    /// <para>Default: null (0.5, tuned for the bundled embedding model)</para>
+    /// Gets or sets the fewest speakers to report: when the estimate finds fewer, the count is raised to this. Ignored
+    /// when <see cref="NumSpeakers"/> is set. Only read with <see cref="Diarize"/>.
+    /// <para>Default: null (no lower bound)</para>
+    /// </summary>
+    public int? MinSpeakers { get; set; }
+
+    /// <summary>
+    /// Gets or sets the most speakers to report: when the estimate finds more, the count is lowered to this. An upper
+    /// bound, so a recording with fewer voices keeps its own count. Ignored when <see cref="NumSpeakers"/> is set.
+    /// Only read with <see cref="Diarize"/>.
+    /// <para>Default: null (no upper bound)</para>
+    /// </summary>
+    public int? MaxSpeakers { get; set; }
+
+    /// <summary>
+    /// Gets or sets the cosine-distance cut between speakers for the estimate (when <see cref="NumSpeakers"/> is not
+    /// set): two voices closer than this are one speaker. Smaller values find more speakers, larger values fewer.
+    /// Only read with <see cref="Diarize"/>.
+    /// <para>Default: null (0.4, tuned for the bundled embedding model)</para>
     /// </summary>
     public float? SpeakerThreshold { get; set; }
 

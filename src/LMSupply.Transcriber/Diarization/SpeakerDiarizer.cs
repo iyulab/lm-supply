@@ -9,8 +9,9 @@ internal readonly record struct SpeakerTurn(double Start, double End, int Speake
 
 /// <summary>
 /// Offline speaker diarization: pyannote segmentation-3.0 over 10 s windows (1 s step), one speaker embedding per
-/// (window, local speaker), complete-linkage clustering, then per-frame aggregation. The same pipeline as sherpa-onnx's
-/// offline pyannote diarization.
+/// (window, local speaker), complete-linkage clustering with pyannote's small-cluster rule, then per-frame aggregation.
+/// sherpa-onnx's offline pyannote diarization plus that rule; a recording of one window goes through the same
+/// clustering, so a speaker count or threshold applies to short recordings too.
 /// </summary>
 internal sealed class SpeakerDiarizer : IAsyncDisposable
 {
@@ -29,8 +30,13 @@ internal sealed class SpeakerDiarizer : IAsyncDisposable
     private const double MinDurationOn = 0.3;
     private const double MinDurationOff = 0.5;
 
-    /// <summary>Default cosine-distance cut for the WeSpeaker ResNet34 embeddings.</summary>
-    public const float DefaultThreshold = 0.5f;
+    /// <summary>
+    /// Default cosine-distance cut for the WeSpeaker ResNet34 embeddings. sherpa-onnx uses 0.5. With the small-cluster
+    /// rule (<see cref="AgglomerativeClustering"/>) a lower cut no longer turns a stray window into a speaker, and 0.4
+    /// separates voices 0.5 merges (a second male voice; a third speaker of sherpa's four-speaker test recording)
+    /// while one voice stays one speaker.
+    /// </summary>
+    public const float DefaultThreshold = 0.4f;
 
     // Powerset classes of segmentation-3.0: silence, {0}, {1}, {2}, {0,1}, {0,2}, {1,2}.
     private static readonly int[][] s_powerset = [[], [0], [1], [2], [0, 1], [0, 2], [1, 2]];
@@ -97,7 +103,7 @@ internal sealed class SpeakerDiarizer : IAsyncDisposable
 
     /// <summary>Speaker turns of 16 kHz mono <paramref name="samples"/>, ordered by start.</summary>
     public IReadOnlyList<SpeakerTurn> Diarize(float[] samples, int numSpeakers = 0, float threshold = DefaultThreshold,
-        CancellationToken cancellationToken = default)
+        int minSpeakers = 0, int maxSpeakers = 0, CancellationToken cancellationToken = default)
     {
         if (samples.Length == 0)
             return [];
@@ -110,9 +116,6 @@ internal sealed class SpeakerDiarizer : IAsyncDisposable
             cancellationToken.ThrowIfCancellationRequested();
             labels.Add(Segment(samples, start));
         }
-
-        if (labels.Count == 1)
-            return ToTurns(Trim(labels[0], samples.Length), speakerCount: LocalSpeakers);
 
         var speakersPerFrame = SpeakersPerFrame(labels);
         if (speakersPerFrame.All(c => c == 0))
@@ -157,7 +160,7 @@ internal sealed class SpeakerDiarizer : IAsyncDisposable
         var flat = new float[embeddings.Count * dim];
         for (var i = 0; i < embeddings.Count; i++)
             embeddings[i].CopyTo(flat, i * dim);
-        var clusters = AgglomerativeClustering.Cluster(flat, dim, threshold, numSpeakers);
+        var clusters = AgglomerativeClustering.Cluster(flat, dim, threshold, numSpeakers, minSpeakers, maxSpeakers);
         var globalSpeakers = clusters.Max() + 1;
         var map = new Dictionary<(int, int), int>();
         for (var i = 0; i < pairs.Count; i++)
@@ -180,7 +183,7 @@ internal sealed class SpeakerDiarizer : IAsyncDisposable
         }
 
         var usable = totalFrames;
-        if ((samples.Length - WindowSize) % WindowShift > 0)
+        if (samples.Length < WindowSize || (samples.Length - WindowSize) % WindowShift > 0)
             usable = Math.Min(totalFrames, samples.Length / ReceptiveFieldShift + 1);
 
         var final = new int[usable, globalSpeakers];
@@ -296,18 +299,6 @@ internal sealed class SpeakerDiarizer : IAsyncDisposable
     {
         var order = Enumerable.Range(0, speakers).OrderByDescending(g => counts[frame, g]).ThenBy(g => g);
         return order.Take(k);
-    }
-
-    private static int[,] Trim(int[,] label, int numSamples)
-    {
-        if ((numSamples - WindowSize) % WindowShift <= 0 && numSamples >= WindowSize)
-            return label;
-        var keep = Math.Min(label.GetLength(0), numSamples / ReceptiveFieldShift);
-        var trimmed = new int[keep, label.GetLength(1)];
-        for (var f = 0; f < keep; f++)
-            for (var s = 0; s < label.GetLength(1); s++)
-                trimmed[f, s] = label[f, s];
-        return trimmed;
     }
 
     /// <summary>Frame labels → turns: frame times, merging same-speaker gaps below 0.5 s, dropping turns under 0.3 s.</summary>

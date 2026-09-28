@@ -27,6 +27,63 @@ public class DiarizationUnitTests
         AgglomerativeClustering.Cluster(embeddings, 2, threshold: 5f, numClusters: 3).Distinct().Should().HaveCount(3);
     }
 
+    /// <summary>
+    /// Three tight groups of eight — A and B 60° apart (distance 0.5), C orthogonal — plus one stray embedding near
+    /// nothing. With 25 rows a cluster needs 2 members to be a speaker.
+    /// </summary>
+    private static float[] GroupsWithAStray()
+    {
+        static float[] At(double deg, double jitter) =>
+            [(float)Math.Cos(deg * Math.PI / 180), (float)Math.Sin(deg * Math.PI / 180), 0, (float)jitter];
+        var rows = new List<float[]>();
+        for (var i = 0; i < 8; i++)
+        {
+            var jitter = 0.01 * (i - 3.5);
+            rows.Add(At(0, jitter));
+            rows.Add(At(60, jitter));
+            rows.Add([0, 0, 1, (float)jitter]);
+        }
+        rows.Add([0.2f, 0, 0, 1]); // the stray: nearest A, far from every group
+        return Rows([.. rows]);
+    }
+
+    private static int[] GroupOf(int[] labels) =>
+        [labels[0], labels[1], labels[2]]; // rows 0, 1, 2 are A, B, C
+
+    [Fact]
+    public void Clustering_AStrayIsNotASpeaker_ItJoinsTheNearestGroup()
+    {
+        var labels = AgglomerativeClustering.Cluster(GroupsWithAStray(), 4, threshold: 0.4f);
+
+        labels.Distinct().Should().HaveCount(3);
+        labels[^1].Should().Be(labels[0], "the stray's centroid is nearest A");
+    }
+
+    [Fact]
+    public void Clustering_ARequestedCountIsMetByGroupsNotByAStray()
+    {
+        var embeddings = GroupsWithAStray();
+
+        var three = AgglomerativeClustering.Cluster(embeddings, 4, threshold: 0.4f, numClusters: 3);
+        var two = AgglomerativeClustering.Cluster(embeddings, 4, threshold: 0.4f, numClusters: 2);
+
+        GroupOf(three).Distinct().Should().HaveCount(3, "three groups, not two groups and the stray");
+        three.Distinct().Should().HaveCount(3);
+        two.Distinct().Should().HaveCount(2);
+        two[0].Should().Be(two[1], "A and B are the nearest pair");
+    }
+
+    [Fact]
+    public void Clustering_MinAndMaxClampTheEstimate()
+    {
+        var embeddings = GroupsWithAStray();
+
+        AgglomerativeClustering.Cluster(embeddings, 4, threshold: 0.4f, maxClusters: 2).Distinct().Should().HaveCount(2);
+        AgglomerativeClustering.Cluster(embeddings, 4, threshold: 1.5f, minClusters: 3).Distinct().Should().HaveCount(3);
+        AgglomerativeClustering.Cluster(embeddings, 4, threshold: 0.4f, minClusters: 1, maxClusters: 5).Distinct()
+            .Should().HaveCount(3, "an estimate inside the bounds is kept");
+    }
+
     [Fact]
     public void Clustering_IsCompleteLinkage()
     {
@@ -81,10 +138,17 @@ public class DiarizationUnitTests
     {
         var zero = () => DiarizationStage.Validate(new TranscribeOptions { Diarize = true, NumSpeakers = 0 });
         var threshold = () => DiarizationStage.Validate(new TranscribeOptions { Diarize = true, SpeakerThreshold = 2.5f });
+        var min = () => DiarizationStage.Validate(new TranscribeOptions { Diarize = true, MinSpeakers = 0 });
+        var max = () => DiarizationStage.Validate(new TranscribeOptions { Diarize = true, MaxSpeakers = -1 });
+        var inverted = () => DiarizationStage.Validate(new TranscribeOptions { Diarize = true, MinSpeakers = 3, MaxSpeakers = 2 });
         var streaming = () => DiarizationStage.RejectOnStreaming(new TranscribeOptions { Diarize = true });
 
         zero.Should().Throw<ArgumentOutOfRangeException>();
         threshold.Should().Throw<ArgumentOutOfRangeException>();
+        min.Should().Throw<ArgumentOutOfRangeException>();
+        max.Should().Throw<ArgumentOutOfRangeException>();
+        inverted.Should().Throw<ArgumentOutOfRangeException>();
+        DiarizationStage.Validate(new TranscribeOptions { Diarize = true, MinSpeakers = 2, MaxSpeakers = 2 });
         streaming.Should().Throw<NotSupportedException>();
         DiarizationStage.RejectOnStreaming(new TranscribeOptions());
     }

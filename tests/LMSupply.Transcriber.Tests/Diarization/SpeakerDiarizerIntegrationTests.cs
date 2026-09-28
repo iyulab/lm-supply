@@ -8,7 +8,8 @@ namespace LMSupply.Transcriber.Tests.Diarization;
 /// <summary>
 /// The diarizer reproduces sherpa-onnx's offline pyannote diarization on sherpa's own test recording with the same
 /// models and settings (threshold 0.5, min on 0.3 s, min off 0.5 s). The reference turns were produced with the
-/// sherpa-onnx Python package from the same files.
+/// sherpa-onnx Python package from the same files. The library's default cut is 0.4, so these facts pass sherpa's
+/// 0.5 explicitly; the small-cluster rule the library adds does not change the reference turns.
 /// </summary>
 [Trait("Category", "Integration")]
 public class SpeakerDiarizerIntegrationTests
@@ -42,7 +43,7 @@ public class SpeakerDiarizerIntegrationTests
         await using var diarizer = await SpeakerDiarizer.LoadAsync(
             CacheManager.GetDefaultCacheDirectory(), localFilesOnly: false, ExecutionProvider.Cpu, progress: null, ct);
 
-        var turns = diarizer.Diarize(samples, cancellationToken: ct);
+        var turns = diarizer.Diarize(samples, threshold: 0.5f, cancellationToken: ct);
 
         turns.Select(t => t.Speaker).Distinct().Should().HaveCount(2);
         turns.Should().HaveCount(SherpaReference.Length);
@@ -65,7 +66,8 @@ public class SpeakerDiarizerIntegrationTests
         var path = await RecordingAsync(ct);
         await using var model = await LocalTranscriber.LoadAsync("default", cancellationToken: ct);
 
-        var labelled = await model.TranscribeAsync(path, new TranscribeOptions { Diarize = true, Language = "zh" }, ct);
+        var labelled = await model.TranscribeAsync(
+            path, new TranscribeOptions { Diarize = true, Language = "zh", SpeakerThreshold = 0.5f }, ct);
         var plain = await model.TranscribeAsync(path, new TranscribeOptions { Language = "zh" }, ct);
 
         labelled.Segments.Should().NotBeEmpty();

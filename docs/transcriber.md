@@ -168,7 +168,7 @@ is yours.
 var result = await transcriber.TranscribeAsync("meeting.wav", new TranscribeOptions
 {
     Diarize = true,
-    NumSpeakers = 3          // optional: fixes the count; otherwise it is estimated
+    MaxSpeakers = 5          // optional: at most the attendees; the count is still estimated
 });
 
 foreach (var segment in result.Segments)
@@ -180,12 +180,19 @@ cache and under the same `DisableAutoDownload` rule as the transcription model: 
 ~6 MB) and a WeSpeaker ResNet34 speaker embedding (CC-BY-4.0, ~27 MB). The pipeline is pyannote's:
 - 10-second windows with a 1-second step, each yielding up to three local speakers;
 - one voice embedding per window and speaker;
-- complete-linkage clustering on cosine distance;
+- complete-linkage clustering on cosine distance, with pyannote's small-cluster rule: a cluster of a few stray
+  windows (fewer than 12, or a tenth of the embeddings on a short recording) is not a speaker of its own and joins
+  the nearest large one;
 - each segment takes the speaker whose turns overlap it most.
 
-- **`NumSpeakers`** — set it when you know the count; it is more reliable than the estimate.
-- **`SpeakerThreshold`** — the cosine-distance cut when the count is estimated (default 0.5). Smaller finds more
-  speakers, larger fewer. Tune it on your own recordings if voices merge or split.
+- **`MaxSpeakers`** / **`MinSpeakers`** (0.89.0+) — bounds on the estimate. When you know how many people *could*
+  speak (a meeting's attendees), set `MaxSpeakers`: a recording with fewer voices keeps its own count.
+- **`NumSpeakers`** — forces an exact count and overrides the three options above. Set it only when you know exactly
+  how many voices are in the recording: with fewer distinct voices, one is split to reach it; when the audio cannot
+  yield that many, you get the nearest count it can.
+- **`SpeakerThreshold`** — the cosine-distance cut for the estimate (default 0.4 since 0.89.0; 0.5 before). Smaller
+  finds more speakers, larger fewer. Tune it on your own recordings if voices merge or split.
+- A recording of 10 seconds or less goes through the same clustering, so the options above apply to it too (0.89.0+).
 - With Whisper, segments follow speech (timestamp tokens are turned on) rather than 30-second windows.
 - At most two speakers are detected at the same instant. A segment in which the speaker changes takes the one who
   talks longer in it.

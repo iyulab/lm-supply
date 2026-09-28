@@ -228,9 +228,10 @@ Console.WriteLine(result.Text);
 Console.WriteLine($"Language: {result.Language}");
 
 // Who said what: speaker labels per segment (local diarization)
-var meeting = await transcriber.TranscribeAsync("meeting.wav", new TranscribeOptions { Diarize = true });
+var meeting = await transcriber.TranscribeAsync("meeting.wav", new TranscribeOptions { Diarize = true, MaxSpeakers = 5 });
 foreach (var segment in meeting.Segments)
     Console.WriteLine($"{segment.Speaker}: {segment.Text}");
+// MaxSpeakers bounds the estimate (attendees); NumSpeakers forces an exact count and splits a voice to reach it.
 // The diarization models download on first use; to fetch them at an install step instead, load with
 // new TranscriberOptions { PreloadDiarization = true }. LocalTranscriber.IsDiarizationDownloadedAsync() checks the cache.
 // For a consent screen: LocalTranscriber.GetDownloadSizeBytesAsync(options) is what that load downloads (the quantization it

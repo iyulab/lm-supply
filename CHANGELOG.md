@@ -6,7 +6,16 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **`TranscribeOptions.MinSpeakers` / `MaxSpeakers` bound the estimated speaker count.** When you know how many people
+  could speak (a meeting's attendees), set `MaxSpeakers`: a recording with fewer voices keeps its own count, where
+  `NumSpeakers` would split one voice to reach the number.
+
 ### Changed
+- **Diarization's default `SpeakerThreshold` is 0.4 (was 0.5).** On the four-speaker sherpa-onnx test recording, 0.5
+  finds two speakers and 0.4 finds three. A meeting with two male voices that 0.5 merged is separated at 0.4. A
+  recording of one voice stays one speaker at both. With the small-cluster rule below, a lower cut no longer turns a
+  few stray windows into a speaker. Pass `SpeakerThreshold = 0.5f` for the previous cut.
 - **Breaking — the Synthesizer is marked `[Experimental]` (diagnostic `LMSUPPLY001`).** It has no text-to-phoneme step yet,
   so its output is not intelligible speech (the known issue documented in 0.88.0). Every use of `LocalSynthesizer` and
   `ISynthesizerModel` now reports `LMSUPPLY001`, an error by default, so the status reaches the build and not only the
@@ -14,6 +23,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `<NoWarn>$(NoWarn);LMSUPPLY001</NoWarn>` or `#pragma warning disable LMSUPPLY001`.
 
 ### Fixed
+- **`TranscribeOptions.NumSpeakers` gives the number of speakers asked for.** A cluster of a few stray embeddings
+  used to take one of the requested slots and then disappear from the output, so asking for 3 speakers could give 2,
+  and asking for 2 could give 1. Clustering now follows pyannote: such a small cluster joins the nearest real speaker,
+  and a requested count counts real speakers only.
+- **A recording of 10 seconds or less honours `NumSpeakers` and `SpeakerThreshold`.** It returned the segmentation
+  window's local speakers without clustering, so neither option was read.
 - **The console host's `/api/registry/models` names what each domain loads.** The transcriber, synthesizer, captioner, OCR,
   detector and segmenter lists were written by hand and had drifted to repositories the library never loads (for example
   Tesseract for OCR, YOLOv8 for the detector, SAM ViT for the segmenter). They now come from each domain's registry.

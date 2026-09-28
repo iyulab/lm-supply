@@ -26,6 +26,15 @@ internal sealed class DiarizationStage : IAsyncDisposable
         if (options?.NumSpeakers is <= 0)
             throw new ArgumentOutOfRangeException(nameof(options), options.NumSpeakers,
                 "TranscribeOptions.NumSpeakers must be positive when set.");
+        if (options?.MinSpeakers is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinSpeakers,
+                "TranscribeOptions.MinSpeakers must be positive when set.");
+        if (options?.MaxSpeakers is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(options), options.MaxSpeakers,
+                "TranscribeOptions.MaxSpeakers must be positive when set.");
+        if (options is { MinSpeakers: { } min, MaxSpeakers: { } max } && min > max)
+            throw new ArgumentOutOfRangeException(nameof(options), min,
+                $"TranscribeOptions.MinSpeakers ({min}) must not exceed MaxSpeakers ({max}).");
         if (options?.SpeakerThreshold is { } t && (t <= 0 || t >= 2 || float.IsNaN(t)))
             throw new ArgumentOutOfRangeException(nameof(options), t,
                 "TranscribeOptions.SpeakerThreshold is a cosine distance and must be in (0, 2).");
@@ -42,6 +51,8 @@ internal sealed class DiarizationStage : IAsyncDisposable
             samples,
             options.NumSpeakers ?? 0,
             options.SpeakerThreshold ?? SpeakerDiarizer.DefaultThreshold,
+            options.MinSpeakers ?? 0,
+            options.MaxSpeakers ?? 0,
             cancellationToken);
 
         return new TranscriptionResult
