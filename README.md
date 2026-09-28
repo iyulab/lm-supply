@@ -245,7 +245,7 @@ await foreach (var segment in transcriber.TranscribeStreamingAsync("audio.wav"))
 
 ### Text-to-Speech (Synthesizer)
 
-> **Known issue — the output is not yet intelligible speech.** The synthesizer has no text-to-phoneme step: it maps letters to fixed ids instead of the phoneme ids the Piper voices were trained on, so what comes out is voice-like noise (a Whisper transcript of "The weather is beautiful today." read back "tube of warrior practitioner"), and text in non-Latin scripts comes out as near-silence. Loading, voice selection and the audio API work; the speech itself does not yet.
+> **Known issue — the output is not yet intelligible speech.** The synthesizer has no text-to-phoneme step: it maps letters to fixed ids instead of the phoneme ids the Piper voices were trained on, so what comes out is voice-like noise (a Whisper transcript of "The weather is beautiful today." read back "tube of warrior practitioner"), and text in non-Latin scripts comes out as near-silence. Loading, voice selection and the audio API work; the speech itself does not yet. Every use of `LocalSynthesizer` / `ISynthesizerModel` reports `LMSUPPLY001` (`[Experimental]`, an error by default) until it does; suppress that one id to use the package anyway.
 
 ```csharp
 using LMSupply.Synthesizer;

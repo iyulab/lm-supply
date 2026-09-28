@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
+    <!-- LMSUPPLY001: The console exposes the synthesizer on purpose (its endpoint says the speech is experimental). Only this id; removed when the synthesizer leaves [Experimental]. -->
+    <NoWarn>$(NoWarn);LMSUPPLY001</NoWarn>
     <TargetFramework>net10.0</TargetFramework>
     <LangVersion>preview</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -2,7 +2,7 @@
 
 Text-to-speech synthesis using VITS/Piper models with ONNX Runtime.
 
-> **Known issue — the output is not yet intelligible speech.** The synthesizer has no text-to-phoneme step: it maps letters to fixed ids instead of the phoneme ids the Piper voices were trained on, so what comes out is voice-like noise (a Whisper transcript of "The weather is beautiful today." read back "tube of warrior practitioner"), and text in non-Latin scripts comes out as near-silence. Everything around it (loading, voices, WAV output, streaming) works; the text-to-phoneme step is missing.
+> **Known issue — the output is not yet intelligible speech.** The synthesizer has no text-to-phoneme step: it maps letters to fixed ids instead of the phoneme ids the Piper voices were trained on, so what comes out is voice-like noise (a Whisper transcript of "The weather is beautiful today." read back "tube of warrior practitioner"), and text in non-Latin scripts comes out as near-silence. Everything around it (loading, voices, WAV output, streaming) works; the text-to-phoneme step is missing. Every use of `LocalSynthesizer` / `ISynthesizerModel` reports `LMSUPPLY001` (`[Experimental]`, an error by default) until it does; suppress that one id to use the package anyway.
 
 ## Quick Start
 

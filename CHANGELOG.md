@@ -6,6 +6,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Changed
+- **Breaking — the Synthesizer is marked `[Experimental]` (diagnostic `LMSUPPLY001`).** It has no text-to-phoneme step yet,
+  so its output is not intelligible speech (the known issue documented in 0.88.0). Every use of `LocalSynthesizer` and
+  `ISynthesizerModel` now reports `LMSUPPLY001`, an error by default, so the status reaches the build and not only the
+  README. To use the package anyway (loading, voice selection and the audio API work), suppress that one id:
+  `<NoWarn>$(NoWarn);LMSUPPLY001</NoWarn>` or `#pragma warning disable LMSUPPLY001`.
+
 ### Fixed
 - **The console host's `/api/registry/models` names what each domain loads.** The transcriber, synthesizer, captioner, OCR,
   detector and segmenter lists were written by hand and had drifted to repositories the library never loads (for example

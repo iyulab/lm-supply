@@ -3,6 +3,7 @@ using LMSupply.Synthesizer.Models;
 
 namespace LMSupply.Synthesizer.Pool;
 
+[System.Diagnostics.CodeAnalysis.Experimental(SynthesizerDiagnostics.ExperimentalId, UrlFormat = SynthesizerDiagnostics.ExperimentalUrl)]
 internal sealed class SynthesizerLoader : IModelLoader<ISynthesizerModel, SynthesizerOptions>
 {
     public Task<ISynthesizerModel> LoadAsync(string modelId, SynthesizerOptions? options, CancellationToken ct)

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using LMSupply.Synthesizer.Models;
 
 namespace LMSupply.Synthesizer;
@@ -5,6 +6,8 @@ namespace LMSupply.Synthesizer;
 /// <summary>
 /// Interface for text-to-speech synthesis models.
 /// </summary>
+/// <remarks>Experimental: no text-to-phoneme step yet — see <see cref="SynthesizerDiagnostics.ExperimentalId"/>.</remarks>
+[Experimental(SynthesizerDiagnostics.ExperimentalId, UrlFormat = SynthesizerDiagnostics.ExperimentalUrl)]
 public interface ISynthesizerModel : IAsyncDisposable
 {
     /// <summary>
