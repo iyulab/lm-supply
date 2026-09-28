@@ -8,6 +8,7 @@ using LMSupply.Generator.ChatFormatters;
 using LMSupply.Hardware;
 using LMSupply.Generator.Models;
 using LMSupply.Llama.Server;
+using LMSupply.Runtime;
 
 namespace LMSupply.Generator.Internal.Llama;
 
@@ -178,6 +179,36 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         var llamaOpts = ChooseLlamaOptions(options, modelPath, ggufMetadata);
         var contextLength = options.MaxContextLength ?? 4096;
 
+        // 3a. A running server of this model that already holds this context is shared as it is — sizing exists
+        // to start a new server, and measuring free memory while this model's own server holds it would count
+        // that server against itself (a reload of a model whose server is still pooled would come up smaller, or
+        // on CPU). An idle server of this model that is too small is superseded: stopped before memory is read.
+        var sharedContext = backend != LlamaServerBackend.Cpu
+            ? LlamaServerPool.Instance.FindSharableContext(modelPath, backend, ServerMode.Generation, contextLength)
+            : null;
+        if (backend != LlamaServerBackend.Cpu && sharedContext is null)
+        {
+            await LlamaServerPool.Instance.ReleaseIdleAsync(
+                s => s.Backend == backend
+                     && s.Mode == ServerMode.Generation
+                     && s.ContextSize < contextLength
+                     && string.Equals(s.ModelPath, modelPath, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (sharedContext is { } shared)
+        {
+            Trace.TraceInformation(
+                $"[LlamaServerGeneratorModel] Sharing the running llama-server of '{Path.GetFileName(modelPath)}' " +
+                $"(context {shared}, requested {contextLength}).");
+            contextLength = shared;
+        }
+
+        // 3b. The GPU as it is now: free memory changes as models load and unload, so the start-up reading is
+        // refreshed once all idle servers this load may displace have been stopped.
+        var loadGpu = backend != LlamaServerBackend.Cpu && sharedContext is null
+            ? GpuDetector.WithCurrentFreeMemory(Hardware.HardwareProfile.Current.GpuInfo)
+            : Hardware.HardwareProfile.Current.GpuInfo;
+
         // Captured when partial offload occurs — exposed via GetModelInfo() for diagnostics.
         int? capturedGpuLayers = null;
         int? capturedTotalLayers = null;
@@ -192,14 +223,14 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         bool capturedContextFloored = false;
 
         // Auto-calculate GPU layer count based on actual VRAM budget when using default (-1 = all).
-        if (NeedsVramFit(llamaOpts, backend))
+        if (NeedsVramFit(llamaOpts, backend) && sharedContext is null)
         {
             var fileSize = new FileInfo(modelPath).Length;
             var profile = Hardware.HardwareProfile.Current;
             // Use VramBudget so LMSUPPLY_VRAM_BUDGET_MB override + safety margins
             // flow into the offload decision. Raw EffectiveAvailableBytes ignored both.
-            var budgetVram = VramBudget.GetAvailableBytes(profile.GpuInfo);
-            var availableVram = budgetVram > 0 ? budgetVram : profile.GpuInfo.EffectiveAvailableBytes;
+            var budgetVram = VramBudget.GetAvailableBytes(loadGpu);
+            var availableVram = budgetVram > 0 ? budgetVram : loadGpu.EffectiveAvailableBytes;
             var geometry = KvCacheGeometry.FromMetadata(ggufMetadata);
             var estimate = geometry is not null && ggufMetadata!.LayerCount is { } layerCount
                 ? MemoryEstimator.EstimateForGgufWithKvCache(
@@ -231,8 +262,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                 // TraceInformation for partial offload. See LlamaOffloadTraceHelper.
                 LlamaOffloadTraceHelper.TraceOffloadDecision(
                     estimate,
-                    freeVramBytes: profile.GpuInfo.FreeMemoryBytes ?? 0,
-                    totalVramBytes: profile.GpuInfo.TotalMemoryBytes ?? 0);
+                    freeVramBytes: loadGpu.FreeMemoryBytes ?? 0,
+                    totalVramBytes: loadGpu.TotalMemoryBytes ?? 0);
             }
         }
 
@@ -240,7 +271,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         // When the GPU can only offer the unusable floor (n_ctx clamped to 512 below request),
         // Auto recovers by falling back to CPU (RAM-bound, no VRAM clamp); an explicit GPU pin
         // fails fast instead of silently loading an unusable 512-token context.
-        if (backend != LlamaServerBackend.Cpu)
+        if (backend != LlamaServerBackend.Cpu && sharedContext is null)
         {
             var (safeContext, contextFloored) = EstimateSafeContextLengthDetailed(
                 modelPath,
@@ -250,11 +281,12 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                 ResolveKvCacheType(llamaOpts.TypeK, backend, serverVersion),
                 ResolveKvCacheType(llamaOpts.TypeV, backend, serverVersion),
                 sequences: Math.Max(1, options.MaxConcurrentRequests),
-                ubatch: (int)(llamaOpts.UBatchSize ?? KvCacheGeometry.DefaultUBatch));
+                ubatch: (int)(llamaOpts.UBatchSize ?? KvCacheGeometry.DefaultUBatch),
+                gpu: loadGpu);
 
             // Capture VRAM telemetry before any CPU fallback switches the backend below.
             capturedContextFloored = contextFloored;
-            var gpuInfo = Hardware.HardwareProfile.Current.GpuInfo;
+            var gpuInfo = loadGpu;
             var vramBudget = VramBudget.GetAvailableBytes(gpuInfo);
             capturedVramBudgetBytes = vramBudget > 0 ? vramBudget : null;
             capturedVramTotalBytes = gpuInfo.TotalMemoryBytes;
@@ -298,7 +330,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             else if (safeContext < contextLength)
             {
                 const double mb = 1024.0 * 1024.0;
-                var gpu = Hardware.HardwareProfile.Current.GpuInfo;
+                var gpu = loadGpu;
                 var budgetMb = VramBudget.GetAvailableBytes(gpu) / mb;
                 var totalMb = (gpu.TotalMemoryBytes ?? 0) / mb;
                 var freeMb = (gpu.FreeMemoryBytes ?? gpu.TotalMemoryBytes ?? 0) / mb;
@@ -1367,6 +1399,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     /// <param name="cacheTypeV">The <c>--cache-type-v</c> the server will run with (null = f16).</param>
     /// <param name="sequences">Parallel sequences (server slots) — sliding-window layers keep a window per sequence.</param>
     /// <param name="ubatch">The physical batch size — sliding-window layers keep one batch beyond the window.</param>
+    /// <param name="gpu">The GPU as read for this load; <see cref="HardwareProfile.Current"/>'s when null.</param>
     internal static (int Context, bool Floored) EstimateSafeContextLengthDetailed(
         string modelPath,
         int requestedContext,
@@ -1375,12 +1408,13 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         string? cacheTypeK = null,
         string? cacheTypeV = null,
         int sequences = 1,
-        int ubatch = KvCacheGeometry.DefaultUBatch)
+        int ubatch = KvCacheGeometry.DefaultUBatch,
+        GpuInfo? gpu = null)
     {
-        var profile = Hardware.HardwareProfile.Current;
+        gpu ??= Hardware.HardwareProfile.Current.GpuInfo;
         // Use VramBudget so context cap honors LMSUPPLY_VRAM_BUDGET_MB override + safety margins.
-        var budgetVram = VramBudget.GetAvailableBytes(profile.GpuInfo);
-        var availableVram = budgetVram > 0 ? budgetVram : (profile.GpuInfo.EffectiveAvailableBytes ?? 0);
+        var budgetVram = VramBudget.GetAvailableBytes(gpu);
+        var availableVram = budgetVram > 0 ? budgetVram : (gpu.EffectiveAvailableBytes ?? 0);
         if (availableVram <= 0 || gpuLayerCount == 0)
             return (requestedContext, false); // CPU-only, no VRAM constraint
 

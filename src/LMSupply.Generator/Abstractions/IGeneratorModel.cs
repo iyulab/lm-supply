@@ -130,17 +130,20 @@ public readonly record struct GeneratorModelInfo(
     /// <summary>
     /// VRAM budget used for the context estimate — <c>VramBudget.GetAvailableBytes</c> result
     /// (after the <c>LMSUPPLY_VRAM_BUDGET_MB</c> override + safety margin), in bytes.
-    /// Null on the CPU path. Distinguishes an accurately-small VRAM budget from an under-reported one.
+    /// Null on the CPU path, and when the load shared a running server of the same model that already held the
+    /// requested context (nothing was sized). Distinguishes an accurately-small VRAM budget from an under-reported one.
     /// </summary>
     public long? VramBudgetBytes { get; init; }
 
     /// <summary>
-    /// GPU-reported free VRAM at load time, in bytes. Null on the CPU path.
+    /// GPU-reported free VRAM at load time, in bytes — read when the load sizes its server, after idle servers it may
+    /// displace were stopped, so memory held by models in use is not counted as free. On a GPU without a free-memory
+    /// query (non-NVIDIA), the reading from hardware detection at process start. Null as for <see cref="VramBudgetBytes"/>.
     /// </summary>
     public long? VramFreeBytes { get; init; }
 
     /// <summary>
-    /// GPU-reported total VRAM at load time, in bytes. Null on the CPU path.
+    /// GPU-reported total VRAM, in bytes. Null as for <see cref="VramBudgetBytes"/>.
     /// </summary>
     public long? VramTotalBytes { get; init; }
 

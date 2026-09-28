@@ -174,7 +174,8 @@ public sealed class LlamaServerPool : IAsyncDisposable
                 requestTimeout: config.RequestTimeout);
             client.AttachServer(serverProcess);
 
-            var newPooledServer = new PooledServer(key, serverProcess, client, config.ModelPath, backend);
+            var newPooledServer = new PooledServer(
+                key, serverProcess, client, config.ModelPath, backend, config.ContextSize, config.Mode);
             newPooledServer.TryLease();
 
             _servers[key] = newPooledServer;
@@ -186,6 +187,39 @@ public sealed class LlamaServerPool : IAsyncDisposable
             _createLock.Release();
         }
     }
+
+    /// <summary>
+    /// The context of a running server of <paramref name="modelPath"/> that a load needing at least
+    /// <paramref name="minContext"/> tokens can share — the smallest such context — or null when there is none.
+    /// Leasing a server with that context shares it, whether or not another model is using it.
+    /// </summary>
+    internal int? FindSharableContext(string modelPath, LlamaServerBackend backend, ServerMode mode, int minContext)
+        => SelectSharableContext(
+            _servers.Values.Select(s => new ResidentServer(s.ModelPath, s.Backend, s.Mode, s.ContextSize, s.IsAlive)),
+            modelPath,
+            backend,
+            mode,
+            minContext);
+
+    /// <summary>The selection behind <see cref="FindSharableContext"/>, over a snapshot of the pool.</summary>
+    internal static int? SelectSharableContext(
+        IEnumerable<ResidentServer> servers,
+        string modelPath,
+        LlamaServerBackend backend,
+        ServerMode mode,
+        int minContext)
+        => servers
+            .Where(s => s.IsAlive
+                        && s.Backend == backend
+                        && s.Mode == mode
+                        && s.ContextSize >= minContext
+                        && string.Equals(s.ModelPath, modelPath, StringComparison.OrdinalIgnoreCase))
+            .Select(s => (int?)s.ContextSize)
+            .Min();
+
+    /// <summary>What <see cref="SelectSharableContext"/> needs to know about a pooled server.</summary>
+    internal readonly record struct ResidentServer(
+        string ModelPath, LlamaServerBackend Backend, ServerMode Mode, int ContextSize, bool IsAlive);
 
     /// <summary>
     /// Returns a server to the pool.
@@ -388,6 +422,8 @@ internal sealed class PooledServer : IAsyncDisposable
     public LlamaServerClient Client { get; }
     public string ModelPath { get; }
     public LlamaServerBackend Backend { get; }
+    public int ContextSize { get; }
+    public ServerMode Mode { get; }
     public DateTimeOffset LastUsed { get; private set; }
 
     public bool IsAlive => !_disposed && Server.IsRunning;
@@ -398,13 +434,17 @@ internal sealed class PooledServer : IAsyncDisposable
         LlamaServerProcess server,
         LlamaServerClient client,
         string modelPath,
-        LlamaServerBackend backend)
+        LlamaServerBackend backend,
+        int contextSize,
+        ServerMode mode)
     {
         Key = key;
         Server = server;
         Client = client;
         ModelPath = modelPath;
         Backend = backend;
+        ContextSize = contextSize;
+        Mode = mode;
         LastUsed = DateTimeOffset.UtcNow;
     }
 

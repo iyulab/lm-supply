@@ -639,7 +639,7 @@ Under `ExecutionProvider.Auto` the llama-server backend is chosen by `LlamaBacke
 
 On a low-VRAM box the llama-server context can be clamped down to the 512-token floor — too small to be usable, which downstream consumers reject (chat bricks). How the generator handles this depends on `GeneratorOptions.Provider`:
 
-- **`ExecutionProvider.Auto` (default)** — Auto promises a *working* provider, so when the GPU backend can only offer the floored context it **transparently falls back to CPU** (RAM-bound, no VRAM clamp), re-acquiring the CPU `llama-server` binary and keeping the full requested context. The switch emits a `Trace.TraceWarning` and is visible via `GetModelInfo()` (`IsGpuActive == false`). This matches the embedder's existing CUDA→CPU fallback chain.
+- **`ExecutionProvider.Auto` (default)** — Auto promises a *working* provider, so when the GPU backend can only offer the floored context it **transparently falls back to CPU** (RAM-bound, no VRAM clamp), re-acquiring the CPU `llama-server` binary and keeping the full requested context. The switch emits a `Trace.TraceWarning` and is visible on the model (`IsGpuActive == false`). This matches the embedder's existing CUDA→CPU fallback chain.
 - **Explicit GPU pin (`Cuda` / `CoreML`)** — no silent provider swap: the load **fails fast** with an `InvalidOperationException` naming the floored context and VRAM cause, so the unusable configuration surfaces honestly instead of bricking later. Pin `ExecutionProvider.Cpu` or free VRAM to proceed.
 
 **How the context is sized** — a requested `MaxContextLength` is kept when the weights (the GGUF file size + 10%), a 512 MB
@@ -656,8 +656,13 @@ per-token cost. A file without that metadata falls back to a file-size estimate.
 |---|---|
 | `AdjustedContextLength` | The context sent to llama-server when the VRAM budget reduced it below the requested `MaxContextLength`; null when the request was kept. |
 | `ContextFlooredByVram` | `true` when the VRAM-derived estimate fell below the 512 floor (VRAM insufficient for a usable context) — a discrete signal, distinct from a legitimately small 512-token request. Set even when Auto then fell back to CPU. |
-| `VramBudgetBytes` | `VramBudget.GetAvailableBytes` result (after the `LMSUPPLY_VRAM_BUDGET_MB` override + safety margin). Null on the CPU path. |
-| `VramFreeBytes` / `VramTotalBytes` | GPU-reported free / total VRAM at load time. Null on the CPU path. |
+| `VramBudgetBytes` | `VramBudget.GetAvailableBytes` result (after the `LMSUPPLY_VRAM_BUDGET_MB` override + safety margin). Null on the CPU path, and when the load shared a running server (below). |
+| `VramFreeBytes` / `VramTotalBytes` | GPU-reported free / total VRAM. Free memory is read when the load sizes its server (NVIDIA; other GPUs report the process-start reading), so a model in use is not counted as free. Null as for `VramBudgetBytes`. |
+
+**A running server of the same model is shared.** Loading a model whose `llama-server` is still running (in use, or idle in
+the pool after its last model was disposed) with a context it already holds shares that server — no new server, no
+sizing. An idle server of the model with a smaller context is stopped before the new one is sized. Sizing a reload
+against memory its own pooled server holds would give it a smaller context, or the CPU.
 
 ---
 

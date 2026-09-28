@@ -27,6 +27,21 @@ public static class GpuDetector
     }
 
     /// <summary>
+    /// <paramref name="gpu"/> with its free memory read now rather than when the hardware was first detected — the
+    /// memory a load can use changes as models load and unload. NVIDIA GPUs only (NVML); for other vendors, or when
+    /// the device cannot be found again, <paramref name="gpu"/> is returned unchanged.
+    /// </summary>
+    internal static GpuInfo WithCurrentFreeMemory(GpuInfo gpu)
+    {
+        if (gpu.Vendor != GpuVendor.Nvidia)
+            return gpu;
+
+        var current = NvmlDetector.DetectNvidiaGpus()
+            .FirstOrDefault(g => g.DeviceName == gpu.DeviceName && g.TotalMemoryBytes == gpu.TotalMemoryBytes);
+        return current?.FreeMemoryBytes is { } free ? gpu with { FreeMemoryBytes = free } : gpu;
+    }
+
+    /// <summary>
     /// Detects all available GPUs on the system.
     /// </summary>
     public static IReadOnlyList<GpuInfo> DetectAllGpus()

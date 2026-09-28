@@ -9,7 +9,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ### Added
 - **`GgufMetadata` carries the file's KV cache layout**: `KeyLength` / `ValueLength` (and their `…Swa` sliding-window
   counterparts), `SlidingWindow`, `SlidingWindowPattern`, `SharedKvLayers`, `FullAttentionInterval` and
-  `HeadCountKvPerLayer` (when the file stores the KV head count per layer).
+  `HeadCountKvPerLayer` (when the file stores the KV head count per layer). For such a file `HeadCountKv` is now the
+  largest per-layer count; it was null.
+
+### Changed
+- **Loading a model whose `llama-server` is still running shares it when it holds the requested context.** A request for
+  8,192 tokens now shares a running 16,384-token server of the same model; before, only an equal context was shared and a
+  second server was started. An idle server of the model with a smaller context is stopped before a new one is sized.
 
 ### Fixed
 - **A GGUF model gets the context that fits its KV cache.** The context fit sized the cache from the file size, as if every
@@ -19,6 +25,11 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   that keep a cache (hybrid recurrent and shared-KV layers do not), and a fixed window for sliding-window layers. For the
   three models measured, the estimate equals the size llama-server reports. The GPU layer fit uses the same size and the
   file's layer count.
+- **The VRAM budget sees the GPU as it is at load time.** Free VRAM was read once, when the process first detected the
+  hardware, so a model loaded since was counted as free memory and `GeneratorModelInfo.VramFreeBytes` repeated the
+  start-up figure. It is now read when the load sizes its server, after the idle servers it may displace are stopped
+  (NVIDIA; other GPUs keep the start-up reading). Beside a 2B model in use, the budget for a 7B on an 8 GB GPU drops from
+  6,959 to 6,112 MB.
 - **GGUF metadata with 8- or 16-bit values is read correctly.** Such values were read as 4 bytes, which shifted every
   following key.
 
