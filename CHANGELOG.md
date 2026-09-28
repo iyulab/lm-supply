@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.90.0] - Unreleased
+
+### Added
+- **`GgufMetadata` carries the file's KV cache layout**: `KeyLength` / `ValueLength` (and their `…Swa` sliding-window
+  counterparts), `SlidingWindow`, `SlidingWindowPattern`, `SharedKvLayers`, `FullAttentionInterval` and
+  `HeadCountKvPerLayer` (when the file stores the KV head count per layer).
+
+### Fixed
+- **A GGUF model gets the context that fits its KV cache.** The context fit sized the cache from the file size, as if every
+  attention head kept K and V, so grouped-query models were over-sized several times over: Qwen2.5-7B (IQ4_XS) on an 8 GB
+  GPU was fitted to 6,163 tokens of a requested 16,384, which llama-server loads fully offloaded. The cache is now sized
+  from the file's attention metadata — KV heads, K/V head dimensions, the cache type the server runs with, only the layers
+  that keep a cache (hybrid recurrent and shared-KV layers do not), and a fixed window for sliding-window layers. For the
+  three models measured, the estimate equals the size llama-server reports. The GPU layer fit uses the same size and the
+  file's layer count.
+- **GGUF metadata with 8- or 16-bit values is read correctly.** Such values were read as 4 bytes, which shifted every
+  following key.
+
 ## [0.89.0] - 2026-09-28
 
 ### Added

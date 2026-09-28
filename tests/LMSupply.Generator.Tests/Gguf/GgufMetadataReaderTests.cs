@@ -10,6 +10,9 @@ namespace LMSupply.Generator.Tests.Gguf;
 /// </summary>
 public class GgufMetadataReaderTests
 {
+    private static readonly int[] PerLayerKvHeads = [2, 2, 0, 1];
+    private static readonly bool[] SlidingPattern = [true, false, true, false];
+
     [Fact]
     public async Task IsGgufFileAsync_WithNonExistentFile_ReturnsFalse()
     {
@@ -308,6 +311,79 @@ public class GgufMetadataReaderTests
         }
     }
 
+    [Fact]
+    public async Task ReadAsync_NarrowScalars_KeepTheFollowingKeysAligned()
+    {
+        // uint8 / uint16 values are 1 and 2 bytes wide; reading them as 4 would shift every later key.
+        var tempPath = Path.GetTempFileName();
+        try
+        {
+            await CreateGgufFileWithMetadataAsync(tempPath, new Dictionary<string, object>
+            {
+                ["general.architecture"] = "llama",
+                ["test.flag"] = (byte)1,
+                ["test.width"] = (ushort)7,
+                ["llama.block_count"] = 32u,
+                ["llama.attention.head_count_kv"] = 8u,
+            });
+
+            var result = await GgufMetadataReader.ReadAsync(tempPath, cancellationToken: TestContext.Current.CancellationToken);
+
+            result.Should().NotBeNull();
+            result!.LayerCount.Should().Be(32);
+            result.HeadCountKv.Should().Be(8);
+        }
+        finally
+        {
+            File.Delete(tempPath);
+        }
+    }
+
+    [Fact]
+    public async Task ReadAsync_AttentionGeometry_IsRead()
+    {
+        // The keys a Gemma 4 / Qwen 3.5-style file carries for its KV cache layout.
+        var tempPath = Path.GetTempFileName();
+        try
+        {
+            await CreateGgufFileWithMetadataAsync(tempPath, new Dictionary<string, object>
+            {
+                ["general.architecture"] = "gemma4",
+                ["gemma4.block_count"] = 4u,
+                ["gemma4.attention.head_count"] = 8u,
+                ["gemma4.attention.head_count_kv"] = PerLayerKvHeads,
+                ["gemma4.attention.key_length"] = 512u,
+                ["gemma4.attention.value_length"] = 512u,
+                ["gemma4.attention.key_length_swa"] = 256u,
+                ["gemma4.attention.value_length_swa"] = 256u,
+                ["gemma4.attention.sliding_window"] = 512u,
+                ["gemma4.attention.sliding_window_pattern"] = SlidingPattern,
+                ["gemma4.attention.shared_kv_layers"] = 1u,
+                ["gemma4.full_attention_interval"] = 4u,
+                ["gemma4.context_length"] = 8192u,
+            });
+
+            var result = await GgufMetadataReader.ReadAsync(tempPath, cancellationToken: TestContext.Current.CancellationToken);
+
+            result.Should().NotBeNull();
+            result!.HeadCountKvPerLayer.Should().Equal(2, 2, 0, 1);
+            result.HeadCountKv.Should().Be(2);
+            result.KeyLength.Should().Be(512);
+            result.ValueLength.Should().Be(512);
+            result.KeyLengthSwa.Should().Be(256);
+            result.ValueLengthSwa.Should().Be(256);
+            result.SlidingWindow.Should().Be(512);
+            result.SlidingWindowPattern.Should().Equal(true, false, true, false);
+            result.SharedKvLayers.Should().Be(1);
+            result.FullAttentionInterval.Should().Be(4);
+            result.ContextLength.Should().Be(8192, "keys after the arrays are still read in place");
+        }
+        finally
+        {
+            File.Delete(tempPath);
+        }
+    }
+
     #region Helper Methods
 
     private static async Task CreateMinimalGgufFileAsync(string path, uint version = 3)
@@ -379,6 +455,28 @@ public class GgufMetadataReaderTests
             case bool b:
                 writer.Write(7u); // GGUF_TYPE_BOOL
                 writer.Write((byte)(b ? 1 : 0));
+                break;
+            case byte u8:
+                writer.Write(0u); // GGUF_TYPE_UINT8
+                writer.Write(u8);
+                break;
+            case ushort u16:
+                writer.Write(2u); // GGUF_TYPE_UINT16
+                writer.Write(u16);
+                break;
+            case int[] ints:
+                writer.Write(9u); // GGUF_TYPE_ARRAY
+                writer.Write(5u); // of INT32
+                writer.Write((ulong)ints.Length);
+                foreach (var v in ints)
+                    writer.Write(v);
+                break;
+            case bool[] bools:
+                writer.Write(9u); // GGUF_TYPE_ARRAY
+                writer.Write(7u); // of BOOL
+                writer.Write((ulong)bools.Length);
+                foreach (var v in bools)
+                    writer.Write((byte)(v ? 1 : 0));
                 break;
             default:
                 throw new NotSupportedException($"Unsupported type: {value.GetType()}");

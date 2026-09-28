@@ -199,11 +199,25 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             // Use VramBudget so LMSUPPLY_VRAM_BUDGET_MB override + safety margins
             // flow into the offload decision. Raw EffectiveAvailableBytes ignored both.
             var budgetVram = VramBudget.GetAvailableBytes(profile.GpuInfo);
-            var estimate = MemoryEstimator.EstimateForGguf(
-                fileSize,
-                contextLength,
-                availableVramBytes: budgetVram > 0 ? budgetVram : profile.GpuInfo.EffectiveAvailableBytes,
-                availableRamBytes: profile.SystemMemoryBytes);
+            var availableVram = budgetVram > 0 ? budgetVram : profile.GpuInfo.EffectiveAvailableBytes;
+            var geometry = KvCacheGeometry.FromMetadata(ggufMetadata);
+            var estimate = geometry is not null && ggufMetadata!.LayerCount is { } layerCount
+                ? MemoryEstimator.EstimateForGgufWithKvCache(
+                    fileSize,
+                    geometry.TotalBytes(
+                        contextLength,
+                        ResolveKvCacheType(llamaOpts.TypeK, backend, serverVersion),
+                        ResolveKvCacheType(llamaOpts.TypeV, backend, serverVersion),
+                        Math.Max(1, options.MaxConcurrentRequests),
+                        (int)(llamaOpts.UBatchSize ?? KvCacheGeometry.DefaultUBatch)),
+                    availableVram,
+                    profile.SystemMemoryBytes,
+                    layerCount)
+                : MemoryEstimator.EstimateForGguf(
+                    fileSize,
+                    contextLength,
+                    availableVramBytes: availableVram,
+                    availableRamBytes: profile.SystemMemoryBytes);
 
             if (!estimate.CanFitInVram && estimate.RecommendedGpuLayers < estimate.TotalLayers)
             {
@@ -229,7 +243,14 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         if (backend != LlamaServerBackend.Cpu)
         {
             var (safeContext, contextFloored) = EstimateSafeContextLengthDetailed(
-                modelPath, contextLength, llamaOpts.GpuLayerCount ?? -1, ggufMetadata);
+                modelPath,
+                contextLength,
+                llamaOpts.GpuLayerCount ?? -1,
+                ggufMetadata,
+                ResolveKvCacheType(llamaOpts.TypeK, backend, serverVersion),
+                ResolveKvCacheType(llamaOpts.TypeV, backend, serverVersion),
+                sequences: Math.Max(1, options.MaxConcurrentRequests),
+                ubatch: (int)(llamaOpts.UBatchSize ?? KvCacheGeometry.DefaultUBatch));
 
             // Capture VRAM telemetry before any CPU fallback switches the backend below.
             capturedContextFloored = contextFloored;
@@ -1337,11 +1358,24 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     /// means VRAM is insufficient for a usable context (the brick signal), distinct from a
     /// legitimately small request. Returns <c>Floored == false</c> on the CPU path.
     /// </summary>
+    /// <param name="modelPath">The GGUF file (its size stands in for the weights).</param>
+    /// <param name="requestedContext">The context the caller asked for.</param>
+    /// <param name="gpuLayerCount">GPU layers (0 = CPU, no VRAM constraint; -1 = all).</param>
+    /// <param name="ggufMetadata">The file's metadata. With attention metadata the KV cache is sized as llama.cpp
+    /// sizes it (<see cref="KvCacheGeometry"/>); without it a file-size heuristic stands in.</param>
+    /// <param name="cacheTypeK">The <c>--cache-type-k</c> the server will run with (null = f16).</param>
+    /// <param name="cacheTypeV">The <c>--cache-type-v</c> the server will run with (null = f16).</param>
+    /// <param name="sequences">Parallel sequences (server slots) — sliding-window layers keep a window per sequence.</param>
+    /// <param name="ubatch">The physical batch size — sliding-window layers keep one batch beyond the window.</param>
     internal static (int Context, bool Floored) EstimateSafeContextLengthDetailed(
         string modelPath,
         int requestedContext,
         int gpuLayerCount,
-        GgufMetadata? ggufMetadata = null)
+        GgufMetadata? ggufMetadata = null,
+        string? cacheTypeK = null,
+        string? cacheTypeV = null,
+        int sequences = 1,
+        int ubatch = KvCacheGeometry.DefaultUBatch)
     {
         var profile = Hardware.HardwareProfile.Current;
         // Use VramBudget so context cap honors LMSUPPLY_VRAM_BUDGET_MB override + safety margins.
@@ -1364,8 +1398,23 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         const long vramBuffer = 512L * 1024 * 1024; // 500MB safety buffer
         var remainingVram = Math.Max(0, availableVram - modelMemory - vramBuffer);
 
-        // KV cache per token ≈ 2(K+V) × layers × hiddenSize × 2(FP16 bytes)
-        var kvBytesPerToken = Core.Download.AvailableMemory.EstimateKvCacheBytes(modelFileSize, 1);
+        // KV cache: from the file's attention metadata when it has it (layers that keep a cache × KV heads ×
+        // K/V head dims × cache-type bytes, plus a fixed window for sliding-window layers); otherwise a
+        // file-size heuristic, which assumes every attention head keeps K and V and so over-sizes
+        // grouped-query models several times over.
+        long kvBytesPerToken;
+        var geometry = KvCacheGeometry.FromMetadata(ggufMetadata);
+        if (geometry is not null)
+        {
+            remainingVram = Math.Max(0, remainingVram
+                - geometry.SlidingWindowBytes(requestedContext, cacheTypeK, cacheTypeV, sequences, ubatch));
+            kvBytesPerToken = geometry.BytesPerToken(cacheTypeK, cacheTypeV);
+        }
+        else
+        {
+            kvBytesPerToken = Core.Download.AvailableMemory.EstimateKvCacheBytes(modelFileSize, 1);
+        }
+
         if (kvBytesPerToken <= 0)
             return (requestedContext, false);
 

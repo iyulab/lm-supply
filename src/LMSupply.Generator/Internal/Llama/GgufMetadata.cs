@@ -93,6 +93,43 @@ public sealed record GgufMetadata
     public int? ExpertUsedCount { get; init; }
 
     /// <summary>
+    /// Per-layer KV head count, when the file stores <c>attention.head_count_kv</c> as an array
+    /// (layers without attention carry 0). Null when it is a single value (see <see cref="HeadCountKv"/>,
+    /// which holds the largest per-layer count in the array case).
+    /// </summary>
+    public IReadOnlyList<int>? HeadCountKvPerLayer { get; init; }
+
+    /// <summary>Per-head key dimension (<c>attention.key_length</c>). Null → embedding length / head count.</summary>
+    public int? KeyLength { get; init; }
+
+    /// <summary>Per-head value dimension (<c>attention.value_length</c>). Null → the key dimension.</summary>
+    public int? ValueLength { get; init; }
+
+    /// <summary>Per-head key dimension of sliding-window layers, when it differs from the full-attention one.</summary>
+    public int? KeyLengthSwa { get; init; }
+
+    /// <summary>Per-head value dimension of sliding-window layers, when it differs from the full-attention one.</summary>
+    public int? ValueLengthSwa { get; init; }
+
+    /// <summary>Sliding-window attention width in tokens (<c>attention.sliding_window</c>).</summary>
+    public int? SlidingWindow { get; init; }
+
+    /// <summary>Per-layer flag: true for a sliding-window layer (<c>attention.sliding_window_pattern</c>).</summary>
+    public IReadOnlyList<bool>? SlidingWindowPattern { get; init; }
+
+    /// <summary>
+    /// Number of trailing layers that reuse an earlier layer's KV cache instead of keeping their own
+    /// (<c>attention.shared_kv_layers</c>).
+    /// </summary>
+    public int? SharedKvLayers { get; init; }
+
+    /// <summary>
+    /// For hybrid attention/recurrent models: every N-th layer uses full attention and keeps a KV cache;
+    /// the others are recurrent (<c>full_attention_interval</c>).
+    /// </summary>
+    public int? FullAttentionInterval { get; init; }
+
+    /// <summary>
     /// Raw metadata key-value pairs.
     /// </summary>
     public IReadOnlyDictionary<string, object?>? RawMetadata { get; init; }

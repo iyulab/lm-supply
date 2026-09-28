@@ -642,10 +642,19 @@ On a low-VRAM box the llama-server context can be clamped down to the 512-token 
 - **`ExecutionProvider.Auto` (default)** — Auto promises a *working* provider, so when the GPU backend can only offer the floored context it **transparently falls back to CPU** (RAM-bound, no VRAM clamp), re-acquiring the CPU `llama-server` binary and keeping the full requested context. The switch emits a `Trace.TraceWarning` and is visible via `GetModelInfo()` (`IsGpuActive == false`). This matches the embedder's existing CUDA→CPU fallback chain.
 - **Explicit GPU pin (`Cuda` / `CoreML`)** — no silent provider swap: the load **fails fast** with an `InvalidOperationException` naming the floored context and VRAM cause, so the unusable configuration surfaces honestly instead of bricking later. Pin `ExecutionProvider.Cpu` or free VRAM to proceed.
 
+**How the context is sized** — a requested `MaxContextLength` is kept when the weights (the GGUF file size + 10%), a 512 MB
+buffer and the KV cache for that context fit in the VRAM budget; otherwise the context is reduced to what fits and
+`AdjustedContextLength` reports it. The KV cache is sized from the file's attention metadata the way llama.cpp sizes it:
+only layers that keep a cache count (hybrid models' recurrent layers and layers that share an earlier layer's cache do
+not), each with its KV head count (grouped-query attention keeps far fewer KV heads than attention heads) and K/V head
+dimensions, at the `--cache-type-k/-v` the server runs with; sliding-window layers add a fixed window instead of a
+per-token cost. A file without that metadata falls back to a file-size estimate.
+
 **VRAM-budget telemetry** — `GetModelInfo()` exposes the figures behind the decision so a consumer can classify *why* the context was floored (accurately-small VRAM vs an under-reported budget) without scraping log magic numbers:
 
 | `GeneratorModelInfo` field | Meaning |
 |---|---|
+| `AdjustedContextLength` | The context sent to llama-server when the VRAM budget reduced it below the requested `MaxContextLength`; null when the request was kept. |
 | `ContextFlooredByVram` | `true` when the VRAM-derived estimate fell below the 512 floor (VRAM insufficient for a usable context) — a discrete signal, distinct from a legitimately small 512-token request. Set even when Auto then fell back to CPU. |
 | `VramBudgetBytes` | `VramBudget.GetAvailableBytes` result (after the `LMSUPPLY_VRAM_BUDGET_MB` override + safety margin). Null on the CPU path. |
 | `VramFreeBytes` / `VramTotalBytes` | GPU-reported free / total VRAM at load time. Null on the CPU path. |

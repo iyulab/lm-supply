@@ -117,10 +117,6 @@ public static class MemoryEstimator
         long? availableRamBytes = null,
         int estimatedLayers = 32)
     {
-        // GGUF file size is roughly equal to model weights in memory
-        // Add ~10% overhead for model loading structures
-        var modelMemory = (long)(modelFileSizeBytes * 1.1);
-
         // Estimate KV cache based on model size and context length
         // Rough formula: context_length * hidden_size * 2 (K+V) * layers * 2 bytes (FP16)
         // Estimate hidden_size from model size: smaller models ~2048, larger ~4096
@@ -133,6 +129,23 @@ public static class MemoryEstimator
         };
 
         var kvCacheMemory = (long)contextLength * estimatedHiddenSize * 2 * estimatedLayers * 2;
+        return EstimateForGgufWithKvCache(modelFileSizeBytes, kvCacheMemory, availableVramBytes, availableRamBytes, estimatedLayers);
+    }
+
+    /// <summary>
+    /// Same estimate as <see cref="EstimateForGguf(long, int, long?, long?, int)"/> with a known KV cache size
+    /// (e.g. from the file's attention metadata) instead of the file-size heuristic.
+    /// </summary>
+    internal static ResourceEstimate EstimateForGgufWithKvCache(
+        long modelFileSizeBytes,
+        long kvCacheMemory,
+        long? availableVramBytes,
+        long? availableRamBytes,
+        int estimatedLayers)
+    {
+        // GGUF file size is roughly equal to model weights in memory
+        // Add ~10% overhead for model loading structures
+        var modelMemory = (long)(modelFileSizeBytes * 1.1);
 
         // Total memory needed
         var totalMemory = modelMemory + kvCacheMemory;

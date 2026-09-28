@@ -80,6 +80,15 @@ public static class GgufMetadataReader
         int? fileType = null;
         int? expertCount = null;
         int? expertUsedCount = null;
+        int[]? headCountKvPerLayer = null;
+        int? keyLength = null;
+        int? valueLength = null;
+        int? keyLengthSwa = null;
+        int? valueLengthSwa = null;
+        int? slidingWindow = null;
+        bool[]? slidingWindowPattern = null;
+        int? sharedKvLayers = null;
+        int? fullAttentionInterval = null;
 
         for (ulong i = 0; i < metadataKvCount; i++)
         {
@@ -116,7 +125,34 @@ public static class GgufMetadataReader
                     else if (key.EndsWith(".attention.head_count", StringComparison.Ordinal))
                         headCount = ConvertToInt(value);
                     else if (key.EndsWith(".attention.head_count_kv", StringComparison.Ordinal))
-                        headCountKv = ConvertToInt(value);
+                    {
+                        // A scalar for most models; a per-layer array where layers differ (0 = no KV).
+                        if (value is object?[] perLayer)
+                        {
+                            headCountKvPerLayer = perLayer.Select(v => ConvertToInt(v) ?? 0).ToArray();
+                            headCountKv = headCountKvPerLayer.Length > 0 ? headCountKvPerLayer.Max() : null;
+                        }
+                        else
+                        {
+                            headCountKv = ConvertToInt(value);
+                        }
+                    }
+                    else if (key.EndsWith(".attention.key_length", StringComparison.Ordinal))
+                        keyLength = ConvertToInt(value);
+                    else if (key.EndsWith(".attention.value_length", StringComparison.Ordinal))
+                        valueLength = ConvertToInt(value);
+                    else if (key.EndsWith(".attention.key_length_swa", StringComparison.Ordinal))
+                        keyLengthSwa = ConvertToInt(value);
+                    else if (key.EndsWith(".attention.value_length_swa", StringComparison.Ordinal))
+                        valueLengthSwa = ConvertToInt(value);
+                    else if (key.EndsWith(".attention.sliding_window", StringComparison.Ordinal))
+                        slidingWindow = ConvertToInt(value);
+                    else if (key.EndsWith(".attention.sliding_window_pattern", StringComparison.Ordinal))
+                        slidingWindowPattern = value is object?[] pattern ? pattern.Select(v => v is true).ToArray() : null;
+                    else if (key.EndsWith(".attention.shared_kv_layers", StringComparison.Ordinal))
+                        sharedKvLayers = ConvertToInt(value);
+                    else if (key.EndsWith(".full_attention_interval", StringComparison.Ordinal))
+                        fullAttentionInterval = ConvertToInt(value);
                     else if (key.EndsWith(".feed_forward_length", StringComparison.Ordinal))
                         ffnLength = ConvertToInt(value);
                     else if (key.EndsWith(".rope.freq_base", StringComparison.Ordinal))
@@ -155,6 +191,15 @@ public static class GgufMetadataReader
             TensorCount = (long)tensorCount,
             ExpertCount = expertCount,
             ExpertUsedCount = expertUsedCount,
+            HeadCountKvPerLayer = headCountKvPerLayer,
+            KeyLength = keyLength,
+            ValueLength = valueLength,
+            KeyLengthSwa = keyLengthSwa,
+            ValueLengthSwa = valueLengthSwa,
+            SlidingWindow = slidingWindow,
+            SlidingWindowPattern = slidingWindowPattern,
+            SharedKvLayers = sharedKvLayers,
+            FullAttentionInterval = fullAttentionInterval,
             RawMetadata = rawMetadata
         };
     }
@@ -260,6 +305,7 @@ public static class GgufMetadataReader
     private sealed class GgufReader
     {
         private readonly Stream _stream;
+        private const ulong MaxReadNumericArrayLength = 4096;
         private readonly byte[] _buffer = new byte[8];
 
         public GgufReader(Stream stream)
@@ -303,6 +349,18 @@ public static class GgufMetadataReader
             return BinaryPrimitives.ReadDoubleLittleEndian(_buffer);
         }
 
+        public async Task<byte> ReadByteAsync(CancellationToken ct)
+        {
+            await _stream.ReadExactlyAsync(_buffer.AsMemory(0, 1), ct);
+            return _buffer[0];
+        }
+
+        public async Task<ushort> ReadUInt16Async(CancellationToken ct)
+        {
+            await _stream.ReadExactlyAsync(_buffer.AsMemory(0, 2), ct);
+            return BinaryPrimitives.ReadUInt16LittleEndian(_buffer);
+        }
+
         public async Task<bool> ReadBoolAsync(CancellationToken ct)
         {
             await _stream.ReadExactlyAsync(_buffer.AsMemory(0, 1), ct);
@@ -329,10 +387,10 @@ public static class GgufMetadataReader
             // GGUF value types
             return valueType switch
             {
-                0 => (int)await ReadUInt32Async(ct),        // GGUF_TYPE_UINT8 (read as uint32 for simplicity)
-                1 => await ReadInt32Async(ct),               // GGUF_TYPE_INT8
-                2 => (int)await ReadUInt32Async(ct),         // GGUF_TYPE_UINT16
-                3 => await ReadInt32Async(ct),               // GGUF_TYPE_INT16
+                0 => (int)await ReadByteAsync(ct),           // GGUF_TYPE_UINT8
+                1 => (int)(sbyte)await ReadByteAsync(ct),    // GGUF_TYPE_INT8
+                2 => (int)await ReadUInt16Async(ct),         // GGUF_TYPE_UINT16
+                3 => (int)(short)await ReadUInt16Async(ct),  // GGUF_TYPE_INT16
                 4 => await ReadUInt32Async(ct),              // GGUF_TYPE_UINT32
                 5 => await ReadInt32Async(ct),               // GGUF_TYPE_INT32
                 6 => await ReadFloat32Async(ct),             // GGUF_TYPE_FLOAT32
@@ -369,7 +427,17 @@ public static class GgufMetadataReader
                 return strings;
             }
 
-            // For numeric arrays, just skip them (we don't need them for metadata)
+            // Short numeric arrays carry per-layer architecture (e.g. which layers use sliding-window
+            // attention, or a per-layer KV head count) — read them. Long ones (token types, scores) are
+            // vocabulary-sized and are skipped.
+            if (length <= MaxReadNumericArrayLength)
+            {
+                var values = new object?[length];
+                for (ulong i = 0; i < length; i++)
+                    values[i] = await ReadValueAsync(elementType, ct);
+                return values;
+            }
+
             var elementSize = GetElementSize(elementType);
             if (elementSize > 0)
             {
