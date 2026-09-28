@@ -258,6 +258,13 @@ public sealed class MemoryAwareGenerator : IGeneratorModel, Internal.IDiagnostic
     public Task<int> CountTokensAsync(IEnumerable<ChatMessage> messages, CancellationToken cancellationToken = default)
         => _inner.CountTokensAsync(messages, cancellationToken);
 
+    /// <inheritdoc />
+    public Task<int> CountTokensAsync(
+        IEnumerable<ChatMessage> messages,
+        GenerationOptions? options,
+        CancellationToken cancellationToken = default)
+        => _inner.CountTokensAsync(messages, options, cancellationToken);
+
     /// <summary>
     /// Gets the current memory usage in bytes.
     /// </summary>

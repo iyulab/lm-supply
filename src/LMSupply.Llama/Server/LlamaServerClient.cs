@@ -486,11 +486,18 @@ public sealed class LlamaServerClient : IDisposable
     /// <summary>
     /// Counts the number of tokens in the given text using the server's tokenizer.
     /// </summary>
-    private async Task<int> CountTokensCoreAsync(
+    private Task<int> CountTokensCoreAsync(
         string text,
         CancellationToken cancellationToken = default)
+        => TokenizeCountAsync(text, addSpecial: false, cancellationToken);
+
+    /// <summary>
+    /// Tokenizes <paramref name="text"/> on the server. With <paramref name="addSpecial"/>, the tokens the model adds
+    /// around a prompt (a BOS token, for models that use one) are counted too — as generation counts a prompt.
+    /// </summary>
+    private async Task<int> TokenizeCountAsync(string text, bool addSpecial, CancellationToken cancellationToken)
     {
-        var request = new TokenizeRequest { Content = text };
+        var request = new TokenizeRequest { Content = text, AddSpecial = addSpecial ? true : null };
         var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -505,6 +512,40 @@ public sealed class LlamaServerClient : IDisposable
         var result = JsonSerializer.Deserialize(responseJson, JsonOptions.TypeInfo<TokenizeResponse>());
 
         return result?.Tokens?.Count ?? 0;
+    }
+
+    /// <summary>
+    /// Counts the tokens of the prompt a chat request renders to: the messages through the model's chat template,
+    /// with the request's tools, tool choice and thinking setting — what <c>/v1/chat/completions</c> would send the
+    /// model. Uses the server's <c>/apply-template</c>, then <c>/tokenize</c>. Null when the server has no
+    /// <c>/apply-template</c>.
+    /// </summary>
+    private async Task<int?> CountChatPromptTokensCoreAsync(
+        IEnumerable<ChatCompletionMessage> messages,
+        ChatCompletionOptions? options,
+        CancellationToken cancellationToken = default)
+    {
+        var request = BuildChatRequest(messages, options ?? new ChatCompletionOptions(), stream: false);
+        var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using var response = await PostWithTimeoutAsync(
+            $"{_baseUrl}/apply-template",
+            content,
+            cancellationToken);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return null;
+
+        await EnsureSuccessOrThrowContextExceptionAsync(response, _maxContextLength, cancellationToken);
+
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+        var rendered = JsonSerializer.Deserialize(responseJson, JsonOptions.TypeInfo<ApplyTemplateResponse>());
+        if (rendered?.Prompt is not { } prompt)
+            return null;
+
+        // Generation tokenizes the rendered prompt with the model's special tokens (a BOS, where the model uses one).
+        return await TokenizeCountAsync(prompt, addSpecial: true, cancellationToken);
     }
 
     #endregion
@@ -748,6 +789,13 @@ public sealed class LlamaServerClient : IDisposable
     /// <inheritdoc cref="CountTokensCoreAsync"/>
     public Task<int> CountTokensAsync(string text, CancellationToken cancellationToken = default) =>
         GuardAsync(() => CountTokensCoreAsync(text, cancellationToken));
+
+    /// <inheritdoc cref="CountChatPromptTokensCoreAsync"/>
+    public Task<int?> CountChatPromptTokensAsync(
+        IEnumerable<ChatCompletionMessage> messages,
+        ChatCompletionOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        GuardAsync(() => CountChatPromptTokensCoreAsync(messages, options, cancellationToken));
 
     /// <inheritdoc cref="GenerateEmbeddingsBatchCoreAsync"/>
     public Task<float[][]> GenerateEmbeddingsBatchAsync(IReadOnlyList<string> inputs, CancellationToken cancellationToken = default) =>
@@ -1573,11 +1621,19 @@ public sealed class RerankResult
 internal sealed class TokenizeRequest
 {
     public required string Content { get; init; }
+
+    /// <summary>Whether to add the model's special tokens (BOS); the server's default is not to.</summary>
+    public bool? AddSpecial { get; init; }
 }
 
 internal sealed class TokenizeResponse
 {
     public List<int>? Tokens { get; set; }
+}
+
+internal sealed class ApplyTemplateResponse
+{
+    public string? Prompt { get; set; }
 }
 
 #endregion

@@ -597,6 +597,19 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
         return CountTokensAsync(prompt, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public Task<int> CountTokensAsync(
+        IEnumerable<ChatMessage> messages,
+        GenerationOptions? options,
+        CancellationToken cancellationToken = default)
+    {
+        // Generation injects the tool definitions into the system prompt; count the prompt it builds.
+        var messageList = messages.ToList();
+        if (options?.Tools is { Count: > 0 } tools)
+            messageList = InjectToolDefinitions(messageList, tools);
+        return CountTokensAsync(_chatFormatter.FormatPrompt(messageList), cancellationToken);
+    }
+
     private GeneratorParams CreateGeneratorParams(GenerationOptions options, int effectiveMaxLength)
     {
         var generatorParams = new GeneratorParams(_model);

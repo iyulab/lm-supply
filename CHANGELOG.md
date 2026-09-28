@@ -7,6 +7,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [0.90.0] - Unreleased
 
 ### Added
+- **`IGeneratorModel.CountTokensAsync(messages, options)` counts a chat request's prompt with its tools.** The tool
+  definitions in `GenerationOptions.Tools` (with the tool choice and thinking setting) are rendered as generation sends
+  them: on GGUF by the server's own chat template (`/apply-template`), matching the server's `prompt_tokens` exactly; on
+  ONNX with the tool definitions generation injects. For 13 tools on Qwen 3.5 2B the prompt is 1,769 tokens, where the
+  messages alone count 28. **Breaking** for implementers of `IGeneratorModel`: implement the new overload (a wrapper
+  forwards it).
 - **`GgufMetadata` carries the file's KV cache layout**: `KeyLength` / `ValueLength` (and their `…Swa` sliding-window
   counterparts), `SlidingWindow`, `SlidingWindowPattern`, `SharedKvLayers`, `FullAttentionInterval` and
   `HeadCountKvPerLayer` (when the file stores the KV head count per layer). For such a file `HeadCountKv` is now the
@@ -25,6 +31,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   that keep a cache (hybrid recurrent and shared-KV layers do not), and a fixed window for sliding-window layers. For the
   three models measured, the estimate equals the size llama-server reports. The GPU layer fit uses the same size and the
   file's layer count.
+- **Generation's context trim counts the tools.** Old turns were trimmed against a count of the messages alone, so a
+  request with tools could pass the trim and then exceed the context on the server. The trim now counts the rendered
+  prompt, tools included.
 - **The VRAM budget sees the GPU as it is at load time.** Free VRAM was read once, when the process first detected the
   hardware, so a model loaded since was counted as free memory and `GeneratorModelInfo.VramFreeBytes` repeated the
   start-up figure. It is now read when the load sizes its server, after the idle servers it may displace are stopped

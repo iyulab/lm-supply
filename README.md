@@ -650,6 +650,14 @@ not), each with its KV head count (grouped-query attention keeps far fewer KV he
 dimensions, at the `--cache-type-k/-v` the server runs with; sliding-window layers add a fixed window instead of a
 per-token cost. A file without that metadata falls back to a file-size estimate.
 
+**Counting a request's prompt** — `CountTokensAsync(messages, options)` counts the prompt a chat request renders to,
+with `options.Tools`, the tool choice and the thinking setting, as generation with the same options sends it. Tool
+definitions often outweigh the messages (13 tools ≈ 1,600–2,100 tokens), so a request's fit against `MaxContextLength`
+or an output budget is checked with this overload; `CountTokensAsync(messages)` counts the messages only. On GGUF the
+server's own chat template renders the prompt (`/apply-template`) and the count equals the `prompt_tokens` the server
+reports; on ONNX it is the prompt with the tool definitions generation injects. Generation trims old turns to fit the
+context by the same count.
+
 **VRAM-budget telemetry** — `GetModelInfo()` exposes the figures behind the decision so a consumer can classify *why* the context was floored (accurately-small VRAM vs an under-reported budget) without scraping log magic numbers:
 
 | `GeneratorModelInfo` field | Meaning |

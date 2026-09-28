@@ -54,12 +54,29 @@ public interface IGeneratorModel : ITextGenerator
 
     /// <summary>
     /// Counts the exact number of tokens for formatted chat messages using the model's tokenizer.
-    /// Messages are formatted using the model's chat template before tokenization.
+    /// Messages are formatted using the model's chat template before tokenization. Tools are not counted — for a
+    /// request that passes <see cref="GenerationOptions.Tools"/>, use
+    /// <see cref="CountTokensAsync(IEnumerable{ChatMessage}, GenerationOptions?, CancellationToken)"/>.
     /// </summary>
     /// <param name="messages">The chat messages to format and count.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The exact token count of the formatted prompt.</returns>
     Task<int> CountTokensAsync(IEnumerable<ChatMessage> messages, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Counts the tokens of the prompt a chat request renders to: the messages through the model's chat template
+    /// together with <see cref="GenerationOptions.Tools"/>, the tool choice and the thinking setting, as generation
+    /// with the same <paramref name="options"/> sends them. Use it to check that a request fits
+    /// <see cref="MaxContextLength"/> or to size an output budget — tool definitions can outweigh the messages.
+    /// </summary>
+    /// <param name="messages">The chat messages of the request.</param>
+    /// <param name="options">The generation options of the request; null counts it without tools.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The token count of the rendered prompt.</returns>
+    Task<int> CountTokensAsync(
+        IEnumerable<ChatMessage> messages,
+        GenerationOptions? options,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

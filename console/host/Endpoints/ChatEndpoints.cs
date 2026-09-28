@@ -409,6 +409,9 @@ public static class ChatEndpoints
         public Task<int> CountTokensAsync(IEnumerable<ChatMessage> messages, CancellationToken ct = default)
             => inner.CountTokensAsync(messages, ct);
 
+        public Task<int> CountTokensAsync(IEnumerable<ChatMessage> messages, GenerationOptions? options, CancellationToken ct = default)
+            => inner.CountTokensAsync(messages, options, ct);
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask; // Does NOT dispose the underlying model
     }
 }

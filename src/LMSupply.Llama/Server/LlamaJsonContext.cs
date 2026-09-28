@@ -14,6 +14,7 @@ namespace LMSupply.Llama.Server;
 [JsonSerializable(typeof(CompletionChunk))]
 [JsonSerializable(typeof(TokenizeRequest))]
 [JsonSerializable(typeof(TokenizeResponse))]
+[JsonSerializable(typeof(ApplyTemplateResponse))]
 [JsonSerializable(typeof(EmbeddingRequest))]
 [JsonSerializable(typeof(EmbeddingResponse))]
 [JsonSerializable(typeof(RerankRequest))]

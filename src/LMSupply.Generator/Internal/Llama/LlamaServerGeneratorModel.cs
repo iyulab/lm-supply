@@ -879,6 +879,39 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     }
 
     /// <inheritdoc />
+    public async Task<int> CountTokensAsync(
+        IEnumerable<ChatMessage> messages,
+        GenerationOptions? options,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        options ??= GenerationOptions.Default;
+        return await CountRenderedPromptTokensAsync(
+            PrepareServerMessages(messages, options, _chatFormatter), options, cancellationToken);
+    }
+
+    /// <summary>
+    /// The token count of the prompt the server renders for <paramref name="prepared"/> (already through
+    /// <see cref="PrepareServerMessages"/>) with <paramref name="options"/>: the server's own chat template, with the
+    /// tools, tool choice and thinking setting the request sends. A server without <c>/apply-template</c> falls back
+    /// to the formatter's prompt, which does not include the tools the template would add.
+    /// </summary>
+    private async Task<int> CountRenderedPromptTokensAsync(
+        IReadOnlyList<ChatMessage> prepared,
+        GenerationOptions options,
+        CancellationToken cancellationToken)
+    {
+        var client = await ClientAsync(cancellationToken);
+        if (await client.CountChatPromptTokensAsync(ConvertMessages(prepared), CreateChatOptions(options), cancellationToken)
+            is { } rendered)
+        {
+            return rendered;
+        }
+
+        return await client.CountTokensAsync(_chatFormatter.FormatPrompt(prepared), cancellationToken);
+    }
+
+    /// <inheritdoc />
     public async IAsyncEnumerable<ChatStreamChunk> GenerateChatStreamAsync(
         IEnumerable<ChatMessage> messages,
         GenerationOptions? options = null,
@@ -1887,8 +1920,9 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
 
         while (true)
         {
-            var prompt = _chatFormatter.FormatPrompt(PrepareServerMessages(list, options, _chatFormatter));
-            var tokenCount = await (await ClientAsync(cancellationToken)).CountTokensAsync(prompt, cancellationToken);
+            // What the server will render, tools included — the formatter's prompt alone leaves them out.
+            var tokenCount = await CountRenderedPromptTokensAsync(
+                PrepareServerMessages(list, options, _chatFormatter), options, cancellationToken);
 
             if (tokenCount <= inputBudget)
                 return list;
