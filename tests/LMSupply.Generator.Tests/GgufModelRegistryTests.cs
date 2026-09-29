@@ -53,6 +53,28 @@ public class GgufModelRegistryTests
         result.Should().BeNull();
     }
 
+    /// <summary>
+    /// Every registered GGUF alias records its KV cache layout, read from the file's attention metadata: the file choice
+    /// before download sizes the cache from it (a count from the hidden size over-states grouped-query models several
+    /// times over and downscaled Qwen2.5-7B from Q4_K_M to IQ4_XS on an 8 GB GPU).
+    /// </summary>
+    [Fact]
+    public void EveryAlias_RecordsItsKvCacheLayout()
+    {
+        foreach (var alias in GgufModelRegistry.GetAliases())
+        {
+            var model = GgufModelRegistry.Resolve(alias)!;
+            model.KvCacheBytesPerToken.Should().BeGreaterThan(0, because: $"{alias} must record its KV cache bytes per token");
+        }
+    }
+
+    [Theory]
+    [InlineData("gguf:qwen2.5-7b", 16_384, 896L * 1024 * 1024)]           // llama-server: 896.00 MiB
+    [InlineData("gguf:qwen3-fast", 16_384, 192L * 1024 * 1024)]           // llama-server: 192.00 MiB (6 of 24 layers)
+    [InlineData("gguf:gemma4-default", 16_384, 256L * 1024 * 1024 + 41_943_040)] // 256 MiB + one sequence's window
+    public void KvCacheEstimate_MatchesTheServer(string alias, int context, long expected)
+        => GgufModelRegistry.Resolve(alias)!.EstimateKvCacheBytes(context).Should().Be(expected);
+
     [Fact]
     public void GetAllModels_ReturnsNonEmptyList()
     {
@@ -110,23 +132,6 @@ public class GgufModelRegistryTests
         aliases.Should().Contain("gguf:qwen3-large");
     }
 
-    [Theory]
-    [InlineData("gguf:gemma4-fast")]
-    [InlineData("gguf:gemma4-default")]
-    [InlineData("gguf:gemma4-balanced")]
-    [InlineData("gguf:gemma4-quality")]
-    [InlineData("gguf:gemma4-large")]
-    public void RegisteredGemmaModels_HaveArchitectureFields(string alias)
-    {
-        var model = GgufModelRegistry.Resolve(alias);
-
-        model.Should().NotBeNull();
-        model!.NumLayers.Should().BeGreaterThan(0,
-            because: $"{alias} must declare NumLayers for KV cache budgeting");
-        model.HiddenSize.Should().BeGreaterThan(0,
-            because: $"{alias} must declare HiddenSize for KV cache budgeting");
-    }
-
     [Fact]
     public void GetAutoSelection_ReturnsResultWithCandidatesAndReason()
     {
@@ -181,22 +186,22 @@ public class GgufModelRegistryTests
     [Fact]
     public void GetAutoSelection_KvCacheCountedInBudget()
     {
-        // 6.5GB total, 5.5GB free (non-low-VRAM card, margin 15%).
-        // totalCap = 6.5 × 0.85 = 5.525GB, freeCap = 5.5 × 0.95 = 5.225GB → budget = 5.225GB.
-        // qwen3-balanced (5.0GB + ~2.25GB KV ≈ 7.25GB) does NOT fit.
-        // qwen3-default (3.0GB + ~1.25GB KV ≈ 4.25GB) fits.
+        // 6.5GB total, 5.0GB free (non-low-VRAM card, margin 15%).
+        // totalCap = 6.5 × 0.85 = 5.525GB, freeCap = 5.0 × 0.95 = 4.75GB → budget = 4.75GB.
+        // qwen3-balanced (Qwen3-8B, 144 KiB/token): 5.0GB weights + 0.56GB KV @ 4096 does NOT fit.
+        // qwen3-default (Qwen3.5-4B, 32 KiB/token — 8 of 33 layers keep a cache): 3.0GB + 0.13GB fits.
         var gpu = new GpuInfo
         {
             Vendor = GpuVendor.Nvidia,
             DeviceName = "Test 6.5GB",
             TotalMemoryBytes = (long)(6.5 * 1024L * 1024 * 1024),
-            FreeMemoryBytes = (long)(5.5 * 1024L * 1024 * 1024),
+            FreeMemoryBytes = (long)(5.0 * 1024L * 1024 * 1024),
         };
 
         var result = GgufModelRegistry.GetAutoSelection(gpu);
 
         result.Selected.AliasName.Should().Be("gguf:qwen3-default",
-            because: "with KV cache @ 4096 included, qwen3-balanced (7.25GB) exceeds the 5.225GB budget");
+            because: "with KV cache @ 4096 included, qwen3-balanced (5.56GB) exceeds the 4.75GB budget");
         result.Reason.Should().Be(ModelSelectionReason.Fits);
     }
 
@@ -272,11 +277,11 @@ public class GgufModelRegistryTests
     }
 
     [Fact]
-    public void GetAutoModel_8GBVram_SelectsDefault()
+    public void GetAutoModel_8GBVram_4kContext_SelectsBalanced()
     {
         // budget = min(8 × 0.85, 7.5 × 0.95) = min(6.8, 7.125) = 6.8GB (totalCap is binding here).
-        // - qwen3-default (3.0GB + ~1.25GB KV ≈ 4.25GB) fits
-        // - qwen3-balanced (5.0GB + ~2.25GB KV ≈ 7.25GB) does NOT fit
+        // At the default 4,096-token budget context qwen3-balanced (Qwen3-8B: 5.0GB + 0.56GB KV) fits — the KV cache
+        // is sized from the file's layout, not from the hidden size (which put it at ~2.25GB).
         var gpu = new GpuInfo
         {
             Vendor = GpuVendor.Nvidia,
@@ -285,24 +290,42 @@ public class GgufModelRegistryTests
         };
         var model = GgufModelRegistry.GetAutoModel(gpu);
         model.QuantizationType.Should().Be("Q4_K_M");
-        model.ParameterCount.Should().Be(4_000_000_000);
+        model.ParameterCount.Should().Be(8_000_000_000);
+    }
+
+    [Fact]
+    public void GetAutoSelection_8GBVram_16kContext_PicksTheModelWhoseCacheFits()
+    {
+        // Same 8GB card, sized for 16,384 tokens: Qwen3-8B keeps 144 KiB/token (2.25GB → 7.25GB total, over 6.8GB);
+        // Qwen3.5-4B keeps 32 KiB/token (0.5GB → 3.5GB) and gets the whole context.
+        var gpu = new GpuInfo
+        {
+            Vendor = GpuVendor.Nvidia,
+            TotalMemoryBytes = 8L * 1024 * 1024 * 1024,
+            FreeMemoryBytes = (long)(7.5 * 1024 * 1024 * 1024)
+        };
+
+        var result = GgufModelRegistry.GetAutoSelection(gpu, budgetContextLength: 16_384);
+
+        result.Selected.AliasName.Should().Be("gguf:qwen3-default");
+        result.Reason.Should().Be(ModelSelectionReason.Fits);
     }
 
     [Fact]
     public void GetAutoModel_8GBVram_LowFree_SelectsDefault()
     {
-        // 8GB total but only 6GB free (external process consuming VRAM).
-        // totalCap = 8 × 0.85 = 6.8GB, freeCap = 6 × 0.95 = 5.7GB → budget = 5.7GB.
-        // qwen3-default (3.0GB + ~1.25GB KV ≈ 4.25GB) fits within 5.7GB budget.
+        // 8GB total but only 5GB free (external process consuming VRAM).
+        // totalCap = 8 × 0.85 = 6.8GB, freeCap = 5 × 0.95 = 4.75GB → budget = 4.75GB.
+        // qwen3-balanced (5.56GB with its cache) does not fit; qwen3-default (3.13GB) does.
         var gpu = new GpuInfo
         {
             Vendor = GpuVendor.Nvidia,
             TotalMemoryBytes = 8L * 1024 * 1024 * 1024,
-            FreeMemoryBytes = 6L * 1024 * 1024 * 1024
+            FreeMemoryBytes = 5L * 1024 * 1024 * 1024
         };
         var model = GgufModelRegistry.GetAutoModel(gpu);
         model.ParameterCount.Should().Be(4_000_000_000,
-            because: "qwen3-default (4.25GB total) fits within the 5.7GB budget");
+            because: "the free-memory cap, not the total, decides — qwen3-default (3.13GB) fits within the 4.75GB budget");
     }
 
     [Fact]
@@ -627,23 +650,6 @@ public class GgufModelRegistryTests
         model.Should().NotBeNull();
         model!.KnownIssues.Should().BeEmpty(
             because: $"{alias} has no known compatibility issues");
-    }
-
-    [Theory]
-    [InlineData("gguf:qwen3-fast")]
-    [InlineData("gguf:qwen3-default")]
-    [InlineData("gguf:qwen3-balanced")]
-    [InlineData("gguf:qwen3-quality")]
-    [InlineData("gguf:qwen3-large")]
-    public void Qwen3Models_HaveArchitectureFields(string alias)
-    {
-        var model = GgufModelRegistry.Resolve(alias);
-
-        model.Should().NotBeNull();
-        model!.NumLayers.Should().BeGreaterThan(0,
-            because: $"{alias} must declare NumLayers for KV cache budgeting");
-        model.HiddenSize.Should().BeGreaterThan(0,
-            because: $"{alias} must declare HiddenSize for KV cache budgeting");
     }
 
     [Theory]

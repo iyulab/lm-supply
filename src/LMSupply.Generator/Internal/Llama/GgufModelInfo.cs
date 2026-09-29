@@ -91,16 +91,27 @@ public sealed record GgufModelInfo : IModelInfoBase, IModelMemoryInfo
     public int? ShardCount { get; init; }
 
     /// <summary>
-    /// Number of transformer layers. Used for KV cache size estimation.
-    /// Populate from the model's config.json / HF model card.
+    /// Bytes the f16 KV cache grows by per context token — across the layers that keep a full-context cache, each with
+    /// its KV head count and K/V head dimensions. Read it from the GGUF file's attention metadata (as llama-server sizes
+    /// the cache); a count built from the hidden size over-states grouped-query models several times over. Null when
+    /// unknown: the file choice before download then falls back to a file-size estimate.
     /// </summary>
-    public int NumLayers { get; init; }
+    public long? KvCacheBytesPerToken { get; init; }
 
     /// <summary>
-    /// Hidden dimension size (d_model). Used for KV cache size estimation.
-    /// Populate from the model's config.json / HF model card.
+    /// Bytes the f16 KV cache of the model's sliding-window layers holds for one sequence, regardless of the context
+    /// length (the window plus one batch of cells). Null or 0 for a model without sliding-window layers.
     /// </summary>
-    public int HiddenSize { get; init; }
+    public long? SlidingWindowKvBytes { get; init; }
+
+    /// <summary>
+    /// The f16 KV cache for a context of <paramref name="contextLength"/> tokens, or null when
+    /// <see cref="KvCacheBytesPerToken"/> is unknown.
+    /// </summary>
+    public long? EstimateKvCacheBytes(int contextLength)
+        => KvCacheBytesPerToken is { } perToken
+            ? perToken * contextLength + (SlidingWindowKvBytes ?? 0)
+            : null;
 
     /// <summary>
     /// Known issues for this model. Tags from <see cref="GgufModelKnownIssues"/>.

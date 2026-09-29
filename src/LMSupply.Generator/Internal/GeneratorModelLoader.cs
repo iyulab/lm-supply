@@ -167,7 +167,7 @@ internal static class GeneratorModelLoader
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
 
         // Try to resolve as registry alias first
-        var registryInfo = GgufModelRegistry.Resolve(modelId, options.Provider);
+        var registryInfo = GgufModelRegistry.Resolve(modelId, options.Provider, options.MaxContextLength);
         string modelPath;
         string chatFormat;
 
@@ -180,6 +180,7 @@ internal static class GeneratorModelLoader
                 provider: options.Provider,
                 preferredQuantization: null,
                 progress: progress,
+                contextLength: options.MaxContextLength,
                 cancellationToken: cancellationToken);
 
             chatFormat = options.ChatFormat ?? registryInfo.ChatFormat;

@@ -222,4 +222,42 @@ public class GgufModelDownloaderDecisionTests
         GgufModelDownloader.PlanRegistryFile(ModelWithEstimate((long)(5.0 * GB)), [Grp("Model-Q3_K_M.gguf", 3.5)], null, budget, vramOnly: false)
             .Should().BeNull();
     }
+
+    // ---- Registry KV layout (sizes the cache like the server) ----
+
+    private const long MiB = 1024L * 1024;
+
+    // bartowski/Qwen2.5-7B-Instruct-GGUF: the registry default and the next smaller quantization.
+    private static IReadOnlyList<GgufFileGroup> Qwen25Groups() =>
+    [
+        new() { PrimaryFileName = "Qwen2.5-7B-Instruct-Q4_K_M.gguf", Parts = ["Qwen2.5-7B-Instruct-Q4_K_M.gguf"], TotalSizeBytes = 4_683_073_984 },
+        new() { PrimaryFileName = "Qwen2.5-7B-Instruct-IQ4_XS.gguf", Parts = ["Qwen2.5-7B-Instruct-IQ4_XS.gguf"], TotalSizeBytes = 4_218_473_152 },
+    ];
+
+    // An 8 GB laptop GPU with 7,957 MB free, sized for the default budget context.
+    private static AvailableMemory EightGbGpu() => new(VramBytes: 7_957 * MiB, RamBytes: 32 * GB, GgufModelRegistry.DefaultBudgetContextLength);
+
+    [Fact]
+    public void RegistryKvLayout_KeepsTheDefaultQuantThatFits()
+    {
+        var qwen = GgufModelRegistry.Resolve("gguf:qwen2.5-7b")!;
+
+        var d = GgufModelDownloader.DecideRegistryFile(qwen, Qwen25Groups(), EightGbGpu(), vramOnly: true);
+
+        d.Reason.Should().Be(GgufModelDownloader.RegistryFileReason.DefaultFits,
+            "4.7 GB of weights and a 224 MB cache (4 KV heads, 4,096 tokens) fit the 8 GB GPU");
+        d.FileName.Should().Be("Qwen2.5-7B-Instruct-Q4_K_M.gguf");
+    }
+
+    [Fact]
+    public void WithoutAKvLayout_TheFileSizeEstimateDownscales()
+    {
+        // The file-size estimate sizes this model's cache at 1.3 GB — the downscale a consumer measured (IQ4_XS).
+        var qwen = GgufModelRegistry.Resolve("gguf:qwen2.5-7b")! with { KvCacheBytesPerToken = null };
+
+        var d = GgufModelDownloader.DecideRegistryFile(qwen, Qwen25Groups(), EightGbGpu(), vramOnly: true);
+
+        d.Reason.Should().Be(GgufModelDownloader.RegistryFileReason.Downscaled);
+        d.FileName.Should().Be("Qwen2.5-7B-Instruct-IQ4_XS.gguf");
+    }
 }

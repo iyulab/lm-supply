@@ -7,7 +7,7 @@ namespace LMSupply.Generator.Tests;
 
 /// <summary>
 /// <c>"default"</c>, <c>"auto"</c> and <c>"gguf:auto"</c> select with one rule, from the profile of the load's provider
-/// (<see cref="GgufModelRegistry.GetAutoSelection(ExecutionProvider)"/>). Before 0.76.0 the first two read the detected
+/// (<see cref="GgufModelRegistry.GetAutoSelection(ExecutionProvider, int?)"/>). Before 0.76.0 the first two read the detected
 /// GPU even for an explicit <see cref="ExecutionProvider.Cpu"/> and never considered system memory, while
 /// <c>"gguf:auto"</c> considered system memory but also read the detected GPU — the same word, two selections, and
 /// neither honoured "Cpu".

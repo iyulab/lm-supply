@@ -261,10 +261,10 @@ public static class LocalGenerator
     private static bool IsGgufModelCached(string modelId, GeneratorOptions options, string cacheDir)
     {
         using var downloader = new Internal.Llama.GgufModelDownloader(cacheDir, localFilesOnly: true);
-        var registryInfo = Internal.Llama.GgufModelRegistry.Resolve(modelId, options.Provider);
+        var registryInfo = Internal.Llama.GgufModelRegistry.Resolve(modelId, options.Provider, options.MaxContextLength);
         if (registryInfo is not null)
         {
-            return downloader.IsRegistryModelCached(registryInfo, options.Provider);
+            return downloader.IsRegistryModelCached(registryInfo, options.Provider, options.MaxContextLength);
         }
 
         // An unregistered "gguf:" id cannot load at all; a raw repository id loads a cached GGUF first.

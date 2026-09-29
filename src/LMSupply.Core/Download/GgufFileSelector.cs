@@ -49,6 +49,19 @@ public record AvailableMemory(long VramBytes, long RamBytes, int ContextLength =
     }
 
     /// <summary>
+    /// Returns true if the model and a KV cache of <paramref name="kvCacheBytes"/> (known for the model, rather than
+    /// estimated from the file size) fit entirely in GPU VRAM.
+    /// </summary>
+    internal bool FitsInGpu(long fileSizeBytes, long kvCacheBytes)
+        => VramBytes > 0 && (long)(fileSizeBytes * RuntimeOverheadFactor) + kvCacheBytes <= UsableVramBytes;
+
+    /// <summary>
+    /// Returns true if the model and a KV cache of <paramref name="kvCacheBytes"/> fit in total available memory.
+    /// </summary>
+    internal bool FitsInMemory(long fileSizeBytes, long kvCacheBytes)
+        => (long)(fileSizeBytes * RuntimeOverheadFactor) + kvCacheBytes <= TotalUsableBytes;
+
+    /// <summary>
     /// Returns true if the model + KV cache fits entirely in GPU VRAM.
     /// </summary>
     public bool FitsInGpu(long fileSizeBytes)

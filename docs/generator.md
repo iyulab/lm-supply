@@ -424,22 +424,22 @@ The registry has two primary tiers: **Gemma 4** (multimodal, Apache 2.0) for exp
 
 | Alias | Model | Parameters | Quant | Weights | KV @ 4k | Total | Use Case |
 |-------|-------|------------|-------|---------|---------|-------|----------|
-| `gguf:gemma4-fast` | Gemma 4 E2B Instruct | 2.3B | Q4_K_M | ~3.1 GB | ~1.0 GB | ~4.1 GB | 4-6GB VRAM, iGPU/mobile |
-| `gguf:gemma4-default` | Gemma 4 E4B Instruct | 4.5B | Q4_K_M | ~5.3 GB | ~1.4 GB | ~6.7 GB | 8GB VRAM |
-| `gguf:gemma4-balanced` | Gemma 4 E4B Instruct | 4.5B | Q8_0 | ~7.5 GB | ~1.4 GB | ~8.9 GB | 12GB VRAM (higher quality E4B) |
-| `gguf:gemma4-quality` | Gemma 4 26B A4B (MoE) | 26B (4B active) | Q4_K_M | ~16.8 GB | ~2.9 GB | ~19.7 GB | 24GB VRAM |
-| `gguf:gemma4-large` | Gemma 4 31B Instruct | 31B (Dense) | Q4_K_M | ~18.7 GB | ~5.1 GB | ~23.8 GB | 32GB+ VRAM |
+| `gguf:gemma4-fast` | Gemma 4 E2B Instruct | 2.3B | Q4_K_M | ~3.1 GB | ~36 MB | ~3.1 GB | 4-6GB VRAM, iGPU/mobile |
+| `gguf:gemma4-default` | Gemma 4 E4B Instruct | 4.5B | Q4_0 | ~4.6 GB | ~104 MB | ~4.7 GB | 8GB VRAM |
+| `gguf:gemma4-balanced` | Gemma 4 E4B Instruct | 4.5B | Q8_0 | ~7.5 GB | ~104 MB | ~7.6 GB | 12GB VRAM (higher quality E4B) |
+| `gguf:gemma4-quality` | Gemma 4 26B A4B (MoE) | 26B (4B active) | Q4_0 | ~13.6 GB | ~380 MB | ~14.0 GB | 16-20GB VRAM |
+| `gguf:gemma4-large` | Gemma 4 31B Instruct | 31B (Dense) | Q4_0 | ~16.8 GB | ~1.5 GB | ~18.3 GB | 20-48GB VRAM |
 
 **Qwen3/3.5/3.6 aliases** — Apache 2.0, ChatML. `gguf:auto` selects from this pool:
 
 | Alias | Model | Parameters | Quant | Weights | KV @ 4k | Total | Notes |
 |-------|-------|------------|-------|---------|---------|-------|-------|
 | `gguf:auto` | Hardware-optimized (qwen3 pool) | varies | varies | varies | varies | varies | Auto-select by VRAM |
-| `gguf:qwen3-fast` | Qwen 3.5 2B Instruct | 2B | Q4_K_M | ~1.5 GB | ~0.75 GB | ~2.25 GB | |
-| `gguf:qwen3-default` | Qwen 3.5 4B Instruct | 4B | Q4_K_M | ~3.0 GB | ~1.25 GB | ~4.25 GB | thinking ON by default |
-| `gguf:qwen3-balanced` | Qwen3 8B Instruct | 8B | Q4_K_M | ~5.0 GB | ~2.25 GB | ~7.25 GB | |
-| `gguf:qwen3-quality` | Qwen 3.6 35B A3B (IQ4_XS, MoE) | 35B (3B active) | IQ4_XS | ~17.7 GB | ~1.3 GB | ~19.0 GB | thinking ON; auto-pool |
-| `gguf:qwen3-large` | Qwen 3.6 35B A3B (Q4_K_M, MoE) | 35B (3B active) | Q4_K_M | ~22.1 GB | ~1.3 GB | ~23.4 GB | thinking ON; auto-pool excluded |
+| `gguf:qwen3-fast` | Qwen 3.5 2B Instruct | 2B | Q4_K_M | ~1.5 GB | ~48 MB | ~1.55 GB | |
+| `gguf:qwen3-default` | Qwen 3.5 4B Instruct | 4B | Q4_K_M | ~3.0 GB | ~128 MB | ~3.1 GB | thinking ON by default |
+| `gguf:qwen3-balanced` | Qwen3 8B Instruct | 8B | Q4_K_M | ~5.0 GB | ~576 MB | ~5.6 GB | |
+| `gguf:qwen3-quality` | Qwen 3.6 35B A3B (IQ4_XS, MoE) | 35B (3B active) | IQ4_XS | ~17.7 GB | ~80 MB | ~17.8 GB | thinking ON; auto-pool |
+| `gguf:qwen3-large` | Qwen 3.6 35B A3B (Q4_K_M, MoE) | 35B (3B active) | Q4_K_M | ~22.1 GB | ~80 MB | ~22.2 GB | thinking ON; auto-pool excluded |
 
 **Other aliases:**
 
@@ -449,7 +449,10 @@ The registry has two primary tiers: **Gemma 4** (multimodal, Apache 2.0) for exp
 | `gguf:qwen2.5-7b` | Qwen 2.5 7B Instruct | 7.6B | Q4_K_M | ~4.7 GB | ChatML; reliable tool calling |
 | `gguf:xlarge` | Qwen 3.5 122B A10B (MoE, split) | 122B (10B active) | Q4_K_M | ~76.5 GB (3 shards) | 96GB+ server |
 
-> **KV cache footprint is included in auto-selection.** The `KV @ 4k` column shows the FP16 KV cache size at the default 4096 budget context length. llama-server reserves the full `--ctx-size` KV cache at load time, so a model that fits in weights but not in weights + KV will OOM at runtime. Use `LlamaOptions.TypeK = TypeV = KvCacheQuantizationType.Q8_0` (or `Q4_0`) to halve/quarter KV memory at the cost of slight quality loss.
+> **KV cache footprint is included in auto-selection.** The `KV @ 4k` column shows the FP16 KV cache size at 4,096 tokens, from each file's
+> attention layout (`GgufModelInfo.KvCacheBytesPerToken` — KV heads × K/V head dims over the layers that keep a cache, plus a fixed
+> window for sliding-window layers). It grows linearly with the context: Qwen3 8B keeps 144 KiB per token (2.25 GB at 16k), the hybrid
+> Qwen 3.5 4B only 32 KiB (0.5 GB at 16k). llama-server reserves the full `--ctx-size` KV cache at load time, so a model that fits in weights but not in weights + KV will OOM at runtime. Use `LlamaOptions.TypeK = TypeV = KvCacheQuantizationType.Q8_0` (or `Q4_0`) to halve/quarter KV memory at the cost of slight quality loss.
 
 > **Split GGUF support**: `gguf:xlarge` is distributed as 3 shards (`-00001-of-00003`, etc.) in a `Q4_K_M/` subfolder. The downloader automatically fetches all shards; llama-server auto-loads the remaining parts when given the first shard path.
 
@@ -462,7 +465,9 @@ The registry has two primary tiers: **Gemma 4** (multimodal, Apache 2.0) for exp
 | Windows + NVIDIA + total VRAM ≤ 6GB | 25% | Compositor + driver overhead is proportionally larger on small dedicated cards (e.g., RTX 4060 Laptop 4GB) |
 | Everything else | 15% | Default for desktop / server / Apple Silicon / Linux |
 
-KV cache is estimated at the default budget context length (4096 tokens, FP16), see `GgufModelRegistry.DefaultBudgetContextLength`.
+The KV cache is sized for the context the load asks for (`GeneratorOptions.MaxContextLength`; unset = 4,096,
+`GgufModelRegistry.DefaultBudgetContextLength`, FP16) — on an 8 GB GPU `gguf:auto` picks Qwen3 8B at 4,096 tokens and Qwen 3.5 4B at
+16,384, where the 8B's cache would not fit. The quantization choice before download is sized the same way.
 
 Auto-selection pool: `qwen3-fast`, `qwen3-default`, `qwen3-balanced`, `qwen3-quality` (`qwen3-large` is excluded — exceeds 24 GB × 85% budget). Models with `ThinkingEnabledByDefault` generate reasoning before answering. To stop the model from thinking at all, set `Thinking = ThinkingMode.Off` (forwards `enable_thinking=false` to the chat template — no reasoning tokens generated). To let it think but hide the `<think>...</think>` block from the returned text, set `FilterReasoningTokens = true` (reasoning is still generated). `ThinkingMode.Auto` (default) preserves each model's built-in behavior.
 

@@ -133,7 +133,7 @@ public class LocalGeneratorDefaultRoutingTests
         info.Should().NotBeNull();
         info!.RepoId.Should().Be("bartowski/microsoft_Phi-4-mini-instruct-GGUF");
         info.ChatFormat.Should().Be("phi3");
-        info.NumLayers.Should().Be(32);
+        info.KvCacheBytesPerToken.Should().Be(131_072);
     }
 
     [Fact]

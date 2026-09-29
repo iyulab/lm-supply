@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.91.0] - Unreleased
+
+### Changed
+- **The quantization and model chosen before download size the KV cache like the server.** Both used a file-size estimate that
+  assumed every attention head keeps K and V, several times the real cache of grouped-query and hybrid models. On an 8 GB GPU
+  Qwen2.5-7B was downscaled from its default Q4_K_M to IQ4_XS; it now keeps Q4_K_M. A cache that holds only the smaller
+  quantization now reports the model as not downloaded, and the next load fetches the default.
+- **`gguf:auto` and the quantization choice are sized for the requested context** (`MaxContextLength`; unset = 4,096). On an
+  8 GB GPU `gguf:auto` picks Qwen3 8B at 4,096 tokens (it picked Qwen 3.5 4B before) and Qwen 3.5 4B at 16,384.
+- **Breaking**: `GgufModelInfo.NumLayers` and `HiddenSize` are replaced by `KvCacheBytesPerToken` and `SlidingWindowKvBytes`,
+  read from each file's attention metadata, with `EstimateKvCacheBytes(contextLength)`. Several registered layer counts were
+  wrong (Gemma 4 E4B: 34, the file has 42). `GgufModelRegistry.Resolve(alias, provider, contextLength)` and
+  `GetAutoSelection(provider, contextLength)` take the context; `GgufModelDownloader.DownloadFromRegistryAsync` takes
+  `contextLength`.
+
 ## [0.90.0] - 2026-09-29
 
 ### Added

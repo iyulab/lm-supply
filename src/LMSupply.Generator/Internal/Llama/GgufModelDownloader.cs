@@ -174,6 +174,7 @@ public sealed class GgufModelDownloader : IDisposable
         ExecutionProvider provider = ExecutionProvider.Auto,
         string? preferredQuantization = null,
         IProgress<DownloadProgress>? progress = null,
+        int? contextLength = null,
         CancellationToken cancellationToken = default)
     {
         // Use registry default file unless a different quantization is explicitly preferred.
@@ -197,7 +198,7 @@ public sealed class GgufModelDownloader : IDisposable
             // Auto path (no explicit quant, single-file model): pick a quantization that fits the
             // backend-consistent memory budget — keep the registry default when it fits, otherwise
             // downscale to a smaller quant so low-spec/integrated-GPU hosts load instead of OOMing.
-            filename = await SelectRegistryFileAsync(modelInfo, provider, cancellationToken);
+            filename = await SelectRegistryFileAsync(modelInfo, provider, contextLength, cancellationToken);
         }
 
         // Handle split GGUF models (multiple shards) — downscaling not applicable to shards.
@@ -218,9 +219,10 @@ public sealed class GgufModelDownloader : IDisposable
     private async Task<string> SelectRegistryFileAsync(
         GgufModelInfo modelInfo,
         ExecutionProvider provider,
+        int? contextLength,
         CancellationToken cancellationToken)
     {
-        var budget = SelectionBudgetFor(provider, out var vramOnly);
+        var budget = SelectionBudgetFor(provider, contextLength, out var vramOnly);
 
         // Offline-first, but budget-aware: reuse a cached quant only where the load would have chosen it.
         var cachedGroups = ListCachedGroups(modelInfo.RepoId);
@@ -280,7 +282,7 @@ public sealed class GgufModelDownloader : IDisposable
     /// probe makes that decision over the listing cached at the last download, at any age. With no
     /// cached listing the answer is <see langword="false"/>.
     /// </remarks>
-    internal bool IsRegistryModelCached(GgufModelInfo modelInfo, ExecutionProvider provider)
+    internal bool IsRegistryModelCached(GgufModelInfo modelInfo, ExecutionProvider provider, int? contextLength = null)
     {
         if (modelInfo.ShardCount is > 1)
         {
@@ -288,7 +290,7 @@ public sealed class GgufModelDownloader : IDisposable
                 .All(f => IsCachedFile(modelInfo.RepoId, f));
         }
 
-        var budget = SelectionBudgetFor(provider, out var vramOnly);
+        var budget = SelectionBudgetFor(provider, contextLength, out var vramOnly);
         var listing = _discoveryService.TryReadCachedListing(modelInfo.RepoId);
         var planned = PlanRegistryFile(
             modelInfo, ListCachedGroups(modelInfo.RepoId), listing is null ? null : ToGgufGroups(listing), budget, vramOnly);
@@ -355,19 +357,29 @@ public sealed class GgufModelDownloader : IDisposable
     /// listing the repository. An entry without an estimate is not known to fit.
     /// </summary>
     internal static bool DefaultFitsByEstimate(GgufModelInfo modelInfo, AvailableMemory budget, bool vramOnly)
-        => modelInfo.EstimatedSizeBytes is > 0 and var size && FitsBudget(size, budget, vramOnly);
+        => modelInfo.EstimatedSizeBytes is > 0 and var size && FitsBudget(modelInfo, size, budget, vramOnly);
 
-    private static bool FitsBudget(long sizeBytes, AvailableMemory budget, bool vramOnly)
-        => vramOnly && budget.VramBytes > 0 ? budget.FitsInGpu(sizeBytes) : budget.FitsInMemory(sizeBytes);
+    /// <summary>
+    /// Whether a file of <paramref name="sizeBytes"/> of <paramref name="model"/> fits the budget: with the KV cache the
+    /// registry entry records for the budget's context when it has one (the quantizations of one model share it),
+    /// otherwise a file-size estimate.
+    /// </summary>
+    private static bool FitsBudget(GgufModelInfo model, long sizeBytes, AvailableMemory budget, bool vramOnly)
+    {
+        var gpu = vramOnly && budget.VramBytes > 0;
+        return model.EstimateKvCacheBytes(budget.ContextLength) is { } kvCacheBytes
+            ? gpu ? budget.FitsInGpu(sizeBytes, kvCacheBytes) : budget.FitsInMemory(sizeBytes, kvCacheBytes)
+            : gpu ? budget.FitsInGpu(sizeBytes) : budget.FitsInMemory(sizeBytes);
+    }
 
-    private static AvailableMemory SelectionBudgetFor(ExecutionProvider provider, out bool vramOnly)
+    private static AvailableMemory SelectionBudgetFor(ExecutionProvider provider, int? contextLength, out bool vramOnly)
     {
         var profile = HardwareProfile.For(provider);
         var cpuBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(provider, profile.GpuInfo)
             == global::LMSupply.Llama.Server.LlamaServerBackend.Cpu;
         return BuildSelectionBudget(
             cpuBackend, profile.GpuInfo, profile.SystemMemoryBytes,
-            GgufModelRegistry.DefaultBudgetContextLength, out vramOnly);
+            contextLength ?? GgufModelRegistry.DefaultBudgetContextLength, out vramOnly);
     }
 
     /// <summary>
@@ -531,7 +543,7 @@ public sealed class GgufModelDownloader : IDisposable
         if (availableGroups.Count == 0)
             return new RegistryFileDecision(model.DefaultFile, RegistryFileReason.GroupsUnavailable);
 
-        bool Fits(long sizeBytes) => FitsBudget(sizeBytes, budget, vramOnly);
+        bool Fits(long sizeBytes) => FitsBudget(model, sizeBytes, budget, vramOnly);
 
         // Prefer the registry's intended quant if it fits — capable hosts stay on the default.
         var registryQuant = GgufQuantizationLabel.FromFileName(model.DefaultFile);

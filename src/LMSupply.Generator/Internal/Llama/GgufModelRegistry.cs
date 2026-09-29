@@ -30,8 +30,8 @@ public static class GgufModelRegistry
             ParameterCount = 2_300_000_000,
             EstimatedSizeBytes = 3_110_000_000L,
             QuantizationType = "Q4_K_M",
-            NumLayers = 26,
-            HiddenSize = 2304,
+            KvCacheBytesPerToken = 6_144,
+            SlidingWindowKvBytes = 12_582_912,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
             KnownIssues = [GgufModelKnownIssues.ToolUseUnreliableQ4, GgufModelKnownIssues.InstructionFollowingUnreliableQ4],
@@ -55,8 +55,8 @@ public static class GgufModelRegistry
             ParameterCount = 4_500_000_000,
             EstimatedSizeBytes = 4_590_807_392L,
             QuantizationType = "Q4_0",
-            NumLayers = 34,
-            HiddenSize = 2560,
+            KvCacheBytesPerToken = 16_384,
+            SlidingWindowKvBytes = 41_943_040,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
             KnownIssues = [GgufModelKnownIssues.ToolUseUnreliableQ4, GgufModelKnownIssues.InstructionFollowingUnreliableQ4],
@@ -74,8 +74,8 @@ public static class GgufModelRegistry
             ParameterCount = 4_500_000_000,
             EstimatedSizeBytes = 7_500_000_000L,
             QuantizationType = "Q8_0",
-            NumLayers = 34,
-            HiddenSize = 2560,
+            KvCacheBytesPerToken = 16_384,
+            SlidingWindowKvBytes = 41_943_040,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
             KnownIssues = [GgufModelKnownIssues.ToolUseUnreliableQ4, GgufModelKnownIssues.InstructionFollowingUnreliableQ4],
@@ -94,8 +94,8 @@ public static class GgufModelRegistry
             ParameterCount = 26_000_000_000,
             EstimatedSizeBytes = 14_618_145_824L,
             QuantizationType = "Q4_0",
-            NumLayers = 46,
-            HiddenSize = 4096,
+            KvCacheBytesPerToken = 20_480,
+            SlidingWindowKvBytes = 314_572_800,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
             KnownIssues = [GgufModelKnownIssues.ToolUseUnreliableQ4, GgufModelKnownIssues.InstructionFollowingUnreliableQ4],
@@ -114,8 +114,8 @@ public static class GgufModelRegistry
             ParameterCount = 31_000_000_000,
             EstimatedSizeBytes = 17_992_313_088L,
             QuantizationType = "Q4_0",
-            NumLayers = 62,
-            HiddenSize = 5376,
+            KvCacheBytesPerToken = 81_920,
+            SlidingWindowKvBytes = 1_258_291_200,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
             KnownIssues = [GgufModelKnownIssues.ToolUseUnreliableQ4, GgufModelKnownIssues.InstructionFollowingUnreliableQ4],
@@ -132,8 +132,7 @@ public static class GgufModelRegistry
             ParameterCount = 122_000_000_000,
             EstimatedSizeBytes = 76_536_573_608L,
             QuantizationType = "Q4_K_M",
-            NumLayers = 48,
-            HiddenSize = 6144,
+            KvCacheBytesPerToken = 24_576,
             ShardCount = 3,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
@@ -162,8 +161,7 @@ public static class GgufModelRegistry
             ParameterCount = 3_800_000_000,
             EstimatedSizeBytes = 2_393_600_000L,
             QuantizationType = "Q4_K_M",
-            NumLayers = 32,
-            HiddenSize = 3072,
+            KvCacheBytesPerToken = 131_072,
             License = LicenseTier.MIT,
             LicenseName = "MIT",
         },
@@ -184,8 +182,7 @@ public static class GgufModelRegistry
             ParameterCount = 7_620_000_000,
             EstimatedSizeBytes = 4_682_024_960L,
             QuantizationType = "Q4_K_M",
-            NumLayers = 28,
-            HiddenSize = 3584,
+            KvCacheBytesPerToken = 57_344,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
         },
@@ -206,8 +203,7 @@ public static class GgufModelRegistry
             ParameterCount = 2_000_000_000,
             EstimatedSizeBytes = 1_500_000_000L,
             QuantizationType = "Q4_K_M",
-            NumLayers = 24,
-            HiddenSize = 2048,
+            KvCacheBytesPerToken = 12_288,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
         },
@@ -224,8 +220,7 @@ public static class GgufModelRegistry
             ParameterCount = 4_000_000_000,
             EstimatedSizeBytes = 3_000_000_000L,
             QuantizationType = "Q4_K_M",
-            NumLayers = 32,
-            HiddenSize = 2560,
+            KvCacheBytesPerToken = 32_768,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
             KnownIssues = [GgufModelKnownIssues.ThinkingEnabledByDefault],
@@ -242,8 +237,7 @@ public static class GgufModelRegistry
             ParameterCount = 8_000_000_000,
             EstimatedSizeBytes = 5_000_000_000L,
             QuantizationType = "Q4_K_M",
-            NumLayers = 36,
-            HiddenSize = 4096,
+            KvCacheBytesPerToken = 147_456,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
         },
@@ -260,8 +254,7 @@ public static class GgufModelRegistry
             ParameterCount = 35_000_000_000,
             EstimatedSizeBytes = 17_700_000_000L,
             QuantizationType = "IQ4_XS",
-            NumLayers = 40,
-            HiddenSize = 2048,
+            KvCacheBytesPerToken = 20_480,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
             KnownIssues = [GgufModelKnownIssues.ThinkingEnabledByDefault],
@@ -279,8 +272,7 @@ public static class GgufModelRegistry
             ParameterCount = 35_000_000_000,
             EstimatedSizeBytes = 22_100_000_000L,
             QuantizationType = "Q4_K_M",
-            NumLayers = 40,
-            HiddenSize = 2048,
+            KvCacheBytesPerToken = 20_480,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
             KnownIssues = [GgufModelKnownIssues.ThinkingEnabledByDefault],
@@ -344,16 +336,17 @@ public static class GgufModelRegistry
 
     /// <summary>
     /// Resolves an alias for a load with <paramref name="provider"/>: <c>"gguf:auto"</c> is selected with
-    /// <see cref="GetAutoSelection(ExecutionProvider)"/>, the same rule as <c>"default"</c>/<c>"auto"</c>.
+    /// <see cref="GetAutoSelection(ExecutionProvider, int?)"/>, the same rule as <c>"default"</c>/<c>"auto"</c>, sized for
+    /// <paramref name="contextLength"/> (the load's <c>MaxContextLength</c>; null = <see cref="DefaultBudgetContextLength"/>).
     /// </summary>
-    public static GgufModelInfo? Resolve(string aliasOrRepoId, ExecutionProvider provider)
+    public static GgufModelInfo? Resolve(string aliasOrRepoId, ExecutionProvider provider, int? contextLength = null)
     {
         if (string.IsNullOrWhiteSpace(aliasOrRepoId))
             return null;
 
         // Handle "gguf:auto" alias - select optimal model based on hardware
         if (aliasOrRepoId.Equals("gguf:auto", StringComparison.OrdinalIgnoreCase))
-            return GetAutoSelection(provider).Selected;
+            return GetAutoSelection(provider, contextLength).Selected;
 
         // Try direct lookup with gguf: prefix
         if (_models.TryGetValue(aliasOrRepoId, out var info))
@@ -449,12 +442,16 @@ public static class GgufModelRegistry
     /// load that ruled the GPU out) and never probes the GPU; any other provider selects from the detected GPU and
     /// falls back to system memory when no candidate fits VRAM.
     /// </summary>
-    public static ModelSelectionResult GetAutoSelection(ExecutionProvider provider)
+    /// <param name="provider">The provider the load asks for.</param>
+    /// <param name="contextLength">The context the load asks for — each candidate's KV cache is sized for it; null =
+    /// <see cref="DefaultBudgetContextLength"/>.</param>
+    public static ModelSelectionResult GetAutoSelection(ExecutionProvider provider, int? contextLength = null)
     {
         var profile = HardwareProfile.For(provider);
+        var budgetContext = contextLength ?? DefaultBudgetContextLength;
         return provider == ExecutionProvider.Cpu
-            ? Select(availableVram: 0, safetyMargin: 0, profile.SystemMemoryBytes, DefaultBudgetContextLength, excludeKnownIssues: null)
-            : GetAutoSelection(profile.GpuInfo, profile.SystemMemoryBytes, DefaultBudgetContextLength, excludeKnownIssues: null);
+            ? Select(availableVram: 0, safetyMargin: 0, profile.SystemMemoryBytes, budgetContext, excludeKnownIssues: null)
+            : GetAutoSelection(profile.GpuInfo, profile.SystemMemoryBytes, budgetContext, excludeKnownIssues: null);
     }
 
     private static ModelSelectionResult Select(
@@ -523,11 +520,8 @@ public static class GgufModelRegistry
             model.QuantizationType,
             model.EstimatedSizeBytes);
 
-        // KV cache only computable when architecture fields are set.
-        long kvCache = (model.NumLayers > 0 && model.HiddenSize > 0)
-            ? ModelMemoryEstimator.EstimateKvCacheBytes(
-                budgetContextLength, model.NumLayers, model.HiddenSize)
-            : 0L;
+        // KV cache only computable when the entry carries its layout.
+        long kvCache = model.EstimateKvCacheBytes(budgetContextLength) ?? 0L;
 
         var total = weights + kvCache;
         return new ModelSelectionCandidate
