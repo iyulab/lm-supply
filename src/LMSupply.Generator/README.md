@@ -18,7 +18,7 @@ HuggingFace repo whose name or path indicates ONNX, or a local `genai_config.jso
 `model.onnx` directory) requires the separate `LMSupply.Generator.Onnx` package, registered
 once at startup:
 
-```csharp
+```bash
 dotnet add package LMSupply.Generator.Onnx
 ```
 
@@ -58,6 +58,8 @@ var path = await LocalGenerator.DownloadModelAsync("gguf:gemma4-default");
 ## Chat Completion
 
 ```csharp
+using LMSupply.Generator.Models;   // ChatMessage, ChatRole
+
 var messages = new[]
 {
     new ChatMessage(ChatRole.System, "You are a helpful assistant."),
@@ -109,6 +111,8 @@ unpinned GitHub Releases "latest" lookup on first use. For offline, air-gapped, 
 security-reviewed deployments, `ServerUpdateOptions` lets a consumer take over that acquisition:
 
 ```csharp
+using LMSupply.Llama.Server;
+
 var generator = await TextGeneratorBuilder.Create()
     .WithDefaultModel()
     .WithServerUpdateOptions(new LlamaServerUpdateOptions

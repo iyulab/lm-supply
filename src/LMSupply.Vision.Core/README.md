@@ -27,5 +27,5 @@ using LMSupply.Vision;
 
 // Load and preprocess an image for a specific model
 var preprocessor = new ImagePreprocessor();
-var tensor = preprocessor.Preprocess("image.jpg", PreprocessProfiles.ImageNet);
+float[] tensor = await preprocessor.PreprocessAsync("image.jpg", PreprocessProfile.ImageNet);
 ```

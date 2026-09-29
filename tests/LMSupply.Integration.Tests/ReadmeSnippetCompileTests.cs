@@ -32,6 +32,11 @@ public class ReadmeSnippetCompileTests
         using System.Net.Http;
         using System.Threading;
         using System.Threading.Tasks;
+        """;
+
+    // The repository README reads as one guide across packages; a package README is read with its own package's
+    // namespaces only (see PackageNamespaces), so a block that needs another package's type has to say so.
+    private const string RootUsings = """
         using LMSupply;
         using LMSupply.Download;
         using LMSupply.Embedder;
@@ -51,13 +56,25 @@ public class ReadmeSnippetCompileTests
         ("documents", "IReadOnlyList<string> documents = [];"),
         ("loggerFactory", "Microsoft.Extensions.Logging.ILoggerFactory loggerFactory = null!;"),
         ("AskUserToDownload", "static bool AskUserToDownload(long bytes) => true;"),
+        ("modelDir", "string modelDir = \"\";"),
+        ("modelPath", "string modelPath = \"\";"),
+        ("maxLength", "int maxLength = 512;"),
     ];
+
+    // A package README's blocks read on from the package's own Quick Start: the model it loaded there is in scope.
+    private static readonly Dictionary<string, (string Name, string Declaration)[]> DocumentStandIns = new(StringComparer.Ordinal)
+    {
+        ["src/LMSupply.Generator/README.md"] = [("generator", "LMSupply.Generator.Abstractions.IGeneratorModel generator = null!;")],
+        ["src/LMSupply.ImageGenerator/README.md"] = [("generator", "LMSupply.ImageGenerator.IImageGeneratorModel generator = null!;")],
+        ["src/LMSupply.Ocr/README.md"] = [("ocr", "LMSupply.Ocr.IOcr ocr = null!;")],
+    };
 
     private static readonly string[] AssembliesToLoad =
     [
         "LMSupply.Core", "LMSupply.Embedder", "LMSupply.Reranker", "LMSupply.Generator", "LMSupply.Generator.Onnx",
         "LMSupply.Llama", "LMSupply.Translator", "LMSupply.Transcriber", "LMSupply.Synthesizer", "LMSupply.Captioner",
         "LMSupply.Ocr", "LMSupply.Detector", "LMSupply.Segmenter", "LMSupply.ImageGenerator",
+        "LMSupply.Text.Core", "LMSupply.Vision.Core", "SixLabors.ImageSharp",
     ];
 
     public static TheoryData<string> Blocks()
@@ -76,18 +93,18 @@ public class ReadmeSnippetCompileTests
         if (Fragments.ContainsKey(block.Heading))
             return;
 
-        var errors = Compile(block.Code);
+        var errors = Compile(block.Code, block.Document);
 
         Assert.True(errors.IsEmpty,
             $"README block {key} does not compile against the current API:\n" +
-            string.Join("\n", errors.Select(e => e.ToString())) + "\n--- source ---\n" + Program(block.Code));
+            string.Join("\n", errors.Select(e => e.ToString())) + "\n--- source ---\n" + Program(block.Code, block.Document));
     }
 
     [Fact]
     public void EveryReadmeBlock_IsFoundAndFragmentsNameRealHeadings()
     {
         var blocks = ReadBlocks();
-        Assert.True(blocks.Count >= 20, $"expected the README's C# blocks, found {blocks.Count}");
+        Assert.True(blocks.Count >= 60, $"expected the README's C# blocks, found {blocks.Count}");
         Assert.All(Fragments.Keys, heading => Assert.Contains(blocks, b => b.Heading == heading));
     }
 
@@ -103,11 +120,27 @@ public class ReadmeSnippetCompileTests
         Assert.NotEmpty(errors);
     }
 
-    private sealed record Block(string Key, string Heading, string Code);
+    private sealed record Block(string Key, string Document, string Heading, string Code);
+
+    // The repository README and every package README: the package READMEs are what nuget.org shows each package's readers.
+    private static IEnumerable<string> Documents()
+    {
+        var root = RepoRoot();
+        yield return Path.Combine(root, "README.md");
+        foreach (var readme in Directory.GetDirectories(Path.Combine(root, "src")).Order(StringComparer.Ordinal)
+                     .Select(d => Path.Combine(d, "README.md")).Where(File.Exists))
+            yield return readme;
+    }
 
     private static List<Block> ReadBlocks()
     {
-        var lines = File.ReadAllText(ReadmePath()).Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var root = RepoRoot();
+        return Documents().SelectMany(path => ReadBlocks(path, Path.GetRelativePath(root, path).Replace('\\', '/'))).ToList();
+    }
+
+    private static List<Block> ReadBlocks(string path, string document)
+    {
+        var lines = File.ReadAllText(path).Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
         var blocks = new List<Block>();
         var heading = "(top)";
         for (var i = 0; i < lines.Length; i++)
@@ -121,13 +154,13 @@ public class ReadmeSnippetCompileTests
             var code = new StringBuilder();
             for (i++; i < lines.Length && lines[i].Trim() != "```"; i++)
                 code.AppendLine(lines[i]);
-            blocks.Add(new Block($"line {start}: {heading}", heading, code.ToString()));
+            blocks.Add(new Block($"{document} line {start}: {heading}", document, heading, code.ToString()));
         }
 
         return blocks;
     }
 
-    private static string Program(string code)
+    private static string Program(string code, string document = "README.md")
     {
         var lines = code.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
         // "using X;   // what it is for" is a directive too: the README annotates its usings.
@@ -136,18 +169,34 @@ public class ReadmeSnippetCompileTests
             l.StartsWith("using ", StringComparison.Ordinal) && Code(l).EndsWith(';') && !l.StartsWith("using var ", StringComparison.Ordinal);
 
         var body = string.Join("\n", lines.Where(l => !IsUsingDirective(l)));
-        var standIns = StandIns
+        var standIns = StandIns.Concat(DocumentStandIns.GetValueOrDefault(document, []))
             .Where(s => Regex.IsMatch(body, $@"\b{s.Name}\b")
                         && !Regex.IsMatch(body, $@"\b(var|[A-Z][\w<>?,\s]*)\s+{s.Name}\s*[=;]"))
             .Select(s => s.Declaration);
 
         return string.Join("\n", lines.Where(IsUsingDirective)) + "\n" + CommonUsings + "\n"
+               + (document == "README.md" ? RootUsings + "\n" : "")
+               + string.Join("\n", PackageNamespaces(document).Select(n => $"using {n};")) + "\n"
                + string.Join("\n", standIns) + "\n" + body;
     }
 
-    private static ImmutableArray<Diagnostic> Compile(string code)
+    // A package README is read with that package's root namespace in scope (LMSupply.Text for LMSupply.Text.Core):
+    // the namespaces of its public types with the fewest segments.
+    private static IEnumerable<string> PackageNamespaces(string document)
     {
-        var tree = CSharpSyntaxTree.ParseText(Program(code), new CSharpParseOptions(LanguageVersion.Latest));
+        var match = Regex.Match(document, @"^src/(?<package>[^/]+)/README\.md$");
+        if (!match.Success)
+            return [];
+
+        var namespaces = Assembly.Load(match.Groups["package"].Value).GetExportedTypes()
+            .Select(t => t.Namespace).OfType<string>().Distinct().ToList();
+        var fewest = namespaces.Min(n => n.Count(c => c == '.'));
+        return namespaces.Where(n => n.Count(c => c == '.') == fewest);
+    }
+
+    private static ImmutableArray<Diagnostic> Compile(string code, string document = "README.md")
+    {
+        var tree = CSharpSyntaxTree.ParseText(Program(code, document), new CSharpParseOptions(LanguageVersion.Latest));
         var compilation = CSharpCompilation.Create(
             "ReadmeSnippet", [tree], References(),
             new CSharpCompilationOptions(OutputKind.ConsoleApplication, nullableContextOptions: NullableContextOptions.Enable));
@@ -168,13 +217,11 @@ public class ReadmeSnippetCompileTests
         return paths.Select(p => (MetadataReference)MetadataReference.CreateFromFile(p)).ToList();
     }
 
-    private static string ReadmePath()
+    private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "lm-supply.slnx")))
             dir = dir.Parent;
-        return Path.Combine(
-            dir?.FullName ?? throw new InvalidOperationException("lm-supply.slnx not found above the test output directory"),
-            "README.md");
+        return dir?.FullName ?? throw new InvalidOperationException("lm-supply.slnx not found above the test output directory");
     }
 }

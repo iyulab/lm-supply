@@ -37,10 +37,10 @@ foreach (var region in result.Regions)
 
 ```csharp
 // Load OCR for Korean text
-await using var ocr = await LocalOcr.LoadForLanguageAsync("ko");
+await using var korean = await LocalOcr.LoadForLanguageAsync("ko");
 
 // Or specify the recognition model explicitly
-await using var ocr = await LocalOcr.LoadAsync(
+await using var explicitModels = await LocalOcr.LoadAsync(
     detectionModel: "default",
     recognitionModel: "crnn-korean-v3");
 ```
@@ -77,6 +77,8 @@ its output for such text would otherwise look like a result.
 ## Configuration Options
 
 ```csharp
+using LMSupply;   // ExecutionProvider
+
 var options = new OcrOptions
 {
     LanguageHint = "en",           // Language hint for auto model selection

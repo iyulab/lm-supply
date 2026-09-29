@@ -25,7 +25,7 @@ var results = await reranker.RerankAsync(
     topK: 5);
 
 foreach (var result in results)
-    Console.WriteLine($"{result.Index}: {result.Score:F3}");
+    Console.WriteLine($"{result.OriginalIndex}: {result.Score:F3}");
 ```
 
 ## Available Models
@@ -72,6 +72,8 @@ dotnet add package Microsoft.ML.OnnxRuntime.DirectML
 ## Configuration
 
 ```csharp
+using LMSupply;   // ExecutionProvider
+
 var options = new RerankerOptions
 {
     Provider = ExecutionProvider.Auto,  // GPU auto-detection

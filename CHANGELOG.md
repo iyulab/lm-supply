@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.93.1] - Unreleased
+
+### Documentation
+- **The package READMEs shown on nuget.org compile.** Every C# block in the repository README and in each package
+  README is now compiled against the current API by a test. Fixed on the way:
+  - Reranker: `result.Index` → `result.OriginalIndex`.
+  - Vision.Core: `PreprocessProfiles` and a synchronous path overload that do not exist → `await PreprocessAsync(path, PreprocessProfile.ImageNet)`.
+  - Text.Core: `EncodeSequence`/`EncodeBatch` need `CreateAutoSequenceAsync` (not `CreateAutoAsync`), and `Decode` takes `int` ids. The encoded types are documented as the `readonly struct`s they are (`Length`, not `ActualLength`).
+  - Generator: the llama-server pinning example names its namespace, and the ONNX install line is a shell command.
+  - Missing `using` lines (`LMSupply` for `ExecutionProvider`, `LMSupply.Generator.Models`), duplicated variable names, and the Synthesizer examples' `LMSUPPLY001` opt-in.
+
 ## [0.93.0] - 2026-09-29
 
 ### Added

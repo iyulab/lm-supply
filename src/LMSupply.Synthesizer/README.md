@@ -16,6 +16,7 @@ Local text-to-speech synthesis using VITS/Piper models.
 ```csharp
 using LMSupply.Synthesizer;
 
+#pragma warning disable LMSUPPLY001 // the output is not yet intelligible speech — see the repository README's known issue
 // Load the default model
 await using var synthesizer = await LocalSynthesizer.LoadAsync("default");
 

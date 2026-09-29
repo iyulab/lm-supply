@@ -84,6 +84,8 @@ for (int i = 0; i < images.Length; i++)
 ## GPU Configuration
 
 ```csharp
+using LMSupply;   // ExecutionProvider
+
 var options = new ImageGeneratorOptions
 {
     Provider = ExecutionProvider.Cuda,  // Force CUDA (auto-detected by default)

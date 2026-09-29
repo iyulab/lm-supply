@@ -78,15 +78,15 @@ The `CreateAutoPairAsync` method automatically detects the tokenizer type:
 ```csharp
 using LMSupply.Text;
 
-// Create tokenizer
-var tokenizer = await TokenizerFactory.CreateAutoAsync(modelPath);
+// Create a sequence tokenizer (CreateAutoAsync returns the base ITextTokenizer, which has no EncodeSequence)
+var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(modelPath);
 
 // Encode text
 var encoded = tokenizer.EncodeSequence("Hello, world!");
 Console.WriteLine($"Tokens: {encoded.InputIds.Length}");
 
-// Decode tokens
-var decoded = tokenizer.Decode(encoded.InputIds, skipSpecialTokens: true);
+// Decode tokens (Decode takes int ids; the encoded tensors are long for ONNX)
+var decoded = tokenizer.Decode(encoded.InputIds.Select(id => (int)id).ToArray(), skipSpecialTokens: true);
 ```
 
 ### Pair Encoding for Rerankers
@@ -113,7 +113,7 @@ var batch = pairTokenizer.EncodePairBatch(
 ### Batch Processing
 
 ```csharp
-var tokenizer = await TokenizerFactory.CreateAutoAsync(modelPath);
+var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(modelPath);
 
 var texts = new[] { "First text", "Second text", "Third text" };
 var batch = tokenizer.EncodeBatch(texts, maxLength: 256);
@@ -125,44 +125,34 @@ long[,] attentionMask = batch.AttentionMask;
 
 ## Encoded Types
 
+All four live in [`EncodedTypes.cs`](EncodedTypes.cs).
+
 ### EncodedSequence
 
-Single encoded sequence with special tokens:
+A `readonly struct` — one encoded sequence with special tokens:
 
-```csharp
-public record EncodedSequence(
-    long[] InputIds,        // Token IDs with [CLS], [SEP]
-    long[] AttentionMask,   // 1 for real tokens, 0 for padding
-    int ActualLength        // Length before padding
-);
-```
+- `long[] InputIds` — token ids, with `[CLS]`/`[SEP]` (or the tokenizer's equivalents)
+- `long[] AttentionMask` — 1 for real tokens, 0 for padding
+- `int Length` — the length before padding
+- `EncodedSequence.FromInts(int[], int[], int)` — from `int` arrays
 
 ### EncodedPair
 
-Encoded sentence pair for cross-encoders:
+A `readonly struct` — an encoded sentence pair for cross-encoders:
 
-```csharp
-public record EncodedPair(
-    long[] InputIds,        // [CLS] text1 [SEP] text2 [SEP]
-    long[] AttentionMask,   // Attention mask
-    long[] TokenTypeIds,    // 0 for text1, 1 for text2
-    int ActualLength        // Length before padding
-);
-```
+- `long[] InputIds` — `[CLS] text1 [SEP] text2 [SEP]`
+- `long[] AttentionMask`
+- `long[] TokenTypeIds` — 0 for text1, 1 for text2
+- `int Length` — the length before padding
 
 ### EncodedBatch / EncodedPairBatch
 
-Batched versions for efficient inference:
+Batched versions for efficient inference (`sealed class`):
 
-```csharp
-public class EncodedBatch
-{
-    public long[,] InputIds { get; }
-    public long[,] AttentionMask { get; }
-    public int BatchSize { get; }
-    public int SequenceLength { get; }
-}
-```
+- `long[,] InputIds`, `long[,] AttentionMask` (and `long[,] TokenTypeIds` on `EncodedPairBatch`)
+- `int BatchSize`, `int SequenceLength`
+- `SetSequence(index, sequence, padTokenId)` / `SetPair(index, pair, padTokenId)` fill a row
+- `EncodedBatch.GetFlatInputIds()` / `GetFlatAttentionMask()` / `GetInputIdsJagged()` / `GetAttentionMasksJagged()`
 
 ## Special Tokens
 

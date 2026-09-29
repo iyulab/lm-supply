@@ -35,6 +35,8 @@ Console.WriteLine(result.Caption);
 ## Advanced Usage
 
 ```csharp
+using LMSupply;   // ExecutionProvider
+
 // Custom options
 var options = new CaptionerOptions
 {
