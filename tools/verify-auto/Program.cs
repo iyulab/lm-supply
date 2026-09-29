@@ -127,7 +127,7 @@ await using (model)
     Console.WriteLine("=== Phase 4: GenerateAsync ===");
     // Generous token budget so the smoke test sees real content. NOTE: Qwen3 is thinking-default-on
     // and EnableThinking=false does NOT suppress it (the flag only injects thinking for default-off
-    // formatters like Gemma4 — see ISSUE-...-enablethinking-false-cannot-suppress-default-on-thinking),
+    // formatters like Gemma4),
     // so a <think> block may still appear. SUCCESS only asserts non-empty output, which is enough here.
     var genOpts = new GenerationOptions { MaxTokens = 128, Temperature = 0.2f };
     var prompt = "Say hello in three short sentences.";

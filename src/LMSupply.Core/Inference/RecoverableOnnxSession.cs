@@ -442,7 +442,7 @@ public sealed class RecoverableOnnxSession : IDisposable
             // cases the timed-out run is still inside native code on the *current* handle, the
             // caller has already been handed an InferenceTimeoutException, and teardown follows.
             // Disposing that session is an access violation, not an exception: it takes the whole
-            // process down with no managed stack to catch. See docket iyulab/lm-supply#193.
+            // process down with no managed stack to catch.
             ReclaimOrLeak(_handle);
 
             foreach (var abandoned in _abandonedHandles)

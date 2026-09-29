@@ -653,7 +653,7 @@ public sealed class GgufModelDownloader : IDisposable
         CancellationToken cancellationToken)
     {
         // Prefer local cache over network: avoids HF API calls when the model is already downloaded.
-        // Filer runs air-gapped after initial download; a live API call at boot is a correctness risk.
+        // A host that runs offline after the initial download must still load; a live API call at boot would fail there.
         var localFile = TrySelectFromLocalCache(repoId, preferredQuantization);
         if (localFile != null)
             return localFile;

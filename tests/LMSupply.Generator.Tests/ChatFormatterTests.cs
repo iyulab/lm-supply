@@ -517,7 +517,7 @@ public class ChatFormatterTests
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // RenderToolPromptFragment — 2026-04-30 ecosystem ISSUE Option D-1.
+    // RenderToolPromptFragment.
     // Small/quantized models (Gemma 4 E4B at gguf:default) emit empty tool args
     // and fail to self-correct under ResilientFunctionInvoker directives because
     // llama-server's native chat template renders JSON schema raw, which the

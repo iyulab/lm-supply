@@ -6,18 +6,14 @@ using LMSupply.Inference;
 namespace LMSupply.Core.Tests;
 
 /// <summary>
-/// Tests for <see cref="CancellableInference"/> control-return guarantee.
-/// ISSUE: LMSupply-20260601-094128-embedder-ct-native-hang
-/// AC#1/#3: a cancelled token must return control to the caller within bound even when the
-/// wrapped synchronous work ignores cancellation and remains blocked (simulated native hang).
+/// Tests for <see cref="CancellableInference"/> control-return guarantee:
+/// - a cancelled token must return control to the caller within bound even when the
+///   wrapped synchronous work ignores cancellation and remains blocked (simulated native hang);
+/// - a caller that supplies no cancellable token (CancellationToken.None) must still fail
+///   within a bounded default timeout rather than hang forever.
 ///
-/// ISSUE: claudedocs/lm-supply/issues/ISSUE-lm-supply-20260903-122754-directml-embed-hang-no-default-timeout.md
-/// AC#3: a caller that supplies no cancellable token (CancellationToken.None) must still fail
-/// within a bounded default timeout rather than hang forever.
-///
-/// Originally lived in LMSupply.Embedder.Tests; moved here when the primitive itself moved to
-/// LMSupply.Core so every ONNX-backed module shares one bound instead of re-deriving it (see
-/// docket iyulab/lm-supply, "콜드 GPU 커널 행 방어가 Embedder 하나에만 있음", 2026-09-03).
+/// The primitive lives in LMSupply.Core so every ONNX-backed module shares one bound instead
+/// of re-deriving it.
 /// </summary>
 public class CancellableInferenceTests
 {

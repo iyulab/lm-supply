@@ -158,7 +158,7 @@ public class RuntimeManagerTests
     [Fact]
     public async Task ActuallyLoadedRuntimePath_BeforeEnsureRuntimeCalled_ReturnsNull()
     {
-        // ActuallyLoadedRuntimePath (docket iyulab/lm-supply#151) surfaces what NativeLoader
+        // ActuallyLoadedRuntimePath surfaces what NativeLoader
         // actually has resident, distinct from ActiveProvider/CurrentVersion (what was last
         // requested). Before any EnsureRuntimeAsync call this manager has requested nothing,
         // so there is nothing to report yet.
@@ -171,7 +171,7 @@ public class RuntimeManagerTests
     [Fact]
     public void RuntimeManagerOptions_FailOnRuntimeConflict_DefaultsFalse()
     {
-        // HD-45 (Option A): strict conflict detection must be opt-in so existing consumers'
+        // Strict conflict detection must be opt-in so existing consumers'
         // current (lenient) behavior does not change unless they explicitly ask for it.
         var options = new RuntimeManagerOptions();
         options.FailOnRuntimeConflict.Should().BeFalse();
@@ -180,7 +180,7 @@ public class RuntimeManagerTests
     [Fact]
     public void StopsProviderFallbackChain_NativeLibraryConflictException_ReturnsTrue()
     {
-        // cycle-389: without this, EnsureRuntimeAsync's Auto-mode fallback loop would catch a
+        // Without this, EnsureRuntimeAsync's Auto-mode fallback loop would catch a
         // NativeLibraryConflictException like any other per-provider failure and silently try
         // the next provider -- defeating FailOnRuntimeConflict for the common zero-config Auto
         // mode path, since every provider in the chain conflicts identically (same native

@@ -4,7 +4,7 @@ using LMSupply.Embedder.Utils;
 namespace LMSupply.Embedder.Tests;
 
 /// <summary>
-/// Tests for IEmbeddingModel.EmbedQueryAsync/EmbedPassageAsync (docket iyulab/lm-supply#171) —
+/// Tests for IEmbeddingModel.EmbedQueryAsync/EmbedPassageAsync —
 /// default interface methods that apply ModelInfo.QueryPrefix/PassagePrefix automatically.
 /// Uses a minimal fake implementor to isolate the default-method prefix logic from any real
 /// tokenizer/model/GPU dependency. Default interface method bodies are only reachable through

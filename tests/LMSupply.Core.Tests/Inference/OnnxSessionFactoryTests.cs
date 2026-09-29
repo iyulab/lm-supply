@@ -239,8 +239,8 @@ public class OnnxSessionFactoryTests
     [Fact]
     public void WrapProvisioningFailure_ProducesActionableMessage_NamingProviderAndPlatform()
     {
-        // Regression test for the provisioning-vs-session-construction distinction (see
-        // ISSUE-lm-supply-20260818-explicit-gpu-provisioning-failure-bypasses-cpu-fallback.md).
+        // Regression test for the provisioning-vs-session-construction distinction: an explicit
+        // GPU provider whose native binaries cannot be provisioned must fail with a clear message.
         // A real end-to-end repro requires a platform where the requested provider genuinely has
         // no native binaries (e.g. CUDA on osx-arm64) -- exercising that for real would mean
         // downloading a multi-hundred-MB NuGet package on every CI run just to observe it lacks

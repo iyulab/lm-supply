@@ -6,12 +6,10 @@ using LMSupply.Generator.Models;
 namespace LMSupply.Generator.Tests;
 
 // ──────────────────────────────────────────────────────────────────────────
-// 2026-05-01 ecosystem ISSUE Option D-5 — Gemma 4 native tool-call wrapper
-// extraction. Filer cycle-701 surfaced that llama-server forwards Gemma 4's
+// Gemma 4 native tool-call wrapper extraction. llama-server forwards Gemma 4's
 // `<|tool_call>call:NAME{ARGS_JSON}<tool_call|>` wrapper verbatim in the
 // streaming text channel; without this parser the wrapper tokens leak as
-// plain text and chunks never invoke (chat-rag flow 0% success on
-// gguf:default Gemma 4 E4B).
+// plain text and no tool call is ever invoked.
 // ──────────────────────────────────────────────────────────────────────────
 public class Gemma4ToolCallStreamParserTests
 {
@@ -42,7 +40,7 @@ public class Gemma4ToolCallStreamParserTests
         result.Text.Should().NotBeNull();
         result.Text!.Should()
             .NotContain("<|tool_call>",
-                because: "wrapper tokens must never leak into the text channel — that was the cycle-701 root cause")
+                because: "wrapper tokens must never leak into the text channel — leaked wrappers are never invoked")
             .And.NotContain("<tool_call|>")
             .And.Contain("I'll search memory");
     }
@@ -136,7 +134,7 @@ public class Gemma4ToolCallStreamParserTests
         var result = parser.Feed("<|tool_call>call:foo{not json}<tool_call|>after");
 
         result.ToolCalls.Should().BeNull(
-            because: "parser MUST NOT emit a half-formed delta when the args body is not JSON-parseable — that would leak as a non-invokable tool call upstream (the exact cycle-701 failure mode)");
+            because: "parser MUST NOT emit a half-formed delta when the args body is not JSON-parseable — that would leak as a non-invokable tool call upstream");
         result.Text.Should().NotBeNull();
         result.Text!.Should()
             .NotContain("<|tool_call>")
@@ -229,8 +227,7 @@ public class Gemma4ToolCallStreamParserTests
     [InlineData(typeof(MistralChatFormatter))]
     public void NonGemma4Formatters_CreateToolCallStreamParser_ReturnsNullByDefault(Type formatterType)
     {
-        // ChatMLFormatter is deliberately excluded here since ecosystem ISSUE Option D-8
-        // (2026-08-17): it opts in to its own ChatMLToolCallStreamParser (coexist mode) —
+        // ChatMLFormatter is deliberately excluded here: it opts in to its own ChatMLToolCallStreamParser (coexist mode) —
         // see ChatMLToolCallStreamParserTests / ChatFormatterTests for its coverage.
         var formatter = (IChatFormatter)Activator.CreateInstance(formatterType)!;
 
@@ -239,14 +236,12 @@ public class Gemma4ToolCallStreamParserTests
     }
 
     // ──────────────────────────────────────────────────────────────────────
-    // 2026-05-01 ecosystem ISSUE Option D-6 (cycle-703) — Filer cycle-702 ran
-    // 0.32.4 against three Korean RAG prompts and got 0/3 non-empty responses.
-    // Root cause: Gemma 4's native body shape `{query:"…"}` is JS-object-literal,
-    // not strict JSON, so D-5's `JsonDocument.Parse` rejected real tool calls
-    // and silent_llm_empty fired. D-6 routes failed strict parses through
+    // Gemma 4's native body shape `{query:"…"}` is JS-object-literal, not strict
+    // JSON; a strict `JsonDocument.Parse` alone rejects real tool calls and the
+    // turn ends with an empty response. Failed strict parses are routed through
     // `RelaxedJsonNormalizer` (unquoted identifier keys, single-quoted string
     // values, trailing commas) before re-validating with strict JSON. The
-    // object-only guard preserves D-5's phantom-invocation prevention.
+    // object-only guard still prevents phantom invocations.
     // ──────────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -258,7 +253,7 @@ public class Gemma4ToolCallStreamParserTests
             "<|tool_call>call:search_knowledge{query:\"Python use cases\"}<tool_call|>");
 
         result.ToolCalls.Should().NotBeNull().And.HaveCount(1,
-            because: "Gemma 4's native unquoted-key body must round-trip — this exact shape was the cycle-702 silent-empty regression");
+            because: "Gemma 4's native unquoted-key body must round-trip — rejecting it leaves the turn with an empty response");
         var call = result.ToolCalls![0];
         call.Name.Should().Be("search_knowledge");
         call.Arguments.Should().Be("{\"query\":\"Python use cases\"}",
@@ -274,7 +269,7 @@ public class Gemma4ToolCallStreamParserTests
             "<|tool_call>call:search_knowledge{query:\"Python의 주요 활용 분야\"}<tool_call|>");
 
         result.ToolCalls.Should().NotBeNull().And.HaveCount(1,
-            because: "this is the verbatim cycle-702 production emit — D-6 must accept it");
+            because: "this is a verbatim Gemma 4 emit with a non-ASCII value — the relaxed parse must accept it");
         result.ToolCalls![0].Arguments.Should()
             .StartWith("{").And.EndWith("}")
             .And.Contain("\"query\"")
@@ -359,7 +354,7 @@ public class Gemma4ToolCallStreamParserTests
             "<|tool_call>call:search_knowledge{\"query\":\"already strict\"}<tool_call|>");
 
         result.ToolCalls.Should().NotBeNull().And.HaveCount(1,
-            because: "D-6 must not regress D-5's strict-JSON round-trip — strict path is tried first and must keep working");
+            because: "the relaxed parse must not regress the strict-JSON round-trip — the strict path is tried first and must keep working");
         result.ToolCalls![0].Arguments.Should().Be("{\"query\":\"already strict\"}");
     }
 
@@ -383,7 +378,7 @@ public class Gemma4ToolCallStreamParserTests
         var result = parser.Feed("<|tool_call>call:foo{not even close}<tool_call|>after");
 
         result.ToolCalls.Should().BeNull(
-            because: "even after relaxed normalization, syntactically broken bodies must be dropped — D-5 phantom-invocation guard is preserved");
+            because: "even after relaxed normalization, syntactically broken bodies must be dropped — the phantom-invocation guard is preserved");
         result.Text.Should().NotBeNull();
         result.Text!.Should()
             .NotContain("<|tool_call>")

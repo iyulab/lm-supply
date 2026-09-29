@@ -61,8 +61,7 @@ public class LocalEmbedderApiTests
     }
 
     /// <summary>
-    /// Regression for ISSUE-lm-supply-1775535000-multilingual-embedder-vocab:
-    /// when a local model.onnx exists but no tokenizer files are present, the error must
+    /// Regression: when a local model.onnx exists but no tokenizer files are present, the error must
     /// list every probed path and mention the supported tokenizer formats — not just
     /// "Vocabulary file not found".
     /// </summary>

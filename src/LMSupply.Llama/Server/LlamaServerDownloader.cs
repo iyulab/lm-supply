@@ -39,7 +39,7 @@ public sealed class LlamaServerDownloader : IDisposable
     /// <summary>
     /// Process-wide gate that serializes CUDA-runtime provisioning. A single static gate is the
     /// canonical lazy-once-init lock: the lock-free fast path means it is only contended during the
-    /// one-time provisioning window, and concurrent callers for the same versionDir (e.g. Filer
+    /// one-time provisioning window, and concurrent callers for the same versionDir (e.g. an app
     /// loading embedder + generator via Task.WhenAll) must converge to a single download/extract.
     /// Per-key (one semaphore per versionDir) would only add parallelism for the rare cuda12-AND-cuda13
     /// first-provision-at-once case — gold-plating until observed.
@@ -743,7 +743,7 @@ public sealed class LlamaServerDownloader : IDisposable
 
         try
         {
-            // Serialize provisioning so concurrent callers for the same versionDir (e.g. Filer loading
+            // Serialize provisioning so concurrent callers for the same versionDir (e.g. an app loading
             // embedder + generator via Task.WhenAll) converge to a single download/extract. The gate is
             // held across the (multi-minute) download on purpose: that is what lets a waiting caller
             // find the runtime already present at the re-check and download nothing.

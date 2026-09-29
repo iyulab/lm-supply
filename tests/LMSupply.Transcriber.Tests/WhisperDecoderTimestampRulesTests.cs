@@ -130,8 +130,7 @@ public class WhisperDecoderTimestampRulesTests
 
     // A window shorter than 30 s is padded to 30 s before the encoder sees it. The timestamp tokens
     // still span the full 30 s, so without a bound the decoder can close a segment inside the padding —
-    // measured: a 10.6 s last window closed a segment at 27.08 s, 16 s past the end of the input
-    // (docket iyulab/lm-supply#347).
+    // measured: a 10.6 s last window closed a segment at 27.08 s, 16 s past the end of the input.
 
     [Fact]
     public void TimestampPastTheWindowsAudio_IsNeverSelected()

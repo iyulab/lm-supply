@@ -3,7 +3,6 @@ namespace LMSupply.Text.Tests;
 /// <summary>
 /// Tests for <see cref="TokenizerFactory.CreateAutoSequenceAsync"/> — verifies that
 /// embedder loading paths can pick up both WordPiece and SentencePiece tokenizers.
-/// Regression coverage for ISSUE-lm-supply-1775535000-multilingual-embedder-vocab.
 /// </summary>
 public class TokenizerFactoryAutoSequenceTests : IDisposable
 {
@@ -61,8 +60,7 @@ public class TokenizerFactoryAutoSequenceTests : IDisposable
     }
 
     /// <summary>
-    /// Regression for ISSUE-lm-supply-1775552000-unigram-tokenizer-fallback:
-    /// when tokenizer.json declares Unigram and no SentencePiece protobuf is on disk,
+    /// Regression: when tokenizer.json declares Unigram and no SentencePiece protobuf is on disk,
     /// the factory must fail loudly with an actionable error rather than silently
     /// constructing a WordPieceTokenizer (which crashes on XLM-Roberta-style `&lt;unk&gt;`).
     /// </summary>

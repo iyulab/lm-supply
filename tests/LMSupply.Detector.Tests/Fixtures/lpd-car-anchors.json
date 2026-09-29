@@ -1,5 +1,5 @@
 {
- "_source": "LPD-YuNet 2023mar (opencv/license_plate_detection_yunet, Apache-2.0) run on a 960x631 photograph of a car rear. Only priors scoring >= 0.3 are kept; every other prior is zero, which decodes to a score of zero. The top box was cropped out of the source and contains the number plate - see cycle-534.",
+ "_source": "LPD-YuNet 2023mar (opencv/license_plate_detection_yunet, Apache-2.0) run on a 960x631 photograph of a car rear. Only priors scoring >= 0.3 are kept; every other prior is zero, which decodes to a score of zero. The top box was cropped out of the source and contains the number plate.",
  "imageWidth": 960,
  "imageHeight": 631,
  "inputWidth": 320,

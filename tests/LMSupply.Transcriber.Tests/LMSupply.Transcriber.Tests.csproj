@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <!-- xUnit v3 test projects are stand-alone executables (BD-20260829-xunit-v3-pilot) -->
+    <!-- xUnit v3 test projects are stand-alone executables -->
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
@@ -21,12 +21,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Real MP3 fixture for the docket #169 regression test (LoadAudioAsync_RealMp3File_DecodesViaNLayer)
+    <!-- Real MP3 fixture for the MP3 decode regression test (LoadAudioAsync_RealMp3File_DecodesViaNLayer)
          — checked in rather than encoded at test time, so the test doesn't depend on the LAME
          encoder's Windows-only native library (libmp3lame.64.dll) and actually runs on the
          cross-platform CI runners the underlying NLayer decode fix targets. -->
     <None Include="Fixtures\*.mp3" CopyToOutputDirectory="PreserveNewest" />
-    <!-- Korean speech clip for the language auto-detection conformance test (docket #59). Synthesized
+    <!-- Korean speech clip for the language auto-detection conformance test. Synthesized
          once, offline, from a local TTS voice and checked in for the same reason as the MP3 above:
          a fixture generated at test time only exists on machines that have that voice. -->
     <None Include="Fixtures\*.wav" CopyToOutputDirectory="PreserveNewest" />

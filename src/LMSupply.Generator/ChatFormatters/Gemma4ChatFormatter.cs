@@ -86,8 +86,6 @@ public sealed class Gemma4ChatFormatter : IChatFormatter
     /// the gap by consuming the wrappers and emitting fully formed
     /// <c>ChatToolCallDelta</c> events. The generator suppresses server-side
     /// tool-call deltas when this parser is active.
-    ///
-    /// Reference: ecosystem ISSUE Option D-5 (2026-05-01) — Filer cycle-701.
     /// </remarks>
     public IToolCallStreamParser CreateToolCallStreamParser()
     {
@@ -98,8 +96,7 @@ public sealed class Gemma4ChatFormatter : IChatFormatter
     /// <remarks>
     /// Gemma 4 activates built-in thinking by including <c>&lt;|think|&gt;</c> at the
     /// start of the system prompt. Google recommends this for E2B/E4B when complex
-    /// function calling is required (ISSUE lmsupply-gemma4-thinking-mode-tool-call-gap,
-    /// 2026-05-05).
+    /// function calling is required.
     /// </remarks>
     public string? GetThinkingToken() => "<|think|>";
 
@@ -108,8 +105,7 @@ public sealed class Gemma4ChatFormatter : IChatFormatter
     /// Gemma 4 E4B at gguf:gemma4-default emits empty tool args under llama-server's
     /// native template because the model misinterprets the raw JSON schema.
     /// This override exposes <c>Required parameters (MUST be provided): name (type)</c>
-    /// marker lines that LlamaServerGeneratorModel injects as a system message
-    /// (ecosystem ISSUE Option D-1, 2026-04-30).
+    /// marker lines that LlamaServerGeneratorModel injects as a system message.
     /// </remarks>
     public string? RenderToolPromptFragment(IReadOnlyList<ChatToolDefinition>? tools)
     {
@@ -139,11 +135,10 @@ public sealed class Gemma4ChatFormatter : IChatFormatter
     /// <remarks>
     /// When thinking is active, the Jinja2 template in llama-server already injects the
     /// full structured tool schema (<c>&lt;|tool&gt;declaration:...&lt;tool|&gt;</c>).
-    /// Repeating the full D-1 text fragment creates system-prompt pressure that can
+    /// Repeating the full text fragment creates system-prompt pressure that can
     /// degrade tool-call accuracy on small models. This override reduces the fragment
     /// to a minimal per-tool required-params line to preserve the "required args hint"
     /// benefit while eliminating redundant tool descriptions.
-    /// Reference: ecosystem ISSUE Gap B (2026-05-08), Option T-2.
     /// </remarks>
     public string? RenderToolPromptFragmentWhenThinking(IReadOnlyList<ChatToolDefinition>? tools)
     {

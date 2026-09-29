@@ -9,8 +9,7 @@ namespace LMSupply.Embedder.Tests;
 
 /// <summary>
 /// Tests for OnnxInferenceEngine inference-time fallback behavior.
-/// ISSUE: lmsupply-embedder-onnx-dml-inference-fallback-20260510
-/// Fix: RunInferenceInternal catch clause condition changed from
+/// RunInferenceInternal catch clause condition changed from
 ///      `_requestedProvider == Auto` to `_requestedProvider != Cpu`
 ///      so explicit GPU providers (CUDA, CoreML) also attempt fallback.
 /// </summary>

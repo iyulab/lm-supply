@@ -15,9 +15,6 @@ namespace LMSupply.Generator.Abstractions;
 /// <see cref="IChatFormatter.CreateToolCallStreamParser"/>; the active GGUF generator
 /// then routes every <c>TextDelta</c> through the parser and treats its emitted
 /// tool-call deltas as the authoritative source for that turn.
-///
-/// Reference: ecosystem ISSUE Option D-5 (2026-05-01) — Gemma 4 native wrapper
-/// extraction parser, see Filer cycle-701 root-cause analysis.
 /// </remarks>
 public interface IToolCallStreamParser
 {

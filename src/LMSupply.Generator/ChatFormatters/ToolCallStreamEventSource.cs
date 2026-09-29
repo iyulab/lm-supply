@@ -4,10 +4,9 @@ namespace LMSupply.Generator.ChatFormatters;
 
 /// <summary>
 /// EventSource exposing Gemma 4 tool-call stream parser internals as ETW/EventPipe
-/// events so the parser surface (Surface A) can be validated independently of upstream
-/// model emit behavior (Surface B). Emits raw input deltas, body-parse outcomes, and
-/// emitted text/tool-call payloads so cycle-705+ field verification can 1:1 map model
-/// emit to parser emission.
+/// events so parser correctness can be validated independently of what the model
+/// emits. Emits raw input deltas, body-parse outcomes, and
+/// emitted text/tool-call payloads so a trace can map model emit 1:1 to parser emission.
 /// </summary>
 /// <remarks>
 /// Capture (dev/diagnostic only):
@@ -16,10 +15,6 @@ namespace LMSupply.Generator.ChatFormatters;
 /// by <see cref="EventSource.IsEnabled()"/>. The parser remains internal-stable; this
 /// type is a pure-additive diagnostic seam, no <see cref="Abstractions.IToolCallStreamParser"/>
 /// or <see cref="Abstractions.IChatFormatter"/> contract change.
-///
-/// Reference: ecosystem ISSUE Option D-7 (2026-05-01, cycle-704) — Filer F-10
-/// stream-tap diagnostic ask, see
-/// <c>ISSUE-lmsupply-gemma4-toolcall-wrapper-parser-20260501.md</c> §12.7.
 /// </remarks>
 [EventSource(Name = "LMSupply.Generator.ChatFormatters")]
 internal sealed class ToolCallStreamEventSource : EventSource
@@ -67,8 +62,8 @@ internal sealed class ToolCallStreamEventSource : EventSource
     /// strict-JSON nor relaxed-JSON object form).
     /// </summary>
     /// <remarks>
-    /// Cycle-705+ trace correlates rejected events with raw model emit to confirm
-    /// whether the body shape is a known D-6 case or a new residual.
+    /// Correlating rejected events with the raw model emit in a trace shows whether a
+    /// body shape is one the relaxed parse already covers or a new one.
     /// </remarks>
     [Event(4, Level = EventLevel.Informational, Message = "BodyParse: outcome={0} body={1}")]
     public void BodyParse(string outcome, string bodyPreview)

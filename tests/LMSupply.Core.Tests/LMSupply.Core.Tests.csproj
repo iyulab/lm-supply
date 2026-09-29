@@ -7,7 +7,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <!-- xUnit v3 test projects are stand-alone executables (BD-20260829-xunit-v3-pilot) -->
+    <!-- xUnit v3 test projects are stand-alone executables -->
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
@@ -20,8 +20,7 @@
     <!-- LMSupply.Core references Microsoft.ML.OnnxRuntime with ExcludeAssets="native" (consumers
          are expected to bring their own native runtime variant); this test project needs a
          concrete native runtime to actually execute ONNX code paths without an access violation
-         at process teardown (0xC0000005 in CompileApi.NativeMethods..cctor, xUnit v3/MTP pilot
-         investigation, cycle-372). -->
+         at process teardown (0xC0000005 in CompileApi.NativeMethods..cctor under xUnit v3/MTP). -->
     <PackageReference Include="Microsoft.ML.OnnxRuntime" />
   </ItemGroup>
 

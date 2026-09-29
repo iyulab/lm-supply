@@ -1,5 +1,5 @@
 {
- "_source": "YuNet 2023mar (opencv/face_detection_yunet, MIT) run on a 1280x1177 street photograph. Only anchors scoring >= 0.3 are kept; every other anchor is zero, which decodes to score 0. The top box was visually confirmed to sit on a face - see cycle-533.",
+ "_source": "YuNet 2023mar (opencv/face_detection_yunet, MIT) run on a 1280x1177 street photograph. Only anchors scoring >= 0.3 are kept; every other anchor is zero, which decodes to score 0. The top box was visually confirmed to sit on a face.",
  "imageWidth": 1280,
  "imageHeight": 1177,
  "inputSize": 640,

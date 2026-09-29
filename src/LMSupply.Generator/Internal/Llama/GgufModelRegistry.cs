@@ -83,7 +83,7 @@ public static class GgufModelRegistry
 
         // Quality: Gemma 4 26B MoE — 31B-class performance with 4B active params
         // NOTE (2026-08-17): this repo also never published a K-quant — see gemma4-default's note
-        // above for the shared root cause (ISSUE-lm-supply-20260817-gemma4-ctx-other-...).
+        // above for the shared root cause.
         ["gguf:gemma4-quality"] = new GgufModelInfo
         {
             RepoId = "ggml-org/gemma-4-26B-A4B-it-GGUF",
@@ -103,7 +103,7 @@ public static class GgufModelRegistry
 
         // Large: Gemma 4 31B Dense — maximum quality single-GPU model
         // NOTE (2026-08-17): this repo also never published a K-quant — see gemma4-default's note
-        // above for the shared root cause (ISSUE-lm-supply-20260817-gemma4-ctx-other-...).
+        // above for the shared root cause.
         ["gguf:gemma4-large"] = new GgufModelInfo
         {
             RepoId = "ggml-org/gemma-4-31B-it-GGUF",

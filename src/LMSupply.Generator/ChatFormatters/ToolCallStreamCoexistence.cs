@@ -17,9 +17,9 @@ namespace LMSupply.Generator.ChatFormatters;
 /// still stripped from the text channel rather than leaked), but its extracted tool calls are used
 /// only when the server gave none this chunk.
 ///
-/// Reference: ecosystem ISSUE Option D-8 (2026-08-17) — a naive "parser present therefore suppress
-/// server deltas" mirror of the Gemma 4 policy regressed Qwen from 5/7 working turns to 0/7, because
-/// it discarded the server's structured deltas on every turn, not just the ones where they were
+/// A naive "parser present therefore suppress server deltas" mirror of the Gemma 4 policy would
+/// regress Qwen from 5 of 7 working turns to 0 of 7 in a measured run, because
+/// it discards the server's structured deltas on every turn, not just the ones where they are
 /// actually absent.
 /// </remarks>
 internal static class ToolCallStreamCoexistence

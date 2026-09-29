@@ -7,7 +7,6 @@ namespace LMSupply.Core.Tests.Download;
 /// Tests for Whisper ONNX quantization variant selection.
 /// Regression tests for the bug where all quantization variants (_bnb4, _q4f16)
 /// were downloaded instead of only the optimal one.
-/// See: ISSUE-lm-supply-20260305-model-all-quantizations-downloaded
 /// </summary>
 public class WhisperQuantizationSelectionTests
 {

@@ -12,7 +12,7 @@ namespace LMSupply.Transcriber.Core;
 /// segment with no closing timestamp, or ends the window at end-of-text right after the last segment
 /// it could close — and the speech after that point is then never decoded at all. A fixed 30 s stride
 /// loses exactly that audio, at every boundary: measured on a 131 s Korean recording, 3–4 s per window
-/// vanished and each following window opened mid-sentence (docket iyulab/lm-supply#340).
+/// vanished and each following window opened mid-sentence.
 /// </para>
 /// <para>
 /// So the next window starts where the last <em>closed</em> segment ended, and anything after it —

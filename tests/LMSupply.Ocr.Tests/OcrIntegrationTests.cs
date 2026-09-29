@@ -345,11 +345,11 @@ public class OcrIntegrationTests : IDisposable
     [Fact]
     public async Task DefaultModel_RecognizeRealImage_ShouldDetectText()
     {
-        // Arrange - Use a real screenshot image if available
-        var sourceImagePath = @"C:\Users\achunja\Downloads\1.png";
+        // Arrange - Use a real screenshot image if one is supplied via LMSUPPLY_OCR_TEST_IMAGE
+        var sourceImagePath = Environment.GetEnvironmentVariable("LMSUPPLY_OCR_TEST_IMAGE") ?? string.Empty;
 
         // Skip test if the test image doesn't exist
-        Assert.SkipWhen(!File.Exists(sourceImagePath), "Test image not available at: " + sourceImagePath);
+        Assert.SkipWhen(!File.Exists(sourceImagePath), "Test image not available: set LMSUPPLY_OCR_TEST_IMAGE to an image that contains text.");
 
         await using var ocr = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 
@@ -375,11 +375,11 @@ public class OcrIntegrationTests : IDisposable
     [Fact]
     public async Task DefaultModel_DetectRealImage_ShouldReturnBoundingBoxes()
     {
-        // Arrange
-        var sourceImagePath = @"C:\Users\achunja\Downloads\1.png";
+        // Arrange - Use a real screenshot image if one is supplied via LMSUPPLY_OCR_TEST_IMAGE
+        var sourceImagePath = Environment.GetEnvironmentVariable("LMSUPPLY_OCR_TEST_IMAGE") ?? string.Empty;
 
         // Skip test if the test image doesn't exist
-        Assert.SkipWhen(!File.Exists(sourceImagePath), "Test image not available at: " + sourceImagePath);
+        Assert.SkipWhen(!File.Exists(sourceImagePath), "Test image not available: set LMSUPPLY_OCR_TEST_IMAGE to an image that contains text.");
 
         await using var ocr = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
 

@@ -7,11 +7,9 @@ using Xunit;
 namespace LMSupply.Llama.Tests.Server;
 
 /// <summary>
-/// Regression coverage for the Linux e2e failure investigated 2026-08-17
-/// (<c>ISSUE-lm-supply-20260806-062000-llama-server-binary-absent-on-linux-runner.md</c>):
-/// "llama-server did not launch" / "The process was never created" on ubuntu runners.
+/// Regression coverage for "llama-server did not launch" / "The process was never created" on Linux.
 ///
-/// Root cause confirmed against the actual b10290 release: llama.cpp's Linux/macOS tar.gz assets
+/// Confirmed against the actual b10290 release: llama.cpp's Linux/macOS tar.gz assets
 /// unpack into a top-level wrapper directory (<c>llama-b10290/llama-server</c>), while the Windows
 /// zip for the same release is flat (<c>llama-server.exe</c> at the archive root) — so the
 /// flat-layout assumption in <see cref="LlamaServerDownloader"/> only ever broke on Linux/macOS.

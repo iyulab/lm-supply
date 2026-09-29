@@ -13,13 +13,9 @@ namespace LMSupply.Generator.Tests;
 /// continuously against a third-party service's availability). Run manually with:
 /// <c>dotnet test --filter "Category=Integration&amp;FullyQualifiedName~GgufRegistryFreshnessTests"</c>
 ///
-/// This is the deliberately lighter option chosen over a full <c>check-catalog-staleness.ps1</c>-style
-/// scheduled automation (ecosystem decision, 2026-08-18): the 2026-08-17 one-time registry audit
-/// found 4/13 aliases pointing at a nonexistent repo or file — Gemma 4's <c>DefaultFile</c> mismatch
-/// (cycle-267) and phi-4-mini's wrong <c>RepoId</c> (cycle-271) — both class-of-defect failures this
-/// smoke test catches directly. It does not track gradual staleness (a file that still exists but
-/// whose content silently changed) the way TokenMeter's pricing catalog check does; that broader
-/// scope was explicitly deferred pending evidence it is needed.
+/// It catches the defect class directly: an alias pointing at a nonexistent repo or file (a
+/// <c>DefaultFile</c> that does not match the repository's file name, or a wrong <c>RepoId</c>).
+/// It does not track gradual staleness (a file that still exists but whose content silently changed).
 ///
 /// HuggingFace returns different status codes depending on failure mode, all non-2xx and therefore
 /// all caught by <c>IsSuccessStatusCode</c>: a nonexistent/private repo returns 401 (not 404 — HF

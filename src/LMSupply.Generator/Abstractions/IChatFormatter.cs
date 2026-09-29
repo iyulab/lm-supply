@@ -41,7 +41,6 @@ public interface IChatFormatter
     /// <param name="tools">The tool definitions visible to the model on this turn.</param>
     /// <returns>A model-friendly textual fragment, or <c>null</c> to skip injection.</returns>
     /// <remarks>
-    /// Reference: ecosystem ISSUE Option D-1 (2026-04-30) —
     /// Gemma 4 E4B at gguf:gemma4-default emits empty tool args because the native
     /// chat template's raw JSON schema is too dense; a textual marker line
     /// (<c>Required parameters (MUST be provided): &lt;name&gt; (&lt;type&gt;)</c>)
@@ -77,11 +76,10 @@ public interface IChatFormatter
     /// tool-call deltas (which on Gemma 4 are typically half-formed name-only
     /// pattern matches that never invoke).
     ///
-    /// Reference: ecosystem ISSUE Option D-5 (2026-05-01) —
-    /// Filer cycle-701 surfaced that Gemma 4 emits its native
+    /// Gemma 4 emits its native
     /// <c>&lt;|tool_call&gt;call:NAME{ARGS_JSON}&lt;tool_call|&gt;</c> wrapper into the
     /// text channel; without this hook the wrapper tokens leak as plain text and
-    /// no tool ever invokes (chat-rag flow 0% success on gguf:gemma4-default).
+    /// no tool ever invokes.
     /// </remarks>
     IToolCallStreamParser? CreateToolCallStreamParser() => null;
 
@@ -99,8 +97,8 @@ public interface IChatFormatter
     /// the model's rarer native-wrapper fallback. When <c>false</c>, the generator resolves each
     /// chunk independently — server deltas win when present; the parser's output is used only on
     /// chunks where the server gave nothing (see <c>ToolCallStreamCoexistence.Resolve</c>).
-    /// Reference: ecosystem ISSUE Option D-8 (2026-08-17) — Qwen/ChatML's grammar path succeeds on
-    /// the majority of turns (5/7 observed), so Gemma 4's unconditional-suppression policy would
+    /// Qwen/ChatML's grammar path succeeds on
+    /// the majority of turns (5 of 7 in a measured run), so Gemma 4's unconditional-suppression policy would
     /// regress a working majority path to fix a minority native-wrapper leak.
     /// </remarks>
     bool SuppressServerToolCallsWhenParserActive => true;

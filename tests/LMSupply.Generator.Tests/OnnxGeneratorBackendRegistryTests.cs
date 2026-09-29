@@ -4,8 +4,8 @@ using LMSupply.Generator.Abstractions;
 namespace LMSupply.Generator.Tests;
 
 /// <summary>
-/// Tests for the ONNX backend registration seam (docket iyulab/lm-supply#164 — the ONNX Runtime
-/// GenAI backend split into the optional LMSupply.Generator.Onnx package). This assembly disables
+/// Tests for the ONNX backend registration seam (the ONNX Runtime GenAI backend lives in the
+/// optional LMSupply.Generator.Onnx package). This assembly disables
 /// test parallelization (AssemblyInfo.cs), which is what makes mutating the process-global
 /// <see cref="OnnxGeneratorBackendRegistry"/> in these tests safe.
 /// </summary>

@@ -164,14 +164,14 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_DefaultAlias_CpuProvider_LoadsAndTranscribesWithoutCrashing()
     {
-        // Regression gate for docket iyulab/lm-supply#151: the package's own zero-config
+        // Regression gate: the package's own zero-config
         // registry default (onnx-community/whisper-base, "default" alias) + CPU EP is the
         // combination that crashed InferenceSession construction under
         // Microsoft.ML.OnnxRuntime 1.25.1/1.26.0 ("Missing required scale:
         // ...embed_tokens.weight_merged_0_scale"). CPU EP is forced explicitly here (unlike
         // the other Loading/Inference tests above, which use the default Auto provider and so
-        // exercise a separate, already-known DirectML LayerNormalization crash instead — see
-        // docket iyulab/lm-supply#59 — not this regression). Do not bump
+        // exercise a separate, already-known DirectML LayerNormalization crash instead, not
+        // this regression). Do not bump
         // Microsoft.ML.OnnxRuntime past the version pinned in Directory.Packages.props without
         // this test passing first.
         var options = new TranscriberOptions { Provider = ExecutionProvider.Cpu };
@@ -477,8 +477,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_Mp3File_TranscribesSuccessfully()
     {
-        // TR-Q1: Verify MP3 input decodes via the Mp3FileReaderBase + NLayer path (docket
-        // iyulab/lm-supply#169 — AudioFileReader itself no longer supports .mp3 on this
+        // TR-Q1: Verify MP3 input decodes via the Mp3FileReaderBase + NLayer path (AudioFileReader itself no longer supports .mp3 on this
         // project's cross-platform NAudio 3.0 build).
         var mp3Bytes = TestDataHelper.TryCreateToneMp3(44100, 2.0f, 440);
         if (mp3Bytes is null)

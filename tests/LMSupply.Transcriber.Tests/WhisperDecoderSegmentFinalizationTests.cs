@@ -24,8 +24,8 @@ public class WhisperDecoderSegmentFinalizationTests
     public void FinalizeSegments_NoTimestampTokenGenerated_UsesChunkDurationNotHardcoded30Seconds()
     {
         // Reproduces the reported failure shape: the decoder emits a few plain-text tokens and
-        // then hits EOT before any timestamp token is ever generated (see docket 9e8688d2's
-        // 2026-08-23 trace: SOT + "The" x3 + EOT, zero timestamp tokens). In that case the only
+        // then hits EOT before any timestamp token is ever generated (a captured
+        // trace: SOT + "The" x3 + EOT, zero timestamp tokens). In that case the only
         // open segment is `currentSegmentTokens`, which the "remaining tokens as final segment"
         // branch must close using the chunk's real duration — not a fixed 30s.
         var tokenizer = CreateTokenizer();

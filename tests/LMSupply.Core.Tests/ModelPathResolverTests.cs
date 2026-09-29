@@ -24,8 +24,8 @@ public class StripVariantSuffixTests
     }
 
     [Theory]
-    [InlineData("D:\\data\\models\\yolov8n-pose.onnx")]
-    [InlineData("D:/data/models/yolov8n-pose.onnx")]
+    [InlineData("D:\\models\\yolov8n-pose.onnx")]
+    [InlineData("D:/models/yolov8n-pose.onnx")]
     [InlineData("C:\\Users\\test\\model.onnx")]
     public void WindowsLocalPath_ShouldReturnUnchanged(string input)
     {

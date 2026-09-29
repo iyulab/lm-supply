@@ -19,7 +19,7 @@ public class WhisperDecoderRepetitionCycleTests
     private const int GeneratedStart = 2; // [SOT, Transcribe]
 
     /// <summary>
-    /// Rebuilds the generated tokens captured in docket iyulab/lm-supply#59's 2026-09-07 fp32
+    /// Rebuilds the generated tokens captured in a real fp32 decode
     /// trace (LMSupply.Transcriber 0.55.0, whisper-base, CPU EP, real fixture): NoTimestamps, a
     /// three-token stutter, then a period-4 cycle from step 4 onward.
     /// </summary>

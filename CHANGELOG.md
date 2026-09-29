@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.93.2] - Unreleased
+
+### Changed
+- **Documentation comments describe behaviour only.** XML documentation and code comments state what the code does
+  and the condition that triggers it; references to external tracking and planning notes were removed.
+
 ## [0.93.1] - 2026-09-29
 
 ### Documentation
@@ -633,7 +639,7 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   again.** 0.63.0 (2026-09-11) moved a subfolder's files from the snapshot root into the subfolder; the
   new path looked in one place only, so every install that had the model before 0.63.0 fetched it once
   more on the first load after updating — about 1 GB for the default embedder — and kept both copies
-  (one dogfooding cache held 6.8 GB of byte-identical pairs). That release note was never written; this
+  (one measured cache held 6.8 GB of byte-identical pairs). That release note was never written; this
   is it. The downloader now looks for a wanted file at the snapshot root (when the target is a
   subfolder) or in an immediate subfolder (when the target is the root) and moves a copy of the listed
   length into place: no request, one copy. Copies of another length are left alone; nothing is moved in
@@ -679,7 +685,7 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   (normalization switched off · basic tokenization removed · an epoch raised alone).
 - **`CacheManager.FindReclaimable(cacheDir)` / `Reclaim(cacheDir, files)` — free the duplicates a
   layout change left behind.** 0.63.0 moved a subfolder's files from the snapshot root into the
-  subfolder and every existing cache downloaded them again, keeping both copies (one dogfooding cache
+  subfolder and every existing cache downloaded them again, keeping both copies (one measured cache
   measured 6.8 GB of byte-identical pairs). `FindReclaimable` lists, largest first, each root file whose
   same-name twin in a subfolder of the same snapshot has the same length and SHA-256 **and** is the copy
   a manifest lists as read — the measured case and nothing wider; a root file with no twin, a twin of

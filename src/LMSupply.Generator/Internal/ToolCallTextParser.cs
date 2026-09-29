@@ -72,8 +72,7 @@ internal static class ToolCallTextParser
             // Strict + recovery passes both failed. Phi-4-mini occasionally emits
             // the right semantic content (function name + arguments) wrapped in
             // structurally invalid JSON — e.g. mixing `]` / `}` closers or padding
-            // an extra `]]` instead of the outer `}` (Sprint-RR1 RR-M evidence,
-            // 2026-05-02). Fall through to a tolerant regex-based extractor that
+            // an extra `]]` instead of the outer `}`. Fall through to a tolerant regex-based extractor that
             // surfaces the legitimate tool call instead of dropping it.
             return TryExtractByRegex(trimmed);
         }
@@ -195,8 +194,7 @@ internal static class ToolCallTextParser
     /// Phi-4-mini and similar small instruction-tuned ONNX models occasionally
     /// emit a tool-call envelope that ends with one extra <c>\"</c> escape
     /// sequence before the legitimate closing quote of an inner string value
-    /// (Sprint-RR1 RR-K evidence, 2026-05-02 — Kafka prompt produced
-    /// <c>"arguments": "{...}\""</c> instead of the canonical
+    /// (e.g. <c>"arguments": "{...}\""</c> instead of the canonical
     /// <c>"arguments": "{...}"</c>). When the strict pass leaves the parser stuck
     /// inside an unterminated string, this helper performs a best-effort
     /// recovery: scan from end-of-input for the last unescaped quote candidate,
@@ -215,7 +213,7 @@ internal static class ToolCallTextParser
             return strict;
 
         // Recovery 1: stray <c>\</c> before the closing quote of an inner string
-        // value (Phi-4-mini RR-K pattern). Remove the first such escape from the
+        // value (a Phi-4-mini pattern). Remove the first such escape from the
         // tail forward and retry once.
         for (var idx = text.Length - 1; idx > 1; idx--)
         {
@@ -230,7 +228,7 @@ internal static class ToolCallTextParser
             break;
         }
 
-        // Recovery 2: missing trailing <c>}</c> closures (Phi-4-mini RR-M
+        // Recovery 2: missing trailing <c>}</c> closures (a Phi-4-mini
         // pattern — the model emitted <c>...]]</c> without closing the outer
         // object). Pad the input with up to a small number of synthetic
         // <c>}</c> closes and re-walk; bail out if even the padded variant

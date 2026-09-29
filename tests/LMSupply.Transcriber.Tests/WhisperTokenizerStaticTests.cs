@@ -104,8 +104,7 @@ public class WhisperTokenizerStaticTests
     }
 
     // GetSotSequence tests — verifies translate/transcribe task token selection
-    // Regression: TranscribeOptions.Translate used to be silently ignored (see
-    // ISSUE-lm-supply-20260409-transcribe-translate-silent-failure.md).
+    // Regression: TranscribeOptions.Translate used to be silently ignored.
 
     [Fact]
     public void GetSotSequence_Default_ShouldUseTranscribeToken()

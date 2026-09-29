@@ -362,8 +362,7 @@ public class AliasChainException : LMSupplyException
 /// already resident under the same library name and the caller opted into strict conflict
 /// detection (see <c>RuntimeManagerOptions.FailOnRuntimeConflict</c>). The already-loaded binary
 /// is left untouched -- this only fails the requesting call, since forcibly replacing a native
-/// binary that other code may already hold handles into is not attempted (see docket
-/// iyulab/lm-supply#151).
+/// binary that other code may already hold handles into is not attempted.
 /// </summary>
 public class NativeLibraryConflictException : LMSupplyException
 {

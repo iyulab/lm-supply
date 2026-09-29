@@ -23,9 +23,8 @@ namespace LMSupply.Generator.ChatFormatters;
 /// The output is still passed through <see cref="System.Text.Json.JsonDocument"/>
 /// for final validation — the normalizer is "best-effort rewrite", not a parser.
 ///
-/// Reference: ecosystem ISSUE Option D-6 (2026-05-01, cycle-703) — Filer cycle-702
-/// evidence captured Gemma 4 emitting <c>{query:"…"}</c> bodies that strict
-/// <c>JsonDocument.Parse</c> rejected, dropping all real tool calls.
+/// Gemma 4 emits tool-call bodies such as <c>{query:"…"}</c> that strict
+/// <c>JsonDocument.Parse</c> rejects; without this rewrite every such tool call would be dropped.
 /// </remarks>
 internal static class RelaxedJsonNormalizer
 {

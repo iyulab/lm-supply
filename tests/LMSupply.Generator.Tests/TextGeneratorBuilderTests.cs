@@ -270,8 +270,7 @@ public class TextGeneratorBuilderTests
     [Fact]
     public async Task BuildAsync_WithDefaultModel_RoutesThroughLocalGeneratorAuto()
     {
-        // Regression test for ISSUE-LMSupply.Generator-20260429-000657:
-        // WithDefaultModel() previously stamped _modelId = "default" and BuildAsync
+        // Regression test: WithDefaultModel() previously stamped _modelId = "default" and BuildAsync
         // routed it through OnnxGeneratorModelFactory, which 401'd against
         // huggingface.co/default. The fix delegates to LocalGenerator.LoadAsync
         // for hardware-aware GGUF/ONNX dispatch — observable via the

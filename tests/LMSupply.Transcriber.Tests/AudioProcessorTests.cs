@@ -5,7 +5,7 @@ namespace LMSupply.Transcriber.Tests;
 
 /// <summary>
 /// Tests for AudioProcessor static helper methods, mostly pure math functions plus one
-/// LoadAudioAsync file-decode regression test (see docket iyulab/lm-supply#169).
+/// LoadAudioAsync MP3 file-decode regression test.
 /// </summary>
 public class AudioProcessorTests
 {
@@ -153,12 +153,12 @@ public class AudioProcessorTests
         result.Should().OnlyContain(x => float.IsFinite(x));
     }
 
-    // --- LoadAudioAsync (docket iyulab/lm-supply#169) ---
+    // --- LoadAudioAsync ---
 
     [Fact]
     public async Task LoadAudioAsync_RealMp3File_DecodesViaNLayer()
     {
-        // Regression test for docket iyulab/lm-supply#169: NAudio 3.0's cross-platform net10.0
+        // Regression test: NAudio 3.0's cross-platform net10.0
         // asset dropped its bundled MP3 decoder entirely, so AudioFileReader threw "MP3 is not
         // supported by the cross-platform build of NAudio" for any .mp3 input. Decodes a real,
         // checked-in MP3 (a 1s 440Hz tone encoded via LAME, not a WAV renamed to .mp3) so this

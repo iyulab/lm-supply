@@ -5,13 +5,11 @@ using LMSupply.Generator.ChatFormatters;
 namespace LMSupply.Generator.Tests;
 
 // ──────────────────────────────────────────────────────────────────────────
-// 2026-05-01 ecosystem ISSUE Option D-7 (cycle-704) — stream-tap diagnostic
-// for Gemma 4 tool-call wrapper parser. Filer F-10 ask: enable independent
-// validation of Surface A (parser correctness) under Surface B (model emit
-// floor) masking via dotnet-trace capture of EventSource provider
-// "LMSupply.Generator.ChatFormatters". The diagnostic surface must add zero
-// overhead when no listener is attached and must not regress the D-5/D-6
-// fixture suite (Gemma4ToolCallStreamParserTests).
+// Stream-tap diagnostic for the Gemma 4 tool-call wrapper parser: a dotnet-trace
+// capture of EventSource provider "LMSupply.Generator.ChatFormatters" validates
+// parser correctness independently of what the model emits. The diagnostic
+// surface must add zero overhead when no listener is attached and must not
+// regress the parser fixture suite (Gemma4ToolCallStreamParserTests).
 // ──────────────────────────────────────────────────────────────────────────
 public class Gemma4ToolCallStreamParserDiagnosticsTests
 {
@@ -71,7 +69,7 @@ public class Gemma4ToolCallStreamParserDiagnosticsTests
                 && PayloadString(e, 0) == "accepted"
                 && PayloadContains(e, 1, "d7-relaxed"))
             .ToList();
-        bodyParseEvents.Should().NotBeEmpty(because: "D-6 relaxed normalizer success path must still emit accepted outcome");
+        bodyParseEvents.Should().NotBeEmpty(because: "the relaxed normalizer's success path must still emit the accepted outcome");
     }
 
     [Fact]
@@ -87,7 +85,7 @@ public class Gemma4ToolCallStreamParserDiagnosticsTests
                 && PayloadString(e, 0) == "rejected"
                 && PayloadContains(e, 1, "__d7_malformed__"))
             .ToList();
-        rejectedEvents.Should().NotBeEmpty(because: "rejected outcome distinguishes residual body shapes for cycle-705+ triage");
+        rejectedEvents.Should().NotBeEmpty(because: "the rejected outcome distinguishes body shapes the parser still cannot read");
     }
 
     [Fact]

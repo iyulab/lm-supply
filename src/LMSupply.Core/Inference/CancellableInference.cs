@@ -19,13 +19,11 @@ namespace LMSupply.Inference;
 /// cancelled) previously had no bound at all: a cold DirectML kernel-init hang would block
 /// forever, silently, with no exception and no progress indication. <see cref="DefaultTimeout"/>
 /// closes that gap by always applying a bound, derived from the caller's own token when it can
-/// time out and falling back to the default otherwise (see docket iyulab/lm-supply, the "DirectML
-/// 콜드 커널 행이 임베딩 경로에서 무기한" issue, 2026-09-03).
+/// time out and falling back to the default otherwise.
 ///
-/// Originally introduced in <c>LMSupply.Embedder</c> and promoted here so every ONNX-backed
-/// module (Transcriber, Translator, Synthesizer, Segmenter, Ocr, Reranker, ImageGenerator,
-/// Detector, Captioner) can share the same bound instead of re-deriving it per module (see docket
-/// iyulab/lm-supply, "콜드 GPU 커널 행 방어가 Embedder 하나에만 있음", 2026-09-03).
+/// Lives in Core so every ONNX-backed module (Embedder, Transcriber, Translator, Synthesizer,
+/// Segmenter, Ocr, Reranker, ImageGenerator, Detector, Captioner) shares the same bound instead
+/// of re-deriving it per module.
 /// </remarks>
 public static class CancellableInference
 {

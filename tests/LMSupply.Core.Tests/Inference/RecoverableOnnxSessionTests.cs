@@ -126,7 +126,7 @@ public class RecoverableOnnxSessionTests
     [Fact]
     public async Task Dispose_RunStillInFlightOnCurrentHandle_LeaksInsteadOfDisposing()
     {
-        // docket iyulab/lm-supply#193. A caller-side timeout unblocks the caller but leaves the
+        // A caller-side timeout unblocks the caller but leaves the
         // native call running -- and TryRecoverAfterTimeout only moves that handle aside when a
         // fallback exists. On a CPU-requested session (the reported configuration) it returns
         // false immediately, so the in-flight run stays on the *current* handle. Disposing it

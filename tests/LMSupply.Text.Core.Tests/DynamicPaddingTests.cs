@@ -9,8 +9,7 @@ namespace LMSupply.Text.Tests;
 ///
 /// Background: every encoder padded to <c>maxLength</c>, and the embedder promotes its default cap
 /// to the model maximum (8192 for bge-m3), so a 10-token sentence ran a full 8192-token pass —
-/// measured at ~39s per sentence on CPU. See the issue draft
-/// "encode-sequence-pads-to-max-length" in the umbrella's lm-supply issue directory.
+/// measured at ~39s per sentence on CPU.
 /// </summary>
 public class DynamicPaddingTests : IDisposable
 {

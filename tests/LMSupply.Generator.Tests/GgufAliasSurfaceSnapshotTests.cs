@@ -7,12 +7,10 @@ namespace LMSupply.Generator.Tests;
 /// GGUF aliases are a public surface addressed by string, and the type system does not defend it.
 ///
 /// <para>
-/// On 2026-08-06 a consumer upgrading across a minor version found <c>gguf:default</c> gone: the
-/// registry had moved to family-scoped names. The removal itself was a reasonable design change —
-/// what was not reasonable is that <b>nothing signalled it</b>. The compiler cannot: aliases are
-/// strings. This package keeps no CHANGELOG. The umbrella's changelog-coverage gate skips packages
-/// without one, by design. So three separate defences let it through and the consumer learned about
-/// it from an exception at runtime.
+/// Removing or renaming an alias (for example <c>gguf:default</c> moving to family-scoped names)
+/// can be a reasonable design change, but the compiler cannot signal it: aliases are strings. Without
+/// a signal at build time, a consumer upgrading across a minor version learns about it from an
+/// exception at runtime.
 /// </para>
 ///
 /// <para>

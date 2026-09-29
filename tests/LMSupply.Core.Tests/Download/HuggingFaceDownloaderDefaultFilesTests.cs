@@ -13,7 +13,6 @@ public class HuggingFaceDownloaderDefaultFilesTests
     /// alias) ship <c>model.onnx</c> as a small graph shell whose weights live in a
     /// companion data file. Omitting the companion from the curated list downloads a
     /// model that crashes at session init ("file_size: ... model.onnx_data").
-    /// Found by dogfooding 2026-07-17 (ironhive-umbrella cycle-169).
     /// </summary>
     [Fact]
     public void DefaultModelFiles_Include_ExternalWeightCompanions()

@@ -31,8 +31,8 @@ public class WhisperDecoderRepeatSuppressionTests
     [Fact]
     public void SelectNextToken_EotWinsByNarrowMarginRightAfterSuppression_PicksRealContinuationInstead()
     {
-        // Reproduces the exact decode-step state captured in docket iyulab/lm-supply#59's
-        // 2026-08-30 trace (LMSupply.Transcriber 0.42.4, real fixture, CPU EP): SOT sequence
+        // Reproduces a decode-step state captured from a real trace (LMSupply.Transcriber
+        // 0.42.4, real fixture, CPU EP): SOT sequence
         // [50258, 50359], then NoTimestamps(50363) + "The"x3, so at step 4 the repeat-suppression
         // guard fires on token 440. The reported post-guard top-5 was
         // [50257:2.699 (EOT), 264:2.534, 13:0.404, ...] — EOT wins the unpatched decoder by a
@@ -98,7 +98,7 @@ public class WhisperDecoderRepeatSuppressionTests
     [Fact]
     public void SelectNextToken_RecentlyUsedSentenceOpener_IsNotTaxedIntoLosingToEot()
     {
-        // Docket iyulab/lm-supply#253: "... about the delayed order. The next meeting is ..." —
+        // "... about the delayed order. The next meeting is ..." —
         // the opener of the final sentence ("The") had already appeared a few tokens earlier. A
         // blanket 1.2 penalty on every token of the last ten dropped its logit from 3.0 to 2.5, so
         // end-of-text (2.8) won and the clip's final sentence was never decoded.

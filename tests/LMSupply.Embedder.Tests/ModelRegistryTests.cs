@@ -168,7 +168,7 @@ public class ModelRegistryTests
         registry.RemoveAlias("default").Should().BeFalse();
     }
 
-    // --- Query/passage prefix convention (docket iyulab/lm-supply#171) ---
+    // --- Query/passage prefix convention ---
 
     [Theory]
     [InlineData("fast", "query: ", "passage: ")]

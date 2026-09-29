@@ -124,7 +124,7 @@ public class LlamaServerGeneratorModelHelperTests
         result[1].Should().Be(messages[2]);
     }
 
-    // ─── MaybeInjectToolPromptFragment (Option D-1, 2026-04-30) ───
+    // ─── MaybeInjectToolPromptFragment ───
 
     private static JsonElement BuildSchema(string json) => JsonDocument.Parse(json).RootElement;
 
@@ -197,7 +197,7 @@ public class LlamaServerGeneratorModelHelperTests
         result.Should().HaveCount(1);
     }
 
-    // ─── MaybeInjectToolPromptFragment — thinking mode (Gap B, 2026-05-08) ───
+    // ─── MaybeInjectToolPromptFragment — thinking mode ───
 
     [Fact]
     public void MaybeInjectToolPromptFragment_ThinkingEnabled_Gemma4_UsesMinimalFragment()
@@ -216,7 +216,7 @@ public class LlamaServerGeneratorModelHelperTests
         result[0].Content.Should().Contain("query (string)",
             because: "required parameter hint must be present");
         result[0].Content.Should().NotContain("You have access to the following tools",
-            because: "full D-1 preamble must be absent — only the minimal hint is injected when thinking is on");
+            because: "full preamble must be absent — only the minimal hint is injected when thinking is on");
         result[0].Content.Should().NotContain("Optional parameters",
             because: "optional params are omitted in the minimal fragment to reduce context pressure");
     }
@@ -249,7 +249,7 @@ public class LlamaServerGeneratorModelHelperTests
 
         result.Should().HaveCount(2);
         result[0].Content.Should().Contain("You have access to the following tools",
-            because: "enableThinking=false uses the full D-1 fragment as before");
+            because: "enableThinking=false uses the full fragment");
     }
 
     [Fact]
@@ -267,7 +267,7 @@ public class LlamaServerGeneratorModelHelperTests
             because: "no required parameters → RenderToolPromptFragmentWhenThinking returns null → no fragment injected");
     }
 
-    // ─── Gemma4ChatFormatter.RenderToolPromptFragmentWhenThinking (Gap B, 2026-05-08) ───
+    // ─── Gemma4ChatFormatter.RenderToolPromptFragmentWhenThinking ───
 
     [Fact]
     public void Gemma4_RenderToolPromptFragmentWhenThinking_SingleTool_RequiredParamsOnly()
@@ -350,10 +350,10 @@ public class LlamaServerGeneratorModelHelperTests
         result[0].Content.Should().Contain("search_knowledge: query (string)",
             because: "minimal required-params hint is preserved after thinking token injection");
         result[0].Content.Should().NotContain("You have access to the following tools",
-            because: "full D-1 preamble must not be present when thinking is active");
+            because: "full preamble must not be present when thinking is active");
     }
 
-    // ─── MaybeInjectThinkingToken (Gap A — Gemma 4 thinking mode, 2026-05-05) ───
+    // ─── MaybeInjectThinkingToken (Gemma 4 thinking mode) ───
 
     [Fact]
     public void MaybeInjectThinkingToken_EnabledWithGemma4_PrependsTokenToSystemMessage()

@@ -6,9 +6,8 @@ using LMSupply.Generator.Models;
 namespace LMSupply.Generator.Tests;
 
 // ──────────────────────────────────────────────────────────────────────────
-// 2026-08-17 ecosystem ISSUE Option D-8 — ChatML/Qwen native tool-call wrapper
-// extraction. Filer observed that on 2/7 turns llama-server forwards Qwen's
-// native `<tool_call>{"name":...,"arguments":{...}}</tool_call>` wrapper
+// ChatML/Qwen native tool-call wrapper extraction. On some turns (2 of 7 in a
+// measured run) llama-server forwards Qwen's native `<tool_call>{"name":...,"arguments":{...}}</tool_call>` wrapper
 // verbatim in the streaming text channel instead of invoking it through the
 // structured channel. Unlike Gemma 4 (whose structured channel never works),
 // Qwen's structured channel is the primary path (5/7) — see

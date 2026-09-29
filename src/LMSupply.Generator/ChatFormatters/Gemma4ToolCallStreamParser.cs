@@ -23,17 +23,13 @@ namespace LMSupply.Generator.ChatFormatters;
 /// (closing token never arrives) are discarded on flush — emitting a half-formed
 /// delta would leak a non-invokable tool call upstream.
 ///
-/// Reference: ecosystem ISSUE Option D-5 (2026-05-01) — Filer cycle-701 evidence
-/// (`<see href="https://github.com/iyulab/Filer">iyulab/Filer</see>` `chat-rag-test.mjs` +
-/// `_cycle701-tool-io-inspect.mjs`). Body parsing was tightened in D-6
-/// (cycle-703) to accept Gemma 4's native JS-object-literal shape
+/// Bodies are parsed leniently to accept Gemma 4's native JS-object-literal shape
 /// (<c>{key:"value"}</c> — unquoted identifier keys, single-quoted strings,
 /// trailing commas) by routing through <see cref="RelaxedJsonNormalizer"/>
 /// while still rejecting non-object roots so phantom invocations stay impossible.
-/// D-7 (cycle-704) adds an opt-in <see cref="ToolCallStreamEventSource"/> stream-tap
-/// so Surface A (parser correctness) can be validated independently of upstream model
-/// emit behavior under <c>dotnet-trace</c>; the diagnostic emits 0 overhead when no
-/// listener is attached.
+/// An opt-in <see cref="ToolCallStreamEventSource"/> stream-tap lets parser correctness be
+/// validated independently of model emit behavior under <c>dotnet-trace</c>; it adds no
+/// overhead when no listener is attached.
 /// </remarks>
 internal sealed class Gemma4ToolCallStreamParser : IToolCallStreamParser
 {

@@ -109,8 +109,8 @@ public sealed class NativeLoader : IDisposable
     /// If true, throws <see cref="NativeLibraryConflictException"/> when a library in this
     /// directory would bind to a name that is already resident from a different path, instead of
     /// silently keeping the first-loaded binary. The already-loaded binary is never touched
-    /// either way -- this only decides whether *this* call fails loudly. Default false preserves
-    /// prior behavior (see docket iyulab/lm-supply#151).
+    /// either way -- this only decides whether *this* call fails loudly. Default false keeps the
+    /// first-loaded binary silently.
     /// </param>
     public void RegisterDirectory(string directory, bool preload, string? primaryLibrary = null, bool throwOnConflict = false)
     {
@@ -235,9 +235,8 @@ public sealed class NativeLoader : IDisposable
         // Skip if already loaded. A library name is only ever bound to the first binary
         // that successfully loads under it -- a later registration for the same name but a
         // different path (e.g. a different provider's "onnxruntime") silently keeps the
-        // first one resident. That silence is exactly what left RuntimeManager.ActiveProvider
-        // able to disagree with what was actually loaded with no signal (docket
-        // iyulab/lm-supply#151) -- at minimum, make the conflict observable, and let an opted-in
+        // first one resident. Left silent, RuntimeManager.ActiveProvider can disagree with what
+        // was actually loaded with no signal -- so at minimum make the conflict observable, and let an opted-in
         // caller fail loudly on the request that discovered it.
         if (_loadedLibraries.ContainsKey(normalizedName))
         {
@@ -379,8 +378,7 @@ public sealed class NativeLoader : IDisposable
     /// <paramref name="libraryName"/>, or null if none has been loaded. Unlike
     /// <see cref="IsLoaded"/>, this reveals exactly which binary won when more than one
     /// directory registered a library under the same name -- only the first-loaded binary
-    /// for a given name is ever resident; later registrations silently no-op (see
-    /// docket iyulab/lm-supply#151).
+    /// for a given name is ever resident; later registrations silently no-op.
     /// </summary>
     public string? GetLoadedPath(string libraryName)
     {

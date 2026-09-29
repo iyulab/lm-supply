@@ -80,14 +80,13 @@ public class LlamaServerGeneratorModelContextLengthTests
     [Fact]
     public void SelectReportedContextLength_DefaultOptions_Qwen2_5_7B_Returns32768()
     {
-        // Exact Filer regression scenario: gguf:qwen2.5-7b loaded with default options
-        // Pre-fix: returned 4096 → Filer routed to CompactSystemPrompt
-        // Post-fix: returns 32768 → Filer routes to DefaultSystemPrompt
+        // gguf:qwen2.5-7b loaded with default options must report the model's native 32768,
+        // not the 4096 fallback — callers size their prompts from this value.
         var options = new GeneratorOptions();
         var meta = MakeGgufMeta(32768);
 
         var result = LlamaServerGeneratorModel.SelectReportedContextLength(options, meta, 4096);
 
-        result.Should().Be(32768, because: "Filer must receive 32768 to route DefaultSystemPrompt for Qwen2.5-7B");
+        result.Should().Be(32768, because: "the model's native context length is reported when GGUF metadata carries it");
     }
 }

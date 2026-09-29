@@ -178,8 +178,7 @@ public class ToolCallTextParserTests
     public void TryParse_ToolCallsWithTrailingBrace_StillParses()
     {
         // Phi-4-mini occasionally appends a stray closing brace after the
-        // legitimate tool-call object (Filer Sprint-RR1 RR-A evidence,
-        // 2026-05-02). The balanced-brace extractor must isolate the first
+        // legitimate tool-call object. The balanced-brace extractor must isolate the first
         // valid object so the parse succeeds.
         var json = "{\"tool_calls\": [{\"id\": \"call_x\", \"type\": \"function\", " +
                    "\"function\": {\"name\": \"search_knowledge\", " +
@@ -221,7 +220,7 @@ public class ToolCallTextParserTests
     [Fact]
     public void TryParse_MissingOuterClose_RecoversAndParses()
     {
-        // Phi-4-mini RR-M evidence (2026-05-02): the model emitted a tool-call
+        // Phi-4-mini sometimes emits a tool-call
         // envelope that closed the inner objects but forgot the outer object
         // brace (writing `]}]]` instead of `]}}`). Recovery pad supplies the
         // missing `}` and re-walks.
@@ -240,7 +239,7 @@ public class ToolCallTextParserTests
     [Fact]
     public void TryParse_StrayEscapeBeforeClosingQuote_RecoversAndParses()
     {
-        // Phi-4-mini RR-K evidence (2026-05-02): the model emitted an extra
+        // Phi-4-mini sometimes emits an extra
         // backslash before the legitimate closing quote of the arguments
         // string. The strict balanced extractor leaves the parser inside an
         // unterminated string; the best-effort recovery removes the stray

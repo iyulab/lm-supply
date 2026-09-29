@@ -31,7 +31,7 @@ internal sealed class WhisperDecoder
     private const float DefaultLogProbThreshold = -1.0f;
     private const float MaxFallbackTemperature = 1.0f + 1e-6f;
 
-    // Repetition-cycle detection (docket iyulab/lm-supply#59). A greedy decoder that has lost the
+    // Repetition-cycle detection. A greedy decoder that has lost the
     // audio settles into a *periodic* token cycle, not a run of one identical token -- and the
     // three-identical-token guard in SelectNextToken cannot see it. Worse, a captured trace showed
     // that guard *stabilising* one: suppressing the repeated token at every third occurrence is
@@ -623,7 +623,7 @@ internal sealed class WhisperDecoder
         // No blanket repetition penalty. The reference decoder applies none, and neither do the
         // mainstream Whisper runtimes: speech legitimately reuses short tokens within a few tokens
         // of each other -- "the", ".", a sentence opener -- and dividing every recently used logit
-        // by a constant taxes exactly those. Docket iyulab/lm-supply#253: after "... about the
+        // by a constant taxes exactly those. Example: after "... about the
         // delayed order." the next sentence opens with "The", which was inside the ten-token window,
         // so end-of-text overtook it and the final sentence of a single-window clip was dropped --
         // deterministically, with the segment still claiming to cover the whole clip. The same tax
@@ -645,7 +645,7 @@ internal sealed class WhisperDecoder
                 }
 
                 // A hard-suppression event means the model was mid-hallucination; end-of-text is
-                // the other easy way out at exactly this point. See docket iyulab/lm-supply#59: a
+                // the other easy way out at exactly this point: a
                 // captured decode trace showed EOT beating the real continuation token by a margin
                 // as small as 0.165 immediately after this guard fired. Give EOT a soft penalty
                 // here -- and only here -- so it has to clearly beat a real continuation rather
@@ -780,7 +780,7 @@ internal sealed class WhisperDecoder
 
         // Never past the window's audio. A window shorter than 30 s is padded to 30 s, and the
         // timestamp range still spans all of it, so a decoder hallucinating over the padding could
-        // close a segment seconds after the input ends (docket iyulab/lm-supply#347). Once a segment
+        // close a segment seconds after the input ends. Once a segment
         // closes at the end of the audio nothing can follow: a new one could never be closed.
         if (audioSeconds is { } seconds)
         {

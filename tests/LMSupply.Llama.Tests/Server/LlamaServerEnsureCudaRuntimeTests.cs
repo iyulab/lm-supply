@@ -9,8 +9,8 @@ using Xunit;
 namespace LMSupply.Llama.Tests.Server;
 
 /// <summary>
-/// AC#3 wiring test for <see cref="LlamaServerDownloader.EnsureCudaRuntimeAsync"/>: concurrent callers
-/// for the SAME versionDir (Filer loads embedder + generator into one cuda12 dir via Task.WhenAll)
+/// Wiring test for <see cref="LlamaServerDownloader.EnsureCudaRuntimeAsync"/>: concurrent callers
+/// for the SAME versionDir (an app loading embedder + generator into one cuda12 dir via Task.WhenAll)
 /// must converge to a single release fetch + single cudart download/extract — proving the method wires
 /// the gate, the <c>CudaRuntimePresent</c> predicate, and <c>ProvisionCudaRuntimeCoreAsync</c> together
 /// correctly (the <c>RunGatedOnceAsync</c> primitive is unit-tested separately).

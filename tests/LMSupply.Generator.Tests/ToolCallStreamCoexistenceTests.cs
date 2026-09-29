@@ -7,12 +7,12 @@ using NSubstitute;
 namespace LMSupply.Generator.Tests;
 
 // ──────────────────────────────────────────────────────────────────────────
-// 2026-08-17 ecosystem ISSUE Option D-8 — per-chunk source resolution for
+// Per-chunk source resolution for
 // formatters whose grammar-constrained channel usually works (ChatML/Qwen),
 // unlike Gemma 4 whose channel never does. A naive "parser registered
 // therefore suppress server deltas unconditionally" mirror of the Gemma 4
-// policy regressed Qwen from 5/7 working turns to 0/7 during triage — this
-// is the regression guard for that exact failure mode.
+// policy regresses Qwen from 5 of 7 working turns to 0 of 7 — this is the
+// regression guard for that failure mode.
 // ──────────────────────────────────────────────────────────────────────────
 public class ToolCallStreamCoexistenceTests
 {

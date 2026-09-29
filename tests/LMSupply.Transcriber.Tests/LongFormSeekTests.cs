@@ -5,7 +5,7 @@ using LMSupply.Transcriber.Core;
 namespace LMSupply.Transcriber.Tests;
 
 /// <summary>
-/// The long-form window rule (docket iyulab/lm-supply#340). A fixed 30 s stride lost the speech at
+/// The long-form window rule. A fixed 30 s stride lost the speech at
 /// every window boundary: the decoder ends a window at end-of-text after the last segment it can
 /// close, and whatever followed in that window was never decoded. The next window has to start where
 /// the last closed segment ended.
@@ -80,13 +80,13 @@ public class LongFormSeekTests
     }
 
     // A remainder shorter than the minimum is dropped rather than padded into a window of its own:
-    // 70 ms padded to 30 s is a window of silence, and Whisper hallucinates text into it (docket #59:
+    // 70 ms padded to 30 s is a window of silence, and Whisper hallucinates text into it (e.g.
     // "[BLANK_AUDIO]" / "-감사합니다." placed at 60→70 s of a 60.07 s file).
 
     [Fact]
     public void RemainderShorterThanMinimum_EndsTheInput()
     {
-        var total = 2 * Window + 1120; // 60 s + 70 ms, the docket #59 shape
+        var total = 2 * Window + 1120; // 60 s + 70 ms
 
         var step = LongFormSeek.Plan(Window, Window, total, segmentCount: 1, closedSegmentCount: 0, lastClosedEnd: null);
 

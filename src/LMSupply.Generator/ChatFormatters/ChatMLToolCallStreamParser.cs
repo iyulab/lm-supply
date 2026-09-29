@@ -18,9 +18,9 @@ namespace LMSupply.Generator.ChatFormatters;
 /// <c>IChatFormatter.SuppressServerToolCallsWhenParserActive</c> and
 /// <c>ToolCallStreamCoexistence</c> for how the generator decides which source wins per chunk.
 ///
-/// Reference: ecosystem ISSUE Option D-8 (2026-08-17) — Filer observed 2/7 turns where a
-/// grammar-unconstrained Qwen response leaked its native <c>&lt;tool_call&gt;</c> wrapper as
-/// plain text instead of invoking through llama-server's structured channel.
+/// A grammar-unconstrained Qwen response can leak its native <c>&lt;tool_call&gt;</c> wrapper as
+/// plain text instead of invoking through llama-server's structured channel; this parser recovers
+/// the call from the text in that case.
 /// </remarks>
 internal sealed class ChatMLToolCallStreamParser : IToolCallStreamParser
 {

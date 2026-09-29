@@ -70,8 +70,7 @@ internal static class AudioProcessor
 
     private static float[] LoadAudio(string audioPath)
     {
-        // NAudio 3.0's cross-platform build dropped its bundled MP3 decoder (docket
-        // iyulab/lm-supply#169) — AudioFileReader throws for .mp3 input on this project's plain
+        // NAudio 3.0's cross-platform build dropped its bundled MP3 decoder — AudioFileReader throws for .mp3 input on this project's plain
         // net10.0 TFM. NLayer.NAudioSupport plugs a pure-managed MP3 decoder into NAudio's own
         // Mp3FileReader, keeping this fully cross-platform (no Windows-only reader reintroduced,
         // same reasoning as the WdlResamplingSampleProvider choice below).

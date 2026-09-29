@@ -969,8 +969,6 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         // source for the turn. When the formatter's grammar channel usually works (the
         // ChatML/Qwen case, == false), server deltas win per-chunk and the parser only fills
         // in the chunks where the server gave nothing — see ToolCallStreamCoexistence.
-        // (ecosystem ISSUE Option D-5, 2026-05-01 — Gemma 4 wrapper extraction;
-        // Option D-8, 2026-08-17 — ChatML coexist mode.)
 
         // The finish reason is held back to one final chunk that also carries the server's usage: with
         // include_usage the usage arrives on a separate chunk after finish_reason, and the parser/filter
@@ -1740,7 +1738,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     /// <see cref="IChatFormatter.RenderToolPromptFragment"/>. Small/quantized models
     /// (Gemma 4 E4B at gguf:gemma4-default) misinterpret llama-server's raw JSON-schema
     /// rendering and emit empty tool args; the textual fragment raises first-attempt
-    /// success (ecosystem ISSUE Option D-1, 2026-04-30).
+    /// success.
     /// </summary>
     /// <remarks>
     /// Returns the original sequence unchanged when the formatter returns <c>null</c>

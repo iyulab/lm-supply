@@ -10,7 +10,7 @@ namespace LMSupply.Core.Tests.Runtime;
 /// The native ONNX Runtime the downloader serves must be the version the feed says exists for the loaded
 /// managed assembly (or the caller's), and a cached copy of some other version is only a stand-in for an
 /// unreachable feed. Until 0.67.1 the downloader took any cached version before asking the feed, so a
-/// machine that had once cached native 1.24.4 kept running managed 1.30.0 on it (dogfooding 2026-09-17).
+/// machine that had once cached native 1.24.4 kept running managed 1.30.0 on it.
 /// </summary>
 public sealed class OnnxNuGetDownloaderVersionPreferenceTests : IDisposable
 {

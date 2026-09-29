@@ -88,7 +88,6 @@ public sealed class RuntimeManager : IAsyncDisposable
     /// <see cref="EnsureRuntimeAsync"/> call can update <see cref="ActiveProvider"/> while the
     /// actual resident binary silently stays the old one. Compare this path's directory
     /// against the path <see cref="EnsureRuntimeAsync"/> returned to detect that mismatch.
-    /// See docket iyulab/lm-supply#151.
     /// </summary>
     public string? ActuallyLoadedRuntimePath =>
         _primaryLibraryName is null ? null : NativeLoader.Instance.GetLoadedPath(_primaryLibraryName);
@@ -597,8 +596,7 @@ public sealed class RuntimeManagerOptions
     /// process). Default false preserves the historical behavior: the request silently keeps
     /// using the resident binary and <see cref="RuntimeManager.ActuallyLoadedRuntimePath"/> is the
     /// only way to notice. This never unloads or replaces the resident binary either way -- it
-    /// only decides whether the conflicting request fails instead of silently no-op'ing. See
-    /// docket iyulab/lm-supply#151.
+    /// only decides whether the conflicting request fails instead of silently no-op'ing.
     /// </summary>
     public bool FailOnRuntimeConflict { get; set; }
 }

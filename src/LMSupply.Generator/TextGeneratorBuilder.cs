@@ -238,8 +238,7 @@ public sealed class TextGeneratorBuilder
         // LocalGenerator.LoadAsync rather than the ONNX factory. The ONNX factory
         // would treat the literal alias (e.g. "default") as a HuggingFace repo id
         // and 401 against huggingface.co/default, while LocalGenerator dispatches
-        // to GGUF aliases or the auto-selection path. See ISSUE-LMSupply.Generator-
-        // 20260429-000657 for the diagnosis.
+        // to GGUF aliases or the auto-selection path.
         if (!string.IsNullOrEmpty(_modelId) && NeedsLocalGeneratorRouting(_modelId))
         {
             var localOptions = BuildLocalGeneratorOptions();

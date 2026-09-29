@@ -6,7 +6,7 @@ namespace LMSupply.Llama.Tests.Server;
 
 /// <summary>
 /// Tests for <see cref="LlamaServerDownloader.RunGatedOnceAsync"/>, the run-at-most-once primitive
-/// behind CUDA-runtime provisioning. The main consumer (Filer) loads embedder + generator into the
+/// behind CUDA-runtime provisioning. An app that loads embedder + generator into the
 /// same cuda12 versionDir via <c>Task.WhenAll</c>; without serialization both threads see the runtime
 /// missing and race the same multi-hundred-MB download/extract (corruption + redundant downloads).
 /// A single gate + a post-acquire re-check converges concurrent callers to exactly one execution.

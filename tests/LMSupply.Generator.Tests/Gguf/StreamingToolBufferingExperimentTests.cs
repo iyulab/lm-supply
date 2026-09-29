@@ -9,10 +9,8 @@ using Xunit;
 namespace LMSupply.Generator.Tests.Gguf;
 
 /// <summary>
-/// Decisive experiment for upstream triage (umbrella 2026-06-16):
-/// Filer ISSUE-219 — local GGUF chat final answer arrives as a single text delta.
-/// Source tracing proved the IronHive adapter + Filer's ResilientChatClient are 1:1
-/// per-chunk pass-throughs, so the collapse must originate inside
+/// Experiment: does a local GGUF chat final answer arrive as a single text delta instead of
+/// streaming per token? If so, the collapse originates inside
 /// LMSupply.Generator.GenerateChatStreamAsync (or the llama-server beneath it).
 ///
 /// Leading hypothesis: when GenerationOptions.Tools is populated, the llama-server
@@ -38,7 +36,7 @@ public class StreamingToolBufferingExperimentTests
         await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", new GeneratorOptions { MaxContextLength = 4096 }, cancellationToken: TestContext.Current.CancellationToken);
 
         // A prompt that elicits a multi-sentence plain-text answer (no tool actually needed),
-        // mirroring Filer's "final answer" turn (finishReason=stop, multi-sentence).
+        // like an agent's "final answer" turn (finishReason=stop, multi-sentence).
         var messages = new[]
         {
             ChatMessage.System("You are a helpful assistant. Answer in 3-4 full sentences."),
@@ -87,10 +85,10 @@ public class StreamingToolBufferingExperimentTests
     }
 
     /// <summary>
-    /// Closer repro of Filer ISSUE-219 call-3: the final-answer turn arrives after a
+    /// Closer repro of an agent's final-answer turn: it arrives after a
     /// multi-turn history of tool-call + tool-result messages (ReadFile x2, WriteFile),
     /// with tools still present in options. This is the one structural difference between
-    /// the clean 2-message test above and Filer's real run. If the symptom (finish=stop +
+    /// the clean 2-message test above and a real agent run. If the symptom (finish=stop +
     /// a single text chunk on a multi-sentence answer) reproduces here, the trigger is the
     /// tool-result history, not the tool definitions.
     /// </summary>
@@ -107,7 +105,7 @@ public class StreamingToolBufferingExperimentTests
             new("write_file", "Write content to a file.", weatherSchema)
         };
 
-        // Mirror Filer's call-3 history: 2x ReadFile round-trips + 1x WriteFile, then ask
+        // Agent-style history: 2x ReadFile round-trips + 1x WriteFile, then ask
         // for the final combined summary (the turn that produced finish=stop + 1 text delta).
         var messages = new List<ChatMessage>
         {
@@ -130,13 +128,13 @@ public class StreamingToolBufferingExperimentTests
         _output.WriteLine("=== VERDICT ===");
         if (stats.FinishReason == "stop" && stats.TextChunks <= 1 && stats.TotalChars > 40)
         {
-            _output.WriteLine("REPRODUCED Filer 219: stop + single text chunk on a multi-sentence answer. " +
+            _output.WriteLine("REPRODUCED: stop + single text chunk on a multi-sentence answer. " +
                               "Trigger = tool-result history. Locus confirmed in LMSupply/server boundary.");
         }
         else if (stats.FinishReason == "stop" && stats.TextChunks > 1)
         {
             _output.WriteLine($"NOT reproduced: streamed {stats.TextChunks} chunks. Trigger is NOT tool-result history; " +
-                              "request Filer's exact call-3 messages+ChatOptions.");
+                              "capture the exact failing messages+ChatOptions.");
         }
         else
         {
@@ -147,7 +145,7 @@ public class StreamingToolBufferingExperimentTests
     }
 
     /// <summary>
-    /// Mechanism probe (umbrella 2026-06-21): does GenerationOptions.EnableThinking=false actually
+    /// Mechanism probe: does GenerationOptions.EnableThinking=false actually
     /// suppress thinking for a thinking-default-on model (Qwen3) on the CHAT path
     /// (GenerateChatStreamAsync -> /v1/chat/completions), and does a "/no_think" soft switch in the
     /// last user message suppress it? Measures Text vs ReasoningDelta separately.

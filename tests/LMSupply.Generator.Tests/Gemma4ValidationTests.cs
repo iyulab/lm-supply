@@ -64,7 +64,7 @@ public class Gemma4StaticValidationTests
     {
         // CreateToolCallStreamParser() must return a live parser so that
         // LlamaServerGeneratorModel routes text-channel tool-call wrappers through
-        // Gemma4ToolCallStreamParser (ecosystem ISSUE D-5, 2026-05-01).
+        // Gemma4ToolCallStreamParser.
         var formatter = new Gemma4ChatFormatter();
 
         var parser = formatter.CreateToolCallStreamParser();
@@ -210,7 +210,7 @@ public class Gemma4StaticValidationTests
 
         fragment.Should().NotBeNull();
         fragment.Should().Contain("get_weather");
-        // Must list required params to work around E4B empty-args bug (ISSUE D-1).
+        // Must list required params: E4B otherwise emits empty tool args.
         fragment.Should().Contain("Required parameters (MUST be provided):");
         fragment.Should().Contain("location (string)");
     }
@@ -375,7 +375,7 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
         output.WriteLine($"[gguf:gemma4-fast compliance] {successes}/{runs} = {rate:P0}");
 
         rate.Should().BeGreaterThanOrEqualTo(0.60,
-            because: "E2B Q4_K_M must call tools successfully ≥60% of the time (ISSUE G1 baseline)");
+            because: "E2B Q4_K_M must call tools successfully ≥60% of the time");
     }
 
     // ---- gguf:gemma4-default (E4B Q4_K_M, ~5 GB, partial CPU offload on 4 GB VRAM) ----------

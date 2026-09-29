@@ -6,9 +6,9 @@ namespace LMSupply.Core.Tests.Download;
 /// <summary>
 /// Regression teeth for the transient file-lock retry used by the download-to-load handoff
 /// (rename racing a second process/AV scanner opening the destination, or two callers racing
-/// to acquire the same ".part" write handle). Found by dogfooding downstream — a raw
-/// <see cref="IOException"/> from this window was bubbling straight to the caller with no
-/// recovery attempt (docket iyulab/lm-supply#100).
+/// to acquire the same ".part" write handle). Without the retry, a raw
+/// <see cref="IOException"/> from this window bubbles straight to the caller with no
+/// recovery attempt.
 /// </summary>
 public class FileIoRetryTests
 {

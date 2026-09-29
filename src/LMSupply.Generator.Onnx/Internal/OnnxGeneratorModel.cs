@@ -446,8 +446,8 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
     /// parses fall back to flushing the buffered text verbatim.</item>
     /// </list>
     /// Without this, ONNX-backed models (e.g. Phi-4-mini-instruct) silently bypass
-    /// tool calling under the streaming code path that filer-host's OpenAI-compatible
-    /// endpoint uses, leaving search_knowledge / RAG tools effectively unreachable.
+    /// tool calling on the streaming code path (the one an OpenAI-compatible streaming
+    /// endpoint uses), leaving search_knowledge / RAG tools effectively unreachable.
     /// </remarks>
     public async IAsyncEnumerable<ChatStreamChunk> GenerateChatStreamAsync(
         IEnumerable<ChatMessage> messages,
@@ -511,7 +511,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
                 // retry loop because the dispatcher cannot resolve the name and
                 // re-prompts the model. Drop unknown names before they leave
                 // the generator boundary so the caller surfaces the assistant
-                // text instead. Sprint-RR1 RR-N evidence (2026-05-02).
+                // text instead.
                 var validNames = options.Tools is { Count: > 0 } toolDefs
                     ? new HashSet<string>(toolDefs.Select(t => t.Name), StringComparer.Ordinal)
                     : null;

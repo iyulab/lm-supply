@@ -31,7 +31,7 @@ public class NativeLoaderTests
     [Fact]
     public void RegisterDirectory_SameLibraryNameDifferentPath_FirstLoadedBinaryStaysResident()
     {
-        // Reproduces docket iyulab/lm-supply#151's cause #2: two different directories each
+        // Two different directories each
         // register a native library under the same name (e.g. two different onnxruntime
         // providers' "onnxruntime.dll" both preloaded during the same process's lifetime).
         // Only the first-loaded binary should ever become resident, and GetLoadedPath should
@@ -73,11 +73,9 @@ public class NativeLoaderTests
     [Fact]
     public void RegisterDirectory_SameLibraryNameDifferentPath_ThrowOnConflictTrue_ThrowsWithoutDisturbingResidentBinary()
     {
-        // HD-45 (Option A): an opted-in caller should fail loudly on *its own* request when it
-        // would conflict with a binary already resident under the same library name -- while the
-        // already-loaded binary (and any other code already holding a handle into it) stays
-        // completely untouched. This is the narrower half of docket iyulab/lm-supply#151 that
-        // cycle-387 (ADAPT #151(B)) deliberately left open pending an owner decision (HD-45).
+        // An opted-in caller should fail loudly on *its own* request when it would conflict
+        // with a binary already resident under the same library name -- while the already-loaded
+        // binary (and any other code already holding a handle into it) stays completely untouched.
         if (!OperatingSystem.IsWindows())
             return; // Native DLL used for the real load is Windows-only.
 

@@ -8,7 +8,7 @@ namespace LMSupply.Transcriber.Tests;
 /// the speech that sits across its window boundaries. Before 0.68.2 windows advanced by a fixed 30 s:
 /// the decoder ended each window after the last segment it could close, so the 3–4 s before every
 /// boundary were never decoded, the next window opened mid-sentence, and one window fell into a
-/// repetition loop (docket iyulab/lm-supply#340). The fixture was synthesized once, offline, from a
+/// repetition loop. The fixture was synthesized once, offline, from a
 /// local TTS voice and checked in.
 /// </summary>
 [Trait("Category", "Integration")]
@@ -59,7 +59,7 @@ public sealed class WhisperLongFormConformanceTests
     /// The last window starts at a seek point with only a few seconds of audio left and is padded to
     /// 30 s. A language hint that does not match the speech drives the decoder into temperature
     /// fallback, and a sampled decode over the padding closed segments up to 16 s past the end of the
-    /// input (docket iyulab/lm-supply#347). Several runs, because the fallback samples.
+    /// input. Several runs, because the fallback samples.
     /// </summary>
     [Fact]
     public async Task WithAMismatchedLanguageHint_NoSegmentEndsPastTheAudio()
