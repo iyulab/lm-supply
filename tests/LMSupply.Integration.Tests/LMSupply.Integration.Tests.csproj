@@ -19,6 +19,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="NAudio" />
     <PackageReference Include="NAudio.Lame" />
+    <!-- README snippet compile teeth -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
   </ItemGroup>
 
   <ItemGroup>

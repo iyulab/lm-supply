@@ -35,8 +35,8 @@ Next runs:  LoadAsync("default") → Uses cached model → Runs inference instan
 No pre-download scripts. No model management. Just use it.
 
 ### 🎯 Zero Boilerplate
-Traditional approach:
-```csharp
+Traditional approach (pseudocode):
+```text
 // ❌ Without LMSupply: 50+ lines of setup
 var tokenizer = LoadTokenizer(modelPath);
 var session = new InferenceSession(modelPath, sessionOptions);
@@ -262,6 +262,7 @@ await foreach (var segment in transcriber.TranscribeStreamingAsync("audio.wav"))
 ```csharp
 using LMSupply.Synthesizer;
 
+#pragma warning disable LMSUPPLY001 // the known issue above — opt in knowingly
 await using var synthesizer = await LocalSynthesizer.LoadAsync("default");
 
 // Synthesize and save to file
@@ -510,12 +511,12 @@ Detection priority (GGUF/llama-server): CUDA → Metal → Vulkan → CPU, runti
 
 ```csharp
 // Auto-detect (default) - uses GPU if available, falls back to CPU
-var options = new EmbedderOptions { Provider = ExecutionProvider.Auto };
+var auto = new EmbedderOptions { Provider = ExecutionProvider.Auto };
 
 // Force specific provider
-var options = new EmbedderOptions { Provider = ExecutionProvider.Cuda };     // NVIDIA
-var options = new EmbedderOptions { Provider = ExecutionProvider.CoreML };   // macOS
-var options = new EmbedderOptions { Provider = ExecutionProvider.Cpu };      // CPU only
+var cuda = new EmbedderOptions { Provider = ExecutionProvider.Cuda };     // NVIDIA
+var coreMl = new EmbedderOptions { Provider = ExecutionProvider.CoreML }; // macOS
+var cpu = new EmbedderOptions { Provider = ExecutionProvider.Cpu };       // CPU only
 ```
 
 `ExecutionProvider.Cpu` also keeps the GPU out of the process: the hardware probe (NVML, which loads the CUDA driver
@@ -571,6 +572,8 @@ would have conflicted, naming the requested and resident paths. This is opt-in a
 mid-process), it only decides whether the conflicting request fails instead of no-op'ing.
 
 ```csharp
+using LMSupply.Runtime;
+
 var manager = new RuntimeManager(new RuntimeManagerOptions { FailOnRuntimeConflict = true });
 // Throws NativeLibraryConflictException if a prior EnsureRuntimeAsync call (in this process)
 // already loaded a different binary under the same native library name.
@@ -715,9 +718,9 @@ LMSupply supports three ways to specify models:
 Use predefined aliases for quick access to popular models:
 
 ```csharp
-await using var embedder = await LocalEmbedder.LoadAsync("default");      // bge-m3 (multilingual SOTA)
-await using var generator = await LocalGenerator.LoadAsync("gguf:auto");    // Hardware-optimized
-await using var generator = await LocalGenerator.LoadAsync("gguf:qwen3-balanced"); // Qwen3 8B
+await using var embedder = await LocalEmbedder.LoadAsync("default");       // bge-m3 (multilingual SOTA)
+await using var fitted = await LocalGenerator.LoadAsync("gguf:auto");        // Hardware-optimized
+await using var qwen = await LocalGenerator.LoadAsync("gguf:qwen3-balanced"); // Qwen3 8B
 ```
 
 ### 2. HuggingFace Repository ID (Full control)
@@ -725,13 +728,16 @@ await using var generator = await LocalGenerator.LoadAsync("gguf:qwen3-balanced"
 Use any HuggingFace repository directly with `owner/repo-name` format:
 
 ```csharp
+using LMSupply.Captioner;
+using LMSupply.Detector;
+
 // ONNX models - auto-discovers onnx/ subfolder
 await using var embedder = await LocalEmbedder.LoadAsync("BAAI/bge-large-en-v1.5");
 await using var reranker = await LocalReranker.LoadAsync("onnx-community/bge-reranker-v2-m3-ONNX");
 
 // GGUF models - auto-detected by repo name pattern (-GGUF, _gguf)
-await using var generator = await LocalGenerator.LoadAsync("bartowski/Llama-3.2-3B-Instruct-GGUF");
-await using var generator = await LocalGenerator.LoadAsync("bartowski/Qwen2.5-Coder-7B-Instruct-GGUF");
+await using var llama = await LocalGenerator.LoadAsync("bartowski/Llama-3.2-3B-Instruct-GGUF");
+await using var coder = await LocalGenerator.LoadAsync("bartowski/Qwen2.5-Coder-7B-Instruct-GGUF");
 
 // Vision models
 await using var captioner = await LocalCaptioner.LoadAsync("Xenova/vit-gpt2-image-captioning"); // = "default"; ViT-GPT2 is the only supported captioner architecture
@@ -830,6 +836,8 @@ the standard settings apply to all of them at once:
   On Windows the system proxy is used when these are unset.
 - **In code**, before the first load:
   ```csharp
+  using System.Net;
+
   HttpClient.DefaultProxy = new WebProxy("http://proxy.internal:8080")
   {
       Credentials = new NetworkCredential("user", "password")
