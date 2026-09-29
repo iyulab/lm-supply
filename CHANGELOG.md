@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [0.93.1] - Unreleased
+## [0.93.1] - 2026-09-29
 
 ### Documentation
 - **The package READMEs shown on nuget.org compile.** Every C# block in the repository README and in each package
