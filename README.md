@@ -192,8 +192,10 @@ await using var preferred = await LocalGenerator.LoadAsync("auto", options);
 await using var responsive = await LocalGenerator.LoadAsync(
     "auto", new GeneratorOptions { AutoSelectionGoal = AutoSelectionGoal.Responsive });
 
-// Consent gate — true only when the load with the same id and options downloads nothing
-if (!LocalGenerator.IsModelDownloaded("gguf:qwen3-default", options) && !AskUserToDownload())
+// Consent gate — true only when the load with the same id and options downloads nothing;
+// GetDownloadSizeBytesAsync is what that load fetches on this host ("auto" resolved like the load)
+if (!LocalGenerator.IsModelDownloaded("auto", options)
+    && !AskUserToDownload(await LocalGenerator.GetDownloadSizeBytesAsync("auto", options)))
     return;
 
 // Switching GGUF models on one GPU — stop the servers no model uses (dispose the old model first)
@@ -243,7 +245,8 @@ foreach (var segment in meeting.Segments)
 // The diarization models download on first use; to fetch them at an install step instead, load with
 // new TranscriberOptions { PreloadDiarization = true }. LocalTranscriber.IsDiarizationDownloadedAsync() checks the cache.
 // For a consent screen: LocalTranscriber.GetDownloadSizeBytesAsync(options) is what that load downloads (the quantization it
-// picks, plus the pair when PreloadDiarization is set) — TranscriberModelInfo.SizeBytes is the full-precision export's size.
+// picks, plus the pair when PreloadDiarization is set) — TranscriberModelInfo.SizeBytes is the full-precision export's size —
+// and LocalTranscriber.IsModelDownloadedAsync(options) whether the model's files are already on disk.
 
 // Streaming transcription
 await foreach (var segment in transcriber.TranscribeStreamingAsync("audio.wav"))

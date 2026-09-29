@@ -53,6 +53,43 @@ internal static class GeneratorModelLoader
     }
 
     /// <summary>
+    /// The weight files <see cref="DownloadAsync"/> would fetch for the same arguments, with their listed lengths —
+    /// the same format routing and the same file choice, so the plan and the download cannot disagree. Downloads nothing.
+    /// </summary>
+    public static async Task<DownloadPlan> PlanDownloadAsync(
+        string modelId,
+        GeneratorOptions options,
+        CancellationToken cancellationToken)
+    {
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        var format = ModelFormatDetector.Detect(modelId);
+        switch (format)
+        {
+            case ModelFormat.Onnx:
+            {
+                using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+                return await downloader.PlanWithDiscoveryAsync(
+                    modelId, OnnxPreferences(modelId, options), cancellationToken: cancellationToken);
+            }
+            case ModelFormat.Gguf or ModelFormat.Unknown:
+            {
+                using var downloader = new GgufModelDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+                var registryInfo = GgufModelRegistry.Resolve(modelId, options.SelectionProvider, options.MaxContextLength, options.AutoSelectionGoal);
+                if (registryInfo is not null)
+                {
+                    return await downloader.PlanFromRegistryAsync(
+                        registryInfo, options.SelectionProvider, options.MaxContextLength, cancellationToken);
+                }
+
+                ThrowIfUnregisteredGgufAlias(modelId);
+                return await downloader.PlanAsync(modelId, cancellationToken);
+            }
+            default:
+                throw new NotSupportedException($"Unsupported model format: {format}");
+        }
+    }
+
+    /// <summary>
     /// Loads an ONNX GenAI model from HuggingFace.
     /// </summary>
     private static async Task<IGeneratorModel> LoadOnnxAsync(
@@ -83,6 +120,28 @@ internal static class GeneratorModelLoader
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
+        // Use discovery-based download for all models
+        // This handles dynamic ONNX file names (e.g., phi-3.5-mini-instruct-*.onnx)
+        var (basePath, discovery) = await downloader.DownloadWithDiscoveryAsync(
+            modelId,
+            preferences: OnnxPreferences(modelId, options),
+            progress: progress,
+            cancellationToken: cancellationToken);
+
+        // Build the actual model path including subfolder if present
+        var modelPath = discovery.Subfolder != null
+            ? Path.Combine(basePath, discovery.Subfolder.Replace('/', Path.DirectorySeparatorChar))
+            : basePath;
+
+        // Pass basePath as configBasePath when subfolder is used,
+        // so GenAiConfigReader can find genai_config.json at either location
+        var configBasePath = discovery.Subfolder != null ? basePath : null;
+        return (modelPath, configBasePath);
+    }
+
+    // The discovery preferences an ONNX download uses — shared by the download and the plan.
+    private static ModelPreferences OnnxPreferences(string modelId, GeneratorOptions options)
+    {
         // Look up model in registry to get subfolder preference
         GeneratorModelRegistry.Default.TryResolve(modelId, out var modelInfo);
 
@@ -108,23 +167,7 @@ internal static class GeneratorModelLoader
             preferences = hwPrefs;
         }
 
-        // Use discovery-based download for all models
-        // This handles dynamic ONNX file names (e.g., phi-3.5-mini-instruct-*.onnx)
-        var (basePath, discovery) = await downloader.DownloadWithDiscoveryAsync(
-            modelId,
-            preferences: preferences,
-            progress: progress,
-            cancellationToken: cancellationToken);
-
-        // Build the actual model path including subfolder if present
-        var modelPath = discovery.Subfolder != null
-            ? Path.Combine(basePath, discovery.Subfolder.Replace('/', Path.DirectorySeparatorChar))
-            : basePath;
-
-        // Pass basePath as configBasePath when subfolder is used,
-        // so GenAiConfigReader can find genai_config.json at either location
-        var configBasePath = discovery.Subfolder != null ? basePath : null;
-        return (modelPath, configBasePath);
+        return preferences;
     }
 
     /// <summary>
@@ -187,15 +230,7 @@ internal static class GeneratorModelLoader
         }
         else
         {
-            // Guard: "gguf:*" prefixed IDs are alias-only — passing to HF would use "gguf" as repo ID and 401.
-            if (modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase))
-            {
-                var known = string.Join(", ", GgufModelRegistry.GetAliases());
-                throw new ArgumentException(
-                    $"'{modelId}' is not a registered GGUF alias. Known aliases: {known}. " +
-                    $"Register it in GgufModelRegistry or use a full HuggingFace repo ID (without the 'gguf:' prefix).",
-                    nameof(modelId));
-            }
+            ThrowIfUnregisteredGgufAlias(modelId);
 
             // Assume it's a HuggingFace repo ID
             using var downloader = new GgufModelDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
@@ -211,6 +246,19 @@ internal static class GeneratorModelLoader
         }
 
         return (modelPath, chatFormat, registryInfo);
+    }
+
+    // "gguf:*" prefixed IDs are alias-only — passing one to HF would use "gguf" as the repo ID and get a 401.
+    private static void ThrowIfUnregisteredGgufAlias(string modelId)
+    {
+        if (!modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var known = string.Join(", ", GgufModelRegistry.GetAliases());
+        throw new ArgumentException(
+            $"'{modelId}' is not a registered GGUF alias. Known aliases: {known}. " +
+            $"Register it in GgufModelRegistry or use a full HuggingFace repo ID (without the 'gguf:' prefix).",
+            nameof(modelId));
     }
 
     public static async Task<IGeneratorModel> LoadFromPathAsync(

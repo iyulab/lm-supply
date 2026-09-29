@@ -55,7 +55,9 @@ public static class LocalGenerator
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
-        options ??= new GeneratorOptions();
+
+        // A copy: a ":variant" qualifier below becomes the load's quantization hint, not the caller's.
+        options = options?.Clone() ?? new GeneratorOptions();
 
         // User alias translation precedes ALL format detection: an alias is a name
         // substitution, so the gguf/default/path checks below must see the TARGET
@@ -134,10 +136,56 @@ public static class LocalGenerator
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
-        options ??= new GeneratorOptions();
+        options = options?.Clone() ?? new GeneratorOptions();
 
-        // Mirrors LoadAsync's resolution step for step — see the comments there for why each
-        // check sits where it does. Divergence here would warm a file the load never opens.
+        var (id, isLocal) = ResolveDownloadTarget(modelId, options);
+        return isLocal
+            ? id
+            : await Internal.GeneratorModelLoader.DownloadAsync(id, options, progress, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Bytes <see cref="DownloadModelAsync"/> (and so the first <see cref="LoadAsync"/>) would download for the same
+    /// id and options into an empty cache — the weight files that load picks on this host, at the lengths the repository
+    /// lists. <c>"default"</c>/<c>"auto"</c> are the model the hardware-aware selection picks (with
+    /// <see cref="GeneratorOptions.AutoSelectionGoal"/>, <see cref="GeneratorOptions.MaxContextLength"/> and a
+    /// <see cref="LlamaOptions.GpuLayerCount"/> of 0 applied, as for the load), and a GGUF alias is the quantization
+    /// the memory budget picks. For a consent screen that states what a first run will fetch.
+    /// </summary>
+    /// <remarks>
+    /// Reads the repository listing (one request, cached for a day and reused by the download that follows); downloads
+    /// and loads nothing. The figure is the whole download whatever the cache already holds —
+    /// <see cref="IsModelDownloaded"/> answers what is present. A local path downloads nothing, so it is 0. The
+    /// llama-server runtime, which a first GGUF load also provisions (once per host, shared by every model), is not
+    /// counted. With <see cref="GeneratorOptions.DisableAutoDownload"/> the listing comes from the cache only, as the
+    /// load's choice does.
+    /// </remarks>
+    /// <param name="modelId">Anything <see cref="LoadAsync"/> accepts.</param>
+    /// <param name="options">The options the load will use; not modified.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="Exceptions.ModelNotFoundException">The repository does not exist, holds no GGUF, or (downloads disabled) was never listed into this cache.</exception>
+    /// <exception cref="Exceptions.ModelDownloadException">The listing gives no length for a file the load picks.</exception>
+    public static async Task<long> GetDownloadSizeBytesAsync(
+        string modelId,
+        GeneratorOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        options = options?.Clone() ?? new GeneratorOptions();
+
+        var (id, isLocal) = ResolveDownloadTarget(modelId, options);
+        if (isLocal)
+            return 0;
+
+        var plan = await Internal.GeneratorModelLoader.PlanDownloadAsync(id, options, cancellationToken).ConfigureAwait(false);
+        return plan.TotalBytes;
+    }
+
+    // Mirrors LoadAsync's resolution step for step — see the comments there for why each check sits where it does.
+    // Divergence here would warm (or size) a file the load never opens. Sets a ":variant" qualifier as the options'
+    // quantization hint, so callers pass a copy.
+    private static (string ModelId, bool IsLocal) ResolveDownloadTarget(string modelId, GeneratorOptions options)
+    {
         if (GeneratorModelRegistry.Default.TryGetUserAliasTarget(modelId, out var userAliasTarget))
         {
             modelId = userAliasTarget!;
@@ -146,7 +194,7 @@ public static class LocalGenerator
         if (modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ||
             Internal.Llama.GgufModelRegistry.IsAlias(modelId))
         {
-            return await Internal.GeneratorModelLoader.DownloadAsync(modelId, options, progress, cancellationToken).ConfigureAwait(false);
+            return (modelId, false);
         }
 
         var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelId);
@@ -159,7 +207,7 @@ public static class LocalGenerator
             modelId = !string.IsNullOrEmpty(options.PreferredAutoModelId)
                 ? options.PreferredAutoModelId
                 : SelectAutoModel(options).ModelId;
-            return await DownloadModelAsync(modelId, options, progress, cancellationToken).ConfigureAwait(false);
+            return ResolveDownloadTarget(modelId, options);
         }
 
         if (GeneratorModelRegistry.Default.TryResolve(modelId, out var resolvedModel))
@@ -167,12 +215,7 @@ public static class LocalGenerator
             modelId = resolvedModel!.ModelId;
         }
 
-        if (File.Exists(modelId) || Directory.Exists(modelId))
-        {
-            return modelId;
-        }
-
-        return await Internal.GeneratorModelLoader.DownloadAsync(modelId, options, progress, cancellationToken).ConfigureAwait(false);
+        return (modelId, File.Exists(modelId) || Directory.Exists(modelId));
     }
 
     /// <summary>

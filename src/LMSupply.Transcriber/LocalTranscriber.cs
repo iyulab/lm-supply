@@ -1,3 +1,5 @@
+using LMSupply.Download;
+using LMSupply.Exceptions;
 using LMSupply.Transcriber.Core;
 using LMSupply.Transcriber.Models;
 
@@ -97,15 +99,78 @@ public static class LocalTranscriber
         options = options?.Clone() ?? new TranscriberOptions();
         PrepareOptions(modelIdOrPath, options);
 
-        var plan = Registry.TryResolve(options.ModelId, out var info) && info is not null
-                   && TranscriberArchitectures.IsParakeetTdt(info.Architecture)
-            ? await ParakeetTdtTranscriberModel.PlanDownloadAsync(options, info, cancellationToken)
-            : Directory.Exists(options.ModelId)
-                ? null
-                : await OnnxTranscriberModel.PlanDownloadAsync(options, Registry.Resolve(options.ModelId), cancellationToken);
-
+        var plan = await PlanDownloadAsync(options, cancellationToken);
         return (plan?.TotalBytes ?? 0) + (options.PreloadDiarization ? DiarizationDownloadSizeBytes : 0);
     }
+
+    // The files a load with these (prepared) options fetches — null for a model on local disk. Shared by the size query
+    // and the cache check, so that both pick the files the load picks.
+    private static Task<DownloadPlan?> PlanDownloadAsync(TranscriberOptions options, CancellationToken cancellationToken)
+        => Registry.TryResolve(options.ModelId, out var info) && info is not null
+           && TranscriberArchitectures.IsParakeetTdt(info.Architecture)
+            ? ParakeetTdtTranscriberModel.PlanDownloadAsync(options, info, cancellationToken)
+            : Directory.Exists(options.ModelId)
+                ? Task.FromResult<DownloadPlan?>(null)
+                : OnnxTranscriberModel.PlanDownloadAsync(options, Registry.Resolve(options.ModelId), cancellationToken);
+
+    /// <summary>
+    /// Whether a load of <paramref name="modelIdOrPath"/> with <paramref name="options"/> would open cached files only —
+    /// every file that load picks (the same alias, <c>:variant</c> qualifier and quantization as
+    /// <see cref="LoadAsync(string, TranscriberOptions?, IProgress{DownloadProgress}?, CancellationToken)"/> and
+    /// <see cref="GetDownloadSizeBytesAsync(string, TranscriberOptions?, CancellationToken)"/>) is in the cache at the length
+    /// the repository lists, and none is a Git LFS pointer. Makes no network request and loads nothing.
+    /// </summary>
+    /// <remarks>
+    /// The answer never errs toward <see langword="true"/>: a repository directory without its model files, a partial
+    /// file, or a cache that never listed the repository answers <see langword="false"/>. A model on local disk answers
+    /// <see langword="true"/> (the load downloads nothing). The speaker-diarization pair is not part of the answer, even
+    /// with <see cref="TranscriberOptions.PreloadDiarization"/> — <see cref="IsDiarizationDownloadedAsync"/> answers for it.
+    /// </remarks>
+    /// <param name="modelIdOrPath">A model alias, HuggingFace id or local path, as for <c>LoadAsync</c>.</param>
+    /// <param name="options">The options the load will use; not modified. <see cref="LMSupplyOptionsBase.CacheDirectory"/> is where to look.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static async Task<bool> IsModelDownloadedAsync(
+        string modelIdOrPath,
+        TranscriberOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        options = options?.Clone() ?? new TranscriberOptions();
+        PrepareOptions(modelIdOrPath, options);
+
+        // Plan from the cached listing (or the download manifest) only — the check must not reach the network.
+        options.DisableAutoDownload = true;
+
+        DownloadPlan? plan;
+        try
+        {
+            plan = await PlanDownloadAsync(options, cancellationToken);
+        }
+        catch (Exception ex) when (ex is ModelNotFoundException or ModelDownloadException)
+        {
+            // Never listed into this cache, or listed without a file (or its length) the load needs.
+            return false;
+        }
+
+        if (plan is null)
+            return true;
+
+        var snapshotDir = CacheManager.GetModelDirectory(
+            options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory(), plan.RepoId, plan.Revision);
+        return plan.Files.All(file =>
+        {
+            var path = Path.Combine(snapshotDir, file.Path.Replace('/', Path.DirectorySeparatorChar));
+            return File.Exists(path)
+                   && new FileInfo(path).Length == file.SizeBytes
+                   && !CacheManager.IsLfsPointerFile(path);
+        });
+    }
+
+    /// <inheritdoc cref="IsModelDownloadedAsync(string, TranscriberOptions?, CancellationToken)"/>
+    /// <remarks>For <see cref="TranscriberOptions.ModelId"/> — the check that matches <see cref="LoadAsync(TranscriberOptions?, IProgress{DownloadProgress}?, CancellationToken)"/>.</remarks>
+    public static Task<bool> IsModelDownloadedAsync(
+        TranscriberOptions? options, CancellationToken cancellationToken = default)
+        => IsModelDownloadedAsync(options?.ModelId ?? "default", options, cancellationToken);
 
     /// <summary>
     /// <see cref="GetDownloadSizeBytesAsync(string, TranscriberOptions?, CancellationToken)"/> for

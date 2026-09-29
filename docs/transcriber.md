@@ -231,6 +231,11 @@ Console.WriteLine($"Diarization models ({LocalTranscriber.DiarizationDownloadSiz
 var install = new TranscriberOptions { PreloadDiarization = true };
 long bytes = await LocalTranscriber.GetDownloadSizeBytesAsync(install);   // the figure the consent screen states
 ```
+- `IsModelDownloadedAsync(options)` (0.93.0+) answers whether that load would open cached files only: every file it
+  picks (same alias, qualifier and quantization as `GetDownloadSizeBytesAsync`) is on disk at the length the
+  repository lists, and none is a Git LFS pointer. It makes no request and loads nothing. A repository directory
+  without its files, a partial file, or a cache that never listed the repository is `false`; a model on local disk is
+  `true`. The diarization pair is not part of the answer — `IsDiarizationDownloadedAsync` answers for it.
 - The load's `progress` reports one sequence per model: the transcription model's files, then the two diarization
   files. (Before 0.82.0 `LoadAsync` accepted `progress` but never passed it to the download.)
 - `LocalTranscriber.Pool` keys models by id only: a pooled model that was loaded without `PreloadDiarization` is

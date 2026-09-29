@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.93.0] - Unreleased
+
+### Added
+- **`LocalTranscriber.IsModelDownloadedAsync` tells whether a load would open cached files only.** It checks the files the
+  load picks (the same alias, `:variant` qualifier and quantization as `GetDownloadSizeBytesAsync`) at the lengths the
+  repository lists, makes no request and loads nothing — the check the embedder, reranker and generator already had. A
+  repository directory left behind without its model files answers `false`.
+- **`LocalGenerator.GetDownloadSizeBytesAsync` is what the first load downloads on this host.** `"auto"`/`"default"` resolve
+  to the model the selection picks (goal, `MaxContextLength`, `GpuLayerCount = 0` applied) and a GGUF alias to the
+  quantization the memory budget picks; a split model counts every shard. It reads the repository listing and downloads
+  nothing. The llama-server runtime is not counted.
+
+### Fixed
+- **`LocalGenerator.LoadAsync` and `DownloadModelAsync` no longer write a `:variant` qualifier into the caller's options.**
+  They set `QuantizationHint` on the instance passed in, so reusing it for another id carried the first id's
+  quantization; they now work on a copy.
+
 ## [0.92.1] - 2026-09-29
 
 ### Fixed

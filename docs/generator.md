@@ -203,6 +203,21 @@ if (!LocalGenerator.IsModelDownloaded("gguf:qwen3-default", options))
     await LocalGenerator.DownloadModelAsync("gguf:qwen3-default", options, progress);  // after consent
 ```
 
+`LocalGenerator.GetDownloadSizeBytesAsync(modelId, options)` (0.93.0+) is the figure that consent
+screen states: the bytes `DownloadModelAsync` (and so the first `LoadAsync`) fetches with the same id
+and options into an empty cache — the weight files the load picks on this host, at the lengths the
+repository lists. `"auto"`/`"default"` are the model the selection picks (goal, `MaxContextLength`
+and `GpuLayerCount = 0` applied), a GGUF alias is the quantization the memory budget picks, and a
+split model is every shard. It reads the repository listing once (cached for a day and reused by the
+download) and downloads nothing; a local path is 0. The llama-server runtime a first GGUF load
+provisions (once per host) is not counted. With `DisableAutoDownload` it answers from the cached
+listing only and throws `ModelNotFoundException` without one.
+
+```csharp
+var options = new GeneratorOptions { MaxContextLength = 4096, AutoSelectionGoal = AutoSelectionGoal.Responsive };
+long bytes = await LocalGenerator.GetDownloadSizeBytesAsync("auto", options);   // this device's first-run download
+```
+
 ## Configuration Options
 
 ### Execution Provider

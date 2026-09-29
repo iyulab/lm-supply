@@ -107,14 +107,7 @@ public sealed class GgufModelDownloader : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
 
-        // Determine the file to download — offline, only a cached file can be chosen.
-        if (string.IsNullOrEmpty(filename))
-        {
-            filename = _localFilesOnly
-                ? TrySelectFromLocalCache(repoId, preferredQuantization)
-                    ?? throw NotCached(repoId, preferredQuantization is null ? "*.gguf" : $"*{preferredQuantization}*.gguf")
-                : await SelectBestGgufFileAsync(repoId, preferredQuantization, cancellationToken);
-        }
+        filename = await ResolveFileAsync(repoId, filename, preferredQuantization, cancellationToken);
 
         // Check cache: a cached file counts only at the length the repository lists (when the listing is
         // available); one of another length is not this file and is fetched again.
@@ -147,6 +140,75 @@ public sealed class GgufModelDownloader : IDisposable
         return cachedPath;
     }
 
+    // The file DownloadAsync fetches — the named one, else the best fit (offline, only a cached file can be chosen).
+    // Shared with PlanAsync so that the plan and the download cannot disagree.
+    private async Task<string> ResolveFileAsync(
+        string repoId, string? filename, string? preferredQuantization, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrEmpty(filename))
+            return filename;
+
+        return _localFilesOnly
+            ? TrySelectFromLocalCache(repoId, preferredQuantization)
+                ?? throw NotCached(repoId, preferredQuantization is null ? "*.gguf" : $"*{preferredQuantization}*.gguf")
+            : await SelectBestGgufFileAsync(repoId, preferredQuantization, cancellationToken);
+    }
+
+    /// <summary>
+    /// The files <see cref="DownloadAsync"/> would fetch for a raw repository (no file named), with their listed
+    /// lengths — the same pick, so the plan and the download cannot disagree. Downloads nothing.
+    /// </summary>
+    /// <exception cref="ModelNotFoundException">No GGUF in the repository, or (local files only) nothing listed or cached.</exception>
+    /// <exception cref="ModelDownloadException">The listing gives no length for the picked file.</exception>
+    internal async Task<DownloadPlan> PlanAsync(string repoId, CancellationToken cancellationToken = default)
+        => await PlanFilesAsync(repoId, [await ResolveFileAsync(repoId, null, null, cancellationToken)], cancellationToken);
+
+    /// <summary>
+    /// The files <see cref="DownloadFromRegistryAsync"/> would fetch for this registry model on this host (every shard
+    /// of a split model, otherwise the quantization the memory budget picks), with their listed lengths. Downloads nothing.
+    /// </summary>
+    /// <exception cref="ModelNotFoundException">(Local files only) the repository was never listed into this cache.</exception>
+    /// <exception cref="ModelDownloadException">The listing gives no length for a picked file.</exception>
+    internal async Task<DownloadPlan> PlanFromRegistryAsync(
+        GgufModelInfo modelInfo,
+        ExecutionProvider provider = ExecutionProvider.Auto,
+        int? contextLength = null,
+        CancellationToken cancellationToken = default)
+        => await PlanFilesAsync(
+            modelInfo.RepoId,
+            await ResolveRegistryFilesAsync(modelInfo, provider, preferredQuantization: null, contextLength, cancellationToken),
+            cancellationToken);
+
+    private async Task<DownloadPlan> PlanFilesAsync(
+        string repoId, IReadOnlyList<string> files, CancellationToken cancellationToken)
+    {
+        // Offline, the listing comes from the cache only, as the download's choice does.
+        var listing = _localFilesOnly
+            ? _discoveryService.TryReadCachedListing(repoId)
+                ?? throw new ModelNotFoundException(
+                    $"Model '{repoId}' has no repository listing in the local cache and downloads are disabled.", repoId)
+            : await ListRepositoryFilesAsync(repoId, cancellationToken);
+        var listed = listing.Where(f => f.IsFile).ToList();
+
+        return new DownloadPlan
+        {
+            RepoId = repoId,
+            Revision = "main",
+            Files = [.. files.Select(f => new PlannedFile(f, SizeOf(f)))]
+        };
+
+        // By repository path, else by file name — the match TryGetListedSizeAsync makes for the download.
+        long SizeOf(string file)
+        {
+            var match = listed.FirstOrDefault(f => string.Equals(f.Path, file, StringComparison.Ordinal))
+                        ?? listed.FirstOrDefault(f => string.Equals(Path.GetFileName(f.Path), file, StringComparison.Ordinal));
+            return match is { Size: > 0 }
+                ? match.Size
+                : throw new ModelDownloadException(
+                    $"The listing of '{repoId}' gives no length for '{file}', so the download size is unknown.", repoId);
+        }
+    }
+
     /// <summary>
     /// The length the repository lists for <paramref name="filename"/>, or null when the listing cannot be
     /// fetched or does not carry it. The listing is cached by the discovery service.
@@ -177,6 +239,24 @@ public sealed class GgufModelDownloader : IDisposable
         int? contextLength = null,
         CancellationToken cancellationToken = default)
     {
+        var files = await ResolveRegistryFilesAsync(modelInfo, provider, preferredQuantization, contextLength, cancellationToken);
+
+        // Split GGUF models (multiple shards) — downscaling not applicable to shards.
+        if (modelInfo.ShardCount is > 1)
+            return await DownloadSplitModelAsync(modelInfo.RepoId, files, progress, cancellationToken);
+
+        return await DownloadAsync(modelInfo.RepoId, files[0], preferredQuantization, progress, cancellationToken);
+    }
+
+    // The files DownloadFromRegistryAsync fetches: every shard of a split model, otherwise the one file.
+    // Shared with PlanFromRegistryAsync so that the plan and the download cannot disagree.
+    private async Task<IReadOnlyList<string>> ResolveRegistryFilesAsync(
+        GgufModelInfo modelInfo,
+        ExecutionProvider provider,
+        string? preferredQuantization,
+        int? contextLength,
+        CancellationToken cancellationToken)
+    {
         // Use registry default file unless a different quantization is explicitly preferred.
         var filename = modelInfo.DefaultFile;
 
@@ -201,15 +281,9 @@ public sealed class GgufModelDownloader : IDisposable
             filename = await SelectRegistryFileAsync(modelInfo, provider, contextLength, cancellationToken);
         }
 
-        // Handle split GGUF models (multiple shards) — downscaling not applicable to shards.
-        if (modelInfo.ShardCount is > 1)
-        {
-            return await DownloadSplitModelAsync(
-                modelInfo.RepoId, filename, modelInfo.ShardCount.Value,
-                progress, cancellationToken);
-        }
-
-        return await DownloadAsync(modelInfo.RepoId, filename, preferredQuantization, progress, cancellationToken);
+        return modelInfo.ShardCount is > 1
+            ? GenerateShardFilenames(filename, modelInfo.ShardCount.Value)
+            : [filename];
     }
 
     /// <summary>
@@ -388,12 +462,11 @@ public sealed class GgufModelDownloader : IDisposable
     /// </summary>
     private async Task<string> DownloadSplitModelAsync(
         string repoId,
-        string firstShardFilename,
-        int shardCount,
+        IReadOnlyList<string> shardFilenames,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
-        var shardFilenames = GenerateShardFilenames(firstShardFilename, shardCount);
+        var shardCount = shardFilenames.Count;
         string? firstShardPath = null;
 
         for (int i = 0; i < shardFilenames.Count; i++)
