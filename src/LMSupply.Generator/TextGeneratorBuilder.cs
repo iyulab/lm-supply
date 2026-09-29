@@ -109,6 +109,16 @@ public sealed class TextGeneratorBuilder
     }
 
     /// <summary>
+    /// Sets what an <c>"auto"</c> model id chooses when no model fits VRAM (see <see cref="GeneratorOptions.AutoSelectionGoal"/>).
+    /// </summary>
+    /// <param name="goal">The selection goal.</param>
+    public TextGeneratorBuilder WithAutoSelectionGoal(AutoSelectionGoal goal)
+    {
+        _modelOptions.AutoSelectionGoal = goal;
+        return this;
+    }
+
+    /// <summary>
     /// Sets the maximum concurrent requests.
     /// </summary>
     /// <param name="maxConcurrentRequests">Maximum concurrent generation requests.</param>
@@ -139,15 +149,6 @@ public sealed class TextGeneratorBuilder
     public TextGeneratorBuilder WithServerUpdateOptions(LlamaServerUpdateOptions serverUpdateOptions)
     {
         _modelOptions.ServerUpdateOptions = serverUpdateOptions ?? throw new ArgumentNullException(nameof(serverUpdateOptions));
-        return this;
-    }
-
-    /// <summary>
-    /// Enables verbose logging.
-    /// </summary>
-    public TextGeneratorBuilder WithVerboseLogging()
-    {
-        _modelOptions.Verbose = true;
         return this;
     }
 
@@ -288,23 +289,10 @@ public sealed class TextGeneratorBuilder
         modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Builds a <see cref="GeneratorOptions"/> for <see cref="LocalGenerator.LoadAsync"/>
-    /// from the builder's accumulated options. Mirrors the fields the ONNX path consumes
-    /// so the two paths behave consistently.
+    /// The <see cref="GeneratorOptions"/> for <see cref="LocalGenerator.LoadAsync"/>: a copy of the builder's
+    /// accumulated options, so every option reaches the load (a hand-written field list drifts when options are added).
     /// </summary>
-    private GeneratorOptions BuildLocalGeneratorOptions() => new()
-    {
-        CacheDirectory = _modelOptions.CacheDirectory,
-        Provider = _modelOptions.Provider,
-        ChatFormat = _modelOptions.ChatFormat,
-        Verbose = _modelOptions.Verbose,
-        MaxContextLength = _modelOptions.MaxContextLength,
-        MaxConcurrentRequests = _modelOptions.MaxConcurrentRequests,
-        LlamaOptions = _modelOptions.LlamaOptions,
-        QuantizationHint = _modelOptions.QuantizationHint,
-        ServerUpdateOptions = _modelOptions.ServerUpdateOptions,
-        PreferredAutoModelId = _modelOptions.PreferredAutoModelId,
-    };
+    internal GeneratorOptions BuildLocalGeneratorOptions() => _modelOptions.Clone();
 
     /// <summary>
     /// Builds a generator pool for managing multiple models.

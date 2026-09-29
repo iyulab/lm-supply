@@ -7,7 +7,7 @@ namespace LMSupply.Generator.Tests;
 
 /// <summary>
 /// <c>"default"</c>, <c>"auto"</c> and <c>"gguf:auto"</c> select with one rule, from the profile of the load's provider
-/// (<see cref="GgufModelRegistry.GetAutoSelection(ExecutionProvider, int?)"/>). Before 0.76.0 the first two read the detected
+/// (<see cref="GgufModelRegistry.GetAutoSelection(ExecutionProvider, int?, AutoSelectionGoal)"/>). Before 0.76.0 the first two read the detected
 /// GPU even for an explicit <see cref="ExecutionProvider.Cpu"/> and never considered system memory, while
 /// <c>"gguf:auto"</c> considered system memory but also read the detected GPU — the same word, two selections, and
 /// neither honoured "Cpu".
@@ -55,6 +55,28 @@ public sealed class AutoSelectionProviderTests : IDisposable
 
         resolved.Should().NotBeNull();
         resolved!.RepoId.Should().Be(GgufModelRegistry.GetAutoSelection(provider).Selected.RepoId);
+    }
+
+    [Fact]
+    public void AutoAndDefault_SelectLikeGgufAuto_ForTheLoadsContextAndGoal()
+    {
+        // A budget where the context moves the pick (8B at 4,096, 4B at 16,384), so a selection that
+        // ignored MaxContextLength or the goal would disagree with "gguf:auto".
+        Environment.SetEnvironmentVariable(VramBudget.BudgetOverrideEnvVar, "7000");
+        var picks = new List<string>();
+
+        foreach (var context in new int?[] { null, 16_384 })
+        foreach (var goal in new[] { AutoSelectionGoal.Quality, AutoSelectionGoal.Responsive })
+        foreach (var provider in new[] { ExecutionProvider.Auto, ExecutionProvider.Cpu })
+        {
+            var options = new GeneratorOptions { Provider = provider, MaxContextLength = context, AutoSelectionGoal = goal };
+            var auto = LocalGenerator.SelectAutoModel(options).ModelId;
+            var ggufAuto = GgufModelRegistry.Resolve("gguf:auto", provider, context, goal)!.AliasName;
+            auto.Should().Be(ggufAuto, $"provider {provider}, context {context}, goal {goal}");
+            picks.Add(auto);
+        }
+
+        picks.Distinct().Should().HaveCountGreaterThan(2, "positive control: context and goal must change the pick here");
     }
 
     [Fact]

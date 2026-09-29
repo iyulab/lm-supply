@@ -59,6 +59,9 @@ public sealed record ModelSelectionResult
     /// <summary>The model that was selected.</summary>
     public required GgufModelInfo Selected { get; init; }
 
+    /// <summary>What the selection optimized for when nothing fit VRAM.</summary>
+    public AutoSelectionGoal Goal { get; init; }
+
     /// <summary>Why this model was selected (fits or fallback).</summary>
     public required ModelSelectionReason Reason { get; init; }
 

@@ -188,6 +188,10 @@ await using var robust = await LocalGenerator.LoadWithFallbackChainAsync(
 var options = new GeneratorOptions { PreferredAutoModelId = "gguf:phi-4-mini" };
 await using var preferred = await LocalGenerator.LoadAsync("auto", options);
 
+// Interactive use — when nothing fits VRAM, take the smallest model instead of the largest the RAM holds
+await using var responsive = await LocalGenerator.LoadAsync(
+    "auto", new GeneratorOptions { AutoSelectionGoal = AutoSelectionGoal.Responsive });
+
 // Consent gate — true only when the load with the same id and options downloads nothing
 if (!LocalGenerator.IsModelDownloaded("gguf:qwen3-default", options) && !AskUserToDownload())
     return;
@@ -344,7 +348,7 @@ before the first ONNX load:
 
 **GGUF aliases** (via llama-server):
 
-Gemma 4와 Qwen3 시리즈 중심 레지스트리. `gguf:auto`(와 `"default"`/`"auto"` — 같은 규칙)는 **qwen3 auto-pool** (qwen3-fast/default/balanced/quality)에서 VRAM에 맞는 가장 큰 모델을, VRAM이 부족하면 시스템 RAM 예산(시스템 RAM − 4 GB, 최대 절반)에 맞는 가장 큰 모델을 자동 선택합니다. `Provider = ExecutionProvider.Cpu` 를 명시하면 시스템 RAM만 보고 GPU를 탐지하지 않습니다. Gemma 4 aliases는 명시적으로 지정하거나 하드코딩된 워크로드에 사용하세요.
+Gemma 4와 Qwen3 시리즈 중심 레지스트리. `gguf:auto`(와 `"default"`/`"auto"` — 같은 규칙)는 **qwen3 auto-pool** (qwen3-fast/default/balanced/quality)에서 VRAM에 맞는 가장 큰 모델을, VRAM이 부족하면 시스템 RAM 예산(시스템 RAM − 4 GB, 최대 절반)에 맞는 가장 큰 모델을 자동 선택합니다(`GeneratorOptions.AutoSelectionGoal = Responsive` 면 그 경로에서 가장 작은 모델). 선택은 요청한 `MaxContextLength` 기준입니다. `Provider = ExecutionProvider.Cpu` 를 명시하면 시스템 RAM만 보고 GPU를 탐지하지 않습니다. Gemma 4 aliases는 명시적으로 지정하거나 하드코딩된 워크로드에 사용하세요.
 
 **Gemma 4 aliases** (Apache 2.0, 멀티모달, 네이티브 function calling; llama.cpp **b8672+** 필요):
 
@@ -619,7 +623,7 @@ When set to a positive integer, the override is applied **before any safety marg
 
 ### Model auto-selection (VRAM- and RAM-aware)
 
-`gguf:auto` picks the largest registered model that fits the available budget. Selection considers the GPU VRAM budget first; when no model fits VRAM it falls back to the **system RAM budget** (`min(total RAM − 4 GB, total RAM × 0.5)`) so a low-VRAM, high-RAM machine runs the largest model that fits RAM on CPU instead of dropping to the smallest. Only if neither budget fits does it fall back to the smallest model. The chosen path is reported by `ModelSelectionResult.Reason` (`Fits` → VRAM, `FitsInSystemRam` → CPU/RAM, `FallbackToSmallest`). Example: an integrated-GPU laptop with 32 GB RAM selects an ~8B+ model on CPU rather than a 2B fallback.
+`gguf:auto` picks the largest registered model that fits the available budget. Selection considers the GPU VRAM budget first; when no model fits VRAM it falls back to the **system RAM budget** (`min(total RAM − 4 GB, total RAM × 0.5)`) so a low-VRAM, high-RAM machine runs the largest model that fits RAM on CPU instead of dropping to the smallest. Only if neither budget fits does it fall back to the smallest model. `GeneratorOptions.AutoSelectionGoal = AutoSelectionGoal.Responsive` takes the smallest model on the RAM path instead (for interactive use on a host whose GPU cannot hold the model); a candidate that fits VRAM is chosen the same way under either goal. The chosen path is reported by `ModelSelectionResult.Reason` (`Fits` → VRAM, `FitsInSystemRam` → CPU/RAM, `FallbackToSmallest`). Example: an integrated-GPU laptop with 32 GB RAM selects an ~8B+ model on CPU rather than a 2B fallback.
 
 **Quantization-aware downscale (low-spec).** After the model family is chosen, the download step picks the quantization file that fits the *backend-consistent* memory budget (VRAM on a GPU backend, RAM on a CPU/integrated-GPU backend), with the model's KV cache for the requested `MaxContextLength` (each registered alias records its cache layout, `GgufModelInfo.KvCacheBytesPerToken`). A capable host keeps the registry's default quant (e.g. `Q4_K_M`); a tight-memory host **downscales to a smaller quant** (`Q4 → Q3 → Q2`) so it loads instead of OOMing on the default. If no quant fits, the smallest is used with a `Trace.TraceWarning` (OOM risk surfaced, not silent). An explicit GPU pin or `preferredQuantization` is honored as-is. A cached quant is reused only when it fits the budget.
 

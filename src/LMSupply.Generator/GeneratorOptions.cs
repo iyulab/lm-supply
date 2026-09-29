@@ -14,12 +14,6 @@ public sealed class GeneratorOptions : LMSupplyOptionsBase
     public string? ChatFormat { get; set; }
 
     /// <summary>
-    /// Gets or sets whether to log detailed information during model loading.
-    /// Defaults to false.
-    /// </summary>
-    public bool Verbose { get; set; }
-
-    /// <summary>
     /// Gets or sets the maximum context length to use.
     /// If null, uses the model's default context length.
     /// </summary>
@@ -54,6 +48,14 @@ public sealed class GeneratorOptions : LMSupplyOptionsBase
     public string? PreferredAutoModelId { get; set; }
 
     /// <summary>
+    /// What <c>"default"</c>, <c>"auto"</c> and <c>"gguf:auto"</c> choose when no candidate fits the VRAM budget:
+    /// <see cref="AutoSelectionGoal.Quality"/> (default) takes the largest model the system RAM budget holds,
+    /// <see cref="AutoSelectionGoal.Responsive"/> the smallest. A host whose GPU holds a candidate gets the largest
+    /// that fits under either goal.
+    /// </summary>
+    public AutoSelectionGoal AutoSelectionGoal { get; set; } = AutoSelectionGoal.Quality;
+
+    /// <summary>
     /// Gets or sets llama-server acquisition policy (version pinning, a pre-provisioned binary
     /// path, auto-update behavior) for GGUF model loading.
     /// If null, the process-wide default (<see cref="LlamaServerUpdateService.Instance"/>,
@@ -82,11 +84,11 @@ public sealed class GeneratorOptions : LMSupplyOptionsBase
         LogLevel = LogLevel,
         QuantizationHint = QuantizationHint,
         ChatFormat = ChatFormat,
-        Verbose = Verbose,
         MaxContextLength = MaxContextLength,
         MaxConcurrentRequests = MaxConcurrentRequests,
         LlamaOptions = LlamaOptions,
         PreferredAutoModelId = PreferredAutoModelId,
+        AutoSelectionGoal = AutoSelectionGoal,
         ServerUpdateOptions = ServerUpdateOptions,
         DisableAutoDownload = DisableAutoDownload
     };

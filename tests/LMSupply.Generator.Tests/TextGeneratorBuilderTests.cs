@@ -69,11 +69,26 @@ public class TextGeneratorBuilderTests
             .WithProvider(ExecutionProvider.Cpu)
             .WithMaxContextLength(4096)
             .WithConcurrency(2)
-            .WithVerboseLogging()
             .ForCreativeGeneration();
 
         // Assert
         builder.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void LocalLoadOptions_CarryEveryBuilderSetting()
+    {
+        var options = TextGeneratorBuilder.Create()
+            .WithProvider(ExecutionProvider.Cpu)
+            .WithMaxContextLength(16_384)
+            .WithConcurrency(2)
+            .WithAutoSelectionGoal(AutoSelectionGoal.Responsive)
+            .BuildLocalGeneratorOptions();
+
+        options.Provider.Should().Be(ExecutionProvider.Cpu);
+        options.MaxContextLength.Should().Be(16_384);
+        options.MaxConcurrentRequests.Should().Be(2);
+        options.AutoSelectionGoal.Should().Be(AutoSelectionGoal.Responsive);
     }
 
     [Fact]

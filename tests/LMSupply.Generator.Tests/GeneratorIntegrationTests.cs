@@ -29,8 +29,7 @@ public class GeneratorIntegrationTests
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.Cuda,
-            Verbose = true
+            Provider = ExecutionProvider.Cuda
         };
 
         // Act
@@ -56,8 +55,7 @@ public class GeneratorIntegrationTests
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.Cpu,
-            Verbose = true
+            Provider = ExecutionProvider.Cpu
         };
 
         // Act
@@ -83,8 +81,7 @@ public class GeneratorIntegrationTests
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.Cuda,
-            Verbose = true
+            Provider = ExecutionProvider.Cuda
         };
 
         // Act
@@ -105,8 +102,7 @@ public class GeneratorIntegrationTests
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.Cuda,
-            Verbose = true
+            Provider = ExecutionProvider.Cuda
         };
 
         // Act
@@ -132,8 +128,7 @@ public class GeneratorIntegrationTests
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.Cpu,
-            Verbose = true
+            Provider = ExecutionProvider.Cpu
         };
 
         // Act
@@ -159,8 +154,7 @@ public class GeneratorIntegrationTests
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.Cuda,
-            Verbose = true
+            Provider = ExecutionProvider.Cuda
         };
 
         // Act
@@ -209,8 +203,7 @@ public class GeneratorIntegrationTests
         // Arrange - Auto mode (default, no explicit provider)
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.Auto,
-            Verbose = true
+            Provider = ExecutionProvider.Auto
         };
 
         // Act
@@ -244,8 +237,7 @@ public class GeneratorIntegrationTests
         // Arrange - Auto mode
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.Auto,
-            Verbose = true
+            Provider = ExecutionProvider.Auto
         };
 
         // Act
@@ -332,8 +324,7 @@ public class GeneratorIntegrationTests
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.Cuda,
-            Verbose = true
+            Provider = ExecutionProvider.Cuda
         };
 
         // Act - Load directly from path
@@ -362,8 +353,7 @@ public class GeneratorIntegrationTests
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.Cpu,
-            Verbose = true
+            Provider = ExecutionProvider.Cpu
         };
 
         // Act - Load directly from path
@@ -391,8 +381,7 @@ public class GeneratorIntegrationTests
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.Cuda,
-            Verbose = true
+            Provider = ExecutionProvider.Cuda
         };
 
         // Act
@@ -412,8 +401,7 @@ public class GeneratorIntegrationTests
         // Arrange
         var options = new GeneratorOptions
         {
-            Provider = ExecutionProvider.Cpu,
-            Verbose = true
+            Provider = ExecutionProvider.Cpu
         };
 
         // Act

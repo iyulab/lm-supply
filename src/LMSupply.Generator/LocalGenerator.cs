@@ -261,7 +261,7 @@ public static class LocalGenerator
     private static bool IsGgufModelCached(string modelId, GeneratorOptions options, string cacheDir)
     {
         using var downloader = new Internal.Llama.GgufModelDownloader(cacheDir, localFilesOnly: true);
-        var registryInfo = Internal.Llama.GgufModelRegistry.Resolve(modelId, options.Provider, options.MaxContextLength);
+        var registryInfo = Internal.Llama.GgufModelRegistry.Resolve(modelId, options.Provider, options.MaxContextLength, options.AutoSelectionGoal);
         if (registryInfo is not null)
         {
             return downloader.IsRegistryModelCached(registryInfo, options.Provider, options.MaxContextLength);
@@ -438,11 +438,13 @@ public static class LocalGenerator
     /// <see cref="LoadAutoAsync"/> and <see cref="DownloadModelAsync"/> so warming and loading agree.
     /// Logs the selection with the <c>[LocalGenerator.auto]</c> prefix.
     /// </summary>
-    private static (string ModelId, SelectionDiagnostics Diagnostics) SelectAutoModel(GeneratorOptions options)
+    internal static (string ModelId, SelectionDiagnostics Diagnostics) SelectAutoModel(GeneratorOptions options)
     {
         // The profile of the load's provider: an explicit Cpu selects from system memory without probing the GPU.
         var profile = HardwareProfile.For(options.Provider);
-        var selection = Internal.Llama.GgufModelRegistry.GetAutoSelection(options.Provider);
+        // Sized for the load's context like "gguf:auto" (GeneratorModelLoader) — one rule for all three names.
+        var selection = Internal.Llama.GgufModelRegistry.GetAutoSelection(
+            options.Provider, options.MaxContextLength, options.AutoSelectionGoal);
         // Pass the alias (e.g. "gguf:gemma4-fast") rather than RepoId so the downstream
         // loader can re-resolve the registry entry and use its DefaultFile. Passing
         // RepoId would lose the DefaultFile and fall back to GgufFileSelector, which
@@ -469,7 +471,7 @@ public static class LocalGenerator
             $"VRAM total={vramTotalMb:F0}MB free={vramFreeMb:F0}MB → budget={budgetMb:F0}MB (margin={marginPct:F0}%, " +
             $"KV ctx={selection.BudgetContextLength}) → GGUF path, " +
             $"selected={selection.Selected.AliasName} ({selection.Selected.RepoId}), " +
-            $"reason={selection.Reason}");
+            $"reason={selection.Reason}, goal={selection.Goal}");
 
         // Warn when free VRAM is the binding constraint (total-based cap would have been larger).
         if (profile.GpuInfo.TotalMemoryBytes is > 0 && profile.GpuInfo.FreeMemoryBytes is > 0)

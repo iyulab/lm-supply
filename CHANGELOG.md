@@ -4,6 +4,28 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.92.0] - Unreleased
+
+### Added
+- **`GeneratorOptions.AutoSelectionGoal` chooses what `"default"`, `"auto"` and `"gguf:auto"` take when no model fits VRAM.**
+  `Quality` (default, unchanged) takes the largest model the system RAM budget holds; `Responsive` takes the smallest in the
+  pool, for interactive use on a host whose GPU cannot hold the model. A candidate that fits VRAM is chosen the same way
+  under either goal. `ModelSelectionResult.Goal` and the `[LocalGenerator.auto]` log line report it.
+
+### Fixed
+- **`"default"` and `"auto"` are sized for the requested context, like `"gguf:auto"`.** 0.91.0 sized `gguf:auto` and the
+  quantization for `MaxContextLength`, but the other two names still sized every candidate for 4,096 tokens, so the same
+  load could pick a model its context did not fit. `IsModelDownloaded` and `DownloadModelAsync` for these names follow.
+
+### Removed
+- **Breaking**: `GeneratorOptions.Verbose` and `TextGeneratorBuilder.WithVerboseLogging()`. Nothing read them — setting them
+  never changed any output. The load already writes its selection, candidates and server lifecycle to `Trace`; a
+  `TraceListener` (or its filter level) decides how much of it you see. Remove the assignment.
+
+### Changed
+- `TextGeneratorBuilder` hands the load a copy of all its options (`GeneratorOptions.Clone()`), not a hand-written subset.
+  `TextGeneratorBuilder.WithAutoSelectionGoal` sets the new goal.
+
 ## [0.91.0] - 2026-09-29
 
 ### Changed

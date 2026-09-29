@@ -386,6 +386,38 @@ public class GgufModelRegistryTests
         result.AvailableSystemRamBytes.Should().Be(32L * 1024 * 1024 * 1024);
     }
 
+    [Fact]
+    public void GetAutoSelection_NoVramButAmpleRam_ResponsiveGoal_SelectsTheSmallestModel()
+    {
+        // Same host as above: Quality takes the 8B the RAM holds, Responsive the smallest (a person waits on the CPU).
+        var gpu = new GpuInfo { Vendor = GpuVendor.Intel, TotalMemoryBytes = 128L * 1024 * 1024 };
+        var result = GgufModelRegistry.GetAutoSelection(
+            gpu, systemRamBytes: 32L * 1024 * 1024 * 1024,
+            GgufModelRegistry.DefaultBudgetContextLength, excludeKnownIssues: null, AutoSelectionGoal.Responsive);
+
+        result.Reason.Should().Be(ModelSelectionReason.FitsInSystemRam);
+        result.Goal.Should().Be(AutoSelectionGoal.Responsive);
+        result.Selected.AliasName.Should().Be("gguf:qwen3-fast");
+    }
+
+    [Fact]
+    public void GetAutoSelection_VramFits_ResponsiveGoal_StillTakesTheLargestVramFit()
+    {
+        var gpu = new GpuInfo
+        {
+            Vendor = GpuVendor.Nvidia,
+            TotalMemoryBytes = 8L * 1024 * 1024 * 1024,
+            FreeMemoryBytes = 7L * 1024 * 1024 * 1024
+        };
+        var ram = 32L * 1024 * 1024 * 1024;
+        var quality = GgufModelRegistry.GetAutoSelection(gpu, ram, GgufModelRegistry.DefaultBudgetContextLength, excludeKnownIssues: null);
+        var responsive = GgufModelRegistry.GetAutoSelection(
+            gpu, ram, GgufModelRegistry.DefaultBudgetContextLength, excludeKnownIssues: null, AutoSelectionGoal.Responsive);
+
+        quality.Reason.Should().Be(ModelSelectionReason.Fits);
+        responsive.Selected.AliasName.Should().Be(quality.Selected.AliasName, "the goal only decides the RAM path");
+    }
+
     [Theory]
     [InlineData(4L, 0L)]    // at or below the reserve: nothing
     [InlineData(6L, 2L)]    // small host: the reserve binds (6 - 4 < 3)

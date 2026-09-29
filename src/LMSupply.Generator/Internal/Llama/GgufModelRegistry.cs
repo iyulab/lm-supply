@@ -336,17 +336,22 @@ public static class GgufModelRegistry
 
     /// <summary>
     /// Resolves an alias for a load with <paramref name="provider"/>: <c>"gguf:auto"</c> is selected with
-    /// <see cref="GetAutoSelection(ExecutionProvider, int?)"/>, the same rule as <c>"default"</c>/<c>"auto"</c>, sized for
+    /// <see cref="GetAutoSelection(ExecutionProvider, int?, AutoSelectionGoal)"/>, the same rule as <c>"default"</c>/<c>"auto"</c>, sized for
     /// <paramref name="contextLength"/> (the load's <c>MaxContextLength</c>; null = <see cref="DefaultBudgetContextLength"/>).
     /// </summary>
-    public static GgufModelInfo? Resolve(string aliasOrRepoId, ExecutionProvider provider, int? contextLength = null)
+    /// <param name="aliasOrRepoId">The alias or repository id.</param>
+    /// <param name="provider">The provider the load asks for.</param>
+    /// <param name="contextLength">The load's context; null = <see cref="DefaultBudgetContextLength"/>.</param>
+    /// <param name="goal">What the auto selection optimizes for when nothing fits VRAM.</param>
+    public static GgufModelInfo? Resolve(
+        string aliasOrRepoId, ExecutionProvider provider, int? contextLength = null, AutoSelectionGoal goal = AutoSelectionGoal.Quality)
     {
         if (string.IsNullOrWhiteSpace(aliasOrRepoId))
             return null;
 
         // Handle "gguf:auto" alias - select optimal model based on hardware
         if (aliasOrRepoId.Equals("gguf:auto", StringComparison.OrdinalIgnoreCase))
-            return GetAutoSelection(provider, contextLength).Selected;
+            return GetAutoSelection(provider, contextLength, goal).Selected;
 
         // Try direct lookup with gguf: prefix
         if (_models.TryGetValue(aliasOrRepoId, out var info))
@@ -427,11 +432,12 @@ public static class GgufModelRegistry
         GpuInfo gpu,
         long systemRamBytes,
         int budgetContextLength,
-        IReadOnlyCollection<string>? excludeKnownIssues)
+        IReadOnlyCollection<string>? excludeKnownIssues,
+        AutoSelectionGoal goal = AutoSelectionGoal.Quality)
     {
         var safetyMargin = VramBudget.GetRecommendedSafetyMargin(gpu);
         var availableVram = VramBudget.GetAvailableBytes(gpu, safetyMargin);
-        return Select(availableVram, safetyMargin, systemRamBytes, budgetContextLength, excludeKnownIssues);
+        return Select(availableVram, safetyMargin, systemRamBytes, budgetContextLength, excludeKnownIssues, goal);
     }
 
     /// <summary>
@@ -445,13 +451,15 @@ public static class GgufModelRegistry
     /// <param name="provider">The provider the load asks for.</param>
     /// <param name="contextLength">The context the load asks for — each candidate's KV cache is sized for it; null =
     /// <see cref="DefaultBudgetContextLength"/>.</param>
-    public static ModelSelectionResult GetAutoSelection(ExecutionProvider provider, int? contextLength = null)
+    /// <param name="goal">What to optimize for when no candidate fits VRAM.</param>
+    public static ModelSelectionResult GetAutoSelection(
+        ExecutionProvider provider, int? contextLength = null, AutoSelectionGoal goal = AutoSelectionGoal.Quality)
     {
         var profile = HardwareProfile.For(provider);
         var budgetContext = contextLength ?? DefaultBudgetContextLength;
         return provider == ExecutionProvider.Cpu
-            ? Select(availableVram: 0, safetyMargin: 0, profile.SystemMemoryBytes, budgetContext, excludeKnownIssues: null)
-            : GetAutoSelection(profile.GpuInfo, profile.SystemMemoryBytes, budgetContext, excludeKnownIssues: null);
+            ? Select(availableVram: 0, safetyMargin: 0, profile.SystemMemoryBytes, budgetContext, excludeKnownIssues: null, goal)
+            : GetAutoSelection(profile.GpuInfo, profile.SystemMemoryBytes, budgetContext, excludeKnownIssues: null, goal);
     }
 
     private static ModelSelectionResult Select(
@@ -459,7 +467,8 @@ public static class GgufModelRegistry
         double safetyMargin,
         long systemRamBytes,
         int budgetContextLength,
-        IReadOnlyCollection<string>? excludeKnownIssues)
+        IReadOnlyCollection<string>? excludeKnownIssues,
+        AutoSelectionGoal goal)
     {
         var availableRam = SystemRamBudgetBytes(systemRamBytes);
 
@@ -478,7 +487,10 @@ public static class GgufModelRegistry
         ModelSelectionReason reason;
 
         var fittingVram = candidates.FirstOrDefault(c => c.Fits);
-        var fittingRam = candidates.FirstOrDefault(c => c.FitsInSystemRam);
+        // Candidates are ordered largest first: Quality takes the largest RAM fit, Responsive the smallest.
+        var fittingRam = goal == AutoSelectionGoal.Responsive
+            ? candidates.LastOrDefault(c => c.FitsInSystemRam)
+            : candidates.FirstOrDefault(c => c.FitsInSystemRam);
 
         if (fittingVram is not null)
         {
@@ -487,8 +499,7 @@ public static class GgufModelRegistry
         }
         else if (fittingRam is not null)
         {
-            // Nothing fits VRAM, but RAM can hold it — run on CPU/partial offload instead of
-            // dropping to the smallest model on a machine with ample RAM.
+            // Nothing fits VRAM, but RAM can hold it — run on CPU/partial offload (the goal picks which).
             selected = fittingRam.Model;
             reason = ModelSelectionReason.FitsInSystemRam;
         }
@@ -508,6 +519,7 @@ public static class GgufModelRegistry
             AvailableSystemRamBytes = availableRam,
             SafetyMargin = safetyMargin,
             BudgetContextLength = budgetContextLength,
+            Goal = goal,
             Candidates = candidates,
         };
     }

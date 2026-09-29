@@ -602,7 +602,7 @@ public class GeneratorFunctionalTests
         var opts = new GeneratorOptions();
 
         opts.ChatFormat.Should().BeNull("chat format should be auto-detected by default");
-        opts.Verbose.Should().BeFalse("verbose should be off by default");
+        opts.AutoSelectionGoal.Should().Be(AutoSelectionGoal.Quality, "the largest model the hardware holds by default");
         opts.MaxContextLength.Should().BeNull("max context should be null (use model default)");
         opts.MaxConcurrentRequests.Should().Be(1, "default concurrent requests should be 1");
         opts.LlamaOptions.Should().BeNull("GGUF options should be null by default");
