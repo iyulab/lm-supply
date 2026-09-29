@@ -116,7 +116,7 @@ the load's `MaxContextLength` (unset = 4,096).
 
 `GeneratorOptions.AutoSelectionGoal` decides the RAM path only: `Quality` (default) takes the largest model the RAM budget
 holds, `Responsive` the smallest in the pool — for interactive use where a person waits for the answer on the CPU. A
-candidate that fits VRAM is chosen the same way under either goal, so the option is safe to set on every host.
+candidate that fits VRAM is chosen the same way under either goal, so the option is safe to set on every host. A load with `LlamaOptions.GpuLayerCount = 0` keeps every layer on the CPU, so it is chosen like `Provider = Cpu`.
 
 `"default"`, `"auto"` and `"gguf:auto"` are one rule (0.76.0; before that `"default"`/`"auto"` never
 considered system RAM). The rule reads the profile of the load's provider: with an explicit

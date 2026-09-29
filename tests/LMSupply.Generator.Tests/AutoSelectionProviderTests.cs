@@ -80,6 +80,27 @@ public sealed class AutoSelectionProviderTests : IDisposable
     }
 
     [Fact]
+    public void GpuLayerCountZero_SelectsLikeCpu_EvenWhenTheGpuHoldsTheModel()
+    {
+        // Every candidate fits the GPU here, but GpuLayerCount = 0 runs the model on the CPU: sizing the choice against
+        // VRAM would put the largest model on the CPU. It selects from system memory, and the goal applies.
+        Environment.SetEnvironmentVariable(VramBudget.BudgetOverrideEnvVar, "1000000");
+        var cpuOnly = new LlamaOptions { GpuLayerCount = 0 };
+
+        foreach (var goal in new[] { AutoSelectionGoal.Quality, AutoSelectionGoal.Responsive })
+        {
+            var options = new GeneratorOptions { LlamaOptions = cpuOnly, AutoSelectionGoal = goal };
+            var expected = GgufModelRegistry.GetAutoSelection(ExecutionProvider.Cpu, null, goal).Selected.AliasName;
+
+            LocalGenerator.SelectAutoModel(options).ModelId.Should().Be(expected, $"goal {goal}");
+            GgufModelRegistry.Resolve("gguf:auto", options.SelectionProvider, null, goal)!.AliasName.Should().Be(expected);
+        }
+
+        // Positive control: without the layer count the same budget fits VRAM.
+        GgufModelRegistry.GetAutoSelection(new GeneratorOptions().SelectionProvider).Reason.Should().Be(ModelSelectionReason.Fits);
+    }
+
+    [Fact]
     public void Cpu_PicksTheLargestCandidateThatFitsSystemMemory_ElseTheSmallest()
     {
         var selection = GgufModelRegistry.GetAutoSelection(ExecutionProvider.Cpu);

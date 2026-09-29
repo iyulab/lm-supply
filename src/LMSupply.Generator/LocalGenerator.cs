@@ -261,10 +261,10 @@ public static class LocalGenerator
     private static bool IsGgufModelCached(string modelId, GeneratorOptions options, string cacheDir)
     {
         using var downloader = new Internal.Llama.GgufModelDownloader(cacheDir, localFilesOnly: true);
-        var registryInfo = Internal.Llama.GgufModelRegistry.Resolve(modelId, options.Provider, options.MaxContextLength, options.AutoSelectionGoal);
+        var registryInfo = Internal.Llama.GgufModelRegistry.Resolve(modelId, options.SelectionProvider, options.MaxContextLength, options.AutoSelectionGoal);
         if (registryInfo is not null)
         {
-            return downloader.IsRegistryModelCached(registryInfo, options.Provider, options.MaxContextLength);
+            return downloader.IsRegistryModelCached(registryInfo, options.SelectionProvider, options.MaxContextLength);
         }
 
         // An unregistered "gguf:" id cannot load at all; a raw repository id loads a cached GGUF first.
@@ -440,11 +440,12 @@ public static class LocalGenerator
     /// </summary>
     internal static (string ModelId, SelectionDiagnostics Diagnostics) SelectAutoModel(GeneratorOptions options)
     {
-        // The profile of the load's provider: an explicit Cpu selects from system memory without probing the GPU.
-        var profile = HardwareProfile.For(options.Provider);
+        // The profile of the load's provider: an explicit Cpu — or GpuLayerCount = 0, which keeps every layer on the
+        // CPU — selects from system memory without probing the GPU.
+        var profile = HardwareProfile.For(options.SelectionProvider);
         // Sized for the load's context like "gguf:auto" (GeneratorModelLoader) — one rule for all three names.
         var selection = Internal.Llama.GgufModelRegistry.GetAutoSelection(
-            options.Provider, options.MaxContextLength, options.AutoSelectionGoal);
+            options.SelectionProvider, options.MaxContextLength, options.AutoSelectionGoal);
         // Pass the alias (e.g. "gguf:gemma4-fast") rather than RepoId so the downstream
         // loader can re-resolve the registry entry and use its DefaultFile. Passing
         // RepoId would lose the DefaultFile and fall back to GgufFileSelector, which

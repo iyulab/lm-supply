@@ -56,6 +56,14 @@ public sealed class GeneratorOptions : LMSupplyOptionsBase
     public AutoSelectionGoal AutoSelectionGoal { get; set; } = AutoSelectionGoal.Quality;
 
     /// <summary>
+    /// The provider a GGUF model and quantization are chosen for: <see cref="ExecutionProvider.Cpu"/> when
+    /// <see cref="LlamaOptions.GpuLayerCount"/> is 0 (no layer goes to the GPU, so the choice is sized against system
+    /// memory), otherwise <see cref="LMSupplyOptionsBase.Provider"/>.
+    /// </summary>
+    internal ExecutionProvider SelectionProvider
+        => LlamaOptions?.GpuLayerCount == 0 ? ExecutionProvider.Cpu : Provider;
+
+    /// <summary>
     /// Gets or sets llama-server acquisition policy (version pinning, a pre-provisioned binary
     /// path, auto-update behavior) for GGUF model loading.
     /// If null, the process-wide default (<see cref="LlamaServerUpdateService.Instance"/>,

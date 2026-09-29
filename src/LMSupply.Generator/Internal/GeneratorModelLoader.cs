@@ -167,7 +167,7 @@ internal static class GeneratorModelLoader
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
 
         // Try to resolve as registry alias first
-        var registryInfo = GgufModelRegistry.Resolve(modelId, options.Provider, options.MaxContextLength, options.AutoSelectionGoal);
+        var registryInfo = GgufModelRegistry.Resolve(modelId, options.SelectionProvider, options.MaxContextLength, options.AutoSelectionGoal);
         string modelPath;
         string chatFormat;
 
@@ -177,7 +177,7 @@ internal static class GeneratorModelLoader
             using var downloader = new GgufModelDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
             modelPath = await downloader.DownloadFromRegistryAsync(
                 registryInfo,
-                provider: options.Provider,
+                provider: options.SelectionProvider,
                 preferredQuantization: null,
                 progress: progress,
                 contextLength: options.MaxContextLength,
