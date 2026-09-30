@@ -2,8 +2,8 @@ namespace LMSupply.Detector.Models;
 
 /// <summary>
 /// Default detector model configurations.
-/// Uses RT-DETR v2 ONNX models from xnorpx (Apache 2.0 compatible) for the COCO aliases, and OpenCV's
-/// YuNet for faces (MIT) and licence plates (Apache-2.0).
+/// Uses RT-DETR v2 ONNX models from xnorpx (Apache 2.0 compatible) for the COCO aliases, OpenCV's
+/// YuNet for faces (MIT) and licence plates (Apache-2.0), and Google's MoveNet (Apache-2.0) for human pose.
 /// YOLO models are AGPL-3.0 and require Ultralytics license for commercial use, so no alias resolves to one.
 /// </summary>
 public static class DefaultModels
@@ -164,6 +164,102 @@ public static class DefaultModels
         License = "Apache-2.0"
     };
 
+    /// <summary>
+    /// MoveNet SinglePose Lightning - the "pose" alias.
+    /// Apache-2.0, 9.4 MB, 192x192 input, the 17 COCO keypoints of one person per frame.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Google's MoveNet weights are Apache-2.0; this file is a community ONNX conversion of them, published as
+    /// Apache-2.0. The training data is COCO plus a Google-internal dataset. Verified at repository revision
+    /// <c>ed0f314bb7356fd1dbf1e4f52c2d40791bf6534f</c>: <c>onnx/model.onnx</c>, 9,413,268 bytes, input
+    /// <c>input</c> int32 <c>[1, 192, 192, 3]</c>, output <c>output_0</c> float <c>[1, 1, 17, 3]</c>.
+    /// </para>
+    /// <para>
+    /// SinglePose follows the most prominent person in the frame. For more than one person use
+    /// <see cref="MoveNetMultiPoseLightning"/>. Pose checkpoints trained on non-commercial datasets (AI
+    /// Challenger, CrowdPose, Halpe and the "body7" mixtures that include them) are deliberately not offered.
+    /// </para>
+    /// <para>
+    /// The parameter count is estimated from the float32 file size.
+    /// </para>
+    /// </remarks>
+    public static DetectorModelInfo MoveNetSinglePoseLightning { get; } = new()
+    {
+        Id = "Xenova/movenet-singlepose-lightning",
+        AliasName = "pose",
+        DisplayName = "MoveNet SinglePose Lightning",
+        Architecture = "MoveNet",
+        ParametersM = 2.3f,
+        SizeBytes = 9_413_268,
+        MapCoco = 0f,
+        InputWidth = 192,
+        InputHeight = 192,
+        ClassLabels = ["person"],
+        OutputLayout = DetectorOutputLayout.MoveNetSinglePose,
+        InputFormat = DetectorInputFormat.PaddedRgbInt32,
+        OnnxFile = "onnx/model.onnx",
+        Description = "MoveNet SinglePose Lightning: 17 COCO keypoints of one person, for posture and movement analysis.",
+        License = "Apache-2.0"
+    };
+
+    /// <summary>
+    /// MoveNet SinglePose Thunder - the "pose-quality" alias.
+    /// Apache-2.0, 25 MB, 256x256 input, the same output as <see cref="MoveNetSinglePoseLightning"/>.
+    /// </summary>
+    /// <remarks>
+    /// Same licence and provenance as the Lightning model. Verified at repository revision
+    /// <c>38296077a99667cdad67af5096ce7eeb9b327453</c>: <c>onnx/model.onnx</c>, 25,067,197 bytes, input
+    /// <c>input</c> int32 <c>[1, 256, 256, 3]</c>, output <c>output_0</c> float <c>[1, 1, 17, 3]</c>.
+    /// </remarks>
+    public static DetectorModelInfo MoveNetSinglePoseThunder { get; } = new()
+    {
+        Id = "Xenova/movenet-singlepose-thunder",
+        AliasName = "pose-quality",
+        DisplayName = "MoveNet SinglePose Thunder",
+        Architecture = "MoveNet",
+        ParametersM = 6.3f,
+        SizeBytes = 25_067_197,
+        MapCoco = 0f,
+        InputWidth = 256,
+        InputHeight = 256,
+        ClassLabels = ["person"],
+        OutputLayout = DetectorOutputLayout.MoveNetSinglePose,
+        InputFormat = DetectorInputFormat.PaddedRgbInt32,
+        OnnxFile = "onnx/model.onnx",
+        Description = "MoveNet SinglePose Thunder: the more accurate single-person model, at roughly twice the cost.",
+        License = "Apache-2.0"
+    };
+
+    /// <summary>
+    /// MoveNet MultiPose Lightning - the "pose-multi" alias.
+    /// Apache-2.0, 19 MB, up to six people per frame, each with a box and the 17 COCO keypoints.
+    /// </summary>
+    /// <remarks>
+    /// Same licence and provenance as the Lightning model. Verified at repository revision
+    /// <c>8506174df310cf154b97352afa98d1ea4b1e4b47</c>: <c>onnx/model.onnx</c>, 19,049,169 bytes, input
+    /// <c>input</c> int32 <c>[1, height, width, 3]</c> (dynamic; both sides a multiple of 32), output
+    /// <c>output_0</c> float <c>[1, 6, 56]</c>. Run at 256x256, the size its reference usage recommends.
+    /// </remarks>
+    public static DetectorModelInfo MoveNetMultiPoseLightning { get; } = new()
+    {
+        Id = "Xenova/movenet-multipose-lightning",
+        AliasName = "pose-multi",
+        DisplayName = "MoveNet MultiPose Lightning",
+        Architecture = "MoveNet",
+        ParametersM = 4.8f,
+        SizeBytes = 19_049_169,
+        MapCoco = 0f,
+        InputWidth = 256,
+        InputHeight = 256,
+        ClassLabels = ["person"],
+        OutputLayout = DetectorOutputLayout.MoveNetMultiPose,
+        InputFormat = DetectorInputFormat.PaddedRgbInt32,
+        OnnxFile = "onnx/model.onnx",
+        Description = "MoveNet MultiPose Lightning: up to six people, each with a box and 17 COCO keypoints.",
+        License = "Apache-2.0"
+    };
+
     // Backward compatibility aliases
     public static DetectorModelInfo RtDetrR18 => RtDetrV2S;
     public static DetectorModelInfo RtDetrR50 => RtDetrV2M;
@@ -181,6 +277,9 @@ public static class DefaultModels
         RtDetrV2MS,
         RtDetrV2X,
         YuNetFace,
-        YuNetPlate
+        YuNetPlate,
+        MoveNetSinglePoseLightning,
+        MoveNetSinglePoseThunder,
+        MoveNetMultiPoseLightning
     ];
 }

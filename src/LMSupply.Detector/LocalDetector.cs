@@ -24,7 +24,7 @@ public static class LocalDetector
     /// Loads an object detection model by name or path.
     /// </summary>
     /// <param name="modelIdOrPath">
-    /// Either a model alias (e.g., "default", "quality", "fast"),
+    /// Either a model alias (e.g., "default", "quality", "fast", "face", "pose"),
     /// a HuggingFace model ID (e.g., "PekingU/rtdetr_r18vd"),
     /// or a local path to an ONNX model file.
     /// </param>

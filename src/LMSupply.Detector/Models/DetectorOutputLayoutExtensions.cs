@@ -18,6 +18,8 @@ public static class DetectorOutputLayoutExtensions
     public static int KeypointCount(this DetectorOutputLayout layout) => layout switch
     {
         DetectorOutputLayout.YoloPose => PoseSkeleton.Count,
+        DetectorOutputLayout.MoveNetSinglePose => PoseSkeleton.Count,
+        DetectorOutputLayout.MoveNetMultiPose => PoseSkeleton.Count,
         DetectorOutputLayout.YuNet => YuNetDecoder.LandmarkCount,
         DetectorOutputLayout.YuNetPlate => LpdYuNetDecoder.CornerCount,
         _ => 0
@@ -26,6 +28,13 @@ public static class DetectorOutputLayoutExtensions
     /// <summary>
     /// Whether this layout emits overlapping candidates that must be suppressed.
     /// </summary>
+    /// <remarks>
+    /// Stated as the list of layouts that emit final instances, so a layout added later is suppressed unless
+    /// it is known not to need it: suppressing a final instance list costs little, while skipping
+    /// suppression on overlapping anchors returns duplicates.
+    /// </remarks>
     public static bool RequiresNms(this DetectorOutputLayout layout) =>
-        layout is not DetectorOutputLayout.RtDetr;
+        layout is not (DetectorOutputLayout.RtDetr
+            or DetectorOutputLayout.MoveNetSinglePose
+            or DetectorOutputLayout.MoveNetMultiPose);
 }

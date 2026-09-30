@@ -135,6 +135,84 @@ public class DetectorFunctionalTests
         detections.Should().BeEmpty();
     }
 
+    // ── Pose presets ────────────────────────────────────────────────
+
+    // Photographs from a public documentation-image dataset, pinned to a revision. Fetched at test time and
+    // cached in the temp directory; the images are not part of the repository.
+    private const string SampleImageBase =
+        "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/fbe92bd97d48f3ec17779d8d8f2964e1c6bc7634/";
+
+    private static async Task<byte[]> SampleImageAsync(string name)
+    {
+        var path = Path.Combine(Path.GetTempPath(), "lmsupply-test-images", name);
+        if (!File.Exists(path))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            using var http = new HttpClient();
+            var bytes = await http.GetByteArrayAsync(SampleImageBase + name, TestContext.Current.CancellationToken);
+            await File.WriteAllBytesAsync(path, bytes, TestContext.Current.CancellationToken);
+        }
+
+        return await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
+    [Trait("Axis", "Quality")]
+    [InlineData("pose")]
+    [InlineData("pose-quality")]
+    public async Task Pose_FindsTheStandingPerson_WithSeventeenKeypointsInCocoOrder(string alias)
+    {
+        await using var model = await LocalDetector.LoadAsync(alias, cancellationToken: TestContext.Current.CancellationToken);
+
+        // 970x1455, one man standing and leaning on a car.
+        var image = await SampleImageAsync("young-man-standing-and-leaning-on-car.jpg");
+        var detections = await model.DetectAsync(image, TestContext.Current.CancellationToken);
+
+        var person = detections.Should().ContainSingle().Subject;
+        person.Label.Should().Be("person");
+        person.HasKeypoints.Should().BeTrue();
+        person.Keypoints.Should().HaveCount(PoseSkeleton.Count);
+
+        // COCO order is what makes PoseSkeleton's indices mean anything: head above shoulders above hips
+        // above ankles, and the head in the upper fifth of the frame where the man's head is.
+        var kp = person.Keypoints!;
+        kp[PoseSkeleton.Nose].Y.Should().BeLessThan(300f);
+        kp[PoseSkeleton.Nose].Y.Should().BeLessThan(kp[PoseSkeleton.LeftShoulder].Y);
+        kp[PoseSkeleton.LeftShoulder].Y.Should().BeLessThan(kp[PoseSkeleton.LeftHip].Y);
+        kp[PoseSkeleton.LeftHip].Y.Should().BeLessThan(kp[PoseSkeleton.LeftAnkle].Y);
+        kp[PoseSkeleton.RightAnkle].Y.Should().BeGreaterThan(1100f);
+        kp.Should().OnlyContain(k => k.Confidence >= 0f && k.Confidence <= 1f);
+    }
+
+    [Fact]
+    [Trait("Axis", "Quality")]
+    public async Task PoseMulti_FindsThePlayers_EachWithABoxAndSeventeenKeypoints()
+    {
+        await using var model = await LocalDetector.LoadAsync("pose-multi", cancellationToken: TestContext.Current.CancellationToken);
+
+        var image = await SampleImageAsync("football-match.jpg");
+        var detections = await model.DetectAsync(image, TestContext.Current.CancellationToken);
+
+        detections.Should().HaveCount(3, "three players are in frame");
+        detections.Should().OnlyContain(d => d.Label == "person" && d.Keypoints!.Count == PoseSkeleton.Count);
+        detections.Should().OnlyContain(d => d.Box.Height > d.Box.Width, "standing players are taller than wide");
+    }
+
+    [Theory]
+    [Trait("Axis", "Quality")]
+    [InlineData("pose")]
+    [InlineData("pose-quality")]
+    public async Task Pose_FindsNobodyInStructurelessInput(string alias)
+    {
+        // SinglePose always places 17 points; with nobody in the frame their mean score stays under the
+        // default threshold, and that is the only thing that tells the two cases apart.
+        await using var model = await LocalDetector.LoadAsync(alias, cancellationToken: TestContext.Current.CancellationToken);
+
+        var detections = await model.DetectAsync(TestDataHelper.CreateGradientBmp(640, 480), TestContext.Current.CancellationToken);
+
+        detections.Should().BeEmpty();
+    }
+
     // ── Q axis: Quality ─────────────────────────────────────────────
 
     [Fact]

@@ -78,7 +78,6 @@ public class RequestedOnnxFileTests
 
     [Theory]
     [InlineData("model.onnx")]
-    [InlineData("onnx/model.onnx")]
     [InlineData("MODEL.ONNX")]
     public void ThePlaceholderNameStillLetsTheMachineChooseAPrecision(string requested)
     {
@@ -90,6 +89,19 @@ public class RequestedOnnxFileTests
         var preferences = ModelPreferences.ForTier(PerformanceTier.Low);
 
         ModelPathResolver.WithRequestedFile(preferences, requested).Should().BeSameAs(preferences);
+    }
+
+    [Fact]
+    public void APathIntoTheRepositoryIsADecision_EvenWhenTheFileHasThePlaceholderName()
+    {
+        // No fallback writes a directory: it knows nothing about the repository's layout. A registry entry
+        // that says onnx/model.onnx has looked, and means the plain build beside model_int8.onnx and
+        // model_quantized.onnx. Treated as the placeholder, a machine preferring int8 loaded the int8 build
+        // instead - for one pose model that moved the nose 240 pixels off the image.
+        var preferences = ModelPreferences.ForTier(PerformanceTier.Low);
+
+        ModelPathResolver.WithRequestedFile(preferences, "onnx/model.onnx")
+            .PreferredOnnxFiles.Should().Equal(["onnx/model.onnx"]);
     }
 
     [Fact]

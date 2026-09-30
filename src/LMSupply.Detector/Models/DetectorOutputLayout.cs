@@ -50,5 +50,19 @@ public enum DetectorOutputLayout
     /// boxes, emitting a quadrilateral rather than an upright box, requiring NMS. Despite the shared name
     /// this is not <see cref="YuNet"/> with different weights - the head is a different design.
     /// </summary>
-    YuNetPlate = 5
+    YuNetPlate = 5,
+
+    /// <summary>
+    /// MoveNet SinglePose: one output of shape <c>[1, 1, 17, 3]</c> holding <c>(y, x, score)</c> per COCO
+    /// keypoint, normalised to the model input. One person per frame, no box and no person score of its own,
+    /// NMS-free.
+    /// </summary>
+    MoveNetSinglePose = 6,
+
+    /// <summary>
+    /// MoveNet MultiPose: one output of shape <c>[1, 6, 56]</c> - per instance, <c>(y, x, score)</c> for each of
+    /// the 17 COCO keypoints followed by a box <c>(ymin, xmin, ymax, xmax, score)</c>, all normalised to the
+    /// model input. Up to six people per frame; the model deduplicates its own instances, so it is NMS-free.
+    /// </summary>
+    MoveNetMultiPose = 7
 }

@@ -95,7 +95,7 @@ public class DetectorModelRegistryTests
     {
         var models = _registry.GetAvailableModels();
 
-        models.Should().HaveCount(7); // five RT-DETR v2 sizes plus the two YuNet detectors
+        models.Should().HaveCount(10); // five RT-DETR v2 sizes, the two YuNet detectors and three MoveNet pose models
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class DetectorModelRegistryTests
         var aliases = _registry.GetAliases();
 
         var aliasNames = aliases.Select(a => a.Name).ToList();
-        aliasNames.Should().Contain(["auto", "default", "quality", "fast", "large", "xlarge", "face", "plate"]);
+        aliasNames.Should().Contain(["auto", "default", "quality", "fast", "large", "xlarge", "face", "plate", "pose", "pose-quality", "pose-multi"]);
         aliases.Should().AllSatisfy(a => a.Kind.Should().Be(AliasKind.System));
     }
 
@@ -121,6 +121,28 @@ public class DetectorModelRegistryTests
 
         models.Where(m => m.OutputLayout is DetectorOutputLayout.YuNet or DetectorOutputLayout.YuNetPlate)
             .Should().HaveCount(2).And.OnlyContain(m => m.RequiresNms);
+    }
+
+    [Theory]
+    [InlineData("pose", "Xenova/movenet-singlepose-lightning", DetectorOutputLayout.MoveNetSinglePose, 192)]
+    [InlineData("pose-quality", "Xenova/movenet-singlepose-thunder", DetectorOutputLayout.MoveNetSinglePose, 256)]
+    [InlineData("pose-multi", "Xenova/movenet-multipose-lightning", DetectorOutputLayout.MoveNetMultiPose, 256)]
+    public void PoseAliases_ResolveToMoveNet_WithCocoKeypointsAndPaddedInt32Input(
+        string alias, string expectedId, DetectorOutputLayout expectedLayout, int expectedInputSize)
+    {
+        var model = _registry.Resolve(alias);
+
+        model.Id.Should().Be(expectedId);
+        model.Architecture.Should().Be("MoveNet");
+        model.OutputLayout.Should().Be(expectedLayout);
+        model.InputFormat.Should().Be(DetectorInputFormat.PaddedRgbInt32, "MoveNet takes int32 RGB, padded rather than stretched");
+        model.InputWidth.Should().Be(expectedInputSize);
+        model.InputHeight.Should().Be(expectedInputSize);
+        model.NumKeypoints.Should().Be(PoseSkeleton.Count);
+        model.RequiresNms.Should().BeFalse();
+        model.ClassLabels.Should().Equal(["person"]);
+        model.OnnxFile.Should().Be("onnx/model.onnx");
+        model.License.Should().Be("Apache-2.0");
     }
 
     [Fact]

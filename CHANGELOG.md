@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.95.0] - Unreleased
+
+### Added
+- **The detector finds people's poses: `pose`, `pose-quality` and `pose-multi` return each person with the 17 COCO
+  keypoints.** Backed by Google's MoveNet (Apache-2.0 weights, community ONNX conversion): `pose` is SinglePose
+  Lightning, `pose-quality` SinglePose Thunder, `pose-multi` MultiPose Lightning (up to six people, each with a box).
+  Keypoints are in COCO order, so `PoseSkeleton` indices address them, in original-image pixels, each with its own
+  score. SinglePose reports one person whose confidence is the mean keypoint score and whose box is the keypoints'
+  extent. About 5 / 10 / 24 ms per 800x533 frame on a desktop CPU.
+- **`DetectorOutputLayout.MoveNetSinglePose` and `MoveNetMultiPose`, and `DetectorInputFormat.PaddedRgbInt32`**, so a
+  MoveNet ONNX file the registry does not describe can be loaded by stating its layout: NHWC int32 RGB, resized with
+  the aspect ratio kept and padded to the input size, with coordinates mapped back through the padding.
+
+### Fixed
+- **A model file named by a path inside the repository (`onnx/model.onnx`) is the file that loads.** The name was
+  treated as the "any precision" placeholder, so a machine that preferred int8 downloaded the int8 build beside it
+  instead; the path was also resolved against the ONNX folder a second time. Only the bare name `model.onnx` still
+  leaves the precision to the machine.
+- **Detector output tensors are released after each frame** instead of waiting for the finalizer.
+
 ## [0.94.0] - 2026-09-30
 
 ### Added

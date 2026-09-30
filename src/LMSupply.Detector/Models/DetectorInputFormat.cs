@@ -26,5 +26,13 @@ public enum DetectorInputFormat
     /// BGR channel order, raw <c>0..255</c> pixel values, no scaling and no shift. This is what OpenCV's
     /// default <c>blobFromImage</c> produces, and what YuNet was exported against.
     /// </summary>
-    RawBgr = 2
+    RawBgr = 2,
+
+    /// <summary>
+    /// RGB channel order, raw <c>0..255</c> pixel values as 32-bit integers, laid out NHWC
+    /// (<c>[1, height, width, 3]</c>). The image is resized with its aspect ratio preserved and centred on a
+    /// black canvas of the input size rather than stretched. This is what MoveNet's reference preprocessing
+    /// (<c>resize_with_pad</c>) does, and the decoder maps coordinates back through the same padding.
+    /// </summary>
+    PaddedRgbInt32 = 3
 }

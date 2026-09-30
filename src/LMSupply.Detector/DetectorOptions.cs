@@ -11,7 +11,8 @@ public sealed class DetectorOptions : LMSupplyOptionsBase
     /// Gets or sets the model identifier.
     /// <para>Supports:</para>
     /// <list type="bullet">
-    /// <item>Preset aliases: "default", "fast", "quality", "large"</item>
+    /// <item>Preset aliases: "default", "fast", "quality", "large", "xlarge"; "face" and "plate";
+    /// "pose", "pose-quality" and "pose-multi" for human pose (17 COCO keypoints)</item>
     /// <item>HuggingFace model IDs: "PekingU/rtdetr_r18vd"</item>
     /// <item>Local file paths: "/path/to/model.onnx"</item>
     /// </list>

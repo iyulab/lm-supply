@@ -6,8 +6,10 @@ Local object detection for .NET with automatic model downloading.
 
 - **Zero-config**: Models download automatically from HuggingFace
 - **GPU Acceleration**: CUDA, DirectML (Windows), CoreML (macOS)
-- **Permissively licensed**: RT-DETR (Apache-2.0) and YuNet (MIT), redistributable in a closed-source
-  commercial product. No alias resolves to an AGPL-3.0 YOLO checkpoint.
+- **Permissively licensed**: RT-DETR (Apache-2.0), YuNet (MIT) and MoveNet (Apache-2.0), redistributable in
+  a closed-source commercial product. No alias resolves to an AGPL-3.0 YOLO checkpoint.
+- **Human pose**: `pose`, `pose-quality` and `pose-multi` return people with the 17 COCO keypoints
+  (`DetectionResult.Keypoints`, indexed by `PoseSkeleton`).
 - **Per-model vocabulary**: COCO-80 (people, vehicles, animals, objects) by default, and a model that was
   trained on something else carries its own labels — `DetectorModelInfo.ClassLabels`, with `NumClasses`
   derived from it so the two cannot disagree. Post-processing labels from the loaded model, not from COCO
@@ -42,6 +44,9 @@ foreach (var detection in results)
 | `xlarge` | RT-DETR v2 XLarge | ~300 MB | 54.3 | Apache-2.0 | COCO-80 |
 | `face` | YuNet 2023mar | ~227 KB | n/a | MIT | `face`, with 5 landmarks |
 | `plate` | LPD-YuNet 2023mar | ~4.1 MB | n/a | Apache-2.0 | `plate`, with 4 corners |
+| `pose` | MoveNet SinglePose Lightning | ~9.4 MB | n/a | Apache-2.0 | `person`, with 17 COCO keypoints |
+| `pose-quality` | MoveNet SinglePose Thunder | ~25 MB | n/a | Apache-2.0 | `person`, with 17 COCO keypoints |
+| `pose-multi` | MoveNet MultiPose Lightning | ~19 MB | n/a | Apache-2.0 | up to 6 `person`s, with 17 COCO keypoints |
 
 ### Faces
 
@@ -96,6 +101,47 @@ The library defaults (`ConfidenceThreshold` 0.25, `IouThreshold` 0.45) are usabl
 0.63-0.99 while a cat photograph and a crowded street scene both produced nothing at all, the highest score
 anywhere in them being 0.15. The reference implementation uses a stricter 0.8 with an IoU of 0.3; raise the
 threshold if false positives cost you more than misses.
+
+### Human pose
+
+`pose`, `pose-quality` and `pose-multi` resolve to Google's MoveNet. Each person comes back as a `person`
+detection whose `Keypoints` holds the 17 COCO keypoints in COCO order, so `PoseSkeleton` indices address
+them directly, and every keypoint carries its own score.
+
+```csharp
+await using var detector = await LocalDetector.LoadAsync("pose");
+
+foreach (var person in await detector.DetectAsync("photo.jpg"))
+{
+    var shoulder = person.Keypoints![PoseSkeleton.LeftShoulder];
+    var elbow = person.Keypoints[PoseSkeleton.LeftElbow];
+    if (shoulder.IsVisible(0.3f) && elbow.IsVisible(0.3f))
+        Console.WriteLine($"upper arm: ({shoulder.X:F0},{shoulder.Y:F0}) -> ({elbow.X:F0},{elbow.Y:F0})");
+}
+```
+
+- `pose` (SinglePose Lightning, 192x192) and `pose-quality` (SinglePose Thunder, 256x256) follow **one**
+  person per frame - the most prominent one. They emit no person score and no box of their own, so the
+  detection's `Confidence` is the mean of the 17 keypoint scores (a frame with nobody in it stays under the
+  default `ConfidenceThreshold` of 0.25), and its `Box` is the extent of the keypoints - tighter than the
+  person, since the top of the head and the hands lie outside it.
+- `pose-multi` (MultiPose Lightning, 256x256) returns up to **six** people, each with the model's own box
+  and score.
+- Coordinates are pixels in the original image. The image is fed to the model with its aspect ratio kept
+  and padded to a square, as MoveNet's reference preprocessing does; keypoints are not clamped to the image.
+
+**Measured cost** (800x533 JPEG, a laptop-class desktop CPU with `ThreadCount = 4`, best of repeated runs):
+about **5 ms** per frame end to end for `pose`, **10 ms** for `pose-quality` and **24 ms** for `pose-multi`,
+of which about 2 ms is JPEG decoding. On a machine busy with other work, capping `ThreadCount` matters more
+than the model choice: the default of one thread per core measured several times slower under contention.
+
+**Licence.** The MoveNet weights are released by Google under Apache-2.0; the ONNX files are a community
+conversion of them, published under Apache-2.0 (repository revisions are recorded in `DefaultModels`).
+Google trained MoveNet on COCO and on its own internal dataset. The registry names the float32 build of each
+repository; the int8 builds published beside it are not used, because on a test photograph they placed the
+keypoints off the person. Pose models trained on datasets with non-commercial terms - AI Challenger,
+CrowdPose, Halpe and the "body7" mixtures that include them, which covers the official RTMO/RTMPose ONNX
+releases and ViTPose - are deliberately not offered.
 
 
 ## GPU Acceleration

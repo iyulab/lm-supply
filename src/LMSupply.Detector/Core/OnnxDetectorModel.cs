@@ -167,11 +167,25 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         var inputWidth = _modelInfo.InputWidth;
         var inputHeight = _modelInfo.InputHeight;
 
-        // Preprocess image the way this particular model was exported to expect
-        var inputTensor = PreprocessImage(image, inputWidth, inputHeight, _inputFormat);
+        // Preprocess image the way this particular model was exported to expect, keeping where the image landed
+        // inside the input so a padded input can be decoded back through the same padding.
+        Func<string, NamedOnnxValue> createInput;
+        DetectorInputFrame frame;
+        if (_inputFormat is DetectorInputFormat.PaddedRgbInt32)
+        {
+            var (paddedTensor, paddedFrame) = PreprocessPaddedInt32(image, inputWidth, inputHeight);
+            createInput = name => NamedOnnxValue.CreateFromTensor(name, paddedTensor);
+            frame = paddedFrame;
+        }
+        else
+        {
+            var floatTensor = PreprocessImage(image, inputWidth, inputHeight, _inputFormat);
+            createInput = name => NamedOnnxValue.CreateFromTensor(name, floatTensor);
+            frame = DetectorInputFrame.Stretched(inputWidth, inputHeight, originalWidth, originalHeight);
+        }
 
         // Run inference
-        var outputs = await RunInferenceAsync(inputTensor, originalWidth, originalHeight, cancellationToken);
+        using var outputs = await RunInferenceAsync(createInput, originalWidth, originalHeight, cancellationToken);
 
         // Decode according to the layout this model declares. Selecting on the declared layout rather than
         // on a pair of booleans is what keeps a three-stride head from being read as a single pose tensor.
@@ -182,6 +196,10 @@ internal sealed class OnnxDetectorModel : IDetectorModel
             DetectorOutputLayout.YoloPose => ParsePoseOutput(outputs, originalWidth, originalHeight, inputWidth, inputHeight),
             DetectorOutputLayout.YuNet => ParseYuNet(outputs, originalWidth, originalHeight, inputWidth),
             DetectorOutputLayout.YuNetPlate => ParseLpdYuNet(outputs, originalWidth, originalHeight),
+            DetectorOutputLayout.MoveNetSinglePose => MoveNetDecoder.DecodeSinglePose(
+                SingleOutput(outputs, "MoveNet SinglePose"), frame, _options.ConfidenceThreshold, _modelInfo.LabelFor(0)),
+            DetectorOutputLayout.MoveNetMultiPose => MoveNetDecoder.DecodeMultiPose(
+                SingleOutput(outputs, "MoveNet MultiPose"), frame, _options.ConfidenceThreshold, _modelInfo.LabelFor(0)),
             _ => throw new NotSupportedException($"Detector output layout '{_layout}' has no decoder.")
         };
 
@@ -251,8 +269,56 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         return tensor;
     }
 
+    /// <summary>
+    /// Builds the NHWC int32 input tensor for <see cref="DetectorInputFormat.PaddedRgbInt32"/>: the image resized
+    /// with its aspect ratio kept, centred on a black canvas, raw RGB bytes. Returns where the image landed.
+    /// </summary>
+    internal static (DenseTensor<int> Tensor, DetectorInputFrame Frame) PreprocessPaddedInt32(
+        Image<Rgb24> image, int targetWidth, int targetHeight)
+    {
+        var frame = DetectorInputFrame.Padded(targetWidth, targetHeight, image.Width, image.Height);
+        image.Mutate(x => x.Resize(frame.ContentWidth, frame.ContentHeight));
+
+        // Zero-initialised: the padding is black, as in the reference preprocessing.
+        var tensor = new DenseTensor<int>([1, targetHeight, targetWidth, 3]);
+
+        image.ProcessPixelRows(accessor =>
+        {
+            var buffer = tensor.Buffer.Span;
+
+            for (int y = 0; y < frame.ContentHeight; y++)
+            {
+                var row = accessor.GetRowSpan(y);
+                var offset = ((frame.PadY + y) * targetWidth + frame.PadX) * 3;
+
+                for (int x = 0; x < frame.ContentWidth; x++)
+                {
+                    var pixel = row[x];
+                    buffer[offset + x * 3] = pixel.R;
+                    buffer[offset + x * 3 + 1] = pixel.G;
+                    buffer[offset + x * 3 + 2] = pixel.B;
+                }
+            }
+        });
+
+        return (tensor, frame);
+    }
+
+    private static float[] SingleOutput(
+        IDisposableReadOnlyCollection<DisposableNamedOnnxValue> outputs, string layoutName)
+    {
+        if (outputs.Count != 1)
+        {
+            throw new InvalidOperationException(
+                $"Model was declared as {layoutName} but emits {outputs.Count} outputs; expected exactly one. " +
+                $"Available outputs: {string.Join(", ", outputs.Select(o => o.Name))}.");
+        }
+
+        return outputs[0].AsTensor<float>().ToArray();
+    }
+
     private async Task<IDisposableReadOnlyCollection<DisposableNamedOnnxValue>> RunInferenceAsync(
-        DenseTensor<float> inputTensor,
+        Func<string, NamedOnnxValue> createInput,
         int originalWidth,
         int originalHeight,
         CancellationToken cancellationToken)
@@ -269,7 +335,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
                 var inputName = session.InputNames[0];
                 var inputs = new List<NamedOnnxValue>
                 {
-                    NamedOnnxValue.CreateFromTensor(inputName, inputTensor)
+                    createInput(inputName)
                 };
 
                 // RT-DETR v2 models with inline postprocessor require original image dimensions

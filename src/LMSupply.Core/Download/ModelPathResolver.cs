@@ -173,9 +173,16 @@ public sealed class ModelPathResolver : IDisposable
             progress: progress,
             cancellationToken: cancellationToken);
 
-        // Use discovery result to find ONNX file in correct directory
+        // A bare file name is looked up in the folder discovery chose; a path with a directory in it names a
+        // file relative to the repository root, and combining it with that folder would double the directory.
         var onnxDirectory = discovery.GetOnnxDirectory(modelDir);
         var modelPath = Path.Combine(onnxDirectory, expectedOnnxFile);
+        if (HasDirectory(expectedOnnxFile))
+        {
+            modelPath = ModelDiscoveryResult.GetFilePath(modelDir, expectedOnnxFile);
+            onnxDirectory = Path.GetDirectoryName(modelPath) ?? onnxDirectory;
+        }
+
         string? substituted = null;
 
         // If the named file really is not in this repository, fall back to what was discovered - a caller
@@ -360,6 +367,12 @@ public sealed class ModelPathResolver : IDisposable
     /// having no way to know what the repository actually calls its weights. It is a placeholder, not a
     /// choice, so it must not suppress variant selection: repositories that publish one model in several
     /// precisions name the base build exactly this and expect the consumer to pick.
+    /// <para>
+    /// Only the bare name is the placeholder. A path into the repository (<c>onnx/model.onnx</c>) is written
+    /// by someone who looked at the repository and chose that file; treating it as a guess made the plain
+    /// build of the common <c>onnx/</c> layout impossible to pin, and a machine that preferred int8 loaded
+    /// the int8 build instead of the file that was named.
+    /// </para>
     /// </remarks>
     public const string PlaceholderOnnxFileName = "model.onnx";
 
@@ -377,7 +390,7 @@ public sealed class ModelPathResolver : IDisposable
         // A distinctive filename is a decision - the model was described, and usually validated, against
         // that exact artifact. The placeholder is a guess, and forcing it would turn off the precision
         // selection that repositories publishing several builds are relying on.
-        if (Path.GetFileName(requestedFile).Equals(PlaceholderOnnxFileName, StringComparison.OrdinalIgnoreCase))
+        if (requestedFile.Trim().Equals(PlaceholderOnnxFileName, StringComparison.OrdinalIgnoreCase))
             return preferences;
 
         return new ModelPreferences
@@ -388,6 +401,8 @@ public sealed class ModelPathResolver : IDisposable
             PreferredOnnxFiles = [requestedFile]
         };
     }
+
+    private static bool HasDirectory(string file) => file.Contains('/') || file.Contains('\\');
 
     private static void WarnSubstitution(string requested, string used, string source)
     {
