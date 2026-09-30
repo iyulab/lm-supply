@@ -132,7 +132,7 @@ public static class LocalEmbedder
 
         // The vector-space revision is derived from what was decided above — the tokenizer as built, the
         // pooling and length in effect, the prefixes the info carries, the model file actually opened —
-        // so it moves exactly when those move (#381). The canonical line is traced so two revisions can
+        // so it moves exactly when those move. The canonical line is traced so two revisions can
         // be diffed by eye; the consumer sees only the hash.
         var vectorSpace = BuildVectorSpace(sources, tokenizer.Signature, options.NormalizeEmbeddings, engine.HiddenSize);
         System.Diagnostics.Trace.TraceInformation(

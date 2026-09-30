@@ -678,8 +678,7 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 - **Reranker `auto` on a Medium host takes the GGUF multilingual model when a llama-server binary is
   already cached.** Medium resolved to `quality` (bge-reranker-base), whose model card lists English and
-  Chinese as its training languages — on a Korean corpus it ranked worse than no reranking (a consumer's
-  measurement, #376). When a llama-server binary is already in the cache, `auto` now resolves to
+  Chinese as its training languages — on a Korean corpus it ranked worse than no reranking. When a llama-server binary is already in the cache, `auto` now resolves to
   `multilingual-fast` (bge-reranker-v2-m3 Q4_K_M: a fifth of the download, a fraction of the CPU latency,
   the same ranking as the ONNX `multilingual`); without one it still resolves to `quality`, so `auto`
   never fetches a server binary on its own. Low, High and Ultra are unchanged. `LlamaServerDownloader.IsAnyServerCached()`
@@ -697,8 +696,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ### Added
 
 - **`IEmbeddingModel.VectorSpaceRevision` — an opaque string that changes when, and only when, this
-  library would produce different vectors for the same model id.** Three releases (`#195`, 0.70.0 and
-  this one) changed the vectors a model id produces and said so only in prose; a consumer that stores
+  library would produce different vectors for the same model id.** Three releases (an earlier SentencePiece token-id fix, 0.70.0
+  and this one) changed the vectors a model id produces and said so only in prose; a consumer that stores
   vectors had no value to compare. The revision is derived from what the loader actually did — the
   tokenizer and its normalization convention, pooling, L2 normalization, the query/passage prefixes,
   the sequence length in effect, the model file opened (a quantization variant is a different space)

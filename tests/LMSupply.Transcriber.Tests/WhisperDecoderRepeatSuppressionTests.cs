@@ -119,7 +119,7 @@ public class WhisperDecoderRepeatSuppressionTests
     public void SelectNextToken_NoSuppressionEvent_LeavesRecentTokenLogitsUntouched()
     {
         // Outside a suppression event nothing reweights recently used tokens — neither a positive
-        // logit (divided, before #253) nor a negative one (multiplied).
+        // logit (earlier releases divided it) nor a negative one (multiplied).
         var decoder = WhisperDecoder.CreateForTesting(WhisperTokenizer.CreateDefault());
         var initialTokens = new[] { StartOfTranscriptToken, TranscribeToken };
         var tokens = new List<int>(initialTokens) { NoTimestampsToken, RepeatedToken, OtherCandidateToken };

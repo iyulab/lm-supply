@@ -27,7 +27,7 @@ public class LongFormSeekTests
     [Fact]
     public void EveryClosedSegmentEndingEarly_StillSeeksBack()
     {
-        // The #340 shape: the decoder closed its last segment at 26.79 s and ended the window there,
+        // The decoder closed its last segment at 26.79 s and ended the window there,
         // while the audio went on to 30 s. A fixed stride skipped those 3.2 s entirely.
         var step = LongFormSeek.Plan(0, Window, 4 * Window, segmentCount: 5, closedSegmentCount: 5, lastClosedEnd: 26.79);
 
