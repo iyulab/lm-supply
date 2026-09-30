@@ -178,13 +178,19 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
     }
 
     /// <summary>
-    /// Gets the cache path for a model, following HuggingFace cache structure.
+    /// Gets the cache path for a model, following HuggingFace cache structure: the first snapshot directory for
+    /// the default revision that holds the model (see <see cref="CacheManager.GetSnapshotDirectories"/>),
+    /// otherwise the one a download writes to.
     /// </summary>
     public string GetModelCachePath(string modelId)
     {
-        // Use CacheManager for consistent path resolution
-        // Structure: models--{org}--{name}/snapshots/{revision}
-        return CacheManager.GetModelDirectory(_cacheDirectory, modelId, DefaultRevision);
+        GeneratorModelRegistry.Default.TryResolve(modelId, out var registryInfo);
+        return CacheManager.GetSnapshotDirectories(_cacheDirectory, modelId, DefaultRevision)
+                   .FirstOrDefault(snapshot =>
+                       IsValidModelDirectory(snapshot)
+                       || (registryInfo?.Subfolder is { } subfolder && IsValidModelDirectory(Path.Combine(snapshot, subfolder)))
+                       || FindVariantSubfolder(snapshot) != null)
+               ?? CacheManager.GetModelDirectory(_cacheDirectory, modelId, DefaultRevision);
     }
 
     /// <summary>
@@ -259,6 +265,7 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
         Trace.TraceInformation($"[OnnxGenerator] Path resolution: no cached layout found, attempting download for {modelId}");
         await DownloadModelAsync(modelId, null, cancellationToken);
 
+        snapshotPath = GetModelCachePath(modelId);
         if (IsValidModelDirectory(snapshotPath))
             return (snapshotPath, null);
 

@@ -157,7 +157,7 @@ internal static class ResumableFileDownload
             return false;
         if (expectedSize is not { } expected)
             return true;
-        if (new FileInfo(path).Length == expected)
+        if (CacheManager.GetContentLength(path) == expected)
             return true;
         if (!readOnly)
             File.Delete(path);
@@ -166,9 +166,8 @@ internal static class ResumableFileDownload
 
     public static bool IsCompleteFile(string path, long? expectedSize) =>
         expectedSize is { } expected
-        && File.Exists(path)
-        && new FileInfo(path).Length == expected
-        && !CacheManager.IsLfsPointerFile(path);
+        && CacheManager.IsCachedFile(path)
+        && CacheManager.GetContentLength(path) == expected;
 
     private static long PartLength(string tempPath) =>
         File.Exists(tempPath) ? new FileInfo(tempPath).Length : 0;

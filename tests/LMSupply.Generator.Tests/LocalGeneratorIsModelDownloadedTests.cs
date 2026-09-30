@@ -48,6 +48,23 @@ public sealed class LocalGeneratorIsModelDownloadedTests : IDisposable
         LocalGenerator.IsModelDownloaded(Alias, Options()).Should().BeTrue();
     }
 
+    // Downloaded by another Hugging Face tool: refs/main names the commit, snapshots/{commit} holds the file.
+    [Fact]
+    public void RegistryAlias_DefaultFileInAHubSnapshot_IsTrue()
+    {
+        const string commit = "89abcdef0123456789abcdef0123456789abcdef";
+        var info = GgufModelRegistry.Resolve(Alias)!;
+        var repoDir = Path.Combine(_cacheDir, "models--" + info.RepoId.Replace("/", "--"));
+        Directory.CreateDirectory(Path.Combine(repoDir, "refs"));
+        File.WriteAllText(Path.Combine(repoDir, "refs", "main"), commit);
+        var path = Path.Combine(repoDir, "snapshots", commit, info.DefaultFile);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, "GGUF-test-bytes"u8.ToArray());
+
+        LocalGenerator.IsModelDownloaded(Alias, Options()).Should().BeTrue();
+        Directory.Exists(Snapshot(info.RepoId)).Should().BeFalse();
+    }
+
     [Fact]
     public void RegistryAlias_OnlyAnotherQuantOfTheSameRepoCached_IsFalse()
     {

@@ -25,6 +25,10 @@ Models follow the HuggingFace Hub standard (`CacheManager`):
 - `~/.cache/huggingface/hub` (default)
 - `HF_HUB_CACHE` environment variable (override)
 
+Lookups (`ModelFileExists`, `GetModelFilePath`, `FindSnapshotDirectory`, `GetMissingFiles`) read the snapshot a
+`refs/<revision>` entry names first — what other Hugging Face tools write — and then `snapshots/<revision>/`, where
+downloads by LMSupply are written (`GetModelDirectory`). `GetSnapshotDirectories` returns both, in that order.
+
 Non-HF artifacts (ONNX runtime packages, llama-server builds) live outside any hub,
 under a single LMSupply root (`LMSupplyCachePaths`):
 - `%LOCALAPPDATA%/LMSupply/cache` (default)

@@ -45,9 +45,11 @@ public sealed class TranscriberModelDownloadedTests : IDisposable
             JsonSerializer.Serialize(Listing.Select(f => new { path = f.Path, type = "file", size = f.Size })));
     }
 
-    private void WriteFile(string repoPath, long length)
+    private void WriteFile(string repoPath, long length) => WriteFile(SnapshotDir, repoPath, length);
+
+    private static void WriteFile(string snapshotDir, string repoPath, long length)
     {
-        var path = Path.Combine(SnapshotDir, repoPath.Replace('/', Path.DirectorySeparatorChar));
+        var path = Path.Combine(snapshotDir, repoPath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, new byte[length]);
     }
@@ -142,5 +144,66 @@ public sealed class TranscriberModelDownloadedTests : IDisposable
         options.ModelId.Should().Be("default");
         options.QuantizationHint.Should().BeNull();
         options.DisableAutoDownload.Should().BeFalse();
+    }
+
+    private const string Commit = "3c1a0f7e9b2d4c6a8e0f1b3d5c7a9e1f2b4d6c8a";
+
+    private string RepoDir => Path.Combine(_cache, "models--" + DefaultModels.WhisperBase.Id.Replace("/", "--"));
+
+    // What another Hugging Face tool's snapshot download leaves: refs/main names the commit, snapshots/{commit} holds the files.
+    private string SeedHubSnapshot()
+    {
+        var snapshot = Path.Combine(RepoDir, "snapshots", Commit);
+        Directory.CreateDirectory(Path.Combine(RepoDir, "refs"));
+        File.WriteAllText(Path.Combine(RepoDir, "refs", "main"), Commit);
+        foreach (var (path, size) in Listing)
+            WriteFile(snapshot, path, size);
+        return snapshot;
+    }
+
+    // The shared cache holds the model in the hub layout: listed by an earlier size query, files downloaded by another tool.
+    [Fact]
+    public async Task AHubSnapshot_IsDownloaded_AndNothingIsWritten()
+    {
+        SeedListing();
+        SeedHubSnapshot();
+
+        (await LocalTranscriber.IsModelDownloadedAsync("default", Options("int8"), Ct)).Should().BeTrue();
+        (await LocalTranscriber.IsModelDownloadedAsync("default", Options("fp32"), Ct)).Should().BeTrue();
+        Directory.Exists(SnapshotDir).Should().BeFalse("the check reads the cache and writes nothing");
+    }
+
+    // No listing was ever cached: the hub snapshot lists itself, so the check still answers without a request.
+    [Fact]
+    public async Task AHubSnapshot_WithoutACachedListing_IsDownloaded()
+    {
+        SeedHubSnapshot();
+
+        (await LocalTranscriber.IsModelDownloadedAsync("default", Options(), Ct)).Should().BeTrue();
+        Directory.Exists(Path.Combine(_cache, ".discovery-cache")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AHubSnapshot_WithAPartialFile_IsNotDownloaded()
+    {
+        SeedListing();
+        var snapshot = SeedHubSnapshot();
+        WriteFile(snapshot, "onnx/decoder_model_merged_int8.onnx", 1_000);
+
+        (await LocalTranscriber.IsModelDownloadedAsync("default", Options("int8"), Ct)).Should().BeFalse();
+    }
+
+    // The load takes the same files from the hub snapshot: offline, it must not need anything else.
+    [Fact]
+    public async Task AHubSnapshot_ADownloadOfTheLoadsFiles_FetchesNothing()
+    {
+        SeedListing();
+        var snapshot = SeedHubSnapshot();
+        using var downloader = new HuggingFaceDownloader(_cache, localFilesOnly: true);
+
+        var (dir, _) = await downloader.DownloadWithDiscoveryAsync(DefaultModels.WhisperBase.Id, cancellationToken: Ct);
+
+        dir.Should().Be(snapshot);
+        Directory.Exists(SnapshotDir).Should().BeFalse();
     }
 }

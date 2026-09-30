@@ -967,10 +967,45 @@ public sealed class ModelDiscoveryService : IDisposable
             var manifest = await DownloadManifest.ReadAsync(CacheManager.GetModelDirectory(_cacheDir, repoId, revision));
             if (manifest is { Files.Count: > 0 })
                 return [.. manifest.Files.Select(f => new RepoFile { Path = f.Path, Type = "file", Size = f.Size })];
+
+            // A snapshot another Hugging Face tool wrote for this revision lists itself: what it holds is what
+            // that tool downloaded, each file complete (the hub cache moves a file into place only when it is).
+            if (ListForeignSnapshot(_cacheDir, repoId, revision) is { Count: > 0 } snapshotFiles)
+                return snapshotFiles;
         }
 
         throw new ModelNotFoundException(
             $"Model '{repoId}' is not in the local cache and downloads are disabled.", repoId);
+    }
+
+    /// <summary>
+    /// The files of the first snapshot another tool wrote for <paramref name="revision"/> (see
+    /// <see cref="CacheManager.GetSnapshotDirectories"/>), as repository paths with their content lengths; empty when
+    /// there is none. Hidden entries (names starting with '.') and Git LFS pointers are left out.
+    /// </summary>
+    private static List<RepoFile> ListForeignSnapshot(string cacheDir, string repoId, string revision)
+    {
+        var snapshot = CacheManager.GetSnapshotDirectories(cacheDir, repoId, revision)
+            .FirstOrDefault(d => CacheManager.IsForeignSnapshot(cacheDir, repoId, revision, d));
+        if (snapshot is null)
+            return [];
+
+        try
+        {
+            return
+            [
+                .. Directory.EnumerateFiles(snapshot, "*", SearchOption.AllDirectories)
+                    .Select(path => (Path: path, Relative: Path.GetRelativePath(snapshot, path).Replace(Path.DirectorySeparatorChar, '/')))
+                    .Where(f => !f.Relative.Split('/').Any(part => part.StartsWith('.')) && CacheManager.IsCachedFile(f.Path))
+                    .OrderBy(f => f.Relative, StringComparer.Ordinal)
+                    .Select(f => new RepoFile { Path = f.Relative, Type = "file", Size = CacheManager.GetContentLength(f.Path) })
+            ];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceInformation($"[ModelDiscoveryService] Could not list snapshot '{snapshot}': {ex.Message}");
+            return [];
+        }
     }
 
     /// <summary>

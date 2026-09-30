@@ -155,15 +155,17 @@ public static class LocalTranscriber
         if (plan is null)
             return true;
 
-        var snapshotDir = CacheManager.GetModelDirectory(
-            options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory(), plan.RepoId, plan.Revision);
-        return plan.Files.All(file =>
-        {
-            var path = Path.Combine(snapshotDir, file.Path.Replace('/', Path.DirectorySeparatorChar));
-            return File.Exists(path)
-                   && new FileInfo(path).Length == file.SizeBytes
-                   && !CacheManager.IsLfsPointerFile(path);
-        });
+        // The files are opened from one snapshot directory: this library's own, or one another Hugging Face tool
+        // wrote under the commit the revision points at.
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        return CacheManager.GetSnapshotDirectories(cacheDir, plan.RepoId, plan.Revision).Any(snapshotDir =>
+            plan.Files.All(file =>
+            {
+                var path = Path.Combine(snapshotDir, file.Path.Replace('/', Path.DirectorySeparatorChar));
+                return CacheManager.TryGetContentLength(path, out var length)
+                       && length == file.SizeBytes
+                       && !CacheManager.IsLfsPointerFile(path);
+            }));
     }
 
     /// <inheritdoc cref="IsModelDownloadedAsync(string, TranscriberOptions?, CancellationToken)"/>

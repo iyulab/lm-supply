@@ -325,9 +325,7 @@ public static class LocalReranker
         catch (ModelNotFoundException)
         {
             // Unknown model — check raw repo ID
-            var snapshotDir = CacheManager.GetModelDirectory(cacheDir, modelId);
-            var onnxPath = Path.Combine(snapshotDir, "model.onnx");
-            return File.Exists(onnxPath) && !CacheManager.IsLfsPointerFile(onnxPath);
+            return CacheManager.ModelFileExists(cacheDir, modelId, "model.onnx");
         }
 
         using var manager = new ModelManager(cacheDir, autoDownload: false);

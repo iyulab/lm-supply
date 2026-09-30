@@ -806,6 +806,11 @@ Models are cached following HuggingFace Hub conventions:
 - **Default**: `~/.cache/huggingface/hub`
 - **Environment variables**: `HF_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME`
 - **Manual override**: `new EmbedderOptions { CacheDirectory = "/path/to/cache" }`
+- **Shared with other Hugging Face tools**: a model already downloaded into the cache by another Hugging Face tool
+  (`refs/main` naming a commit, its files under `snapshots/<commit>/`, as links into `blobs/` or plain copies) is found
+  and used where it is — `IsModelDownloaded`, the loaders and `CacheManager.ModelFileExists` all look there as well as
+  in `snapshots/main/`, where LMSupply's own downloads are written. `CacheManager.GetSnapshotDirectories` returns the
+  directories looked in, in order.
 
 **Reclaiming space.** A release that changes where a model's files are read from can leave the old copy
 next to the new one (0.63.0 did — see the changelog). `CacheManager.FindReclaimable(cacheDir)` lists the

@@ -463,19 +463,21 @@ public static class LocalEmbedder
             repoId = modelId;
         }
 
-        var snapshotDir = CacheManager.GetModelDirectory(cacheDir, repoId);
+        // Any snapshot of the repository in the cache — this library's own, or one another Hugging Face tool
+        // wrote under the commit "main" points at.
+        return CacheManager.GetSnapshotDirectories(cacheDir, repoId).Any(snapshotDir =>
+        {
+            // When a subfolder is specified, model.onnx lives inside it
+            var modelDir = subfolder != null ? Path.Combine(snapshotDir, subfolder) : snapshotDir;
 
-        // When a subfolder is specified, model.onnx lives inside it
-        var modelDir = subfolder != null ? Path.Combine(snapshotDir, subfolder) : snapshotDir;
+            // Check for the essential model file
+            if (!CacheManager.IsCachedFile(Path.Combine(modelDir, "model.onnx")))
+                return false;
 
-        // Check for the essential model file
-        var modelOnnx = Path.Combine(modelDir, "model.onnx");
-        if (!File.Exists(modelOnnx) || CacheManager.IsLfsPointerFile(modelOnnx))
-            return false;
-
-        // Check for at least one tokenizer file (model dir first, then snapshot root)
-        return DirectoryHasTokenizer(modelDir)
-            || (subfolder != null && DirectoryHasTokenizer(snapshotDir));
+            // Check for at least one tokenizer file (model dir first, then snapshot root)
+            return DirectoryHasTokenizer(modelDir)
+                || (subfolder != null && DirectoryHasTokenizer(snapshotDir));
+        });
     }
 
     /// <summary>

@@ -67,13 +67,13 @@ public static class ModelDirectoryValidator
             // Normalize path separators for cross-platform compatibility
             var normalizedPath = entry.Path.Replace('/', Path.DirectorySeparatorChar);
             var fullPath = Path.Combine(directoryPath, normalizedPath);
-            if (!File.Exists(fullPath))
+            if (!CacheManager.ContentExists(fullPath))
             {
                 missing.Add(entry.Path);
                 continue;
             }
 
-            var actualSize = new FileInfo(fullPath).Length;
+            var actualSize = CacheManager.GetContentLength(fullPath);
             if (entry.Size > 0 && actualSize != entry.Size)
             {
                 sizeMismatches.Add($"{entry.Path} (expected {entry.Size}, actual {actualSize})");

@@ -47,37 +47,217 @@ public static class CacheManager
     }
 
     /// <summary>
-    /// Gets the model directory path for a given repository ID and revision.
+    /// Gets the snapshot directory a download of <paramref name="repoId"/> at <paramref name="revision"/> writes to:
+    /// <c>models--{org}--{name}/snapshots/{revision}</c>. To find files already in the cache — including those
+    /// other Hugging Face tools put there under the commit the revision points at — use
+    /// <see cref="GetSnapshotDirectories"/>, <see cref="FindSnapshotDirectory"/> or <see cref="GetModelFilePath"/>.
     /// </summary>
     /// <param name="cacheDir">The base cache directory.</param>
     /// <param name="repoId">The HuggingFace repository ID (e.g., "sentence-transformers/all-MiniLM-L6-v2").</param>
     /// <param name="revision">The revision/branch (default: "main").</param>
     /// <returns>The full path to the model snapshot directory.</returns>
     public static string GetModelDirectory(string cacheDir, string repoId, string revision = "main")
+        => Path.Combine(GetRepositoryDirectory(cacheDir, repoId), "snapshots", revision);
+
+    /// <summary>
+    /// The repository's directory in the cache: <c>models--{org}--{name}</c>.
+    /// </summary>
+    internal static string GetRepositoryDirectory(string cacheDir, string repoId)
+        => Path.Combine(cacheDir, $"models--{repoId.Replace("/", "--")}");
+
+    /// <summary>
+    /// The snapshot directories in the cache that may hold <paramref name="repoId"/> at <paramref name="revision"/>,
+    /// in lookup order. Only directories that exist are returned.
+    /// </summary>
+    /// <remarks>
+    /// The Hugging Face hub cache records which commit a branch or tag points at in <c>refs/{revision}</c> and keeps
+    /// that commit's files in <c>snapshots/{commit}</c> (each entry a link into <c>blobs/</c>, or a plain copy where
+    /// links cannot be created). That snapshot comes first. The directory named after the revision itself,
+    /// <c>snapshots/{revision}</c> — where downloads by this library are written — comes second. A revision that is
+    /// itself a commit id names the same directory both ways and is returned once.
+    /// </remarks>
+    /// <param name="cacheDir">The base cache directory.</param>
+    /// <param name="repoId">The HuggingFace repository ID.</param>
+    /// <param name="revision">The revision: a branch, tag or commit id (default: "main").</param>
+    public static IReadOnlyList<string> GetSnapshotDirectories(string cacheDir, string repoId, string revision = "main")
     {
-        // HuggingFace cache structure: models--{org}--{model}/snapshots/{revision}
-        var sanitizedRepoId = repoId.Replace("/", "--");
-        return Path.Combine(cacheDir, $"models--{sanitizedRepoId}", "snapshots", revision);
+        ArgumentException.ThrowIfNullOrWhiteSpace(cacheDir);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(revision);
+
+        var repoDir = GetRepositoryDirectory(cacheDir, repoId);
+        var result = new List<string>(2);
+
+        if (TryReadRef(repoDir, revision) is { } commit)
+        {
+            var committed = Path.Combine(repoDir, "snapshots", commit);
+            if (Directory.Exists(committed))
+                result.Add(committed);
+        }
+
+        var named = GetModelDirectory(cacheDir, repoId, revision);
+        if (Directory.Exists(named) && !result.Any(d => SamePath(d, named)))
+            result.Add(named);
+
+        return result;
     }
 
     /// <summary>
-    /// Gets the full path to a file within a cached model.
+    /// The first snapshot directory (see <see cref="GetSnapshotDirectories"/>) that holds every one of
+    /// <paramref name="files"/> with real content, or <see langword="null"/> when none does. The files are
+    /// looked up together because a loader opens them from one directory.
+    /// </summary>
+    /// <param name="cacheDir">The base cache directory.</param>
+    /// <param name="repoId">The HuggingFace repository ID.</param>
+    /// <param name="files">File paths (repository-style, <c>/</c>-separated), relative to <paramref name="subfolder"/> when one is given.</param>
+    /// <param name="subfolder">Optional subfolder within the repository.</param>
+    /// <param name="revision">The revision (default: "main").</param>
+    /// <returns>The directory holding the files — the subfolder's own directory when one is given.</returns>
+    public static string? FindSnapshotDirectory(
+        string cacheDir,
+        string repoId,
+        IEnumerable<string> files,
+        string? subfolder = null,
+        string revision = "main")
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        var fileList = files as IReadOnlyCollection<string> ?? files.ToList();
+
+        foreach (var snapshot in GetSnapshotDirectories(cacheDir, repoId, revision))
+        {
+            var directory = GetSubfolderDirectory(snapshot, subfolder);
+            if (fileList.All(file => IsCachedFile(Path.Combine(directory, ToLocalPath(file)))))
+                return directory;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Gets the full path to a file within a cached model: in the first snapshot directory
+    /// (see <see cref="GetSnapshotDirectories"/>) that holds it, otherwise where a download writes it.
     /// </summary>
     public static string GetModelFilePath(string cacheDir, string repoId, string fileName, string revision = "main")
+        => TryFindModelFile(cacheDir, repoId, fileName, revision)
+           ?? Path.Combine(GetModelDirectory(cacheDir, repoId, revision), fileName);
+
+    /// <summary>
+    /// Checks if a model file is in the cache, in any snapshot directory <see cref="GetSnapshotDirectories"/> returns.
+    /// </summary>
+    public static bool ModelFileExists(string cacheDir, string repoId, string fileName, string revision = "main")
+        => TryFindModelFile(cacheDir, repoId, fileName, revision) is not null;
+
+    private static string? TryFindModelFile(string cacheDir, string repoId, string fileName, string revision)
+        => GetSnapshotDirectories(cacheDir, repoId, revision)
+            .Select(snapshot => Path.Combine(snapshot, ToLocalPath(fileName)))
+            .FirstOrDefault(IsCachedFile);
+
+    /// <summary>
+    /// Whether <paramref name="directory"/> lies outside the snapshot this library writes <paramref name="repoId"/>
+    /// at <paramref name="revision"/> to — a snapshot another tool owns, which is read and never modified.
+    /// </summary>
+    internal static bool IsForeignSnapshot(string cacheDir, string repoId, string revision, string directory)
     {
-        var modelDir = GetModelDirectory(cacheDir, repoId, revision);
-        return Path.Combine(modelDir, fileName);
+        var own = Path.TrimEndingDirectorySeparator(Path.GetFullPath(GetModelDirectory(cacheDir, repoId, revision)));
+        var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+        return !string.Equals(full, own, StringComparison.OrdinalIgnoreCase)
+               && !full.StartsWith(own + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
-    /// Checks if a model file exists in the cache.
+    /// The commit a revision points at, from <c>refs/{revision}</c> in the repository's cache directory, or
+    /// <see langword="null"/> when there is no such ref or its content is not a commit id.
     /// </summary>
-    public static bool ModelFileExists(string cacheDir, string repoId, string fileName, string revision = "main")
-        => IsCachedFile(GetModelFilePath(cacheDir, repoId, fileName, revision));
+    private static string? TryReadRef(string repoDir, string revision)
+    {
+        var refsDir = Path.GetFullPath(Path.Combine(repoDir, "refs"));
+        var refPath = Path.GetFullPath(Path.Combine(refsDir, ToLocalPath(revision)));
+        if (!refPath.StartsWith(refsDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        try
+        {
+            if (!File.Exists(refPath) || new FileInfo(refPath).Length > 256)
+                return null;
+
+            var commit = File.ReadAllText(refPath).Trim();
+            return IsCommitId(commit) ? commit : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceInformation($"[CacheManager] Could not read ref '{refPath}': {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>Whether <paramref name="value"/> is a hexadecimal commit id (the hub writes full 40-character ids).</summary>
+    internal static bool IsCommitId(string value) =>
+        value.Length is >= 7 and <= 64 && value.All(char.IsAsciiHexDigit);
+
+    private static string ToLocalPath(string repoPath) => repoPath.Replace('/', Path.DirectorySeparatorChar);
+
+    private static bool SamePath(string a, string b) =>
+        string.Equals(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(a)),
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(b)),
+            StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The length of a file's content: for a symbolic link (as the hub cache's snapshot entries are), the length
+    /// of the file it points at, not of the link itself.
+    /// </summary>
+    /// <param name="filePath">The file.</param>
+    /// <param name="length">The content length; 0 when the method returns <see langword="false"/>.</param>
+    /// <returns><see langword="false"/> when the file, or the file a link points at, does not exist.</returns>
+    public static bool TryGetContentLength(string filePath, out long length)
+    {
+        length = ResolveContent(filePath)?.Length ?? -1;
+        if (length >= 0)
+            return true;
+
+        length = 0;
+        return false;
+    }
+
+    /// <summary>
+    /// <see cref="TryGetContentLength"/> for a file known to exist.
+    /// </summary>
+    /// <exception cref="FileNotFoundException">The file, or the file a link points at, does not exist.</exception>
+    internal static long GetContentLength(string filePath)
+        => ResolveContent(filePath)?.Length
+           ?? throw new FileNotFoundException($"'{filePath}' does not exist or is a link to a missing file.", filePath);
+
+    /// <summary>Whether <paramref name="filePath"/> exists and, when it is a link, the file it points at exists.</summary>
+    internal static bool ContentExists(string filePath) => ResolveContent(filePath) is not null;
+
+    /// <summary>
+    /// The file holding <paramref name="filePath"/>'s content — itself, or the final target when it is a link —
+    /// or <see langword="null"/> when there is none.
+    /// </summary>
+    private static FileInfo? ResolveContent(string filePath)
+    {
+        try
+        {
+            var info = new FileInfo(filePath);
+            if (!info.Exists)
+                return null;
+            if (info.LinkTarget is null)
+                return info;
+
+            return info.ResolveLinkTarget(returnFinalTarget: true) is FileInfo { Exists: true } target ? target : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceInformation($"[CacheManager] Could not resolve '{filePath}': {ex.Message}");
+            return null;
+        }
+    }
 
     /// <summary>
     /// Lists which of <paramref name="files"/> a download of <paramref name="repoId"/> would still have to
-    /// fetch: the files that are not in the cache, or are cached only as Git LFS pointers.
+    /// fetch: none when one snapshot directory (see <see cref="FindSnapshotDirectory"/>) holds them all,
+    /// otherwise the files that are not in the directory downloads write to, or are cached there only as
+    /// Git LFS pointers.
     /// </summary>
     /// <remarks>
     /// The answer comes from the directory layout and the presence test <see cref="HuggingFaceDownloader"/>
@@ -101,15 +281,19 @@ public static class CacheManager
         ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
         ArgumentNullException.ThrowIfNull(files);
 
+        var fileList = files.ToList();
         var directory = GetSubfolderDirectory(GetModelDirectory(cacheDir, repoId, revision), subfolder);
-        return files.Where(file => !IsCachedFile(Path.Combine(directory, file))).ToList();
+        if (FindSnapshotDirectory(cacheDir, repoId, fileList, subfolder, revision) is not null)
+            return [];
+
+        return fileList.Where(file => !IsCachedFile(Path.Combine(directory, file))).ToList();
     }
 
     /// <summary>
-    /// Whether a file holds real content: present, and not a Git LFS pointer. The downloader fetches a
-    /// file exactly when this is false.
+    /// Whether a file holds real content: present (for a link, its target present), and not a Git LFS
+    /// pointer. The downloader fetches a file exactly when this is false.
     /// </summary>
-    internal static bool IsCachedFile(string filePath) => File.Exists(filePath) && !IsLfsPointerFile(filePath);
+    internal static bool IsCachedFile(string filePath) => ResolveContent(filePath) is not null && !IsLfsPointerFile(filePath);
 
     /// <summary>
     /// The local directory for a repository subfolder: the snapshot root when there is none, otherwise
@@ -135,11 +319,9 @@ public static class CacheManager
     /// </summary>
     public static bool IsLfsPointerFile(string filePath)
     {
-        if (!File.Exists(filePath))
-            return false;
-
-        var fileInfo = new FileInfo(filePath);
-        if (fileInfo.Length > 1024)
+        // A link's own length says nothing about its content: measure the file it points at.
+        var fileInfo = ResolveContent(filePath);
+        if (fileInfo is null || fileInfo.Length > 1024)
             return false;
 
         try
@@ -394,17 +576,19 @@ public static class CacheManager
             if (!Directory.Exists(snapshotsDir))
                 return null;
 
-            // Get the most recent snapshot
-            var latestSnapshot = Directory.GetDirectories(snapshotsDir)
-                .OrderByDescending(Directory.GetLastWriteTime)
-                .FirstOrDefault();
+            // The snapshot "main" resolves to (see GetSnapshotDirectories), else the most recent one
+            var resolved = GetSnapshotDirectories(Path.GetDirectoryName(modelDir)!, repoId);
+            var latestSnapshot = (resolved.Count > 0 ? resolved[0] : null)
+                ?? Directory.GetDirectories(snapshotsDir)
+                    .OrderByDescending(Directory.GetLastWriteTime)
+                    .FirstOrDefault();
 
             if (latestSnapshot == null)
                 return null;
 
-            // Calculate file list and total size
+            // Calculate file list and total size (a snapshot entry may be a link into blobs/)
             var files = Directory.GetFiles(latestSnapshot, "*", SearchOption.AllDirectories);
-            var totalSize = files.Sum(f => new FileInfo(f).Length);
+            var totalSize = files.Sum(f => ResolveContent(f)?.Length ?? 0);
             var fileNames = files.Select(Path.GetFileName).Where(n => n != null).ToList();
 
             // Detect model type

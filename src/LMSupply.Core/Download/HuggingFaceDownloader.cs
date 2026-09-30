@@ -105,14 +105,20 @@ public sealed class HuggingFaceDownloader : IDisposable
         using var discoveryService = CreateDiscoveryService();
         var discovery = await discoveryService.DiscoverModelAsync(repoId, preferences, revision, cancellationToken);
 
+        // Download all discovered files, preserving directory structure (the same list PlanWithDiscoveryAsync answers)
+        var allFiles = DiscoveredFiles(discovery);
+
+        // A snapshot another Hugging Face tool wrote for this revision, holding every file at its listed length,
+        // is used where it is.
+        if (TryFindForeignSnapshot(repoId, revision, subfolder: null, allFiles,
+                file => discovery.FileSizes.TryGetValue(file, out var size) && size > 0 ? size : null) is { } foreign)
+            return (foreign, discovery);
+
         // With local files only the cache is read, never written: an offline load must work from a
         // read-only cache, and a miss must not leave an empty snapshot directory behind.
         var modelDir = CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
         if (!_localFilesOnly)
             Directory.CreateDirectory(modelDir);
-
-        // Download all discovered files, preserving directory structure (the same list PlanWithDiscoveryAsync answers)
-        var allFiles = DiscoveredFiles(discovery);
         var totalFileCount = allFiles.Count;
         var fileIndex = 0;
         var manifestFiles = new List<ManifestFileEntry>();
@@ -288,12 +294,17 @@ public sealed class HuggingFaceDownloader : IDisposable
         var snapshotDir = CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
         var modelDir = CacheManager.GetSubfolderDirectory(snapshotDir, subfolder);
 
+        // Default files if not specified
+        var fileList = (files ?? GetDefaultModelFiles()).ToList();
+
+        // A snapshot another Hugging Face tool wrote for this revision is used where it is when it holds every
+        // requested file in the one directory the caller reads (the rule CacheManager.GetMissingFiles answers by).
+        if (TryFindForeignSnapshot(repoId, revision, subfolder, fileList, _ => null) is { } foreign)
+            return foreign;
+
         // With local files only the cache is read, never written (see DownloadWithDiscoveryAsync).
         if (!_localFilesOnly)
             Directory.CreateDirectory(modelDir);
-
-        // Default files if not specified
-        var fileList = (files ?? GetDefaultModelFiles()).ToList();
         var totalFileCount = fileList.Count;
         var fileIndex = 0;
 
@@ -443,7 +454,7 @@ public sealed class HuggingFaceDownloader : IDisposable
         {
             if (!CacheManager.IsCachedFile(candidate))
                 continue;
-            if (expectedSize is { } expected && new FileInfo(candidate).Length != expected)
+            if (expectedSize is { } expected && CacheManager.GetContentLength(candidate) != expected)
                 continue;
 
             try
@@ -464,12 +475,42 @@ public sealed class HuggingFaceDownloader : IDisposable
         return false;
     }
 
+    /// <summary>
+    /// The directory, in a snapshot another tool wrote for <paramref name="revision"/> (the commit its
+    /// <c>refs/</c> entry names, see <see cref="CacheManager.GetSnapshotDirectories"/>), that holds every one of
+    /// <paramref name="files"/> with real content and, where <paramref name="expectedSize"/> knows it, at that
+    /// length; <see langword="null"/> when there is none. Nothing in such a snapshot is moved, deleted or written.
+    /// </summary>
+    private string? TryFindForeignSnapshot(
+        string repoId, string revision, string? subfolder, List<string> files, Func<string, long?> expectedSize)
+    {
+        if (files.Count == 0)
+            return null;
+
+        foreach (var snapshot in CacheManager.GetSnapshotDirectories(_cacheDir, repoId, revision))
+        {
+            if (!CacheManager.IsForeignSnapshot(_cacheDir, repoId, revision, snapshot))
+                continue;
+
+            var directory = CacheManager.GetSubfolderDirectory(snapshot, subfolder);
+            if (files.All(file => ResumableFileDownload.IsUsableCachedFile(
+                    Path.Combine(directory, file.Replace('/', Path.DirectorySeparatorChar)), expectedSize(file), readOnly: true)))
+            {
+                Trace.TraceInformation(
+                    $"[HuggingFaceDownloader] '{repoId}' ({revision}) is in the cache at '{directory}'; nothing to download.");
+                return directory;
+            }
+        }
+
+        return null;
+    }
+
     private bool IsUsableCachedFile(string localPath, long? expectedSize, string repoId)
     {
         if (!CacheManager.IsCachedFile(localPath) || expectedSize is not { } expected)
             return ResumableFileDownload.IsUsableCachedFile(localPath, expectedSize, readOnly: _localFilesOnly);
 
-        var actual = new FileInfo(localPath).Length;
+        var actual = CacheManager.GetContentLength(localPath);
         if (actual == expected)
             return true;
 

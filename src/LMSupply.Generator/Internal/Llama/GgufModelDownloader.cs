@@ -111,9 +111,17 @@ public sealed class GgufModelDownloader : IDisposable
 
         // Check cache: a cached file counts only at the length the repository lists (when the listing is
         // available); one of another length is not this file and is fetched again.
+        // A copy in a snapshot another tool owns is read, never deleted; when it is not usable, the copy in the
+        // directory downloads write to is checked as before.
         var cachedPath = GetCachedPath(repoId, filename);
+        var downloadPath = GetDownloadPath(repoId, filename);
+        var foreign = !string.Equals(cachedPath, downloadPath, StringComparison.OrdinalIgnoreCase);
         var expectedSize = _localFilesOnly ? null : await TryGetListedSizeAsync(repoId, filename, cancellationToken);
-        if (ResumableFileDownload.IsUsableCachedFile(cachedPath, expectedSize, readOnly: _localFilesOnly))
+        var usablePath =
+            ResumableFileDownload.IsUsableCachedFile(cachedPath, expectedSize, readOnly: _localFilesOnly || foreign) ? cachedPath
+            : foreign && ResumableFileDownload.IsUsableCachedFile(downloadPath, expectedSize, readOnly: _localFilesOnly) ? downloadPath
+            : null;
+        if (usablePath is not null)
         {
             progress?.Report(new DownloadProgress
             {
@@ -121,7 +129,7 @@ public sealed class GgufModelDownloader : IDisposable
                 BytesDownloaded = 1,
                 TotalBytes = 1
             });
-            return cachedPath;
+            return usablePath;
         }
 
         if (_localFilesOnly)
@@ -135,9 +143,9 @@ public sealed class GgufModelDownloader : IDisposable
             TotalBytes = 0
         });
 
-        await DownloadFileAsync(repoId, filename, cachedPath, expectedSize, progress, cancellationToken);
+        await DownloadFileAsync(repoId, filename, downloadPath, expectedSize, progress, cancellationToken);
 
-        return cachedPath;
+        return downloadPath;
     }
 
     // The file DownloadAsync fetches — the named one, else the best fit (offline, only a cached file can be chosen).
@@ -687,12 +695,8 @@ public sealed class GgufModelDownloader : IDisposable
     /// </summary>
     private List<GgufFileGroup> ListCachedGroups(string repoId)
     {
-        var cacheDir = Path.GetDirectoryName(GetCachedPath(repoId, "placeholder.gguf"));
-        if (cacheDir == null || !Directory.Exists(cacheDir))
-            return [];
-
-        var rawFiles = Directory.EnumerateFiles(cacheDir, "*.gguf", SearchOption.TopDirectoryOnly)
-            .Select(p => new GgufRawFile(Path.GetFileName(p), new FileInfo(p).Length))
+        var rawFiles = EnumerateCachedGgufFiles(repoId)
+            .Select(p => new GgufRawFile(Path.GetFileName(p), CacheManager.GetContentLength(p)))
             .Where(f => !IsCompanionFile(f.FileName))
             .ToList();
 
@@ -708,17 +712,13 @@ public sealed class GgufModelDownloader : IDisposable
         CancellationToken cancellationToken)
     {
         // Local cache first
-        var localCacheDir = Path.GetDirectoryName(GetCachedPath(repoId, "placeholder.gguf"));
-        if (localCacheDir != null && Directory.Exists(localCacheDir))
-        {
-            var localMatch = Directory.EnumerateFiles(localCacheDir, "*.gguf", SearchOption.TopDirectoryOnly)
-                .Select(Path.GetFileName)
-                .FirstOrDefault(f => f != null &&
-                    f.Contains(quantization, StringComparison.OrdinalIgnoreCase) &&
-                    !IsCompanionFile(f));
-            if (localMatch != null)
-                return localMatch;
-        }
+        var localMatch = EnumerateCachedGgufFiles(repoId)
+            .Select(Path.GetFileName)
+            .FirstOrDefault(f => f != null &&
+                f.Contains(quantization, StringComparison.OrdinalIgnoreCase) &&
+                !IsCompanionFile(f));
+        if (localMatch != null)
+            return localMatch;
 
         try
         {
@@ -741,11 +741,7 @@ public sealed class GgufModelDownloader : IDisposable
     /// </summary>
     internal string? TrySelectFromLocalCache(string repoId, string? preferredQuantization)
     {
-        var cacheDir = Path.GetDirectoryName(GetCachedPath(repoId, "placeholder.gguf"));
-        if (cacheDir == null || !Directory.Exists(cacheDir))
-            return null;
-
-        var ggufFiles = Directory.EnumerateFiles(cacheDir, "*.gguf", SearchOption.TopDirectoryOnly)
+        var ggufFiles = EnumerateCachedGgufFiles(repoId)
             .Select(Path.GetFileName)
             .Where(f => f != null && !IsCompanionFile(f))
             .ToList();
@@ -783,7 +779,7 @@ public sealed class GgufModelDownloader : IDisposable
     }
 
     private ModelNotFoundException NotCached(string repoId, string file) =>
-        new($"'{file}' of model '{repoId}' is not in the local cache ({Path.GetDirectoryName(GetCachedPath(repoId, "model.gguf"))}) and downloads are disabled.", repoId);
+        new($"'{file}' of model '{repoId}' is not in the local cache ({CacheManager.GetModelDirectory(_cacheDirectory, repoId)}) and downloads are disabled.", repoId);
 
     /// <summary>
     /// Downloads a single file with resume support.
@@ -808,13 +804,22 @@ public sealed class GgufModelDownloader : IDisposable
         }, cancellationToken);
     }
 
+    // Where the cache holds the file — in any snapshot for "main" (see CacheManager.GetSnapshotDirectories) — else
+    // where a download writes it.
     private string GetCachedPath(string repoId, string filename)
-    {
-        // Store in HuggingFace-compatible structure
-        var safeRepoId = repoId.Replace('/', Path.DirectorySeparatorChar);
-        var modelDir = "models--" + safeRepoId.Replace(Path.DirectorySeparatorChar.ToString(), "--");
-        return Path.Combine(_cacheDirectory, modelDir, "snapshots", "main", filename);
-    }
+        => CacheManager.GetModelFilePath(_cacheDirectory, repoId, filename);
+
+    // Where a download writes the file.
+    private string GetDownloadPath(string repoId, string filename)
+        => Path.Combine(CacheManager.GetModelDirectory(_cacheDirectory, repoId), filename);
+
+    // The cached GGUF files of the repository across its snapshots for "main", one per file name (the first snapshot
+    // that holds it), each with real content.
+    private IEnumerable<string> EnumerateCachedGgufFiles(string repoId)
+        => CacheManager.GetSnapshotDirectories(_cacheDirectory, repoId)
+            .SelectMany(dir => Directory.EnumerateFiles(dir, "*.gguf", SearchOption.TopDirectoryOnly))
+            .Where(CacheManager.IsCachedFile)
+            .DistinctBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase);
 
     private static int GetQuantizationPriority(string? quantization)
     {

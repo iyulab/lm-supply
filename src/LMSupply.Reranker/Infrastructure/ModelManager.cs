@@ -57,9 +57,10 @@ internal sealed class ModelManager : IDisposable
         // Get expected file paths. The tokenizer can come from another repository than the weights (an ONNX export that
         // did not carry the SentencePiece model); its files sit together, because the tokenizer is built from their directory.
         var tokenizerRepo = modelInfo.TokenizerRepoId ?? modelInfo.Id;
-        var modelPath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, modelInfo.OnnxFile);
-        var tokenizerPath = CacheManager.GetModelFilePath(_cacheDir, tokenizerRepo, modelInfo.TokenizerFile);
-        var dataPath = modelInfo.OnnxDataFile is null ? null : CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, modelInfo.OnnxDataFile);
+        var (modelDir, tokenizerDir) = ResolveDirectories(modelInfo);
+        var modelPath = Path.Combine(modelDir, modelInfo.OnnxFile);
+        var tokenizerPath = Path.Combine(tokenizerDir, modelInfo.TokenizerFile);
+        var dataPath = modelInfo.OnnxDataFile is null ? null : Path.Combine(modelDir, modelInfo.OnnxDataFile);
 
         // Check if already cached and not LFS pointers. A graph whose weights live in an external file is only cached
         // with that file: a cache holding the graph shell alone (left by a release that did not fetch it) is completed here.
@@ -83,13 +84,13 @@ internal sealed class ModelManager : IDisposable
 
         // Also try to download tokenizer-specific files based on model architecture
         // BERT models use vocab.txt, XLM-RoBERTa models use sentencepiece.bpe.model
-        var vocabPath = CacheManager.GetModelFilePath(_cacheDir, tokenizerRepo, "vocab.txt");
+        var vocabPath = Path.Combine(tokenizerDir, "vocab.txt");
         if (!File.Exists(vocabPath) || CacheManager.IsLfsPointerFile(vocabPath))
         {
             tokenizerFiles.Add("vocab.txt");
         }
 
-        var sentencepiecePath = CacheManager.GetModelFilePath(_cacheDir, tokenizerRepo, "sentencepiece.bpe.model");
+        var sentencepiecePath = Path.Combine(tokenizerDir, "sentencepiece.bpe.model");
         if (!File.Exists(sentencepiecePath) || CacheManager.IsLfsPointerFile(sentencepiecePath))
         {
             tokenizerFiles.Add("sentencepiece.bpe.model");
@@ -114,8 +115,10 @@ internal sealed class ModelManager : IDisposable
         }
 
         // Verify downloads
-        modelPath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, modelInfo.OnnxFile);
-        tokenizerPath = CacheManager.GetModelFilePath(_cacheDir, tokenizerRepo, modelInfo.TokenizerFile);
+        (modelDir, tokenizerDir) = ResolveDirectories(modelInfo);
+        modelPath = Path.Combine(modelDir, modelInfo.OnnxFile);
+        tokenizerPath = Path.Combine(tokenizerDir, modelInfo.TokenizerFile);
+        dataPath = modelInfo.OnnxDataFile is null ? null : Path.Combine(modelDir, modelInfo.OnnxDataFile);
 
         if (!File.Exists(modelPath))
         {
@@ -160,17 +163,43 @@ internal sealed class ModelManager : IDisposable
             return GetLocalModelPaths(modelInfo);
         }
 
-        var modelPath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, modelInfo.OnnxFile);
-        var tokenizerPath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.TokenizerRepoId ?? modelInfo.Id, modelInfo.TokenizerFile);
+        var (modelDir, tokenizerDir) = ResolveDirectories(modelInfo);
+        var modelPath = Path.Combine(modelDir, modelInfo.OnnxFile);
+        var tokenizerPath = Path.Combine(tokenizerDir, modelInfo.TokenizerFile);
 
         if (File.Exists(modelPath) && File.Exists(tokenizerPath) &&
             !CacheManager.IsLfsPointerFile(modelPath) &&
-            (modelInfo.OnnxDataFile is null || File.Exists(CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, modelInfo.OnnxDataFile))))
+            (modelInfo.OnnxDataFile is null || File.Exists(Path.Combine(modelDir, modelInfo.OnnxDataFile))))
         {
             return new ModelPaths(modelPath, tokenizerPath);
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// The directories the model's files are read from: for the weights, the first snapshot of the model's
+    /// repository that holds the graph (and its external weights) together — ONNX Runtime opens the weights
+    /// beside the graph — and for the tokenizer, the first that holds the tokenizer file (with the weights when
+    /// both come from one repository). Each falls back to the directory a download writes to.
+    /// See <see cref="CacheManager.FindSnapshotDirectory"/>.
+    /// </summary>
+    private (string ModelDir, string TokenizerDir) ResolveDirectories(ModelInfo modelInfo)
+    {
+        var tokenizerRepo = modelInfo.TokenizerRepoId ?? modelInfo.Id;
+        string[] weights = modelInfo.OnnxDataFile is null ? [modelInfo.OnnxFile] : [modelInfo.OnnxFile, modelInfo.OnnxDataFile];
+
+        if (tokenizerRepo == modelInfo.Id
+            && CacheManager.FindSnapshotDirectory(_cacheDir, modelInfo.Id, [.. weights, modelInfo.TokenizerFile]) is { } together)
+        {
+            return (together, together);
+        }
+
+        var modelDir = CacheManager.FindSnapshotDirectory(_cacheDir, modelInfo.Id, weights)
+            ?? CacheManager.GetModelDirectory(_cacheDir, modelInfo.Id);
+        var tokenizerDir = CacheManager.FindSnapshotDirectory(_cacheDir, tokenizerRepo, [modelInfo.TokenizerFile])
+            ?? CacheManager.GetModelDirectory(_cacheDir, tokenizerRepo);
+        return (modelDir, tokenizerDir);
     }
 
     /// <summary>
