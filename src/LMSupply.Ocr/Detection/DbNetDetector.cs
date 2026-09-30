@@ -60,7 +60,7 @@ internal sealed class DbNetDetector : IDisposable
         DetectionModelInfo modelInfo,
         OcrOptions options)
     {
-        Action<SessionOptions> configure = so => so.LogSeverityLevel = (OrtLoggingLevel)(int)options.LogLevel;
+        Action<SessionOptions> configure = so => so.ApplyCommonOptions(options);
 
         var result = await OnnxSessionFactory.CreateWithInfoAsync(modelPath, options.Provider, configure)
             .ConfigureAwait(false);

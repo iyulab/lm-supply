@@ -379,11 +379,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarizati
         options.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
         options.EnableMemoryPattern = true;
         options.EnableCpuMemArena = true;
-        if (_options.ThreadCount is { } threads && threads > 0)
-        {
-            options.IntraOpNumThreads = threads;
-            options.InterOpNumThreads = threads;
-        }
+        options.ApplyCommonOptions(_options);
     }
 
     public ValueTask DisposeAsync()

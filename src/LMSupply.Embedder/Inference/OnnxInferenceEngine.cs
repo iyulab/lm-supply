@@ -43,11 +43,12 @@ internal sealed class OnnxInferenceEngine : IDisposable
         bool isGpuActive,
         IReadOnlyList<string> activeProviders,
         ExecutionProvider requestedProvider,
-        string modelPath)
+        string modelPath,
+        Action<SessionOptions> configure)
     {
         _ = isGpuProvider; // kept for constructor-shape compatibility; derived from the provider by the session
         _session = new RecoverableOnnxSession(
-            session, activeProviders, isGpuActive, requestedProvider, modelPath, ConfigureOptions,
+            session, activeProviders, isGpuActive, requestedProvider, modelPath, configure,
             logPrefix: "[OnnxInferenceEngine]");
         HiddenSize = hiddenSize;
         _hasTokenTypeIds = hasTokenTypeIds;
@@ -60,42 +61,46 @@ internal sealed class OnnxInferenceEngine : IDisposable
     /// </summary>
     /// <param name="modelPath">Path to the ONNX model file.</param>
     /// <param name="provider">The execution provider to use.</param>
+    /// <param name="options">Log level and thread count for the session; null keeps the ONNX Runtime defaults.</param>
     /// <param name="progress">Optional progress reporter for binary downloads.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A configured inference engine.</returns>
     public static async Task<OnnxInferenceEngine> CreateAsync(
         string modelPath,
         ExecutionProvider provider,
+        LMSupplyOptionsBase? options = null,
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         if (!File.Exists(modelPath))
             throw new ModelNotFoundException("Model file not found", modelPath);
 
+        var configure = ConfigureFor(options);
         var result = await OnnxSessionFactory.CreateWithInfoAsync(
             modelPath,
             provider,
-            ConfigureOptions,
+            configure,
             progress,
             cancellationToken);
 
-        return CreateFromSessionResult(result, modelPath);
+        return CreateFromSessionResult(result, modelPath, configure);
     }
 
     /// <summary>
     /// Creates an inference engine from an ONNX model file.
     /// Note: This assumes runtime binaries are already available. For lazy loading, use CreateAsync.
     /// </summary>
-    public static OnnxInferenceEngine Create(string modelPath, ExecutionProvider provider)
+    public static OnnxInferenceEngine Create(string modelPath, ExecutionProvider provider, LMSupplyOptionsBase? options = null)
     {
         if (!File.Exists(modelPath))
             throw new ModelNotFoundException("Model file not found", modelPath);
 
-        var session = OnnxSessionFactory.Create(modelPath, provider, ConfigureOptions, out var gpuEpAppended);
+        var configure = ConfigureFor(options);
+        var session = OnnxSessionFactory.Create(modelPath, provider, configure, out var gpuEpAppended);
         var activeProviders = OnnxSessionFactory.ResolveActiveProviders(provider, gpuEpAppended);
         var isGpuActive = activeProviders.Any(p => p != "CPUExecutionProvider");
 
-        return CreateFromSession(session, IsGpuProvider(provider), isGpuActive, activeProviders, provider, modelPath);
+        return CreateFromSession(session, IsGpuProvider(provider), isGpuActive, activeProviders, provider, modelPath, configure);
     }
 
     private static bool IsGpuProvider(ExecutionProvider provider)
@@ -105,17 +110,21 @@ internal sealed class OnnxInferenceEngine : IDisposable
             or ExecutionProvider.Auto; // Auto may select GPU, so treat as GPU for safety
     }
 
-    private static void ConfigureOptions(SessionOptions options)
+    /// <summary>
+    /// The session settings: the embedding graph's own (sequential, arenas) plus the caller's log level and threads. The
+    /// thread count used to be fixed at one per logical core, whatever <see cref="LMSupplyOptionsBase.ThreadCount"/> said.
+    /// </summary>
+    private static Action<SessionOptions> ConfigureFor(LMSupplyOptionsBase? options) => sessionOptions =>
     {
-        options.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
-        options.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
-        options.EnableCpuMemArena = true;
-        options.EnableMemoryPattern = true;
-        options.IntraOpNumThreads = Environment.ProcessorCount;
-        options.InterOpNumThreads = 1;
-    }
+        sessionOptions.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
+        sessionOptions.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
+        sessionOptions.EnableCpuMemArena = true;
+        sessionOptions.EnableMemoryPattern = true;
+        if (options != null)
+            sessionOptions.ApplyCommonOptions(options);
+    };
 
-    private static OnnxInferenceEngine CreateFromSessionResult(SessionCreationResult result, string modelPath)
+    private static OnnxInferenceEngine CreateFromSessionResult(SessionCreationResult result, string modelPath, Action<SessionOptions> configure)
     {
         return CreateFromSession(
             result.Session,
@@ -123,7 +132,8 @@ internal sealed class OnnxInferenceEngine : IDisposable
             result.IsGpuActive,
             result.ActiveProviders,
             result.RequestedProvider,
-            modelPath);
+            modelPath,
+            configure);
     }
 
     private static OnnxInferenceEngine CreateFromSession(
@@ -132,7 +142,8 @@ internal sealed class OnnxInferenceEngine : IDisposable
         bool isGpuActive,
         IReadOnlyList<string> activeProviders,
         ExecutionProvider requestedProvider,
-        string modelPath)
+        string modelPath,
+        Action<SessionOptions> configure)
     {
         // Detect model configuration from metadata
         var inputNames = session.InputMetadata.Keys.ToHashSet();
@@ -152,7 +163,8 @@ internal sealed class OnnxInferenceEngine : IDisposable
             isGpuActive,
             activeProviders,
             requestedProvider,
-            modelPath);
+            modelPath,
+            configure);
     }
 
     /// <summary>

@@ -98,7 +98,7 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
             throw new ModelNotFoundException($"Decoder file not found: {decoderPath}", modelInfo.AliasName);
 
         // Load ONNX sessions
-        Action<SessionOptions> configureLog = so => so.LogSeverityLevel = (OrtLoggingLevel)(int)options.LogLevel;
+        Action<SessionOptions> configureLog = so => so.ApplyCommonOptions(options);
         var blacklist = new ProviderBlacklist();
 
         var encoderResult = await OnnxSessionFactory.CreateWithInfoAsync(encoderPath, options.Provider, configureLog).ConfigureAwait(false);

@@ -147,6 +147,11 @@ var options = new EmbedderOptions
     // Lowercase input text (for uncased models)
     DoLowerCase = true,
 
+    // CPU threads for inference. null (the default) = ONNX Runtime's pool: a thread per physical core,
+    // spin-waiting between runs for throughput. A number = that many threads, and they stop
+    // spin-waiting, so an interactive app that embeds a field at a time leaves idle cores idle.
+    ThreadCount = null,
+
     // Custom cache directory
     CacheDirectory = null,  // Uses ~/.cache/huggingface/hub by default
 

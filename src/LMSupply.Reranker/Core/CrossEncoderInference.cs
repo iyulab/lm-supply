@@ -53,7 +53,7 @@ internal sealed class CrossEncoderInference : IDisposable
     /// <param name="modelPath">Path to the ONNX model.</param>
     /// <param name="modelInfo">Model information.</param>
     /// <param name="provider">Execution provider for inference.</param>
-    /// <param name="threadCount">Number of inference threads.</param>
+    /// <param name="options">Log level and thread count for the session (see <see cref="SessionOptionsExtensions.ApplyCommonOptions(SessionOptions, LMSupplyOptionsBase)"/>).</param>
     /// <param name="progress">Optional progress reporter for binary downloads.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Configured inference engine.</returns>
@@ -61,7 +61,7 @@ internal sealed class CrossEncoderInference : IDisposable
         string modelPath,
         ModelInfo modelInfo,
         ExecutionProvider provider = ExecutionProvider.Auto,
-        int? threadCount = null,
+        LMSupplyOptionsBase? options = null,
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -72,7 +72,7 @@ internal sealed class CrossEncoderInference : IDisposable
             throw new FileNotFoundException($"Model file not found: {modelPath}", modelPath);
         }
 
-        Action<SessionOptions> configure = options => ConfigureSessionOptions(options, threadCount);
+        Action<SessionOptions> configure = sessionOptions => ConfigureSessionOptions(sessionOptions, options);
 
         try
         {
@@ -99,13 +99,13 @@ internal sealed class CrossEncoderInference : IDisposable
     /// <param name="modelPath">Path to the ONNX model.</param>
     /// <param name="modelInfo">Model information.</param>
     /// <param name="provider">Execution provider for inference.</param>
-    /// <param name="threadCount">Number of inference threads.</param>
+    /// <param name="options">Log level and thread count for the session (see <see cref="SessionOptionsExtensions.ApplyCommonOptions(SessionOptions, LMSupplyOptionsBase)"/>).</param>
     /// <returns>Configured inference engine.</returns>
     public static CrossEncoderInference Create(
         string modelPath,
         ModelInfo modelInfo,
         ExecutionProvider provider = ExecutionProvider.Auto,
-        int? threadCount = null)
+        LMSupplyOptionsBase? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelPath);
 
@@ -114,7 +114,7 @@ internal sealed class CrossEncoderInference : IDisposable
             throw new FileNotFoundException($"Model file not found: {modelPath}", modelPath);
         }
 
-        Action<SessionOptions> configure = options => ConfigureSessionOptions(options, threadCount);
+        Action<SessionOptions> configure = sessionOptions => ConfigureSessionOptions(sessionOptions, options);
 
         try
         {
@@ -144,15 +144,15 @@ internal sealed class CrossEncoderInference : IDisposable
         return new CrossEncoderInference(session, outputName, modelInfo.OutputShape, hasTokenTypeIds);
     }
 
-    private static void ConfigureSessionOptions(SessionOptions options, int? threadCount)
+    private static void ConfigureSessionOptions(SessionOptions sessionOptions, LMSupplyOptionsBase? options)
     {
-        options.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
-        options.ExecutionMode = ExecutionMode.ORT_PARALLEL;
+        sessionOptions.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
+        sessionOptions.ExecutionMode = ExecutionMode.ORT_PARALLEL;
 
-        // Set thread count
-        var threads = threadCount ?? Environment.ProcessorCount;
-        options.IntraOpNumThreads = threads;
-        options.InterOpNumThreads = Math.Max(1, threads / 2);
+        // Threads and log level follow the options like every other model type; without a ThreadCount ONNX Runtime
+        // sizes its pools. Before, an unset ThreadCount meant a thread per logical core plus half as many inter-op threads.
+        if (options != null)
+            sessionOptions.ApplyCommonOptions(options);
     }
 
     /// <summary>

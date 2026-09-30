@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.97.0] - Unreleased
+
+### Fixed
+- **`ThreadCount` is honoured by every ONNX model type.** The Embedder fixed its intra-op threads at the logical core
+  count and ignored the option; OCR and the Captioner ignored it too. Measured with `multilingual-e5-small` on CPU
+  (a 300-character sentence, 20 calls): `ThreadCount = 1` went from about 790 ms of process CPU per call to 54 ms.
+- **With `ThreadCount` set, ONNX Runtime threads no longer spin-wait between runs.** A short call used to leave several
+  cores at full load for seconds afterwards (about 15 s of CPU in 3 idle seconds); now idle stays idle. Without
+  `ThreadCount` the ONNX Runtime defaults are kept, spinning included, for throughput.
+- **Parakeet (Transcriber) and the Reranker apply `LogLevel`.**
+
+### Changed
+- **The Reranker without `ThreadCount` uses ONNX Runtime's thread defaults** instead of one intra-op thread per
+  logical core plus half as many inter-op threads.
+
+### Added
+- **`SessionOptionsExtensions.ApplyCommonOptions`** (`LMSupply.Inference`): the one place the session's log level and
+  threads come from `LMSupplyOptionsBase`, for code that creates its own ONNX sessions through `OnnxSessionFactory`.
+
 ## [0.96.0] - 2026-09-30
 
 ### Added

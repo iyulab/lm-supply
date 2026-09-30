@@ -608,13 +608,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel, Diarization.IDia
         options.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
         options.EnableMemoryPattern = true;
         options.EnableCpuMemArena = true;
-        options.LogSeverityLevel = (OrtLoggingLevel)(int)_options.LogLevel;
-
-        if (_options.ThreadCount.HasValue)
-        {
-            options.IntraOpNumThreads = _options.ThreadCount.Value;
-            options.InterOpNumThreads = _options.ThreadCount.Value;
-        }
+        options.ApplyCommonOptions(_options);
     }
 
     public ValueTask DisposeAsync()

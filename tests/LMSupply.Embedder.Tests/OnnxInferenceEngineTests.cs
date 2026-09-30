@@ -54,7 +54,7 @@ public class OnnxInferenceEngineTests
 
         // Match constructor parameter order:
         // session, hiddenSize, hasTokenTypeIds, outputName,
-        // isGpuProvider, isGpuActive, activeProviders, requestedProvider, modelPath
+        // isGpuProvider, isGpuActive, activeProviders, requestedProvider, modelPath, configure
         return (OnnxInferenceEngine)ctor.Invoke([
             null!,          // session  — null safe: Dispose not reached on failure path
             384,            // hiddenSize
@@ -64,7 +64,8 @@ public class OnnxInferenceEngineTests
             false,          // isGpuActive (post-0.34.8 DML→CPU state)
             activeProviders,
             requestedProvider,
-            modelPath
+            modelPath,
+            (Action<Microsoft.ML.OnnxRuntime.SessionOptions>)(_ => { }) // configure
         ]);
     }
 

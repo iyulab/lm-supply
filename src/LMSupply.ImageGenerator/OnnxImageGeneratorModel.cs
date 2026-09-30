@@ -1,3 +1,4 @@
+using LMSupply.Inference;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using LMSupply.Core;
@@ -52,14 +53,7 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
             modelPath,
             options.Provider,
             options.DeviceId,
-            sessionOptions =>
-            {
-                sessionOptions.LogSeverityLevel = (OrtLoggingLevel)(int)options.LogLevel;
-                if (options.ThreadCount.HasValue)
-                {
-                    sessionOptions.IntraOpNumThreads = options.ThreadCount.Value;
-                }
-            },
+            sessionOptions => sessionOptions.ApplyCommonOptions(options.LogLevel, options.ThreadCount),
             cancellationToken);
 
         return new OnnxImageGeneratorModel(pipeline, modelDefinition, options, modelPath);

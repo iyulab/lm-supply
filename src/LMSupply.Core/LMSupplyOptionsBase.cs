@@ -38,7 +38,9 @@ public abstract class LMSupplyOptionsBase
     /// </summary>
     /// <remarks>
     /// This setting primarily affects CPU inference. GPU inference may have different threading behavior
-    /// controlled by the GPU driver.
+    /// controlled by the GPU driver. When set, the ONNX Runtime thread pools also stop spin-waiting between runs, so
+    /// idle cores stay idle after a call (see <c>SessionOptionsExtensions.ApplyCommonOptions</c>). Every ONNX-based
+    /// model type applies it the same way.
     /// </remarks>
     public int? ThreadCount { get; set; }
 

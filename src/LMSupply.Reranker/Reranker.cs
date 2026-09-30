@@ -224,7 +224,7 @@ public sealed class Reranker : IRerankerModel
                 modelPaths.ModelPath,
                 modelInfo,
                 _options.Provider,
-                _options.ThreadCount);
+                _options);
 
             // Store runtime diagnostics
             _isGpuActive = inference.IsGpuActive;

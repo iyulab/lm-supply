@@ -158,7 +158,8 @@ var options = new RerankerOptions
     // Batch size for processing multiple documents
     BatchSize = 32,
 
-    // Number of inference threads (null = auto)
+    // Inference threads. null = ONNX Runtime's pool (spin-waiting for throughput); a number =
+    // that many threads, not spin-waiting between runs
     ThreadCount = null,
 
     // Read the local cache only: a model that is not cached throws ModelNotFoundException

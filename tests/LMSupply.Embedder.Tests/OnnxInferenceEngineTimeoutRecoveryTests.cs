@@ -62,7 +62,8 @@ public class OnnxInferenceEngineTimeoutRecoveryTests
             activeProviders.Any(p => !p.Contains("CPU", StringComparison.OrdinalIgnoreCase)), // isGpuActive
             activeProviders,
             requestedProvider,
-            "/nonexistent/test_model_timeout_recovery.onnx"
+            "/nonexistent/test_model_timeout_recovery.onnx",
+            (Action<Microsoft.ML.OnnxRuntime.SessionOptions>)(_ => { }) // configure
         ]);
     }
 
