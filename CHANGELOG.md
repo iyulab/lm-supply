@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [0.94.0] - Unreleased
+## [0.94.0] - 2026-09-30
 
 ### Added
 - **`CacheManager.GetSnapshotDirectories`, `FindSnapshotDirectory` and `TryGetContentLength`** — the snapshot directories a lookup reads, in order, and a content length that follows symbolic links.
