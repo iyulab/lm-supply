@@ -13,6 +13,7 @@ public sealed class RuntimeManager : IAsyncDisposable
     private const string PackageType = "onnxruntime";
 
     private readonly OnnxNuGetDownloader _nugetDownloader;
+    private readonly HttpMessageHandler? _handler;
     private readonly RuntimeManagerOptions _options;
     private readonly RuntimeUpdateOptions _updateOptions;
     private readonly SemaphoreSlim _initLock = new(1, 1);
@@ -26,10 +27,57 @@ public sealed class RuntimeManager : IAsyncDisposable
     private string? _activeProvider;
     private string? _primaryLibraryName;
 
+    private static readonly object s_configureLock = new();
+    private static RuntimeManagerOptions? s_configuredOptions;
+    private static RuntimeManager? s_instance;
+
     /// <summary>
-    /// Gets the singleton instance of the runtime manager.
+    /// Gets the process-wide runtime manager every model load goes through. It is created on first read with the
+    /// options given to <see cref="Configure"/>, or with defaults when nothing was configured.
     /// </summary>
-    public static RuntimeManager Instance { get; } = new();
+    public static RuntimeManager Instance
+    {
+        get
+        {
+            if (Volatile.Read(ref s_instance) is { } existing)
+                return existing;
+
+            lock (s_configureLock)
+            {
+                if (s_instance is null)
+                    Volatile.Write(ref s_instance, new RuntimeManager(s_configuredOptions ?? new RuntimeManagerOptions()));
+                return s_instance!;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sets the options of the process-wide <see cref="Instance"/>: where the native ONNX Runtime comes from
+    /// (<see cref="RuntimeManagerOptions.RuntimeDirectory"/>), whether it may be fetched from nuget.org
+    /// (<see cref="RuntimeManagerOptions.DisableAutoDownload"/>) and which version it is
+    /// (<see cref="RuntimeManagerOptions.PinnedVersion"/>). A process loads one native runtime, so this is
+    /// process-wide rather than per model. Call it once at startup, before the first model load.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// <see cref="Instance"/> already exists (a model has loaded, or code read it), so the options it runs with can
+    /// no longer change.
+    /// </exception>
+    public static void Configure(RuntimeManagerOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        lock (s_configureLock)
+        {
+            if (s_instance is not null)
+            {
+                throw new InvalidOperationException(
+                    "RuntimeManager.Configure must be called before the first model load: the process-wide runtime manager " +
+                    "already exists and its options cannot change.");
+            }
+
+            s_configuredOptions = options;
+        }
+    }
 
     /// <summary>
     /// Creates a new runtime manager with default options.
@@ -42,11 +90,22 @@ public sealed class RuntimeManager : IAsyncDisposable
     /// Creates a new runtime manager with custom options.
     /// </summary>
     public RuntimeManager(RuntimeManagerOptions options, RuntimeUpdateOptions? updateOptions = null)
+        : this(options, updateOptions, handler: null)
     {
+    }
+
+    /// <summary>Test seam: the same manager over a caller-supplied transport for every feed request it makes.</summary>
+    internal RuntimeManager(RuntimeManagerOptions options, RuntimeUpdateOptions? updateOptions, HttpMessageHandler? handler)
+    {
+        ArgumentNullException.ThrowIfNull(options);
         _options = options;
         _updateOptions = updateOptions ?? RuntimeUpdateOptions.Default;
-        _nugetDownloader = new OnnxNuGetDownloader(options.CacheDirectory);
+        _handler = handler;
+        _nugetDownloader = new OnnxNuGetDownloader(options.CacheDirectory, handler);
     }
+
+    /// <summary>The options this manager runs with.</summary>
+    public RuntimeManagerOptions Options => _options;
 
     /// <summary>
     /// Gets the detected platform information.
@@ -265,9 +324,40 @@ public sealed class RuntimeManager : IAsyncDisposable
         ex is OperationCanceledException or NativeLibraryConflictException;
 
     /// <summary>
-    /// Downloads runtime for a specific provider from NuGet with auto-update support.
+    /// Provisions the runtime for a specific provider and registers it with <see cref="NativeLoader"/>.
     /// </summary>
     private async Task<string> DownloadRuntimeForProviderAsync(
+        string provider,
+        string packageType,
+        string? version,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var (binaryPath, resolvedVersion, config) =
+            await ResolveRuntimeForProviderAsync(provider, packageType, version, progress, cancellationToken);
+
+        // Track current state
+        _currentVersion = resolvedVersion;
+        _activeProvider = provider;
+
+        // Register with NativeLoader for DLL resolution
+        var primaryLibrary = config.NativeLibraryName ?? "onnxruntime";
+        _primaryLibraryName = primaryLibrary;
+        NativeLoader.Instance.RegisterDirectory(
+            binaryPath, preload: true, primaryLibrary: primaryLibrary,
+            throwOnConflict: _options.FailOnRuntimeConflict);
+
+        return binaryPath;
+    }
+
+    /// <summary>
+    /// Finds the directory the runtime for <paramref name="provider"/> loads from, fetching it only when the options
+    /// allow: a <see cref="RuntimeManagerOptions.RuntimeDirectory"/> is used as-is, a local-only manager
+    /// (<see cref="RuntimeManagerOptions.DisableAutoDownload"/>) reads the cache or throws, and otherwise the version
+    /// is resolved and downloaded on a cache miss. Registers nothing -- internal so tests can assert where a runtime
+    /// comes from without loading a native library into the test process.
+    /// </summary>
+    internal async Task<(string Path, string Version, RuntimePackageRegistry.PackageConfig Config)> ResolveRuntimeForProviderAsync(
         string provider,
         string packageType,
         string? version,
@@ -277,6 +367,7 @@ public sealed class RuntimeManager : IAsyncDisposable
         // A provider this build cannot serve fails here, loud, before any lookup -- the registry falls back
         // to the CPU package for an unknown name, which would otherwise turn "directml" into a silent CPU run.
         ExecutionProviderSupport.ThrowIfUnsupported(provider);
+        await InitializeAsync(cancellationToken);
 
         // Get package configuration
         var config = RuntimePackageRegistry.GetPackageConfig(packageType, provider, _platform!.RuntimeIdentifier);
@@ -285,8 +376,46 @@ public sealed class RuntimeManager : IAsyncDisposable
             throw new InvalidOperationException($"No package configuration found for {packageType}/{provider}");
         }
 
+        var wantedVersion = version ?? _options.PinnedVersion;
+
+        if (!string.IsNullOrEmpty(_options.RuntimeDirectory))
+        {
+            var bundled = UseRuntimeDirectory(_options.RuntimeDirectory, provider, packageType, config);
+            return (bundled, wantedVersion ?? TryGetOnnxRuntimeVersion() ?? "bundled", config);
+        }
+
+        if (_options.DisableAutoDownload)
+        {
+            // Never the network: no version lookup, no download, no update check. An exact version (pinned, or the
+            // one the loaded managed assembly expects) is preferred; without a pin, the newest cached copy stands in,
+            // the same policy the downloader applies when the feed is unreachable.
+            var expected = wantedVersion ?? TryGetOnnxRuntimeVersion();
+            var cached = _nugetDownloader.FindCached(
+                provider, _platform!, expected, packageType, exactOnly: _options.PinnedVersion is not null);
+            if (cached is null)
+            {
+                throw new ModelLoadException(
+                    $"The {config.PackageId} runtime for provider '{provider}' ({_platform!.RuntimeIdentifier}" +
+                    (expected is null ? "" : $", version {expected}") + ") is not in the runtime cache " +
+                    $"'{CacheDirectory}', and RuntimeManagerOptions.DisableAutoDownload forbids downloading it. " +
+                    "Ship the native runtime with the application and point RuntimeManagerOptions.RuntimeDirectory at it, " +
+                    "or provision the cache once with downloads allowed.");
+            }
+
+            return (cached.Value.Path, cached.Value.Version, config);
+        }
+
         // Resolve initial version if not specified
-        var currentVersion = version ?? await ResolveVersionAsync(config.PackageId, cancellationToken);
+        var currentVersion = wantedVersion ?? await ResolveVersionAsync(config.PackageId, cancellationToken);
+
+        if (_options.PinnedVersion is not null)
+        {
+            // Pinned: exactly this version -- no background update check and no applying a previously downloaded
+            // newer one, both of which the update service would do.
+            var pinnedPath = await _nugetDownloader.DownloadAsync(
+                provider, _platform!, currentVersion, progress, packageType, cancellationToken);
+            return (pinnedPath, currentVersion, config);
+        }
 
         // Get update service
         var updateService = RuntimeUpdateService.GetInstance(packageType, _updateOptions);
@@ -310,24 +439,39 @@ public sealed class RuntimeManager : IAsyncDisposable
                 "Try deleting the runtime cache directory and retrying.");
         }
 
-        // Track current state
-        _currentVersion = currentVersion;
-        _activeProvider = provider;
+        return (binaryPath, currentVersion, config);
+    }
 
-        // Register with NativeLoader for DLL resolution
-        var primaryLibrary = config.NativeLibraryName ?? "onnxruntime";
-        _primaryLibraryName = primaryLibrary;
-        NativeLoader.Instance.RegisterDirectory(
-            binaryPath, preload: true, primaryLibrary: primaryLibrary,
-            throwOnConflict: _options.FailOnRuntimeConflict);
+    /// <summary>
+    /// Checks that an application-supplied runtime directory holds every native library the provider needs and returns
+    /// it. A missing library throws: in the Auto chain that moves on to the next provider (a CPU-only bundle serves CPU),
+    /// and an explicit GPU request fails loud instead of running on a runtime without its provider.
+    /// </summary>
+    private string UseRuntimeDirectory(
+        string directory, string provider, string packageType, RuntimePackageRegistry.PackageConfig config)
+    {
+        var fullPath = Path.GetFullPath(directory);
+        var missing = new[] { config.NativeLibraryName }
+            .Concat(config.AdditionalLibraries)
+            .Select(lib => RuntimePackageRegistry.GetNativeLibraryFileName(lib, _platform!))
+            .Where(file => !Directory.Exists(fullPath) || !Directory.EnumerateFiles(fullPath, file + "*").Any())
+            .ToList();
 
-        return binaryPath;
+        if (missing.Count > 0)
+        {
+            throw new ModelLoadException(
+                $"RuntimeManagerOptions.RuntimeDirectory '{fullPath}' cannot serve {packageType} for provider '{provider}': " +
+                $"missing {string.Join(", ", missing)}. Copy the native files of the {config.PackageId} package " +
+                $"(runtimes/{_platform!.RuntimeIdentifier}/native) into it.");
+        }
+
+        return fullPath;
     }
 
     /// <summary>
     /// Resolves the version to use from loaded assembly.
     /// </summary>
-    private static async Task<string> ResolveVersionAsync(string packageId, CancellationToken ct)
+    private async Task<string> ResolveVersionAsync(string packageId, CancellationToken ct)
     {
         // Try to get from loaded assembly
         var assemblyVersion = TryGetOnnxRuntimeVersion();
@@ -337,7 +481,8 @@ public sealed class RuntimeManager : IAsyncDisposable
         }
 
         // Get latest from NuGet
-        using var resolver = new NuGetPackageResolver();
+        using var resolver = new NuGetPackageResolver(
+            _handler is null ? null : new HttpClient(_handler, disposeHandler: false));
         var latest = await resolver.GetLatestVersionAsync(packageId, includePrerelease: false, ct);
         return latest ?? throw new InvalidOperationException($"Could not determine version for {packageId}");
     }
@@ -500,6 +645,12 @@ public sealed class RuntimeManager : IAsyncDisposable
             return RuntimeUpdateResult.Failed("Runtime not initialized. Call EnsureRuntimeAsync first.");
         }
 
+        if (!_options.AllowsRuntimeUpdates)
+        {
+            // A bundled directory, a local-only manager and a pinned version all mean "exactly the runtime in hand".
+            return RuntimeUpdateResult.NoUpdateNeeded(_currentVersion ?? "unknown", ActuallyLoadedRuntimePath ?? string.Empty);
+        }
+
         var normalizedPackageType = NormalizePackageType(packageType);
         var config = RuntimePackageRegistry.GetPackageConfig(normalizedPackageType, _activeProvider, _platform.RuntimeIdentifier);
         if (config is null)
@@ -599,4 +750,34 @@ public sealed class RuntimeManagerOptions
     /// only decides whether the conflicting request fails instead of silently no-op'ing.
     /// </summary>
     public bool FailOnRuntimeConflict { get; set; }
+
+    /// <summary>
+    /// A directory the application ships the native ONNX Runtime in: the files of the package's
+    /// <c>runtimes/&lt;rid&gt;/native</c> folder (for CPU, <c>onnxruntime.dll</c> / <c>libonnxruntime.so</c> /
+    /// <c>libonnxruntime.dylib</c> and their companions). When set, the runtime is loaded from here and nothing is
+    /// looked up, downloaded or updated. It must hold every library the requested provider needs: a CPU-only bundle
+    /// serves CPU, the Auto chain moves past GPU providers it cannot serve, and an explicit GPU request fails.
+    /// Default: null (the runtime is provisioned from nuget.org into the cache).
+    /// </summary>
+    public string? RuntimeDirectory { get; set; }
+
+    /// <summary>
+    /// When true, the runtime is never fetched: it comes from <see cref="RuntimeDirectory"/> or the runtime cache, and
+    /// a cache miss throws instead of downloading. No version lookup and no update check reach nuget.org either. This is
+    /// the runtime counterpart of the model options' <c>DisableAutoDownload</c>, which cover model files only.
+    /// Default: false.
+    /// </summary>
+    public bool DisableAutoDownload { get; set; }
+
+    /// <summary>
+    /// An exact native runtime version (e.g. "1.30.0"). When set, the version is never resolved from nuget.org, not
+    /// even when the loaded managed assembly's version cannot be read (trimming, Native AOT), and the runtime is
+    /// never replaced by a newer one. With <see cref="DisableAutoDownload"/>, only this version is taken from the cache.
+    /// Default: null (the version the loaded Microsoft.ML.OnnxRuntime assembly expects).
+    /// </summary>
+    public string? PinnedVersion { get; set; }
+
+    /// <summary>Whether the runtime may be replaced by a newer version after it is provisioned.</summary>
+    internal bool AllowsRuntimeUpdates =>
+        string.IsNullOrEmpty(RuntimeDirectory) && !DisableAutoDownload && PinnedVersion is null;
 }

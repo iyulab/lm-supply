@@ -15,6 +15,8 @@ public sealed class OcrOptions : LMSupplyOptionsBase
     /// Gets or sets whether to disable automatic model download.
     /// When true, loading uses only the local cache and throws <see cref="LMSupply.Exceptions.ModelNotFoundException"/>
     /// if a model file is not there. <see cref="LocalOcr.GetCacheStatusForLanguage"/> tells in advance whether it is.
+    /// This covers model files only. The native ONNX Runtime an ONNX model runs on is provisioned separately; to keep
+    /// it off the network too, see <see cref="LMSupply.Runtime.RuntimeManager.Configure"/>.
     /// <para>Default: false</para>
     /// </summary>
     public bool DisableAutoDownload { get; set; }

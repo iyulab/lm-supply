@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.96.0] - Unreleased
+
+### Added
+- **The native ONNX Runtime can be kept off the network: `RuntimeManager.Configure(new RuntimeManagerOptions { ... })`.**
+  `RuntimeDirectory` loads the runtime from a directory the application ships (nothing is looked up, downloaded or
+  updated; a provider whose libraries are missing there is refused, so a CPU-only bundle serves CPU).
+  `DisableAutoDownload` takes the runtime from the cache only and throws on a miss, with no version lookup or update
+  check. `PinnedVersion` fixes the version, which is then never resolved from nuget.org and never auto-updated. Until
+  now a model's `DisableAutoDownload` stopped model downloads while the runtime was still fetched from nuget.org on
+  first use and version-checked every 24 hours. Call `Configure` once, before the first model load.
+
 ## [0.95.0] - 2026-09-30
 
 ### Added

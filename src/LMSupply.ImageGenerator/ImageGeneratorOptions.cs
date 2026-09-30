@@ -27,6 +27,8 @@ public sealed class ImageGeneratorOptions
 
     /// <summary>
     /// Whether to disable automatic model downloading.
+    /// This covers model files only. The native ONNX Runtime an ONNX model runs on is provisioned separately; to keep
+    /// it off the network too, see <see cref="LMSupply.Runtime.RuntimeManager.Configure"/>.
     /// Default: false
     /// </summary>
     public bool DisableAutoDownload { get; set; }

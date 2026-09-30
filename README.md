@@ -832,6 +832,39 @@ The same mode is available directly as `new HuggingFaceDownloader(cacheDir, loca
 `new ModelPathResolver(cacheDir, localFilesOnly: true)` (the `local_files_only` mode of `huggingface_hub`).
 Populate the cache once on a connected machine (e.g. `LocalReranker.DownloadModelAsync`) and copy it over.
 
+`DisableAutoDownload` on a model's options covers **model files only**. ONNX models (Embedder, Reranker, Transcriber,
+OCR, …) also need the native ONNX Runtime, which LMSupply provisions from nuget.org into its runtime cache on first
+use. The package reference deliberately leaves the native files out, so they are not in your build output. To keep the
+runtime off the network too, configure the process-wide runtime manager once, before the first model load:
+
+```csharp
+using LMSupply.Runtime;
+
+RuntimeManager.Configure(new RuntimeManagerOptions
+{
+    // Ship the runtime with the app: the files of the Microsoft.ML.OnnxRuntime package's runtimes/<rid>/native folder.
+    RuntimeDirectory = Path.Combine(AppContext.BaseDirectory, "ort-native"),
+
+    // Or: use the runtime cache only, and throw on a cache miss instead of downloading.
+    // DisableAutoDownload = true,
+
+    // Optional: an exact version. It is never resolved from nuget.org and never auto-updated.
+    // PinnedVersion = "1.30.0",
+});
+```
+
+- **`RuntimeDirectory`**: the runtime is loaded from there, and nothing is looked up, downloaded or updated. The directory must
+  hold every library the provider needs. A CPU-only bundle serves CPU, the Auto provider chain moves past GPU providers it
+  cannot serve, and an explicit GPU request fails with the missing file named. Take the files from the
+  `Microsoft.ML.OnnxRuntime` package (same version as the managed assembly LMSupply references) for each RID you ship.
+- **`DisableAutoDownload`**: the runtime comes from the runtime cache (see *Non-HF Artifacts* below). A miss throws
+  `ModelLoadException`, and no version lookup or background update check is made. Without a pin, an older cached version
+  stands in when the expected one is absent (with a warning). With `PinnedVersion`, only that version is accepted.
+- **`PinnedVersion`**: fixes the version even when the managed assembly's version cannot be read (trimming, Native AOT),
+  which would otherwise fall back to the latest version on nuget.org.
+
+`Configure` throws once the runtime manager exists, which happens at the first model load. Call it at startup.
+
 ### Behind a proxy
 
 Every download LMSupply makes — models, ONNX runtime packages, llama-server builds — uses the .NET default proxy, so

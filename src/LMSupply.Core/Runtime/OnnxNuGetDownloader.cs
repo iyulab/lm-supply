@@ -333,6 +333,47 @@ public sealed class OnnxNuGetDownloader : IDisposable
     /// Scans for any existing valid cached version of the package, returning the newest one found.
     /// Used as a fallback when the requested version is not cached.
     /// </summary>
+    /// <summary>
+    /// Finds a cached runtime without any network call. With <paramref name="version"/>, that version is preferred;
+    /// unless <paramref name="exactOnly"/>, the newest cached version stands in when it is absent (or when no version
+    /// is known). Returns null when nothing usable is cached.
+    /// </summary>
+    internal (string Path, string Version)? FindCached(
+        string provider,
+        PlatformInfo platform,
+        string? version,
+        string packageType = RuntimePackageRegistry.PackageTypes.OnnxRuntime,
+        bool exactOnly = false)
+    {
+        var config = RuntimePackageRegistry.GetPackageConfig(packageType, provider, platform.RuntimeIdentifier);
+        if (config is null)
+            return null;
+
+        if (version is not null)
+        {
+            var exact = GetCachePath(packageType, provider, version, platform);
+            if (IsValidCache(exact, config, platform))
+                return (exact, version);
+
+            if (exactOnly)
+                return null;
+        }
+
+        var newest = FindExistingCache(packageType, provider, platform, config);
+        if (newest is null)
+            return null;
+
+        var newestVersion = Path.GetFileName(Path.GetDirectoryName(newest)!);
+        if (version is not null)
+        {
+            Trace.TraceWarning(
+                $"[OnnxNuGetDownloader] Downloads are disabled and {version} is not cached; using cached {newestVersion}. " +
+                "The managed and native ONNX Runtime versions may differ.");
+        }
+
+        return (newest, newestVersion);
+    }
+
     private string? FindExistingCache(
         string packageType,
         string provider,

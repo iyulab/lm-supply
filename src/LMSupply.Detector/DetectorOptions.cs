@@ -43,6 +43,8 @@ public sealed class DetectorOptions : LMSupplyOptionsBase
     /// <summary>
     /// Gets or sets whether to disable automatic model download.
     /// When true, throws an exception if the model is not found locally.
+    /// This covers model files only. The native ONNX Runtime an ONNX model runs on is provisioned separately; to keep
+    /// it off the network too, see <see cref="LMSupply.Runtime.RuntimeManager.Configure"/>.
     /// <para>Default: false</para>
     /// </summary>
     public bool DisableAutoDownload { get; set; }
