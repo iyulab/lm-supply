@@ -360,6 +360,28 @@ The directory should contain:
 - `model.onnx` - The ONNX model file
 - `vocab.txt` - Vocabulary file
 
+## Download Size and Cache State
+
+`LocalEmbedder.GetDownloadSizeBytesAsync(modelIdOrPath, options)` is the number of bytes a first load would fetch: the
+files that load picks on this host, at the lengths the repository lists. It reads the repository listing (cached, and
+reused by the download that follows) and downloads nothing. The figure is the whole download whatever the cache already
+holds, and `IsModelDownloaded` answers what is present. A local path is 0. Runtimes a first load also provisions (the
+native ONNX Runtime, or llama-server for GGUF) are not counted.
+
+## Microsoft.Extensions.AI
+
+`model.AsEmbeddingGenerator(textKind)` returns an `IEmbeddingGenerator<string, Embedding<float>>` over a loaded model:
+
+| Behaviour | |
+|---|---|
+| `EmbeddingTextKind.Unspecified` | texts as given (`EmbedAsync`) |
+| `EmbeddingTextKind.Query` / `Passage` | the model's `QueryPrefix` / `PassagePrefix` (`EmbedQueryAsync` / `EmbedPassageAsync`) |
+| `EmbeddingGenerationOptions.Dimensions` | Matryoshka truncation, 1 to `model.Dimensions`, otherwise `ArgumentOutOfRangeException` |
+| `EmbeddingGenerationOptions.ModelId` | must be this model's id (any case), otherwise `ArgumentException` |
+| `Metadata` | provider `"LMSupply"`, the model id, the native dimension count |
+| `GetService(typeof(IEmbeddingModel))` | the wrapped model |
+| `Dispose()` | nothing: the model belongs to whoever loaded it |
+
 ## Performance Tips
 
 1. **Reuse the model instance** - Creating a new instance loads the model from disk

@@ -167,6 +167,7 @@ public class DocsOptionsSnippetRosterTests
 
     private static Dictionary<string, List<Type>> OptionTypes()
         => Directory.EnumerateFiles(AppContext.BaseDirectory, "LMSupply*.dll")
+            .Concat(Directory.EnumerateFiles(AppContext.BaseDirectory, DocsSnippetRosterTests.ContractAssemblyPattern))
             .Select(path => Assembly.Load(AssemblyName.GetAssemblyName(path)))
             .SelectMany(a =>
             {

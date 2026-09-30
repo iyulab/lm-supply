@@ -55,6 +55,9 @@ public sealed class EmbedderOptions : LMSupplyOptionsBase
     /// <para>Default: false</para>
     /// </summary>
     public bool DisableAutoDownload { get; set; }
+
+    /// <summary>A shallow copy, for an operation that must not modify the caller's instance.</summary>
+    internal EmbedderOptions Clone() => (EmbedderOptions)MemberwiseClone();
 }
 
 /// <summary>

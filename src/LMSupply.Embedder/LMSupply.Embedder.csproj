@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <PackageReference Include="System.Numerics.Tensors" />
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

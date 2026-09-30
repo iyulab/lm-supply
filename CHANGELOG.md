@@ -14,6 +14,15 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   check. `PinnedVersion` fixes the version, which is then never resolved from nuget.org and never auto-updated. Until
   now a model's `DisableAutoDownload` stopped model downloads while the runtime was still fetched from nuget.org on
   first use and version-checked every 24 hours. Call `Configure` once, before the first model load.
+- **`LocalEmbedder.GetDownloadSizeBytesAsync(modelIdOrPath, options)`**: the bytes a first load would fetch (the files
+  that load picks on this host, at the repository's listed lengths; 0 for a local path), the same query the Generator
+  and Transcriber already had, for a consent screen shown before any download. ONNX catalog aliases, repository ids and
+  GGUF repositories are all answered; with `DisableAutoDownload` it reads the cache only.
+- **A loaded embedding model is a Microsoft.Extensions.AI `IEmbeddingGenerator<string, Embedding<float>>`:**
+  `model.AsEmbeddingGenerator(EmbeddingTextKind.Unspecified | Query | Passage)`. The text kind applies the model's
+  query/passage prefix (E5), `EmbeddingGenerationOptions.Dimensions` is a Matryoshka truncation, a `ModelId` naming
+  another model throws, and the generator does not own the model. `LMSupply.Embedder` now references
+  `Microsoft.Extensions.AI.Abstractions` 10.9.0.
 
 ## [0.95.0] - 2026-09-30
 

@@ -119,6 +119,18 @@ public class DocsSnippetRosterTests
     }
 
     [Fact]
+    public void AContractOptionType_IsCheckedPropertyByProperty_NotSkipped()
+    {
+        const string block = """
+            var options = new EmbeddingGenerationOptions { Dimensions = 256, NoSuchOption = 1 };
+            """;
+
+        var findings = FindSnippets(block).SelectMany(s => Check(s, OptionTypes())).ToList();
+
+        findings.Should().BeEquivalentTo(["EmbeddingGenerationOptions.NoSuchOption"]);
+    }
+
+    [Fact]
     public void AMethodTheDocumentDefinesItself_IsNotDrift_ButAnUndefinedOneStillIs()
     {
         var blocks = new[]
@@ -385,8 +397,14 @@ public class DocsSnippetRosterTests
         typeof(System.Diagnostics.Stopwatch).Assembly, typeof(Parallel).Assembly,
     ];
 
+    /// <summary>
+    /// The standard contracts the library implements, whose option types a document shows alongside ours
+    /// (<c>EmbeddingGenerationOptions</c>): checked like ours, property by property, rather than skipped.
+    /// </summary>
+    internal const string ContractAssemblyPattern = "Microsoft.Extensions.AI.Abstractions.dll";
+
     private static Dictionary<string, List<Type>> OptionTypes() =>
-        LoadedAssemblies("LMSupply*.dll")
+        LoadedAssemblies("LMSupply*.dll").Concat(LoadedAssemblies(ContractAssemblyPattern))
             .Where(a => !a.GetName().Name!.EndsWith(".Tests", StringComparison.Ordinal))
             .SelectMany(ExportedTypes)
             .Where(t => t.Name.EndsWith("Options", StringComparison.Ordinal)

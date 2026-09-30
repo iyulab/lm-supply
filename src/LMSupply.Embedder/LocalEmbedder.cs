@@ -69,17 +69,7 @@ public static class LocalEmbedder
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 
-        // Parse variant qualifier (e.g., "default:fp16" → modelId="default", hint="fp16")
-        var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
-        modelIdOrPath = baseId;
-        options.QuantizationHint ??= qualifier;
-
-        // User alias translation precedes format detection: the gguf/path checks below
-        // must see the TARGET (e.g. "my-embed" -> "gguf:..." must enter the GGUF path).
-        if (EmbedderModelRegistry.Default.TryGetUserAliasTarget(modelIdOrPath, out var userAliasTarget))
-        {
-            modelIdOrPath = userAliasTarget!;
-        }
+        modelIdOrPath = PrepareLoadTarget(modelIdOrPath, options);
 
         // Check for GGUF format
         if (IsGgufModel(modelIdOrPath))
@@ -140,6 +130,114 @@ public static class LocalEmbedder
 
         return new EmbeddingModel(sources.ModelId, engine, tokenizer, poolingStrategy, options, loadedModelInfo, sources.ModelPath, vectorSpace);
     }
+
+    /// <summary>
+    /// The first step of every load, shared with <see cref="GetDownloadSizeBytesAsync"/> so the two resolve the same
+    /// target: a <c>:variant</c> qualifier becomes the quantization hint (e.g. <c>"default:fp16"</c>), then a user alias
+    /// is translated. The translation precedes format detection, so an alias that points at <c>"gguf:..."</c> enters the
+    /// GGUF path.
+    /// </summary>
+    private static string PrepareLoadTarget(string modelIdOrPath, EmbedderOptions options)
+    {
+        var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
+        options.QuantizationHint ??= qualifier;
+
+        return EmbedderModelRegistry.Default.TryGetUserAliasTarget(baseId, out var userAliasTarget)
+            ? userAliasTarget!
+            : baseId;
+    }
+
+    /// <summary>
+    /// Bytes <see cref="DownloadModelAsync"/> (and so the first <see cref="LoadAsync"/>) would download for the same id
+    /// and options into an empty cache: the model files that load picks on this host, at the lengths the repository
+    /// lists. For a consent screen that states what a first run will fetch.
+    /// </summary>
+    /// <remarks>
+    /// Reads the repository listing (one request, cached for a day and reused by the download that follows); downloads
+    /// and loads nothing. The figure is the whole download whatever the cache already holds;
+    /// <see cref="IsModelDownloaded"/> answers what is present. A local path downloads nothing, so it is 0. Runtimes a
+    /// first load also provisions (the native ONNX Runtime, or llama-server for a GGUF model), once per host and shared
+    /// by every model, are not counted. With <see cref="EmbedderOptions.DisableAutoDownload"/> the listing comes from the
+    /// cache only, as the load's choice does.
+    /// </remarks>
+    /// <param name="modelIdOrPath">Anything <see cref="LoadAsync"/> accepts.</param>
+    /// <param name="options">The options the load will use; not modified.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ModelNotFoundException">The model is unknown, the repository does not exist or holds no model file, or (downloads disabled) it was never listed into this cache.</exception>
+    /// <exception cref="ModelDownloadException">A file the load needs is not in the repository, or its listing gives no length.</exception>
+    public static async Task<long> GetDownloadSizeBytesAsync(
+        string modelIdOrPath,
+        EmbedderOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        options = options?.Clone() ?? new EmbedderOptions();
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+
+        var plan = await PlanDownloadAsync(PrepareLoadTarget(modelIdOrPath, options), options, cancellationToken);
+        return plan?.TotalBytes ?? 0;
+    }
+
+    /// <summary>
+    /// The files a load of <paramref name="target"/> (already through <see cref="PrepareLoadTarget"/>) fetches, chosen
+    /// by the same branches as <see cref="LoadAsync"/>: null for a model on local disk.
+    /// </summary>
+    internal static async Task<DownloadPlan?> PlanDownloadAsync(
+        string target,
+        EmbedderOptions options,
+        CancellationToken cancellationToken)
+    {
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+
+        if (IsGgufModel(target))
+        {
+            var repoIdOrPath = StripGgufPrefix(target);
+            if (File.Exists(repoIdOrPath))
+                return null;
+            if (!repoIdOrPath.Contains('/'))
+                throw GgufModelNotFound(target);
+
+            using var ggufDownloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+            return await ggufDownloader.PlanAsync(repoIdOrPath, GgufPreferredQuantization, cancellationToken);
+        }
+
+        if (File.Exists(target) || target.EndsWith(".onnx", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+
+        if (EmbedderModelRegistry.Default.TryResolveCatalog(target, out var modelInfo, out var resolvedId))
+        {
+            return await downloader.PlanModelAsync(
+                modelInfo!.RepoId, subfolder: modelInfo.Subfolder, cancellationToken: cancellationToken);
+        }
+
+        if (resolvedId.Contains('/'))
+            return await downloader.PlanWithDiscoveryAsync(resolvedId, OnnxPreferences(options), cancellationToken: cancellationToken);
+
+        throw UnknownModel(target);
+    }
+
+    /// <summary>The ONNX file preferences a repository-id load discovers with: the provider's, narrowed by a quantization hint.</summary>
+    private static ModelPreferences OnnxPreferences(EmbedderOptions options)
+    {
+        var hwPrefs = ModelPreferences.ForProvider(options.Provider);
+        return options.QuantizationHint is { } hint
+            ? new ModelPreferences
+            {
+                PreferLowMemory = hwPrefs.PreferLowMemory,
+                QuantizationPriority = ModelPreferences.ForQuantizationHint(hint).QuantizationPriority,
+                PreferredProvider = options.Provider != ExecutionProvider.Auto
+                    ? options.Provider : hwPrefs.PreferredProvider
+            }
+            : hwPrefs;
+    }
+
+    private static ModelNotFoundException UnknownModel(string modelIdOrPath) => new(
+        $"Unknown model '{modelIdOrPath}'. Use a known catalog alias (e.g., 'default', 'fast'), " +
+        "a HuggingFace repo ID (e.g., 'sentence-transformers/all-MiniLM-L6-v2'), " +
+        "or a local path to an ONNX model file.",
+        modelIdOrPath);
 
     /// <summary>
     /// The vector-space revision <see cref="LoadAsync"/> would report for <paramref name="modelIdOrPath"/>,
@@ -303,19 +401,9 @@ public static class LocalEmbedder
             using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
             // Use auto-discovery to find ONNX files and config
-            var hwPrefs = ModelPreferences.ForProvider(options.Provider);
-            var preferences = options.QuantizationHint is { } hint
-                ? new ModelPreferences
-                {
-                    PreferLowMemory = hwPrefs.PreferLowMemory,
-                    QuantizationPriority = ModelPreferences.ForQuantizationHint(hint).QuantizationPriority,
-                    PreferredProvider = options.Provider != ExecutionProvider.Auto
-                        ? options.Provider : hwPrefs.PreferredProvider
-                }
-                : hwPrefs;
             var (downloadedDir, discovery) = await downloader.DownloadWithDiscoveryAsync(
                 resolvedId,
-                preferences: preferences,
+                preferences: OnnxPreferences(options),
                 progress: progress,
                 cancellationToken: cancellationToken);
 
@@ -348,11 +436,7 @@ public static class LocalEmbedder
         }
         else
         {
-            throw new ModelNotFoundException(
-                $"Unknown model '{modelIdOrPath}'. Use a known catalog alias (e.g., 'default', 'fast'), " +
-                "a HuggingFace repo ID (e.g., 'sentence-transformers/all-MiniLM-L6-v2'), " +
-                "or a local path to an ONNX model file.",
-                modelIdOrPath);
+            throw UnknownModel(modelIdOrPath);
         }
 
         // Validate model file exists
@@ -663,6 +747,18 @@ public static class LocalEmbedder
         return false;
     }
 
+    /// <summary>The quantization a GGUF repository load prefers when the memory budget allows it.</summary>
+    private const string GgufPreferredQuantization = "Q4_K_M";
+
+    private static string StripGgufPrefix(string modelIdOrPath) =>
+        modelIdOrPath.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ? modelIdOrPath[5..] : modelIdOrPath;
+
+    private static ModelNotFoundException GgufModelNotFound(string modelIdOrPath) => new(
+        $"GGUF model not found: '{modelIdOrPath}'. " +
+        "Provide a local path to a .gguf file or a HuggingFace repo ID " +
+        "(e.g., 'gguf:nomic-ai/nomic-embed-text-v1.5-GGUF').",
+        modelIdOrPath);
+
     /// <summary>
     /// Loads a GGUF embedding model.
     /// </summary>
@@ -675,10 +771,7 @@ public static class LocalEmbedder
         string modelPath;
         string modelId;
 
-        // Remove gguf: prefix if present
-        var cleanPath = modelIdOrPath.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase)
-            ? modelIdOrPath[5..]
-            : modelIdOrPath;
+        var cleanPath = StripGgufPrefix(modelIdOrPath);
 
         // Check if it's a local file
         if (File.Exists(cleanPath))
@@ -695,7 +788,7 @@ public static class LocalEmbedder
             using var downloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
             modelPath = await downloader.DownloadAsync(
                 cleanPath,
-                preferredQuantization: "Q4_K_M",
+                preferredQuantization: GgufPreferredQuantization,
                 progress: progress,
                 cancellationToken: cancellationToken);
 
@@ -703,11 +796,7 @@ public static class LocalEmbedder
         }
         else
         {
-            throw new ModelNotFoundException(
-                $"GGUF model not found: '{modelIdOrPath}'. " +
-                "Provide a local path to a .gguf file or a HuggingFace repo ID " +
-                "(e.g., 'gguf:nomic-ai/nomic-embed-text-v1.5-GGUF').",
-                modelIdOrPath);
+            throw GgufModelNotFound(modelIdOrPath);
         }
 
         var (queryPrefix, passagePrefix) = ResolveGgufPrefixes(cleanPath);

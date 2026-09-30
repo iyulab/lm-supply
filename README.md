@@ -115,6 +115,26 @@ await using var ggufModel = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-
 float[] ggufEmbedding = await ggufModel.EmbedAsync("Hello from GGUF!");
 // "<org>/<model>-GGUF" takes the base model's query/passage prefixes from the catalog (0.72.1+)
 float[] ggufQuery = await ggufModel.EmbedQueryAsync("what is GGUF?");   // "search_query: what is GGUF?"
+
+// Before the first download: what a first load would fetch, for a consent screen (0 for a local path)
+long bytes = await LocalEmbedder.GetDownloadSizeBytesAsync("default");
+bool cached = LocalEmbedder.IsModelDownloaded("default");
+```
+
+A loaded model is also a Microsoft.Extensions.AI `IEmbeddingGenerator<string, Embedding<float>>`, so a library that takes
+the standard contract needs no adapter. The generator does not own the model. For models trained with query/passage
+prefixes (E5), use one generator per side:
+
+```csharp
+using LMSupply.Embedder;
+using Microsoft.Extensions.AI;
+
+await using var e5 = await LocalEmbedder.LoadAsync("multilingual-e5-small");
+IEmbeddingGenerator<string, Embedding<float>> documents = e5.AsEmbeddingGenerator(EmbeddingTextKind.Passage);
+IEmbeddingGenerator<string, Embedding<float>> queries = e5.AsEmbeddingGenerator(EmbeddingTextKind.Query);
+
+var stored = await documents.GenerateAsync(["First document", "Second document"]);
+var probe = await queries.GenerateAsync(["which document is first?"], new EmbeddingGenerationOptions { Dimensions = 256 });
 ```
 
 ### Semantic Reranking

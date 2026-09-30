@@ -49,6 +49,8 @@
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.1.7" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.8" />
+    <!-- The M.E.AI embedding contract LMSupply.Embedder implements. Held with the ecosystem line (10.9.x). -->
+    <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.9.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.8" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8" />
     <!--

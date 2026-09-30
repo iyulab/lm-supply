@@ -112,6 +112,42 @@ internal sealed class GgufDownloader : IDisposable
         return cachePath;
     }
 
+    /// <summary>
+    /// The file <see cref="DownloadAsync"/> would fetch for the same arguments, at the length the repository lists:
+    /// chosen by the same selection, so the plan and the download cannot disagree. Downloads nothing. Offline, the
+    /// cached file the load would open is the plan, at its length on disk.
+    /// </summary>
+    public async Task<DownloadPlan> PlanAsync(
+        string repoId,
+        string? preferredQuantization = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (_localFilesOnly)
+        {
+            var cached = TrySelectFromLocalCache(repoId, preferredQuantization)
+                ?? throw new ModelNotFoundException(
+                    $"No GGUF file of model '{repoId}' is in the local cache ({GetCacheDirectory(repoId)}) and downloads are disabled.",
+                    repoId);
+            return new DownloadPlan
+            {
+                RepoId = repoId,
+                Revision = "main",
+                Files = [new PlannedFile(Path.GetFileName(cached), new FileInfo(cached).Length)],
+            };
+        }
+
+        var files = await ListRepoFilesAsync(repoId, cancellationToken);
+        var ggufFiles = files.Where(f => f.IsFile && f.Path.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)).ToList();
+        if (ggufFiles.Count == 0)
+            throw new ModelNotFoundException($"No GGUF files found in repository '{repoId}'.", repoId);
+
+        var selected = SelectBestFile(ggufFiles, preferredQuantization);
+        if (selected.Size <= 0)
+            throw new ModelDownloadException($"The listing of '{repoId}' gives no length for '{selected.Path}'.", repoId);
+
+        return new DownloadPlan { RepoId = repoId, Revision = "main", Files = [new PlannedFile(selected.Path, selected.Size)] };
+    }
+
     private Task<IReadOnlyList<RepoFile>> ListRepoFilesAsync(string repoId, CancellationToken cancellationToken)
     {
         return _discoveryService.ListRepositoryFilesAsync(repoId, "main", cancellationToken);
