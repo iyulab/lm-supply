@@ -6,16 +6,15 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [0.93.2] - Unreleased
 
+### Added
+- **`CacheManager.GetSnapshotDirectories`, `FindSnapshotDirectory` and `TryGetContentLength`** — the snapshot directories a lookup reads, in order, and a content length that follows symbolic links.
+
 ### Fixed
-- **Models downloaded into the shared cache by other Hugging Face tools are found and not downloaded again.** The cache
-  location already followed `HF_HUB_CACHE`/`HF_HOME`, but lookups read only `snapshots/main/`; a model another tool
-  stored under the commit `refs/main` names (`snapshots/<commit>/`) read as not downloaded and was fetched a second
-  time. `IsModelDownloaded`/`IsModelDownloadedAsync`, the loaders and `CacheManager.ModelFileExists`/`GetModelFilePath`/
-  `GetMissingFiles` now look in that snapshot first and in `snapshots/<revision>/` after it; such a snapshot is read and
-  never modified. Snapshot entries that are symbolic links into `blobs/` are measured by the file they point at.
-  New: `CacheManager.GetSnapshotDirectories`, `FindSnapshotDirectory` and `TryGetContentLength`. Downloads are still
-  written to `snapshots/<revision>/`. The ONNX generator's `LocalGenerator.IsModelDownloaded` still answers from the
-  download manifest only, so a model placed by another tool reads as not downloaded there (the load itself finds it).
+- **Models downloaded into the shared cache by other Hugging Face tools are found and not downloaded again.** Lookups
+  (`IsModelDownloaded*`, the loaders, `CacheManager.ModelFileExists`/`GetModelFilePath`/`GetMissingFiles`) now read the
+  snapshot `refs/<revision>` names first and `snapshots/<revision>/` after it; that snapshot is never modified, and
+  downloads are still written to `snapshots/<revision>/`. The ONNX generator's `IsModelDownloaded` still answers from the
+  download manifest only.
 
 ### Changed
 - **Documentation comments describe behaviour only.** XML documentation and code comments state what the code does

@@ -980,13 +980,13 @@ public sealed class ModelDiscoveryService : IDisposable
 
     /// <summary>
     /// The files of the first snapshot another tool wrote for <paramref name="revision"/> (see
-    /// <see cref="CacheManager.GetSnapshotDirectories"/>), as repository paths with their content lengths; empty when
+    /// <see cref="CacheManager.GetSnapshotDirectories"/>; for a commit id, <c>snapshots/{commit}</c>), as repository paths with their content lengths; empty when
     /// there is none. Hidden entries (names starting with '.') and Git LFS pointers are left out.
     /// </summary>
     private static List<RepoFile> ListForeignSnapshot(string cacheDir, string repoId, string revision)
     {
         var snapshot = CacheManager.GetSnapshotDirectories(cacheDir, repoId, revision)
-            .FirstOrDefault(d => CacheManager.IsForeignSnapshot(cacheDir, repoId, revision, d));
+            .FirstOrDefault(d => CacheManager.IsForeignSnapshot(cacheDir, repoId, revision, d) || CacheManager.IsCommitId(revision));
         if (snapshot is null)
             return [];
 

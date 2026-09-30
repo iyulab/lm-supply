@@ -182,6 +182,17 @@ public sealed class HubCacheLayoutTests : IDisposable
     }
 
     [Fact]
+    public async Task ACommitRevision_DiscoveryLoad_Offline_ListsTheSnapshotItself()
+    {
+        SeedHubSnapshot();
+        using var downloader = new HuggingFaceDownloader(_cacheDir, localFilesOnly: true);
+
+        var (dir, _) = await downloader.DownloadWithDiscoveryAsync(Repo, revision: Commit, cancellationToken: Ct);
+
+        dir.Should().Be(CommitSnapshot);
+    }
+
+    [Fact]
     public void ATagRef_IsFollowed()
     {
         SeedHubSnapshot();
