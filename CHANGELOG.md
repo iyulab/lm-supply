@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.98.1] - Unreleased
+
+### Fixed
+- **Packages now carry the license text.** Each `.nupkg` includes `LICENSE` next to the `MIT` expression,
+  so an application that ships third-party notices can copy the copyright line from the package.
+
 ## [0.98.0] - 2026-10-01
 
 ### Changed
