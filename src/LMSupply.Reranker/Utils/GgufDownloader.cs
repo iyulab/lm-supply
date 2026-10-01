@@ -16,7 +16,11 @@ internal sealed class GgufDownloader : IDisposable
     private readonly bool _localFilesOnly;
     private bool _disposed;
 
-    private const string HuggingFaceFileBase = "https://huggingface.co";
+    // The revision GGUF files are read at; a loader names no other.
+    private const string Revision = "main";
+
+    // Where earlier versions kept downloaded files (still read, never written).
+    private const string LegacyTreeName = "gguf-rerankers";
 
     /// <param name="cacheDirectory">Where downloaded GGUF files are kept.</param>
     /// <param name="localFilesOnly">
@@ -49,7 +53,7 @@ internal sealed class GgufDownloader : IDisposable
         {
             var cached = TrySelectFromLocalCache(_cacheDirectory, repoId, preferredQuantization)
                 ?? throw new ModelNotFoundException(
-                    $"No GGUF file of model '{repoId}' is in the local cache ({GetCacheDirectory(_cacheDirectory, repoId)}) and downloads are disabled.",
+                    $"No GGUF file of model '{repoId}' is in the local cache ({CacheManager.GetRepositoryDirectory(_cacheDirectory, repoId)}) and downloads are disabled.",
                     repoId);
 
             progress?.Report(new DownloadProgress
@@ -76,10 +80,13 @@ internal sealed class GgufDownloader : IDisposable
         var selectedFile = SelectBestFile(ggufFiles, preferredQuantization);
 
         // Check cache: a cached file counts only at the length the repository lists; one of another
-        // length is not this file and is fetched again.
-        var cachePath = GetCachePath(_cacheDirectory, repoId, selectedFile.Path);
-        if (ResumableFileDownload.IsUsableCachedFile(cachePath, selectedFile.Size > 0 ? selectedFile.Size : null))
+        // length is not this file and is fetched again (a copy in another tool's snapshot is left alone).
+        var expectedSize = selectedFile.Size > 0 ? selectedFile.Size : (long?)null;
+        foreach (var (cachePath, readOnly) in GgufCacheLookup.CandidatePaths(_cacheDirectory, repoId, Revision, selectedFile.Path, LegacyTreeName))
         {
+            if (!ResumableFileDownload.IsUsableCachedFile(cachePath, expectedSize, readOnly))
+                continue;
+
             progress?.Report(new DownloadProgress
             {
                 FileName = selectedFile.Path,
@@ -89,9 +96,6 @@ internal sealed class GgufDownloader : IDisposable
             return cachePath;
         }
 
-        // Download the file
-        var downloadUrl = $"{HuggingFaceFileBase}/{repoId}/resolve/main/{selectedFile.Path}";
-
         progress?.Report(new DownloadProgress
         {
             FileName = selectedFile.Path,
@@ -99,15 +103,27 @@ internal sealed class GgufDownloader : IDisposable
             TotalBytes = selectedFile.Size
         });
 
-        Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
-        await DownloadFileAsync(downloadUrl, cachePath, selectedFile.Path, selectedFile.Size, progress, cancellationToken);
-
-        return cachePath;
+        // Into the hub cache layout (blobs, snapshots/{commit}, refs), where other Hugging Face tools find it. The
+        // bytes land in a ".part" and take the final name only once the whole file is there, so a transfer that stops
+        // half way never leaves a truncated model under a name the cache - and IsModelDownloaded - would accept.
+        return await HubCache.DownloadFileAsync(
+            _httpClient, _cacheDirectory, repoId, Revision, selectedFile.Path, expectedSize,
+            HubCache.BlobIdsOf(files).GetValueOrDefault(selectedFile.Path),
+            (url, destination) => new ResumableFileDownload.Request
+            {
+                Url = url,
+                DestinationPath = destination,
+                FileName = selectedFile.Path,
+                ModelId = repoId,
+                ExpectedSize = expectedSize,
+                Progress = progress,
+            },
+            cancellationToken);
     }
 
     private Task<IReadOnlyList<RepoFile>> ListRepoFilesAsync(string repoId, CancellationToken cancellationToken)
     {
-        return _discoveryService.ListRepositoryFilesAsync(repoId, "main", cancellationToken);
+        return _discoveryService.ListRepositoryFilesAsync(repoId, Revision, cancellationToken);
     }
 
     private static RepoFile SelectBestFile(IReadOnlyList<RepoFile> files, string? preferredQuantization)
@@ -146,12 +162,11 @@ internal sealed class GgufDownloader : IDisposable
             "Please use a repository that provides a single-file GGUF model.");
     }
 
-    private static string GetCacheDirectory(string cacheDirectory, string repoId)
-        => Path.GetDirectoryName(GetCachePath(cacheDirectory, repoId, "model.gguf"))!;
-
     /// <summary>
     /// The cached GGUF file an offline load opens: the one matching the preferred quantization when
-    /// there is one, otherwise the first by name. Null when nothing of the repository is cached.
+    /// there is one, otherwise the first by name — looked up in the repository's snapshots, then in the
+    /// private tree earlier versions wrote (see <see cref="GgufCacheLookup"/>). Null when nothing of the
+    /// repository is cached.
     /// A file that holds no model — a Git LFS pointer — is not counted, and a download that stopped half
     /// way never reaches a <c>.gguf</c> name (see <see cref="ResumableFileDownload"/>).
     /// </summary>
@@ -161,14 +176,7 @@ internal sealed class GgufDownloader : IDisposable
     /// </remarks>
     internal static string? TrySelectFromLocalCache(string cacheDirectory, string repoId, string? preferredQuantization)
     {
-        var dir = GetCacheDirectory(cacheDirectory, repoId);
-        if (!Directory.Exists(dir))
-            return null;
-
-        var files = Directory.EnumerateFiles(dir, "*.gguf", SearchOption.AllDirectories)
-            .Where(CacheManager.IsCachedFile)
-            .OrderBy(f => f, StringComparer.Ordinal)
-            .ToList();
+        var files = GgufCacheLookup.EnumerateCachedFiles(cacheDirectory, repoId, Revision, LegacyTreeName);
         if (files.Count == 0)
             return null;
 
@@ -183,30 +191,6 @@ internal sealed class GgufDownloader : IDisposable
         return files[0];
     }
 
-    private static string GetCachePath(string cacheDirectory, string repoId, string filename)
-    {
-        var safeRepoId = repoId.Replace('/', '_').Replace('\\', '_');
-        return Path.Combine(cacheDirectory, "gguf-rerankers", safeRepoId, filename);
-    }
-
-    // Through the shared resumable download: the bytes land in a ".part" and take the final name only
-    // once the whole file is there, so a transfer that stops half way never leaves a truncated model
-    // under a name the cache - and IsModelDownloaded - would accept.
-    private Task DownloadFileAsync(
-        string url,
-        string destinationPath,
-        string fileName,
-        long totalBytes,
-        IProgress<DownloadProgress>? progress,
-        CancellationToken cancellationToken)
-        => ResumableFileDownload.DownloadAsync(_httpClient, new ResumableFileDownload.Request
-        {
-            Url = url,
-            DestinationPath = destinationPath,
-            FileName = fileName,
-            ExpectedSize = totalBytes > 0 ? totalBytes : null,
-            Progress = progress,
-        }, cancellationToken);
 
     public void Dispose()
     {

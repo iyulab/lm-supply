@@ -47,10 +47,12 @@ public static class CacheManager
     }
 
     /// <summary>
-    /// Gets the snapshot directory a download of <paramref name="repoId"/> at <paramref name="revision"/> writes to:
-    /// <c>models--{org}--{name}/snapshots/{revision}</c>. To find files already in the cache — including those
-    /// other Hugging Face tools put there under the commit the revision points at — use
-    /// <see cref="GetSnapshotDirectories"/>, <see cref="FindSnapshotDirectory"/> or <see cref="GetModelFilePath"/>.
+    /// Gets the snapshot directory named after <paramref name="revision"/>:
+    /// <c>models--{org}--{name}/snapshots/{revision}</c>. A download writes there only when the revision cannot be
+    /// resolved to a commit (offline, or the Hub does not answer) — otherwise it writes the hub layout,
+    /// <c>snapshots/{commit}</c> with <c>refs/{revision}</c> naming the commit. To find files already in the cache, in
+    /// either layout and including those other Hugging Face tools put there, use <see cref="GetSnapshotDirectories"/>,
+    /// <see cref="FindSnapshotDirectory"/> or <see cref="GetModelFilePath"/>.
     /// </summary>
     /// <param name="cacheDir">The base cache directory.</param>
     /// <param name="repoId">The HuggingFace repository ID (e.g., "sentence-transformers/all-MiniLM-L6-v2").</param>
@@ -72,9 +74,10 @@ public static class CacheManager
     /// <remarks>
     /// The Hugging Face hub cache records which commit a branch or tag points at in <c>refs/{revision}</c> and keeps
     /// that commit's files in <c>snapshots/{commit}</c> (each entry a link into <c>blobs/</c>, or a plain copy where
-    /// links cannot be created). That snapshot comes first. The directory named after the revision itself,
-    /// <c>snapshots/{revision}</c> — where downloads by this library are written — comes second. A revision that is
-    /// itself a commit id names the same directory both ways and is returned once.
+    /// links cannot be created). That snapshot comes first; downloads by this library write it too. The directory
+    /// named after the revision itself, <c>snapshots/{revision}</c> — where earlier versions of this library wrote, and
+    /// where a download still writes when the revision cannot be resolved to a commit — comes second. A revision that
+    /// is itself a commit id names the same directory both ways and is returned once.
     /// </remarks>
     /// <param name="cacheDir">The base cache directory.</param>
     /// <param name="repoId">The HuggingFace repository ID.</param>
@@ -153,16 +156,42 @@ public static class CacheManager
             .FirstOrDefault(IsCachedFile);
 
     /// <summary>
-    /// Whether <paramref name="directory"/> lies outside the snapshot this library writes <paramref name="repoId"/>
-    /// at <paramref name="revision"/> to — a snapshot another tool owns, which is read and never modified.
+    /// Whether <paramref name="directory"/> (a snapshot of <paramref name="repoId"/>, or a directory inside one) belongs
+    /// to another tool — read and never modified. A snapshot is this library's own when it recorded a download there
+    /// (a manifest, see <see cref="DownloadManifest"/>) or when it is named after <paramref name="revision"/>
+    /// (<c>snapshots/{revision}</c>, which only this library writes). Anything else is foreign.
     /// </summary>
     internal static bool IsForeignSnapshot(string cacheDir, string repoId, string revision, string directory)
     {
-        var own = Path.TrimEndingDirectorySeparator(Path.GetFullPath(GetModelDirectory(cacheDir, repoId, revision)));
+        var repoDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(GetRepositoryDirectory(cacheDir, repoId)));
+        var snapshotsDir = Path.Combine(repoDir, "snapshots");
         var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
-        return !string.Equals(full, own, StringComparison.OrdinalIgnoreCase)
-               && !full.StartsWith(own + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        if (!full.StartsWith(snapshotsDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var name = full[(snapshotsDir.Length + 1)..].Split(Path.DirectorySeparatorChar)[0];
+        if (string.Equals(name, revision, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return !DownloadManifest.ExistsForSnapshot(repoDir, Path.Combine(snapshotsDir, name));
     }
+
+    /// <summary>
+    /// Whether a snapshot directory is this library's own without knowing the revision it was downloaded for: one with
+    /// a manifest, or one named after a branch or tag (<c>snapshots/main</c>) — the hub cache names its snapshots
+    /// after commits only, so such a directory was written by this library.
+    /// </summary>
+    internal static bool IsOwnSnapshotDirectory(string repoDir, string snapshotDir)
+        => !IsCommitId(Path.GetFileName(Path.TrimEndingDirectorySeparator(snapshotDir)))
+           || DownloadManifest.ExistsForSnapshot(repoDir, snapshotDir);
+
+    /// <summary>
+    /// The first snapshot directory (see <see cref="GetSnapshotDirectories"/>) for <paramref name="revision"/> that is
+    /// this library's own (see <see cref="IsForeignSnapshot"/>), or <see langword="null"/> when there is none.
+    /// </summary>
+    internal static string? FindOwnSnapshot(string cacheDir, string repoId, string revision = "main")
+        => GetSnapshotDirectories(cacheDir, repoId, revision)
+            .FirstOrDefault(d => !IsForeignSnapshot(cacheDir, repoId, revision, d));
 
     /// <summary>
     /// The commit a revision points at, from <c>refs/{revision}</c> in the repository's cache directory, or
@@ -282,7 +311,8 @@ public static class CacheManager
         ArgumentNullException.ThrowIfNull(files);
 
         var fileList = files.ToList();
-        var directory = GetSubfolderDirectory(GetModelDirectory(cacheDir, repoId, revision), subfolder);
+        var directory = GetSubfolderDirectory(
+            FindOwnSnapshot(cacheDir, repoId, revision) ?? GetModelDirectory(cacheDir, repoId, revision), subfolder);
         if (FindSnapshotDirectory(cacheDir, repoId, fileList, subfolder, revision) is not null)
             return [];
 
@@ -337,21 +367,215 @@ public static class CacheManager
     }
 
     /// <summary>
-    /// Deletes a cached model.
+    /// Deletes what this library downloaded of a model, and nothing another tool put in the shared cache.
     /// </summary>
-    /// <returns>True if the model was found and deleted, false if it didn't exist.</returns>
+    /// <remarks>
+    /// <para>
+    /// Deleted: every snapshot this library owns — one with a manifest (see <see cref="DownloadManifest"/>), or one
+    /// named after a branch or tag (<c>snapshots/main</c>), which only this library writes. In a commit snapshot only
+    /// the files the manifests list are deleted, since other tools add their files to the same snapshot; a snapshot
+    /// left empty is removed. Then: each blob a deleted entry linked to that no remaining snapshot entry links to,
+    /// each <c>refs/</c> entry naming a removed snapshot, and the repository's private <c>.lmsupply/</c> directory
+    /// and metadata.
+    /// </para>
+    /// <para>
+    /// Kept: snapshots other tools wrote, the blobs and refs they use, and any file in the repository directory this
+    /// library did not write. The repository directory itself is removed only when nothing is left in it.
+    /// </para>
+    /// </remarks>
+    /// <returns>True if anything of this library's was found and deleted, false otherwise.</returns>
     public static bool DeleteModel(string cacheDir, string repoId)
     {
-        var sanitizedRepoId = repoId.Replace("/", "--");
-        var modelDir = Path.Combine(cacheDir, $"models--{sanitizedRepoId}");
+        var repoDir = Path.GetFullPath(GetRepositoryDirectory(cacheDir, repoId));
+        if (!Directory.Exists(repoDir))
+            return false;
 
-        if (Directory.Exists(modelDir))
+        var deleted = false;
+        var snapshotsDir = Path.Combine(repoDir, "snapshots");
+        var blobsDir = Path.Combine(repoDir, "blobs");
+        var releasedBlobs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var removedSnapshots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (Directory.Exists(snapshotsDir))
         {
-            Directory.Delete(modelDir, recursive: true);
-            return true;
+            foreach (var snapshot in Directory.GetDirectories(snapshotsDir))
+            {
+                if (!IsOwnSnapshotDirectory(repoDir, snapshot))
+                    continue;
+
+                deleted = true;
+                foreach (var entry in OwnEntries(repoDir, snapshot))
+                {
+                    if (LinkedBlob(entry, blobsDir) is { } blob)
+                        releasedBlobs.Add(blob);
+                    DeleteEntry(entry);
+                }
+
+                DeleteEmptyDirectories(snapshot);
+                if (!Directory.Exists(snapshot))
+                    removedSnapshots.Add(Path.GetFileName(snapshot));
+            }
         }
 
-        return false;
+        // A released blob stays while any remaining snapshot entry (another tool's, or a revision kept) links to it.
+        if (releasedBlobs.Count > 0)
+        {
+            var stillLinked = Directory.Exists(snapshotsDir)
+                ? Directory.EnumerateFiles(snapshotsDir, "*", SearchOption.AllDirectories)
+                    .Select(f => LinkedBlob(f, blobsDir))
+                    .OfType<string>()
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase)
+                : [];
+            foreach (var blob in releasedBlobs.Where(b => !stillLinked.Contains(b)))
+                DeleteEntry(blob);
+        }
+
+        var refsDir = Path.Combine(repoDir, "refs");
+        if (removedSnapshots.Count > 0 && Directory.Exists(refsDir))
+        {
+            foreach (var reference in Directory.GetFiles(refsDir, "*", SearchOption.AllDirectories))
+            {
+                if (TryReadSmallText(reference) is { } commit && removedSnapshots.Contains(commit))
+                    DeleteEntry(reference);
+            }
+        }
+
+        var privateDir = Path.Combine(repoDir, DownloadManifest.PrivateDirectoryName);
+        if (Directory.Exists(privateDir))
+        {
+            Directory.Delete(privateDir, recursive: true);
+            deleted = true;
+        }
+
+        var metadata = Path.Combine(repoDir, ".metadata.json");
+        if (File.Exists(metadata))
+        {
+            File.Delete(metadata);
+            deleted = true;
+        }
+
+        foreach (var dir in new[] { snapshotsDir, blobsDir, refsDir })
+            DeleteEmptyDirectories(dir);
+        DeleteEmptyDirectories(repoDir);
+
+        return deleted;
+    }
+
+    // The entries of an own snapshot that are this library's: all of a snapshot named after a branch or tag, else the
+    // files its manifests list (and a manifest kept inside it by an earlier version).
+    private static List<string> OwnEntries(string repoDir, string snapshot)
+    {
+        if (!IsCommitId(Path.GetFileName(snapshot)))
+            return [.. Directory.EnumerateFiles(snapshot, "*", SearchOption.AllDirectories)];
+
+        var entries = new List<string>();
+        foreach (var manifestPath in DownloadManifest.EnumerateForSnapshot(repoDir, snapshot))
+        {
+            if (DownloadManifest.ReadFile(manifestPath) is not { } manifest)
+                continue;
+
+            // {snapshot}__{subfolder}.json lists paths relative to that subfolder. The file name no longer says which
+            // '_' were '/', so every reading is tried and the one where the file is wins.
+            var name = Path.GetFileNameWithoutExtension(manifestPath);
+            var separator = name.IndexOf("__", StringComparison.Ordinal);
+            IReadOnlyList<string> bases = separator < 0
+                ? [snapshot]
+                : [.. SubfolderReadings(name[(separator + 2)..]).Select(sub => Path.Combine(snapshot, ToLocalPath(sub)))];
+
+            foreach (var file in manifest.Files)
+            {
+                var found = bases.Select(b => Path.Combine(b, ToLocalPath(file.Path))).FirstOrDefault(EntryExists);
+                if (found is not null)
+                    entries.Add(found);
+            }
+        }
+
+        var legacy = Path.Combine(snapshot, DownloadManifest.LegacyFileName);
+        if (File.Exists(legacy))
+        {
+            entries.Add(legacy);
+            foreach (var file in DownloadManifest.ReadFile(legacy)?.Files ?? [])
+            {
+                var path = Path.Combine(snapshot, ToLocalPath(file.Path));
+                if (EntryExists(path))
+                    entries.Add(path);
+            }
+        }
+
+        return entries;
+    }
+
+    // Every way of reading the '_' of a flattened subfolder name back as '/' (the first ten), most '/' first.
+    private static IEnumerable<string> SubfolderReadings(string flattened)
+    {
+        var parts = flattened.Split('_');
+        var choices = Math.Min(parts.Length - 1, 10);
+        for (var mask = (1 << choices) - 1; mask >= 0; mask--)
+        {
+            var builder = new System.Text.StringBuilder(parts[0]);
+            for (var i = 1; i < parts.Length; i++)
+                builder.Append(i - 1 < choices && (mask & (1 << (i - 1))) != 0 ? '/' : '_').Append(parts[i]);
+            yield return builder.ToString();
+        }
+    }
+
+    private static bool EntryExists(string path)
+    {
+        var info = new FileInfo(path);
+        return info.Exists || info.LinkTarget is not null;
+    }
+
+    // Deletes a file or a link — never what a link points at.
+    private static void DeleteEntry(string path)
+    {
+        if (EntryExists(path))
+            File.Delete(path);
+    }
+
+    // The full path of the blob under blobsDir that entry links to, or null when it is not a link into blobsDir.
+    private static string? LinkedBlob(string entry, string blobsDir)
+    {
+        try
+        {
+            var info = new FileInfo(entry);
+            if (info.LinkTarget is null)
+                return null;
+
+            var target = Path.GetFullPath(info.LinkTarget, Path.GetDirectoryName(Path.GetFullPath(entry))!);
+            return target.StartsWith(Path.TrimEndingDirectorySeparator(blobsDir) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                ? target
+                : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceInformation($"[CacheManager] Could not read link '{entry}': {ex.Message}");
+            return null;
+        }
+    }
+
+    // Removes every empty directory at or beneath directory, bottom-up.
+    private static void DeleteEmptyDirectories(string directory)
+    {
+        if (!Directory.Exists(directory))
+            return;
+
+        foreach (var sub in Directory.GetDirectories(directory))
+            DeleteEmptyDirectories(sub);
+
+        if (!Directory.EnumerateFileSystemEntries(directory).Any())
+            Directory.Delete(directory);
+    }
+
+    private static string? TryReadSmallText(string path)
+    {
+        try
+        {
+            return new FileInfo(path).Length <= 256 ? File.ReadAllText(path).Trim() : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -380,8 +604,8 @@ public static class CacheManager
         foreach (var (repoId, revision) in GetCachedModels(cacheDir))
         {
             var snapshot = GetModelDirectory(cacheDir, repoId, revision);
-            if (!Directory.Exists(snapshot))
-                continue;
+            if (!Directory.Exists(snapshot) || !IsOwnSnapshotDirectory(GetRepositoryDirectory(cacheDir, repoId), snapshot))
+                continue; // another tool's snapshot is never modified
 
             var rootManifest = DownloadManifest.Read(snapshot);
 
@@ -390,6 +614,11 @@ public static class CacheManager
                 var name = Path.GetFileName(rootFile);
                 if (name.StartsWith('.'))
                     continue; // manifests, metadata, partial downloads
+
+                // A link holds no content of its own: deleting it frees nothing, and its blob may be another
+                // snapshot's. Only a plain copy is reclaimable.
+                if (IsLink(rootFile))
+                    continue;
 
                 long rootLength;
                 try
@@ -404,7 +633,7 @@ public static class CacheManager
                 foreach (var subDir in Directory.EnumerateDirectories(snapshot))
                 {
                     var twin = Path.Combine(subDir, name);
-                    if (!File.Exists(twin) || new FileInfo(twin).Length != rootLength)
+                    if (!TryGetContentLength(twin, out var twinLength) || twinLength != rootLength)
                         continue;
 
                     var subfolder = Path.GetFileName(subDir);
@@ -455,6 +684,12 @@ public static class CacheManager
             if (!File.Exists(path) || !File.Exists(file.TwinPath))
                 continue;
 
+            if (IsLink(path))
+            {
+                Trace.TraceWarning($"[CacheManager] Not reclaiming '{file.Path}': it is a link and holds no content of its own.");
+                continue;
+            }
+
             try
             {
                 var length = new FileInfo(path).Length;
@@ -469,6 +704,18 @@ public static class CacheManager
         }
 
         return freed;
+    }
+
+    private static bool IsLink(string path)
+    {
+        try
+        {
+            return new FileInfo(path).LinkTarget is not null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static bool IsListed(DownloadManifest? manifest, string path) =>
@@ -557,15 +804,23 @@ public static class CacheManager
     }
 
     /// <summary>
-    /// Gets the total size of all cached models.
+    /// Gets the total size of all cached models: the content on disk, each file once — a link (a hub snapshot entry)
+    /// counts as the blob it points at, and that blob is not counted again.
     /// </summary>
     public static long GetTotalCacheSize(string cacheDir)
     {
         if (!Directory.Exists(cacheDir))
             return 0;
 
-        return Directory.EnumerateFiles(cacheDir, "*", SearchOption.AllDirectories)
-            .Sum(f => new FileInfo(f).Length);
+        var counted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        long total = 0;
+        foreach (var file in Directory.EnumerateFiles(cacheDir, "*", SearchOption.AllDirectories))
+        {
+            if (ResolveContent(file) is { } content && counted.Add(Path.GetFullPath(content.FullName)))
+                total += content.Length;
+        }
+
+        return total;
     }
 
     private static CachedModelInfo? GetModelInfoInternal(string modelDir, string repoId)

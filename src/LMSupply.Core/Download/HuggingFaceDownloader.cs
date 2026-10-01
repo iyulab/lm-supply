@@ -107,16 +107,22 @@ public sealed class HuggingFaceDownloader : IDisposable
 
         // Download all discovered files, preserving directory structure (the same list PlanWithDiscoveryAsync answers)
         var allFiles = DiscoveredFiles(discovery);
+        long? ListedSize(string file) => discovery.FileSizes.TryGetValue(file, out var size) && size > 0 ? size : null;
 
         // A snapshot another Hugging Face tool wrote for this revision, holding every file at its listed length,
         // is used where it is.
-        if (TryFindForeignSnapshot(repoId, revision, subfolder: null, allFiles,
-                file => discovery.FileSizes.TryGetValue(file, out var size) && size > 0 ? size : null) is { } foreign)
+        if (TryFindForeignSnapshot(repoId, revision, subfolder: null, allFiles, ListedSize) is { } foreign)
             return (foreign, discovery);
+
+        // The snapshot this library already has for the revision; the commit is looked up only when a file must be
+        // fetched, so a warm load makes no request for it.
+        var target = OwnSnapshotTarget(repoId, revision);
+        if (!_localFilesOnly && allFiles.Any(file => NeedsFetch(target, target.SnapshotDir, file, ListedSize(file))))
+            target = await ResolveWriteTargetAsync(repoId, revision, target, cancellationToken);
 
         // With local files only the cache is read, never written: an offline load must work from a
         // read-only cache, and a miss must not leave an empty snapshot directory behind.
-        var modelDir = CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
+        var modelDir = target.SnapshotDir;
         if (!_localFilesOnly)
             Directory.CreateDirectory(modelDir);
         var totalFileCount = allFiles.Count;
@@ -140,7 +146,7 @@ public sealed class HuggingFaceDownloader : IDisposable
             var expectedSize = discovery.FileSizes.TryGetValue(file, out var listed) && listed > 0 ? listed : (long?)null;
 
             if (!IsUsableCachedFile(localPath, expectedSize, repoId)
-                && !TryAdoptSiblingCopy(localPath, expectedSize, snapshotDir: modelDir, repoId))
+                && !(target.Commit is null && TryAdoptSiblingCopy(localPath, expectedSize, snapshotDir: modelDir, repoId)))
             {
                 // Every discovered file is part of the model (graph, external weights, config).
                 if (_localFilesOnly)
@@ -159,11 +165,11 @@ public sealed class HuggingFaceDownloader : IDisposable
                 // Download using the full file path (includes subfolder)
                 await DownloadFileWithRetryAsync(
                     repoId, file, localPath, revision, subfolder: null, expectedSize,
-                    wrappedProgress, cancellationToken);
+                    wrappedProgress, target, discovery.BlobIds, cancellationToken);
             }
 
-            if (File.Exists(localPath))
-                manifestFiles.Add(new ManifestFileEntry { Path = file, Size = expectedSize ?? new FileInfo(localPath).Length });
+            if (CacheManager.ContentExists(localPath))
+                manifestFiles.Add(new ManifestFileEntry { Path = file, Size = expectedSize ?? CacheManager.GetContentLength(localPath) });
         }
 
         if (_localFilesOnly)
@@ -178,7 +184,7 @@ public sealed class HuggingFaceDownloader : IDisposable
             Revision = revision,
             Files = manifestFiles
         };
-        await DownloadManifest.WriteAsync(modelDir, manifest);
+        await WriteManifestAsync(target, revision, modelDir, subfolder: null, manifest);
 
         return (modelDir, discovery);
     }
@@ -291,8 +297,8 @@ public sealed class HuggingFaceDownloader : IDisposable
         // the same file names (one recognizer per script, one variant per execution provider); writing
         // them all to the snapshot root let the second find the first's file, skip its own download,
         // and run the wrong model.
-        var snapshotDir = CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
-        var modelDir = CacheManager.GetSubfolderDirectory(snapshotDir, subfolder);
+        var target = OwnSnapshotTarget(repoId, revision);
+        var modelDir = CacheManager.GetSubfolderDirectory(target.SnapshotDir, subfolder);
 
         // Default files if not specified
         var fileList = (files ?? GetDefaultModelFiles()).ToList();
@@ -302,9 +308,6 @@ public sealed class HuggingFaceDownloader : IDisposable
         if (TryFindForeignSnapshot(repoId, revision, subfolder, fileList, _ => null) is { } foreign)
             return foreign;
 
-        // With local files only the cache is read, never written (see DownloadWithDiscoveryAsync).
-        if (!_localFilesOnly)
-            Directory.CreateDirectory(modelDir);
         var totalFileCount = fileList.Count;
         var fileIndex = 0;
 
@@ -313,24 +316,45 @@ public sealed class HuggingFaceDownloader : IDisposable
         // predates verification, the listing is fetched once — it is cached by the discovery service, so
         // a warm load still makes no request. Unknown lengths only mean the byte-count check in
         // DownloadFileCoreAsync stands alone.
-        var manifest = await DownloadManifest.ReadAsync(modelDir);
-        var manifestSizes = manifest is { Version: >= DownloadManifest.VerifiedVersion }
-            ? manifest.Files.Where(f => f.Size > 0).ToDictionary(f => f.Path, f => f.Size, StringComparer.Ordinal)
-            : new Dictionary<string, long>(StringComparer.Ordinal);
+        var manifestSizes = await ReadManifestSizesAsync(modelDir);
         var needsListing = !_localFilesOnly && fileList.Any(f =>
             !manifestSizes.ContainsKey(f) || !CacheManager.IsCachedFile(Path.Combine(modelDir, f)));
         var listing = needsListing
-            ? await TryListRepositoryFileSizesAsync(repoId, revision, cancellationToken)
+            ? await TryListRepositoryAsync(repoId, revision, cancellationToken)
             : null;
 
         long? ListedAt(string? location, string file) =>
-            listing is not null && listing.TryGetValue(string.IsNullOrEmpty(location) ? file : $"{location}/{file}", out var size)
+            listing is not null && listing.Sizes.TryGetValue(string.IsNullOrEmpty(location) ? file : $"{location}/{file}", out var size)
                 ? size
                 : null;
 
         // A cached file came from the subfolder when the repository has it there, else from the root.
         long? ExpectedOnDisk(string file) =>
             manifestSizes.TryGetValue(file, out var recorded) ? recorded : ListedAt(subfolder, file) ?? ListedAt(null, file);
+
+        // A file the repository does not list is not fetched (it is skipped, or fails as before), so it does not
+        // call for a commit lookup.
+        bool MayFetch(string file) =>
+            listing is not { Sizes.Count: > 0 } || ListedAt(subfolder, file) is not null || ListedAt(null, file) is not null;
+
+        // The commit is looked up only when a file must be fetched; the download may then move to its snapshot.
+        if (!_localFilesOnly && fileList.Any(f => MayFetch(f) && NeedsFetch(target, modelDir, f, ExpectedOnDisk(f))))
+        {
+            var resolved = await ResolveWriteTargetAsync(repoId, revision, target, cancellationToken);
+            if (!SamePath(resolved.SnapshotDir, target.SnapshotDir))
+            {
+                modelDir = CacheManager.GetSubfolderDirectory(resolved.SnapshotDir, subfolder);
+                manifestSizes = await ReadManifestSizesAsync(modelDir);
+            }
+
+            target = resolved;
+        }
+
+        // With local files only the cache is read, never written (see DownloadWithDiscoveryAsync).
+        if (!_localFilesOnly)
+            Directory.CreateDirectory(modelDir);
+        var snapshotDir = target.SnapshotDir;
+        var blobIds = listing?.BlobIds ?? new Dictionary<string, string>(StringComparer.Ordinal);
 
         // A file the listing does not have is not downloaded (or fails), so it adds nothing; without a listing or
         // manifest entry its size is unknown and the overall byte figures stay null.
@@ -342,7 +366,7 @@ public sealed class HuggingFaceDownloader : IDisposable
             fileIndex++;
             var localPath = Path.Combine(modelDir, file);
             if (!IsUsableCachedFile(localPath, ExpectedOnDisk(file), repoId)
-                && !TryAdoptSiblingCopy(localPath, ExpectedOnDisk(file), snapshotDir, repoId))
+                && !(target.Commit is null && TryAdoptSiblingCopy(localPath, ExpectedOnDisk(file), snapshotDir, repoId)))
             {
                 if (_localFilesOnly)
                 {
@@ -360,7 +384,7 @@ public sealed class HuggingFaceDownloader : IDisposable
                 var downloaded = await TryDownloadFileWithFallbackAsync(
                     repoId, file, localPath, revision, subfolder,
                     expectedInSubfolder: ListedAt(subfolder, file), expectedInRoot: ListedAt(null, file),
-                    wrappedProgress, cancellationToken);
+                    wrappedProgress, target, blobIds, cancellationToken);
 
                 if (!downloaded)
                 {
@@ -396,7 +420,7 @@ public sealed class HuggingFaceDownloader : IDisposable
                 return new ManifestFileEntry
                 {
                     Path = file,
-                    Size = File.Exists(filePath) ? ExpectedOnDisk(file) ?? new FileInfo(filePath).Length : 0
+                    Size = CacheManager.ContentExists(filePath) ? ExpectedOnDisk(file) ?? CacheManager.GetContentLength(filePath) : 0
                 };
             })
             .Where(e => e.Size > 0)
@@ -409,10 +433,97 @@ public sealed class HuggingFaceDownloader : IDisposable
             Revision = revision,
             Files = downloadedFiles
         };
-        await DownloadManifest.WriteAsync(modelDir, downloadedManifest);
+        await WriteManifestAsync(target, revision, modelDir, subfolder, downloadedManifest);
 
         return modelDir;
     }
+
+    /// <summary>
+    /// Where a download writes: a snapshot directory, and the commit it holds when it is written in the hub layout
+    /// (blobs, links, refs) — <see langword="null"/> for <c>snapshots/{revision}</c>, the layout of earlier versions.
+    /// </summary>
+    private readonly record struct WriteTarget(string RepoDir, string SnapshotDir, string? Commit);
+
+    /// <summary>
+    /// The snapshot this library already has for <paramref name="revision"/> (see
+    /// <see cref="CacheManager.FindOwnSnapshot"/>), else <c>snapshots/{revision}</c>. Makes no request.
+    /// </summary>
+    private WriteTarget OwnSnapshotTarget(string repoId, string revision)
+    {
+        var repoDir = CacheManager.GetRepositoryDirectory(_cacheDir, repoId);
+        var named = CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
+        if (HubCache.IsFullCommitId(revision))
+            return new WriteTarget(repoDir, named, revision);
+
+        var own = CacheManager.FindOwnSnapshot(_cacheDir, repoId, revision);
+        return own is null || SamePath(own, named)
+            ? new WriteTarget(repoDir, named, null)
+            : new WriteTarget(repoDir, own, Path.GetFileName(Path.TrimEndingDirectorySeparator(own)));
+    }
+
+    /// <summary>
+    /// The snapshot a download that must fetch files writes to: the snapshot of the commit <paramref name="revision"/>
+    /// resolves to, in the hub layout. A <c>snapshots/{revision}</c> directory an earlier version wrote stays the
+    /// target (its files are not moved), and when the commit cannot be resolved <paramref name="current"/> is kept —
+    /// <c>snapshots/{revision}</c>, as before, unless this library already has a commit snapshot for the revision.
+    /// </summary>
+    private async Task<WriteTarget> ResolveWriteTargetAsync(
+        string repoId, string revision, WriteTarget current, CancellationToken cancellationToken)
+    {
+        if (current.Commit is not null && HubCache.IsFullCommitId(revision))
+            return current;
+        if (current.Commit is null && Directory.Exists(current.SnapshotDir))
+            return current;
+
+        var commit = await HubCache.TryResolveCommitAsync(_httpClient, repoId, revision, cancellationToken);
+        return commit is null
+            ? current
+            : new WriteTarget(current.RepoDir, CacheManager.GetModelDirectory(_cacheDir, repoId, commit), commit);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="file"/> in <paramref name="directory"/> would have to be fetched: it is not cached at
+    /// the expected length and (in the layout of earlier versions) no sibling copy can be adopted. Changes nothing.
+    /// </summary>
+    private static bool NeedsFetch(WriteTarget target, string directory, string file, long? expectedSize)
+    {
+        var path = Path.Combine(directory, file.Replace('/', Path.DirectorySeparatorChar));
+        if (CacheManager.IsCachedFile(path) && (expectedSize is not { } expected || CacheManager.GetContentLength(path) == expected))
+            return false;
+
+        return target.Commit is not null || FindSiblingCopy(path, expectedSize, target.SnapshotDir) is null;
+    }
+
+    private static async Task<Dictionary<string, long>> ReadManifestSizesAsync(string modelDir)
+    {
+        var manifest = await DownloadManifest.ReadAsync(modelDir);
+        return manifest is { Version: >= DownloadManifest.VerifiedVersion }
+            ? manifest.Files.Where(f => f.Size > 0).ToDictionary(f => f.Path, f => f.Size, StringComparer.Ordinal)
+            : new Dictionary<string, long>(StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Writes the manifest: for a hub-layout snapshot to the repository's private directory, with
+    /// <c>refs/{revision}</c> naming the commit; for <c>snapshots/{revision}</c> inside the directory, as before.
+    /// </summary>
+    private static async Task WriteManifestAsync(
+        WriteTarget target, string revision, string modelDir, string? subfolder, DownloadManifest manifest)
+    {
+        if (target.Commit is null)
+        {
+            await DownloadManifest.WriteAsync(modelDir, manifest);
+            return;
+        }
+
+        await DownloadManifest.WriteForSnapshotAsync(target.RepoDir, target.SnapshotDir, subfolder, manifest);
+        HubCache.WriteRef(target.RepoDir, revision, target.Commit);
+    }
+
+    private static bool SamePath(string a, string b) =>
+        string.Equals(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(a)),
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(b)),
+            StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// A cached file is usable when it holds real content and — when the repository listing or a verified
@@ -433,12 +544,39 @@ public sealed class HuggingFaceDownloader : IDisposable
     /// subfolder) and once by id (repository layout) produced the same pair the other way round. A
     /// move keeps one copy and costs no request. Nothing is moved in read-only mode, and a copy whose
     /// length differs from the listing is left where it is — it is not the file the repository lists.
+    /// Only the layout of earlier versions (<c>snapshots/{revision}</c>) is adopted from: in the hub layout the two
+    /// locations are two repository files, and the same content is already shared through one blob.
     /// </remarks>
     private bool TryAdoptSiblingCopy(string localPath, long? expectedSize, string snapshotDir, string repoId)
     {
         if (_localFilesOnly || File.Exists(localPath))
             return false;
 
+        if (FindSiblingCopy(localPath, expectedSize, snapshotDir) is not { } candidate)
+            return false;
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
+            File.Move(candidate, localPath);
+            Trace.TraceInformation(
+                $"[HuggingFaceDownloader] Adopted '{candidate}' as '{localPath}' for '{repoId}' instead of downloading it again.");
+            return true;
+        }
+        catch (IOException ex)
+        {
+            Trace.TraceWarning($"[HuggingFaceDownloader] Could not move '{candidate}' to '{localPath}': {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The copy <see cref="TryAdoptSiblingCopy"/> would move to <paramref name="localPath"/>, or
+    /// <see langword="null"/>. Changes nothing. A link is never a candidate: moving a relative link to another depth
+    /// would break it.
+    /// </summary>
+    private static string? FindSiblingCopy(string localPath, long? expectedSize, string snapshotDir)
+    {
         var fileName = Path.GetFileName(localPath);
         var targetDir = Path.GetDirectoryName(localPath)!;
         var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(snapshotDir));
@@ -452,27 +590,15 @@ public sealed class HuggingFaceDownloader : IDisposable
 
         foreach (var candidate in candidates)
         {
-            if (!CacheManager.IsCachedFile(candidate))
+            if (!CacheManager.IsCachedFile(candidate) || new FileInfo(candidate).LinkTarget is not null)
                 continue;
             if (expectedSize is { } expected && CacheManager.GetContentLength(candidate) != expected)
                 continue;
 
-            try
-            {
-                Directory.CreateDirectory(targetDir);
-                File.Move(candidate, localPath);
-                Trace.TraceInformation(
-                    $"[HuggingFaceDownloader] Adopted '{candidate}' as '{localPath}' for '{repoId}' instead of downloading it again.");
-                return true;
-            }
-            catch (IOException ex)
-            {
-                Trace.TraceWarning($"[HuggingFaceDownloader] Could not move '{candidate}' to '{localPath}': {ex.Message}");
-                return false;
-            }
+            return candidate;
         }
 
-        return false;
+        return null;
     }
 
     /// <summary>
@@ -520,22 +646,28 @@ public sealed class HuggingFaceDownloader : IDisposable
         return ResumableFileDownload.IsUsableCachedFile(localPath, expectedSize, readOnly: _localFilesOnly);
     }
 
+    /// <summary>What the repository listing says about its files, keyed by repository path.</summary>
+    /// <param name="Sizes">The byte length of every file with a known length.</param>
+    /// <param name="BlobIds">The hub-cache blob id of every file (see <see cref="HubCache.BlobIdsOf"/>).</param>
+    private sealed record RepositoryListing(IReadOnlyDictionary<string, long> Sizes, IReadOnlyDictionary<string, string> BlobIds);
+
     /// <summary>
-    /// The byte length of every file the repository lists, keyed by repository path. Empty when the
-    /// listing cannot be fetched — the download then proceeds as before, checked against the server's
-    /// own content length only.
+    /// The byte length and blob id of every file the repository lists. Empty when the listing cannot be
+    /// fetched — the download then proceeds as before, checked against the server's own content length only,
+    /// and writes no blobs.
     /// </summary>
-    private async Task<IReadOnlyDictionary<string, long>> TryListRepositoryFileSizesAsync(
+    private async Task<RepositoryListing> TryListRepositoryAsync(
         string repoId, string revision, CancellationToken cancellationToken)
     {
         try
         {
             using var discoveryService = CreateDiscoveryService();
             var files = await discoveryService.ListRepositoryFilesAsync(repoId, revision, cancellationToken);
-            return files
+            var sizes = files
                 .Where(f => f.IsFile && f.Size > 0)
                 .GroupBy(f => f.Path, StringComparer.Ordinal)
                 .ToDictionary(g => g.Key, g => g.First().Size, StringComparer.Ordinal);
+            return new RepositoryListing(sizes, HubCache.BlobIdsOf(files));
         }
         catch (Exception ex) when (ex is HttpRequestException or ModelNotFoundException or IOException
                                       or InvalidOperationException or UnauthorizedAccessException)
@@ -543,7 +675,8 @@ public sealed class HuggingFaceDownloader : IDisposable
             Trace.TraceWarning(
                 $"[HuggingFaceDownloader] Could not list '{repoId}' ({ex.GetType().Name}: {ex.Message}); " +
                 "file lengths are unknown for this download.");
-            return new Dictionary<string, long>(StringComparer.Ordinal);
+            return new RepositoryListing(
+                new Dictionary<string, long>(StringComparer.Ordinal), new Dictionary<string, string>(StringComparer.Ordinal));
         }
     }
 
@@ -560,6 +693,8 @@ public sealed class HuggingFaceDownloader : IDisposable
         long? expectedInSubfolder,
         long? expectedInRoot,
         IProgress<DownloadProgress>? progress,
+        WriteTarget target,
+        IReadOnlyDictionary<string, string> blobIds,
         CancellationToken cancellationToken)
     {
         // First, try downloading from the specified location (subfolder or root)
@@ -568,7 +703,7 @@ public sealed class HuggingFaceDownloader : IDisposable
             await DownloadFileWithRetryAsync(
                 repoId, filename, localPath, revision, subfolder,
                 string.IsNullOrEmpty(subfolder) ? expectedInRoot : expectedInSubfolder,
-                progress, cancellationToken);
+                progress, target, blobIds, cancellationToken);
             return true;
         }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
@@ -580,7 +715,7 @@ public sealed class HuggingFaceDownloader : IDisposable
                 {
                     await DownloadFileWithRetryAsync(
                         repoId, filename, localPath, revision, subfolder: null, expectedInRoot,
-                        progress, cancellationToken);
+                        progress, target, blobIds, cancellationToken);
                     return true;
                 }
                 catch (HttpRequestException rootEx) when (rootEx.StatusCode == HttpStatusCode.NotFound)
@@ -598,7 +733,8 @@ public sealed class HuggingFaceDownloader : IDisposable
     /// <summary>
     /// Downloads a file with retry on transient failures, resuming a body that ended early — the shared
     /// <see cref="ResumableFileDownload"/> rules, with this source's own checks: the resolve URL and the
-    /// Git LFS pointer test.
+    /// Git LFS pointer test. In the hub layout the file is fetched at the target's commit into its blob and
+    /// linked (or moved) to <paramref name="destinationPath"/> (see <see cref="HubCache.DownloadAsync"/>).
     /// </summary>
     private Task DownloadFileWithRetryAsync(
         string repoId,
@@ -608,8 +744,19 @@ public sealed class HuggingFaceDownloader : IDisposable
         string? subfolder,
         long? expectedSize,
         IProgress<DownloadProgress>? progress,
+        WriteTarget target,
+        IReadOnlyDictionary<string, string> blobIds,
         CancellationToken cancellationToken)
-        => ResumableFileDownload.DownloadAsync(_httpClient, BuildRequest(repoId, filename, destinationPath, revision, subfolder, expectedSize, progress), cancellationToken);
+    {
+        if (target.Commit is not { } commit)
+            return ResumableFileDownload.DownloadAsync(_httpClient, BuildRequest(repoId, filename, destinationPath, revision, subfolder, expectedSize, progress), cancellationToken);
+
+        var repoPath = string.IsNullOrEmpty(subfolder) ? filename : $"{subfolder}/{filename}";
+        return HubCache.DownloadAsync(
+            _httpClient, target.RepoDir, destinationPath, blobIds.GetValueOrDefault(repoPath), expectedSize,
+            destination => BuildRequest(repoId, filename, destination, commit, subfolder, expectedSize, progress),
+            cancellationToken);
+    }
 
     /// <summary>
     /// Downloads a single file with resume support — one attempt, no retry.

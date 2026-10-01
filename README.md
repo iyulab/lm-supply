@@ -826,16 +826,39 @@ Models are cached following HuggingFace Hub conventions:
 - **Default**: `~/.cache/huggingface/hub`
 - **Environment variables**: `HF_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME`
 - **Manual override**: `new EmbedderOptions { CacheDirectory = "/path/to/cache" }`
-- **Shared with other Hugging Face tools**: a model already downloaded into the cache by another Hugging Face tool
-  (`refs/main` naming a commit, its files under `snapshots/<commit>/`, as links into `blobs/` or plain copies) is found
-  and used where it is — `IsModelDownloaded`, the loaders and `CacheManager.ModelFileExists` all look there as well as
-  in `snapshots/main/`, where LMSupply's own downloads are written. `CacheManager.GetSnapshotDirectories` returns the
-  directories looked in, in order.
+- **Shared with other Hugging Face tools**: the cache uses the hub *layout*, not just its location, so a model
+  downloaded by LMSupply is found by `huggingface_hub` and the other way round:
+
+  ```
+  models--{org}--{name}/
+    blobs/{id}                  file content; id = the SHA-256 of an LFS file, else its Git blob id (RepoFile.BlobId)
+    refs/main                   the commit "main" resolved to (no trailing newline)
+    snapshots/{commit}/{path}   relative link to ../../blobs/{id}
+    .lmsupply/manifests/        LMSupply's own download records ({commit}.json, {commit}__{subfolder}.json)
+  ```
+
+  A download resolves the revision to a commit (`/api/models/{repo}/revision/{revision}`; skipped when the revision
+  already is a commit id) and fetches each file at that commit into `blobs/`, then links it into `snapshots/{commit}/`.
+  Where links cannot be created (Windows without developer mode) the blob is moved into the snapshot instead — one
+  copy on disk — and a blob that was already in the cache (another tool's) is reused without a request, and copied
+  rather than moved. When the commit cannot be obtained (offline, an error, `DisableAutoDownload`), the download writes
+  plain files to `snapshots/{revision}/` exactly as earlier versions did. GGUF models (Generator, Embedder, Reranker)
+  are written the same way; the private trees earlier versions used for Embedder and Reranker GGUF files
+  (`gguf-embeddings/`, `gguf-rerankers/`) and existing `snapshots/main/` directories are still read, and nothing is
+  moved out of them. `IsModelDownloaded`, the loaders and `CacheManager.ModelFileExists` look in every one of these
+  places; `CacheManager.GetSnapshotDirectories` returns the snapshot directories looked in, in order.
+- **Other tools' files are never modified.** A snapshot is LMSupply's own when LMSupply recorded a download into it
+  (a manifest) or when it is named after a revision (`snapshots/main/`, which only LMSupply writes); any other snapshot
+  is read only. `CacheManager.DeleteModel(cacheDir, repoId)` deletes only what LMSupply owns: its snapshots (in a
+  commit snapshot shared with another tool, only the files its manifests list), the blobs that no remaining snapshot
+  links to, the refs naming a removed snapshot, and `.lmsupply/`. The repository directory is removed only when it ends
+  up empty. `CacheManager.GetTotalCacheSize` counts a linked blob once.
 
 **Reclaiming space.** A release that changes where a model's files are read from can leave the old copy
 next to the new one (0.63.0 did — see the changelog). `CacheManager.FindReclaimable(cacheDir)` lists the
 root copies whose byte-identical twin in a subfolder is what the loader reads; nothing else is ever
-listed. `CacheManager.Reclaim(cacheDir, list)` deletes them and returns the bytes freed:
+listed — never a link, and never a file in another tool's snapshot. `CacheManager.Reclaim(cacheDir, list)` deletes
+them and returns the bytes freed:
 
 ```csharp
 var cacheDir = CacheManager.GetDefaultCacheDirectory();

@@ -32,6 +32,19 @@ public sealed class RepoFile
     public string? Oid { get; init; }
 
     /// <summary>
+    /// Git LFS details of the file, or <see langword="null"/> when the file is stored in Git directly.
+    /// </summary>
+    [JsonPropertyName("lfs")]
+    public RepoFileLfs? Lfs { get; init; }
+
+    /// <summary>
+    /// The name of the file's blob in the Hugging Face hub cache: the SHA-256 of the content for a Git LFS
+    /// file, otherwise the Git blob id — the entity tag the hub answers for the file.
+    /// </summary>
+    [JsonIgnore]
+    public string? BlobId => Lfs?.Oid ?? Oid;
+
+    /// <summary>
     /// Whether this entry is a file.
     /// </summary>
     [JsonIgnore]
@@ -61,4 +74,22 @@ public sealed class RepoFile
             return lastSlash > 0 ? Path[..lastSlash] : null;
         }
     }
+}
+
+/// <summary>
+/// The Git LFS entry of a repository file: the SHA-256 of its content and its length.
+/// </summary>
+public sealed class RepoFileLfs
+{
+    /// <summary>
+    /// The SHA-256 of the file's content, in lower-case hexadecimal.
+    /// </summary>
+    [JsonPropertyName("oid")]
+    public string? Oid { get; init; }
+
+    /// <summary>
+    /// The length of the file's content in bytes.
+    /// </summary>
+    [JsonPropertyName("size")]
+    public long Size { get; init; }
 }

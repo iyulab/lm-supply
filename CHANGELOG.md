@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.98.0] - Unreleased
+
+### Changed
+- **Breaking — downloads use the Hugging Face hub cache layout, so other Hugging Face tools find them.** The revision is
+  resolved to a commit; each file is stored in `blobs/{id}` (SHA-256 for LFS files, else the Git blob id) and linked
+  from `snapshots/{commit}/`, with `refs/{revision}` naming the commit. Without link support the new blob is moved into
+  the snapshot (one copy); a blob already in the cache is reused without a request. When the commit cannot be resolved
+  (offline, a failed request), or the model already has a `snapshots/{revision}/` directory from an earlier version,
+  files are written there as before. GGUF models (Generator, Embedder, Reranker) are written the same way. Migration:
+  code that read `snapshots/main/` or the `gguf-embeddings/` / `gguf-rerankers/` trees directly should use
+  `CacheManager.GetSnapshotDirectories` / `GetModelFilePath`. Files already in those places are still read and are not
+  moved.
+- **Download manifests are kept in `models--{org}--{name}/.lmsupply/manifests/`**, out of the snapshots.
+  `DownloadManifest.Read`/`ReadAsync` look there first and still read a `.lmsupply-manifest.json` inside the directory.
+- **Breaking: `CacheManager.DeleteModel` deletes only what LMSupply owns** — its snapshots (in a commit snapshot shared
+  with another tool, only the files its manifests list), blobs no remaining snapshot links to, refs naming a removed
+  snapshot, and `.lmsupply/`. The repository directory is removed only when empty, and the method returns `false` when
+  nothing there was LMSupply's. Before, it deleted the whole repository directory, other tools' files included.
+- **`FindReclaimable`/`Reclaim` never touch a link or another tool's snapshot; `GetTotalCacheSize` counts a linked blob once.**
+
+### Added
+- **`RepoFile.Lfs` (`RepoFileLfs`) and `RepoFile.BlobId`** — the Git LFS entry of a listed file and its hub-cache blob name.
+
 ## [0.97.0] - 2026-10-01
 
 ### Fixed

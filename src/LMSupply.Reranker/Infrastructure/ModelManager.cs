@@ -181,7 +181,7 @@ internal sealed class ModelManager : IDisposable
     /// The directories the model's files are read from: for the weights, the first snapshot of the model's
     /// repository that holds the graph (and its external weights) together — ONNX Runtime opens the weights
     /// beside the graph — and for the tokenizer, the first that holds the tokenizer file (with the weights when
-    /// both come from one repository). Each falls back to the directory a download writes to.
+    /// both come from one repository). Each falls back to the snapshot named after the revision.
     /// See <see cref="CacheManager.FindSnapshotDirectory"/>.
     /// </summary>
     private (string ModelDir, string TokenizerDir) ResolveDirectories(ModelInfo modelInfo)

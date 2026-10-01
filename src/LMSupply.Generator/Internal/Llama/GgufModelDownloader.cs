@@ -18,7 +18,8 @@ public sealed class GgufModelDownloader : IDisposable
     private readonly bool _localFilesOnly;
     private bool _disposed;
 
-    private const string HuggingFaceFileBase = "https://huggingface.co";
+    // The revision GGUF files are read at; a loader names no other.
+    private const string Revision = "main";
 
     /// <summary>
     /// Default quantization preference order (best balance of quality vs size first).
@@ -111,15 +112,17 @@ public sealed class GgufModelDownloader : IDisposable
 
         // Check cache: a cached file counts only at the length the repository lists (when the listing is
         // available); one of another length is not this file and is fetched again.
-        // A copy in a snapshot another tool owns is read, never deleted; when it is not usable, the copy in the
-        // directory downloads write to is checked as before.
+        // A copy in a snapshot another tool owns is read, never deleted; when it is not usable, the copy in
+        // snapshots/main (where earlier versions wrote) is checked as before.
         var cachedPath = GetCachedPath(repoId, filename);
-        var downloadPath = GetDownloadPath(repoId, filename);
-        var foreign = !string.Equals(cachedPath, downloadPath, StringComparison.OrdinalIgnoreCase);
-        var expectedSize = _localFilesOnly ? null : await TryGetListedSizeAsync(repoId, filename, cancellationToken);
+        var legacyPath = GetLegacyDownloadPath(repoId, filename);
+        var foreign = CacheManager.IsForeignSnapshot(_cacheDirectory, repoId, Revision, Path.GetDirectoryName(cachedPath)!);
+        var otherThanLegacy = !string.Equals(cachedPath, legacyPath, StringComparison.OrdinalIgnoreCase);
+        var listed = _localFilesOnly ? null : await TryGetListedFileAsync(repoId, filename, cancellationToken);
+        var expectedSize = listed?.Size;
         var usablePath =
             ResumableFileDownload.IsUsableCachedFile(cachedPath, expectedSize, readOnly: _localFilesOnly || foreign) ? cachedPath
-            : foreign && ResumableFileDownload.IsUsableCachedFile(downloadPath, expectedSize, readOnly: _localFilesOnly) ? downloadPath
+            : otherThanLegacy && ResumableFileDownload.IsUsableCachedFile(legacyPath, expectedSize, readOnly: _localFilesOnly) ? legacyPath
             : null;
         if (usablePath is not null)
         {
@@ -143,9 +146,7 @@ public sealed class GgufModelDownloader : IDisposable
             TotalBytes = 0
         });
 
-        await DownloadFileAsync(repoId, filename, downloadPath, expectedSize, progress, cancellationToken);
-
-        return downloadPath;
+        return await DownloadFileAsync(repoId, filename, expectedSize, listed?.BlobId, progress, cancellationToken);
     }
 
     // The file DownloadAsync fetches — the named one, else the best fit (offline, only a cached file can be chosen).
@@ -218,16 +219,19 @@ public sealed class GgufModelDownloader : IDisposable
     }
 
     /// <summary>
-    /// The length the repository lists for <paramref name="filename"/>, or null when the listing cannot be
-    /// fetched or does not carry it. The listing is cached by the discovery service.
+    /// The length the repository lists for <paramref name="filename"/> and its hub-cache blob id, each null when
+    /// the listing cannot be fetched or does not carry it. The listing is cached by the discovery service.
     /// </summary>
-    private async Task<long?> TryGetListedSizeAsync(string repoId, string filename, CancellationToken cancellationToken)
+    private async Task<(long? Size, string? BlobId)?> TryGetListedFileAsync(string repoId, string filename, CancellationToken cancellationToken)
     {
         try
         {
             var files = await ListRepositoryFilesAsync(repoId, cancellationToken);
             var match = files.FirstOrDefault(f => f.IsFile && string.Equals(Path.GetFileName(f.Path), filename, StringComparison.Ordinal));
-            return match is { Size: > 0 } ? match.Size : null;
+            if (match is null)
+                return null;
+
+            return (match.Size > 0 ? match.Size : null, HubCache.BlobIdsOf(files).GetValueOrDefault(match.Path));
         }
         catch (Exception ex) when (ex is HttpRequestException or ModelNotFoundException or IOException or InvalidOperationException or UnauthorizedAccessException)
         {
@@ -775,43 +779,48 @@ public sealed class GgufModelDownloader : IDisposable
         string repoId,
         CancellationToken cancellationToken)
     {
-        return _discoveryService.ListRepositoryFilesAsync(repoId, "main", cancellationToken);
+        return _discoveryService.ListRepositoryFilesAsync(repoId, Revision, cancellationToken);
     }
 
     private ModelNotFoundException NotCached(string repoId, string file) =>
         new($"'{file}' of model '{repoId}' is not in the local cache ({CacheManager.GetModelDirectory(_cacheDirectory, repoId)}) and downloads are disabled.", repoId);
 
     /// <summary>
-    /// Downloads a single file with resume support.
+    /// Downloads a single file with resume support, into the hub cache layout (blobs, snapshots/{commit}, refs) —
+    /// or, when the commit of "main" cannot be resolved, into snapshots/main as earlier versions did.
     /// </summary>
-    private Task DownloadFileAsync(
+    /// <returns>The file's path in the snapshot.</returns>
+    private Task<string> DownloadFileAsync(
         string repoId,
         string filename,
-        string destinationPath,
         long? expectedSize,
+        string? blobId,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
         Trace.TraceInformation($"[GgufModelDownloader] Download started: {filename} from {repoId}");
-        return ResumableFileDownload.DownloadAsync(_httpClient, new ResumableFileDownload.Request
-        {
-            Url = $"{HuggingFaceFileBase}/{repoId}/resolve/main/{filename}",
-            DestinationPath = destinationPath,
-            FileName = filename,
-            ModelId = repoId,
-            ExpectedSize = expectedSize,
-            Progress = progress,
-        }, cancellationToken);
+        return HubCache.DownloadFileAsync(
+            _httpClient, _cacheDirectory, repoId, Revision, filename, expectedSize, blobId,
+            (url, destination) => new ResumableFileDownload.Request
+            {
+                Url = url,
+                DestinationPath = destination,
+                FileName = filename,
+                ModelId = repoId,
+                ExpectedSize = expectedSize,
+                Progress = progress,
+            },
+            cancellationToken);
     }
 
     // Where the cache holds the file — in any snapshot for "main" (see CacheManager.GetSnapshotDirectories) — else
-    // where a download writes it.
+    // snapshots/main.
     private string GetCachedPath(string repoId, string filename)
-        => CacheManager.GetModelFilePath(_cacheDirectory, repoId, filename);
+        => CacheManager.GetModelFilePath(_cacheDirectory, repoId, filename, Revision);
 
-    // Where a download writes the file.
-    private string GetDownloadPath(string repoId, string filename)
-        => Path.Combine(CacheManager.GetModelDirectory(_cacheDirectory, repoId), filename);
+    // Where earlier versions wrote the file, and where a download still writes it when the commit cannot be resolved.
+    private string GetLegacyDownloadPath(string repoId, string filename)
+        => Path.Combine(CacheManager.GetModelDirectory(_cacheDirectory, repoId, Revision), filename);
 
     // The cached GGUF files of the repository across its snapshots for "main", one per file name (the first snapshot
     // that holds it), each with real content.

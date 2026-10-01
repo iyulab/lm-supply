@@ -62,6 +62,12 @@ public sealed class ModelDiscoveryResult
     internal IReadOnlyDictionary<string, long> FileSizes { get; init; } = new Dictionary<string, long>(StringComparer.Ordinal);
 
     /// <summary>
+    /// The hub-cache blob id of every file the repository listed, keyed by repository path (see
+    /// <see cref="RepoFile.BlobId"/>). Empty when the listing carried none.
+    /// </summary>
+    internal IReadOnlyDictionary<string, string> BlobIds { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>
     /// Gets the primary encoder file, or null if not an encoder-decoder model.
     /// </summary>
     public string? PrimaryEncoderFile => EncoderFiles.Count > 0 ? EncoderFiles[0] : null;

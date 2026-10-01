@@ -180,7 +180,7 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
     /// <summary>
     /// Gets the cache path for a model, following HuggingFace cache structure: the first snapshot directory for
     /// the default revision that holds the model (see <see cref="CacheManager.GetSnapshotDirectories"/>),
-    /// otherwise the one a download writes to.
+    /// otherwise the one named after the revision.
     /// </summary>
     public string GetModelCachePath(string modelId)
     {

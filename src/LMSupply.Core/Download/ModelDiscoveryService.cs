@@ -335,7 +335,8 @@ public sealed class ModelDiscoveryService : IDisposable
             FileSizes = allFiles
                 .Where(f => f.IsFile && f.Size > 0)
                 .GroupBy(f => f.Path, StringComparer.Ordinal)
-                .ToDictionary(g => g.Key, g => g.First().Size, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First().Size, StringComparer.Ordinal),
+            BlobIds = HubCache.BlobIdsOf(allFiles)
         };
     }
 
@@ -964,7 +965,8 @@ public sealed class ModelDiscoveryService : IDisposable
 
         if (_cacheDir is not null)
         {
-            var manifest = await DownloadManifest.ReadAsync(CacheManager.GetModelDirectory(_cacheDir, repoId, revision));
+            var manifest = await DownloadManifest.ReadAsync(
+                CacheManager.FindOwnSnapshot(_cacheDir, repoId, revision) ?? CacheManager.GetModelDirectory(_cacheDir, repoId, revision));
             if (manifest is { Files.Count: > 0 })
                 return [.. manifest.Files.Select(f => new RepoFile { Path = f.Path, Type = "file", Size = f.Size })];
 

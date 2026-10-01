@@ -222,9 +222,12 @@ public class CacheManagerTests
     public void DeleteModel_ExistingModel_ShouldReturnTrueAndDelete()
     {
         var cacheDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        // A snapshot named after a revision is written by this library only, so it is deleted whole; the repository
+        // directory goes with it once nothing is left in it.
         var modelDir = Path.Combine(cacheDir, "models--test--model");
-        Directory.CreateDirectory(modelDir);
-        File.WriteAllText(Path.Combine(modelDir, "dummy.txt"), "test");
+        var snapshot = Path.Combine(modelDir, "snapshots", "main");
+        Directory.CreateDirectory(snapshot);
+        File.WriteAllText(Path.Combine(snapshot, "dummy.txt"), "test");
 
         try
         {

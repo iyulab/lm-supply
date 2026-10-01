@@ -317,7 +317,7 @@ public static class LocalGenerator
 
     private static bool IsOnnxModelCached(string repoId, string? subfolder, string cacheDir)
     {
-        var snapshotDir = CacheManager.GetModelDirectory(cacheDir, repoId);
+        var snapshotDir = CacheManager.FindOwnSnapshot(cacheDir, repoId) ?? CacheManager.GetModelDirectory(cacheDir, repoId);
         var manifest = DownloadManifest.Read(snapshotDir);
         if (manifest is not { Files.Count: > 0 })
             return false;
