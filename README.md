@@ -826,6 +826,10 @@ Models are cached following HuggingFace Hub conventions:
 - **Default**: `~/.cache/huggingface/hub`
 - **Environment variables**: `HF_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME`
 - **Manual override**: `new EmbedderOptions { CacheDirectory = "/path/to/cache" }`
+- **One copy per machine**: leave `CacheDirectory` unset to share models — every app on the machine (and every other
+  Hugging Face tool) then reads and writes the same cache, so a model is downloaded once. A per-app `CacheDirectory`
+  gives that app its own copy of every model it uses; set `HF_HUB_CACHE` once instead when the shared location itself
+  must move.
 - **Shared with other Hugging Face tools**: the cache uses the hub *layout*, not just its location, so a model
   downloaded by LMSupply is found by `huggingface_hub` and the other way round:
 
