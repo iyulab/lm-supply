@@ -35,6 +35,7 @@ public sealed class LlamaServerDownloader : IDisposable
     private readonly bool _ownsHttpClient;
     private readonly bool _includePrerelease;
     private readonly TimeSpan? _apiTimeout;
+    private readonly string? _apiToken;
 
     /// <summary>
     /// Process-wide gate that serializes CUDA-runtime provisioning. A single static gate is the
@@ -61,12 +62,28 @@ public sealed class LlamaServerDownloader : IDisposable
     /// limit beyond the HTTP client's own. Build downloads are not limited by it — a server build is
     /// hundreds of megabytes. A request that runs out of time fails as <see cref="TimeoutException"/>.
     /// </param>
+    /// <remarks>
+    /// GitHub allows an unauthenticated client 60 API requests an hour per IP address. When <c>GITHUB_TOKEN</c> (or
+    /// <c>GH_TOKEN</c>) is set, release lookups send it to the GitHub API, which raises that limit; downloads of the
+    /// build itself never carry it. A client passed in with its own <c>Authorization</c> header is left as it is.
+    /// </remarks>
     public LlamaServerDownloader(
         string? cacheDirectory = null,
         HttpClient? httpClient = null,
         bool includePrerelease = false,
         TimeSpan? apiTimeout = null)
+        : this(cacheDirectory, httpClient, includePrerelease, apiTimeout, TokenFromEnvironment())
     {
+    }
+
+    internal LlamaServerDownloader(
+        string? cacheDirectory,
+        HttpClient? httpClient,
+        bool includePrerelease,
+        TimeSpan? apiTimeout,
+        string? apiToken)
+    {
+        _apiToken = string.IsNullOrWhiteSpace(apiToken) ? null : apiToken.Trim();
         if (apiTimeout is { } limit && limit <= TimeSpan.Zero && limit != Timeout.InfiniteTimeSpan)
             throw new ArgumentOutOfRangeException(nameof(apiTimeout), limit, "The API timeout must be positive, or infinite.");
 
@@ -104,11 +121,15 @@ public sealed class LlamaServerDownloader : IDisposable
     /// Returns null only when GitHub cannot be reached or no build release with assets exists.
     /// </summary>
     public async Task<string?> GetLatestVersionAsync(CancellationToken cancellationToken = default)
+        => (await ResolveLatestVersionAsync(cancellationToken)).Version;
+
+    // The latest build tag, or why there is none: the cause reaches the caller's failure text instead of only the trace.
+    private async Task<(string? Version, string? Failure)> ResolveLatestVersionAsync(CancellationToken cancellationToken)
     {
         try
         {
             if (_includePrerelease)
-                return await FindNewestBuildReleaseAsync(cancellationToken);
+                return (await FindNewestBuildReleaseAsync(cancellationToken), null);
 
             string? build;
             using (var latest = await GetJsonAsync($"{ReleasesUrl}/latest", cancellationToken))
@@ -116,12 +137,12 @@ public sealed class LlamaServerDownloader : IDisposable
                 build = await ResolveBuildTagAsync(latest.RootElement, cancellationToken);
             }
 
-            return build ?? await FindNewestBuildReleaseAsync(cancellationToken);
+            return (build ?? await FindNewestBuildReleaseAsync(cancellationToken), null);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             Trace.TraceInformation($"[LlamaServerDownloader] Latest release fetch failed: {ex.Message}");
-            return null;
+            return (null, ex.Message);
         }
     }
 
@@ -195,10 +216,52 @@ public sealed class LlamaServerDownloader : IDisposable
     private Task<JsonDocument> GetJsonAsync(string url, CancellationToken cancellationToken)
         => WithApiTimeoutAsync(async ct =>
         {
-            using var response = await _httpClient.GetAsync(url, ct);
-            response.EnsureSuccessStatusCode();
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            var authenticated = _httpClient.DefaultRequestHeaders.Authorization is not null;
+            if (!authenticated && _apiToken is not null)
+            {
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiToken);
+                authenticated = true;
+            }
+
+            using var response = await _httpClient.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException(DescribeApiFailure(response, authenticated), null, response.StatusCode);
+
             return await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
         }, cancellationToken);
+
+    /// <summary>
+    /// What a failed GitHub API response means for the operator. An exhausted rate limit (403/429 with
+    /// <c>x-ratelimit-remaining: 0</c>) names the limit, when it resets and how to raise it.
+    /// </summary>
+    internal static string DescribeApiFailure(HttpResponseMessage response, bool authenticated)
+    {
+        var status = (int)response.StatusCode;
+        var url = response.RequestMessage?.RequestUri?.ToString() ?? "GitHub API";
+        if (status is 403 or 429 && Header(response, "x-ratelimit-remaining") == "0")
+        {
+            var limit = Header(response, "x-ratelimit-limit");
+            var reset = long.TryParse(Header(response, "x-ratelimit-reset"), out var epoch)
+                ? $" It resets at {DateTimeOffset.FromUnixTimeSeconds(epoch).UtcDateTime:yyyy-MM-dd HH:mm:ss} UTC."
+                : "";
+            var who = authenticated ? "this token" : "unauthenticated requests from this IP address";
+            var hint = authenticated
+                ? ""
+                : " Set GITHUB_TOKEN (or GH_TOKEN) to use an authenticated limit, or pin a llama-server build that is already cached.";
+            return $"GitHub API rate limit exhausted for {who}{(limit is null ? "" : $" ({limit} requests per hour)")} at {url}.{reset}{hint}";
+        }
+
+        return $"GitHub API request failed: {status} {response.ReasonPhrase} at {url}.";
+    }
+
+    private static string? Header(HttpResponseMessage response, string name)
+        => response.Headers.TryGetValues(name, out var values) ? values.FirstOrDefault() : null;
+
+    private static string? TokenFromEnvironment()
+        => Environment.GetEnvironmentVariable("GITHUB_TOKEN") is { Length: > 0 } token
+            ? token
+            : Environment.GetEnvironmentVariable("GH_TOKEN");
 
     // Bounds one GitHub API request by the API timeout. Only API calls come through here: asset downloads
     // are hundreds of megabytes and must not share a ten-second limit.
@@ -253,16 +316,20 @@ public sealed class LlamaServerDownloader : IDisposable
         var requested = preferredBackend ?? GetPreferredBackend(platform);
 
         var requestedVersion = version;
-        version ??= await GetLatestVersionAsync(cancellationToken);
+        string? lookupFailure = null;
+        if (version is null)
+            (version, lookupFailure) = await ResolveLatestVersionAsync(cancellationToken);
         if (version == null)
         {
             return LlamaServerAssetResolution.Failed(
                 platform, arch, requested,
                 releaseTag: null,
                 reason: LlamaServerAcquisitionFailure.ReleaseNotResolved,
-                failure: requestedVersion is null
-                    ? "no llama.cpp release could be resolved (the latest-release lookup returned nothing)"
-                    : $"release '{requestedVersion}' could not be resolved");
+                failure: requestedVersion is not null
+                    ? $"release '{requestedVersion}' could not be resolved"
+                    : lookupFailure is not null
+                        ? $"no llama.cpp release could be resolved: {lookupFailure}"
+                        : "no llama.cpp release could be resolved (no build release with assets was found)");
         }
 
         if (!IsBuildTag(version))

@@ -332,6 +332,10 @@ The following packages use LMSupply.Llama for GGUF support:
 ### Server download failed
 
 - Check network access to GitHub releases
+- **"GitHub API rate limit exhausted"**: the release lookup uses the GitHub API, which allows an unauthenticated
+  client 60 requests an hour per IP address (a CI runner or a shared office address runs out). The message gives the
+  reset time. Set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise the limit — it is sent to the GitHub API only, never with the
+  build download — or pin a build that is already in the cache (`LlamaServerUpdateOptions.PinnedVersion`).
 - Verify cache directory permissions
 - Try setting `HF_HUB_OFFLINE=0` to force online mode
 

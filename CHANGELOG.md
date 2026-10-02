@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.98.2] - Unreleased
+
+### Fixed
+- **A refused llama-server release lookup now says why.** When GitHub refuses the API request (HTTP 403/429 with an
+  exhausted rate limit) the acquisition error names the limit, the time it resets and how to raise it, instead of
+  "the latest-release lookup returned nothing"; any other refusal names its status and URL.
+- **`GITHUB_TOKEN` (or `GH_TOKEN`) is used for release lookups when set**, which raises GitHub's limit from 60
+  unauthenticated requests an hour per IP address. It goes to the GitHub API only — never with the build download —
+  and an `HttpClient` passed in with its own `Authorization` header is left as it is.
+- Cancelling a release lookup now cancels it; it used to be reported as "no release resolved".
+
 ## [0.98.1] - 2026-10-02
 
 ### Fixed
