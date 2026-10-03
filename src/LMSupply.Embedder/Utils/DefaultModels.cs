@@ -19,6 +19,7 @@ internal static class DefaultModels
     public static ModelInfo BgeM3DefaultAlias { get; } = new()
     {
         RepoId = "BAAI/bge-m3",
+        License = "MIT",
         AliasName = "default",
         Dimensions = 1024,
         MaxSequenceLength = 8192,
@@ -34,6 +35,7 @@ internal static class DefaultModels
     public static ModelInfo MultilingualE5SmallAlias { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-small",
+        License = "MIT",
         AliasName = "fast",
         Dimensions = 384,
         MaxSequenceLength = 512,
@@ -52,6 +54,7 @@ internal static class DefaultModels
     public static ModelInfo BgeM3QualityAlias { get; } = new()
     {
         RepoId = "BAAI/bge-m3",
+        License = "MIT",
         AliasName = "quality",
         Dimensions = 1024,
         MaxSequenceLength = 8192,
@@ -68,6 +71,7 @@ internal static class DefaultModels
     public static ModelInfo MultilingualE5LargeAlias { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-large",
+        License = "MIT",
         AliasName = "large",
         Dimensions = 1024,
         MaxSequenceLength = 512,
@@ -89,6 +93,7 @@ internal static class DefaultModels
     public static ModelInfo NomicEmbedTextV15 { get; } = new()
     {
         RepoId = "nomic-ai/nomic-embed-text-v1.5",
+        License = "Apache-2.0",
         AliasName = "nomic-embed-text-v1.5",
         Dimensions = 768,
         MaxSequenceLength = 8192,
@@ -106,6 +111,7 @@ internal static class DefaultModels
     public static ModelInfo AllMpnetBaseV2 { get; } = new()
     {
         RepoId = "sentence-transformers/all-mpnet-base-v2",
+        License = "Apache-2.0",
         AliasName = "all-mpnet-base-v2",
         Dimensions = 768,
         MaxSequenceLength = 384,
@@ -121,6 +127,7 @@ internal static class DefaultModels
     public static ModelInfo BgeBaseEnV15 { get; } = new()
     {
         RepoId = "BAAI/bge-base-en-v1.5",
+        License = "MIT",
         AliasName = "bge-base-en-v1.5",
         Dimensions = 768,
         MaxSequenceLength = 512,
@@ -136,6 +143,7 @@ internal static class DefaultModels
     public static ModelInfo BgeLargeEnV15 { get; } = new()
     {
         RepoId = "BAAI/bge-large-en-v1.5",
+        License = "MIT",
         AliasName = "bge-large-en-v1.5",
         Dimensions = 1024,
         MaxSequenceLength = 512,
@@ -153,6 +161,7 @@ internal static class DefaultModels
     public static ModelInfo E5SmallV2 { get; } = new()
     {
         RepoId = "intfloat/e5-small-v2",
+        License = "MIT",
         AliasName = "e5-small-v2",
         Dimensions = 384,
         MaxSequenceLength = 512,
@@ -170,6 +179,7 @@ internal static class DefaultModels
     public static ModelInfo E5BaseV2 { get; } = new()
     {
         RepoId = "intfloat/e5-base-v2",
+        License = "MIT",
         AliasName = "e5-base-v2",
         Dimensions = 768,
         MaxSequenceLength = 512,
@@ -187,6 +197,7 @@ internal static class DefaultModels
     public static ModelInfo MultilingualE5Small { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-small",
+        License = "MIT",
         AliasName = "multilingual-e5-small",
         Dimensions = 384,
         MaxSequenceLength = 512,
@@ -204,6 +215,7 @@ internal static class DefaultModels
     public static ModelInfo MultilingualE5Base { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-base",
+        License = "MIT",
         AliasName = "multilingual-e5-base",
         Dimensions = 768,
         MaxSequenceLength = 512,
@@ -221,6 +233,7 @@ internal static class DefaultModels
     public static ModelInfo MultilingualE5Large { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-large",
+        License = "MIT",
         AliasName = "multilingual-e5-large",
         Dimensions = 1024,
         MaxSequenceLength = 512,
@@ -238,6 +251,7 @@ internal static class DefaultModels
     public static ModelInfo GteLargeEnV15 { get; } = new()
     {
         RepoId = "Alibaba-NLP/gte-large-en-v1.5",
+        License = "Apache-2.0",
         AliasName = "gte-large-en-v1.5",
         Dimensions = 1024,
         MaxSequenceLength = 8192,

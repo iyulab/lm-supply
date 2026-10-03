@@ -31,6 +31,7 @@ public static class DefaultModels
         PadTokenId: 50256)
     {
         Subfolder = "onnx",
+        License = "Apache-2.0", // the converted model, nlpconnect/vit-gpt2-image-captioning
         Description = "Default: ViT-GPT2, most stable ONNX conversion"
     };
 
@@ -66,6 +67,7 @@ public static class DefaultModels
         PadTokenId: 1)
     {
         Subfolder = "onnx",
+        License = "MIT",
         AdditionalFiles = ["embed_tokens.onnx", "encoder_model.onnx"],
         Architecture = CaptionerArchitecture.Florence2,
         DecoderStartTokenId = 2,

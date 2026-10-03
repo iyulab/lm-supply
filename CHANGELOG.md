@@ -28,6 +28,11 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `docs/llama.md` suggested an `HF_HUB_OFFLINE` variable nothing reads.
 
 ### Added
+- **`License` on the Embedder, Reranker, Captioner and OCR registry entries** (and `OcrModelInfo.License` for a
+  detection + recognition pair), as Generator, Transcriber, Detector, Segmenter, Synthesizer and Translator already had —
+  the licence of the weights, curated, so a consent screen can state it without reading the repository card. For a
+  conversion it is the converted model's licence: the `default` captioner (an ONNX export of a ViT-GPT2 model whose card
+  states none) reports `Apache-2.0`. Every built-in entry carries one; a test keeps it that way.
 - **`LlamaServerConfig.RequireApiKey`** (default `true`), **`LlamaServerProcess.ApiKey`**, and an `apiKey` parameter on
   `LlamaServerClient`.
 

@@ -23,7 +23,8 @@ internal static class DefaultRecognitionModels
         DictFile: "dict.txt",
         LanguageCodes: ["en"])
     {
-        Subfolder = "languages/english"
+        Subfolder = "languages/english",
+        License = "Apache-2.0"
     };
 
     /// <summary>
@@ -37,7 +38,8 @@ internal static class DefaultRecognitionModels
         DictFile: "dict.txt",
         LanguageCodes: ["ko"])
     {
-        Subfolder = "languages/korean"
+        Subfolder = "languages/korean",
+        License = "Apache-2.0"
     };
 
     /// <summary>
@@ -52,7 +54,8 @@ internal static class DefaultRecognitionModels
         DictFile: "dict.txt",
         LanguageCodes: ["zh", "zh-cn", "zh-tw", "ja"])
     {
-        Subfolder = "languages/chinese"
+        Subfolder = "languages/chinese",
+        License = "Apache-2.0"
     };
 
     /// <summary>
@@ -72,7 +75,8 @@ internal static class DefaultRecognitionModels
         LanguageCodes: ["la", "es", "fr", "de", "it", "pt", "nl", "pl", "ro", "cs", "sk", "sv", "da", "no", "nb", "nn",
             "fi", "is", "et", "lt", "hu", "hr", "bs", "sl", "sq", "ga", "tr", "id", "ms", "sw", "tl", "fil"])
     {
-        Subfolder = "languages/latin"
+        Subfolder = "languages/latin",
+        License = "Apache-2.0"
     };
 
     /// <summary>
@@ -87,7 +91,8 @@ internal static class DefaultRecognitionModels
         DictFile: "dict.txt",
         LanguageCodes: ["ar", "ur", "fa"])
     {
-        Subfolder = "languages/arabic"
+        Subfolder = "languages/arabic",
+        License = "Apache-2.0"
     };
 
     /// <summary>
@@ -102,7 +107,8 @@ internal static class DefaultRecognitionModels
         DictFile: "dict.txt",
         LanguageCodes: ["ru", "uk", "bg", "be", "sr", "mk"])
     {
-        Subfolder = "languages/eslav"
+        Subfolder = "languages/eslav",
+        License = "Apache-2.0"
     };
 
     /// <summary>
@@ -117,7 +123,8 @@ internal static class DefaultRecognitionModels
         DictFile: "dict.txt",
         LanguageCodes: ["hi", "mr", "ne", "sa"])
     {
-        Subfolder = "languages/hindi"
+        Subfolder = "languages/hindi",
+        License = "Apache-2.0"
     };
 
     /// <summary>
@@ -131,7 +138,8 @@ internal static class DefaultRecognitionModels
         DictFile: "dict.txt",
         LanguageCodes: ["el"])
     {
-        Subfolder = "languages/greek"
+        Subfolder = "languages/greek",
+        License = "Apache-2.0"
     };
 
     /// <summary>
@@ -145,7 +153,8 @@ internal static class DefaultRecognitionModels
         DictFile: "dict.txt",
         LanguageCodes: ["th"])
     {
-        Subfolder = "languages/thai"
+        Subfolder = "languages/thai",
+        License = "Apache-2.0"
     };
 
     /// <summary>
@@ -159,7 +168,8 @@ internal static class DefaultRecognitionModels
         DictFile: "dict.txt",
         LanguageCodes: ["ta"])
     {
-        Subfolder = "languages/tamil"
+        Subfolder = "languages/tamil",
+        License = "Apache-2.0"
     };
 
     /// <summary>
@@ -173,7 +183,8 @@ internal static class DefaultRecognitionModels
         DictFile: "dict.txt",
         LanguageCodes: ["te"])
     {
-        Subfolder = "languages/telugu"
+        Subfolder = "languages/telugu",
+        License = "Apache-2.0"
     };
 
     /// <summary>

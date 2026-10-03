@@ -18,7 +18,8 @@ internal static class DefaultDetectionModels
         InputWidth: 960,
         InputHeight: 960)
     {
-        Subfolder = "detection/v3"
+        Subfolder = "detection/v3",
+        License = "Apache-2.0"
     };
 
     /// <summary>

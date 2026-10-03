@@ -86,6 +86,7 @@ download, cache, GPU execution providers), **LMSupply.Text.Core** (tokenization 
 
 ```csharp
 using LMSupply.Embedder;
+using LMSupply.Embedder.Utils; // EmbedderModelRegistry
 
 // Use "auto" for hardware-optimized model selection
 await using var model = await LocalEmbedder.LoadAsync("auto");
@@ -119,7 +120,12 @@ float[] ggufQuery = await ggufModel.EmbedQueryAsync("what is GGUF?");   // "sear
 // Before the first download: what a first load would fetch, for a consent screen (0 for a local path)
 long bytes = await LocalEmbedder.GetDownloadSizeBytesAsync("default");
 bool cached = LocalEmbedder.IsModelDownloaded("default");
+string? license = EmbedderModelRegistry.Default.Resolve("default").License;   // "MIT"
 ```
+
+Every built-in Embedder, Reranker, Captioner and OCR model carries the licence of its weights on its registry entry
+(`ModelInfo.License`; `OcrModelInfo.License` for a detection + recognition pair). For an ONNX conversion it is the licence
+of the model it converts, which the conversion's own card often leaves out.
 
 A loaded model is also a Microsoft.Extensions.AI `IEmbeddingGenerator<string, Embedding<float>>`, so a library that takes
 the standard contract needs no adapter. The generator does not own the model. For models trained with query/passage

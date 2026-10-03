@@ -31,6 +31,13 @@ public record RecognitionModelInfo(
     public string? Subfolder { get; init; }
 
     /// <summary>
+    /// The licence of the model's weights as the catalog curates it — an SPDX identifier where one exists. For a
+    /// conversion repository (an ONNX export of another model) it is the licence of the model it converts, which the
+    /// conversion's own card often leaves out. <see langword="null"/> when not curated (a model loaded from its own files).
+    /// </summary>
+    public string? License { get; init; }
+
+    /// <summary>
     /// Expected input image height for recognition.
     /// Width is dynamic based on text length.
     /// Default is 48 pixels (PaddleOCR v3 standard).

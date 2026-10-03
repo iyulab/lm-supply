@@ -44,6 +44,13 @@ public sealed record ModelInfo : IModelInfoBase, IModelMemoryInfo
     public string? Description { get; init; }
 
     /// <summary>
+    /// The licence of the model's weights as the catalog curates it — an SPDX identifier where one exists. For a
+    /// conversion repository (an ONNX export of another model) it is the licence of the model it converts, which the
+    /// conversion's own card often leaves out. <see langword="null"/> when not curated (a model loaded from its own files).
+    /// </summary>
+    public string? License { get; init; }
+
+    /// <summary>
     /// Gets the text prefix this model's fine-tuning requires for search-query embeddings
     /// (e.g. "query: " for the E5 family, "search_query: " for Nomic). Null when the model
     /// needs no prefix convention. Applied automatically by <see cref="IEmbeddingModel.EmbedQueryAsync(string, System.Threading.CancellationToken)"/>.

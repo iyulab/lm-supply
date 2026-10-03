@@ -25,6 +25,15 @@ public record OcrModelInfo(
     public string? Description => $"OCR pipeline: {DetectionModel.DisplayName} + {RecognitionModel.DisplayName}";
 
     /// <summary>
+    /// The licences of the pipeline's two models: the shared one when they agree, both named otherwise.
+    /// <see langword="null"/> when neither is curated.
+    /// </summary>
+    public string? License =>
+        DetectionModel.License == RecognitionModel.License
+            ? DetectionModel.License
+            : $"{DetectionModel.License ?? "unknown"} (detection); {RecognitionModel.License ?? "unknown"} (recognition)";
+
+    /// <summary>
     /// Gets the supported language codes from the recognition model.
     /// </summary>
     public IReadOnlyList<string> SupportedLanguages => RecognitionModel.LanguageCodes;

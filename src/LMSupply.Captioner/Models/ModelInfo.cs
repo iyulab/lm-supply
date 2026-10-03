@@ -45,6 +45,13 @@ public record ModelInfo(
     public string? Subfolder { get; init; }
 
     /// <summary>
+    /// The licence of the model's weights as the catalog curates it — an SPDX identifier where one exists. For a
+    /// conversion repository (an ONNX export of another model) it is the licence of the model it converts, which the
+    /// conversion's own card often leaves out. <see langword="null"/> when not curated (a model loaded from its own files).
+    /// </summary>
+    public string? License { get; init; }
+
+    /// <summary>
     /// Additional ONNX files required by the model.
     /// </summary>
     public IReadOnlyList<string> AdditionalFiles { get; init; } = [];
