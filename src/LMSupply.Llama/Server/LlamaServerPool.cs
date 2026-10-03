@@ -112,7 +112,7 @@ public sealed class LlamaServerPool : IAsyncDisposable
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        var key = MakeKey(config.ModelPath, backend, config.ContextSize, config.Mode);
+        var key = MakeKey(config.ModelPath, backend, config.ContextSize, config.Mode, config.RequireApiKey);
 
         // Try to get existing server
         if (_servers.TryGetValue(key, out var pooledServer))
@@ -171,7 +171,8 @@ public sealed class LlamaServerPool : IAsyncDisposable
             var client = new LlamaServerClient(
                 serverProcess.Info!.BaseUrl,
                 maxContextLength: config.ContextSize,
-                requestTimeout: config.RequestTimeout);
+                requestTimeout: config.RequestTimeout,
+                apiKey: serverProcess.ApiKey);
             client.AttachServer(serverProcess);
 
             var newPooledServer = new PooledServer(
@@ -327,8 +328,9 @@ public sealed class LlamaServerPool : IAsyncDisposable
         }
     }
 
-    private static string MakeKey(string modelPath, LlamaServerBackend backend, int contextSize, ServerMode mode = ServerMode.Generation)
-        => $"{modelPath}|{backend}|{contextSize}|{mode}";
+    // RequireApiKey is part of the identity: a caller that asked for a keyed server must never be handed one without a key.
+    private static string MakeKey(string modelPath, LlamaServerBackend backend, int contextSize, ServerMode mode, bool requireApiKey)
+        => $"{modelPath}|{backend}|{contextSize}|{mode}|{(requireApiKey ? "key" : "open")}";
 
     public async ValueTask DisposeAsync()
     {

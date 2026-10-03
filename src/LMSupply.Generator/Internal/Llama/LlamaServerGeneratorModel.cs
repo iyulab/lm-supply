@@ -1674,7 +1674,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         StartupStallTimeout = source.StartupStallTimeout,
         ShutdownTimeout = source.ShutdownTimeout,
         RequestTimeout = source.RequestTimeout,
-        AdditionalArgs = source.AdditionalArgs
+        AdditionalArgs = source.AdditionalArgs,
+        RequireApiKey = source.RequireApiKey
     };
 
     /// <summary>

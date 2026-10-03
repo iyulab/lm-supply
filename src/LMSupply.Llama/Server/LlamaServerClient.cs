@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -19,6 +20,7 @@ public sealed class LlamaServerClient : IDisposable
     private readonly string _baseUrl;
     private readonly bool _ownsHttpClient;
     private readonly int _maxContextLength;
+    private readonly string? _apiKey;
     private readonly TimeSpan? _requestTimeout;
     private Func<ServerState>? _serverState;
 
@@ -47,14 +49,18 @@ public sealed class LlamaServerClient : IDisposable
     /// whole body otherwise — and expiry throws the same shape (<see cref="TaskCanceledException"/>
     /// with an inner <see cref="TimeoutException"/>). Ignored when <paramref name="httpClient"/> is
     /// supplied.</param>
+    /// <param name="apiKey">Key the server was started with (<see cref="LlamaServerProcess.ApiKey"/>); sent as
+    /// <c>Authorization: Bearer</c> on every request. <see langword="null"/> sends none.</param>
     public LlamaServerClient(
         string baseUrl,
         HttpClient? httpClient = null,
         int maxContextLength = 0,
-        TimeSpan? requestTimeout = null)
+        TimeSpan? requestTimeout = null,
+        string? apiKey = null)
     {
         _baseUrl = baseUrl.TrimEnd('/');
         _maxContextLength = maxContextLength;
+        _apiKey = string.IsNullOrEmpty(apiKey) ? null : apiKey;
 
         if (httpClient != null)
         {
@@ -76,6 +82,7 @@ public sealed class LlamaServerClient : IDisposable
     {
         _baseUrl = owner._baseUrl;
         _maxContextLength = owner._maxContextLength;
+        _apiKey = owner._apiKey;
         _httpClient = owner._httpClient;
         _ownsHttpClient = false;
         _requestTimeout = ValidateRequestTimeout(requestTimeout);
@@ -116,6 +123,10 @@ public sealed class LlamaServerClient : IDisposable
         HttpCompletionOption completionOption,
         CancellationToken cancellationToken)
     {
+        // Per request, not DefaultRequestHeaders: a caller-supplied HttpClient is not ours to change.
+        if (_apiKey is not null)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+
         if (_requestTimeout is not { } limit || limit == Timeout.InfiniteTimeSpan)
             return await _httpClient.SendAsync(request, completionOption, cancellationToken);
 

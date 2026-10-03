@@ -224,6 +224,8 @@ await LlamaServerPool.Instance.ReleaseIdleAsync();
 
 A GGUF model whose llama-server exits (killed, crashed, out of memory) gets a new server on its next call. The call that saw it die throws `InferenceBackendExitedException`, which carries the server's `ExitCode` and `RecentLog` (its last output lines). `LlamaServerProcess.RecentLog` is readable directly too.
 
+Each llama-server LMSupply launches requires its own random key, so other processes and users on the same machine cannot call it; LMSupply's own requests carry it. A host that starts `LlamaServerProcess` itself and calls `Info.BaseUrl` sends `Authorization: Bearer <LlamaServerProcess.ApiKey>` (or sets `LlamaServerConfig.RequireApiKey = false`).
+
 ### Translation
 
 ```csharp

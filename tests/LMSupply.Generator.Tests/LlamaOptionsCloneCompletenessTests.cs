@@ -69,18 +69,19 @@ public class LlamaOptionsCloneCompletenessTests
 
     private static void AssertSameExcept<T>(T source, T clone, params string[] except)
     {
+        // What a property holds before anyone sets it: its initializer, not the type's default — a bool that
+        // starts true is probed with false, which is a real change even though it equals default(bool).
+        var fresh = Activator.CreateInstance<T>();
         foreach (var prop in typeof(T).GetProperties(Settable).Where(p => p.SetMethod != null && !except.Contains(p.Name)))
         {
             var expected = prop.GetValue(source);
             var actual = prop.GetValue(clone);
             actual.Should().BeEquivalentTo(expected,
                 $"{typeof(T).Name}.{prop.Name} must survive the clone — add it to the copy site");
-            actual.Should().NotBe(Default(prop.PropertyType),
+            actual.Should().NotBe(prop.GetValue(fresh),
                 $"the test must give {typeof(T).Name}.{prop.Name} a non-default value or the assertion above is vacuous");
         }
     }
-
-    private static object? Default(Type t) => t.IsValueType ? Activator.CreateInstance(t) : null;
 
     /// <summary>A value that differs from the type's default and from the current one.</summary>
     private static object NonDefaultValue(Type type, object? current)

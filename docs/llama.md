@@ -40,6 +40,7 @@ llama-server operates in different modes depending on the use case:
 - **Server pooling**: Efficient server instance reuse across multiple requests
 - **Mode-aware pooling**: Separate server instances for generation, embedding, and reranking
 - **Server output kept for diagnosis**: `LlamaServerProcess.RecentLog` holds the last 200 lines the server wrote (stderr and stdout), still readable after it exits — read it with `ExitCode` when a server dies mid-request; `Info.StartupLog` is the complete log up to readiness
+- **Keyed by default**: each launched server requires its own random key (`LlamaServerProcess.ApiKey`, passed through the environment, never the command line) and every request LMSupply sends carries it, so other processes and users on the same machine cannot call it. A host calling `Info.BaseUrl` with its own client sends `Authorization: Bearer <ApiKey>`; `LlamaServerConfig.RequireApiKey = false` turns it off
 - **A dead server is named in the failure**: a request that fails because the server exited throws `InferenceBackendExitedException` (`ExitCode`, `RecentLog`) instead of a bare transport error
 
 ## Supported Backends
@@ -337,7 +338,8 @@ The following packages use LMSupply.Llama for GGUF support:
   reset time. Set `GITHUB_TOKEN` (or `GH_TOKEN`) to raise the limit — it is sent to the GitHub API only, never with the
   build download — or pin a build that is already in the cache (`LlamaServerUpdateOptions.PinnedVersion`).
 - Verify cache directory permissions
-- Try setting `HF_HUB_OFFLINE=0` to force online mode
+- On a machine without network, pin a build already in the cache (`LlamaServerUpdateOptions.PinnedVersion`) or point
+  at a binary you ship (`LlamaServerUpdateOptions.ServerBinaryPath`); neither looks for a newer build
 
 ### Server won't start
 

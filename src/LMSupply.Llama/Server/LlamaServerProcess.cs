@@ -241,6 +241,18 @@ public sealed class LlamaServerConfig
     public IReadOnlyList<string>? AdditionalArgs { get; init; }
 
     /// <summary>
+    /// Whether the server requires a key on every request. Default: <see langword="true"/>.
+    /// </summary>
+    /// <remarks>
+    /// The server listens on loopback, which keeps other machines out but not other processes or other users of the same
+    /// machine. With this on, each launched server gets its own random key (<see cref="LlamaServerProcess.ApiKey"/>),
+    /// handed to the process through its environment rather than its command line, and every request LMSupply sends
+    /// carries it. Turn it off only to let another program call the server without a key. While it is on,
+    /// <c>--api-key</c> or <c>--api-key-file</c> in <see cref="AdditionalArgs"/> is refused at start.
+    /// </remarks>
+    public bool RequireApiKey { get; init; } = true;
+
+    /// <summary>
     /// The llama-server build tag the binary at the server path was resolved as (e.g. <c>b10298</c>),
     /// when known. Used to pick the argument spelling the binary understands where llama.cpp has
     /// renamed a flag — currently <c>--load-mode</c> (b10105+) versus the removed
@@ -390,6 +402,12 @@ public sealed class LlamaServerProcess : IAsyncDisposable
     private readonly LlamaServerBackend _backend;
     private readonly HttpClient _httpClient;
 
+    /// <summary>The variable llama-server reads its key from (the environment form of <c>--api-key</c>).</summary>
+    private const string ApiKeyVariable = "LLAMA_API_KEY";
+
+    /// <summary>The environment form of <c>--api-key-file</c>.</summary>
+    private const string ApiKeyFileVariable = "LLAMA_ARG_API_KEY_FILE";
+
     private Process? _process;
     private int _port;
     private bool _disposed;
@@ -399,6 +417,14 @@ public sealed class LlamaServerProcess : IAsyncDisposable
     /// Gets information about the running server.
     /// </summary>
     public LlamaServerInfo? Info { get; private set; }
+
+    /// <summary>
+    /// The key this server requires, to be sent as <c>Authorization: Bearer</c> by any client that calls
+    /// <see cref="LlamaServerInfo.BaseUrl"/> itself; <see langword="null"/> when
+    /// <see cref="LlamaServerConfig.RequireApiKey"/> is off. A secret: do not log it. Kept off
+    /// <see cref="LlamaServerInfo"/> because a record's generated <c>ToString()</c> prints every property.
+    /// </summary>
+    public string? ApiKey { get; }
 
     /// <summary>
     /// Gets whether the server is running.
@@ -433,6 +459,12 @@ public sealed class LlamaServerProcess : IAsyncDisposable
         {
             Timeout = TimeSpan.FromSeconds(5)
         };
+
+        if (config.RequireApiKey)
+        {
+            ApiKey = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+            _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", ApiKey);
+        }
     }
 
     /// <summary>
@@ -444,6 +476,15 @@ public sealed class LlamaServerProcess : IAsyncDisposable
         LlamaServerBackend backend,
         CancellationToken cancellationToken = default)
     {
+        if (config.RequireApiKey && FindApiKeyArgument(config.AdditionalArgs) is { } keyArgument)
+        {
+            throw new ArgumentException(
+                $"AdditionalArgs contains '{keyArgument}', but LlamaServerConfig.RequireApiKey is on and LMSupply sets the " +
+                "server's key itself. Remove the argument, or set RequireApiKey = false to manage the key yourself " +
+                "(LMSupply's own client then sends no key).",
+                nameof(config));
+        }
+
         var server = new LlamaServerProcess(serverPath, config, backend);
 
         try
@@ -480,6 +521,16 @@ public sealed class LlamaServerProcess : IAsyncDisposable
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
+
+        // The key travels in the environment, not the command line, so other processes cannot read it from the
+        // process list. A key inherited from this process's own environment is removed either way: with
+        // RequireApiKey on it would be replaced, and with it off it would make the server refuse LMSupply's client.
+        startInfo.Environment.Remove(ApiKeyVariable);
+        startInfo.Environment.Remove(ApiKeyFileVariable);
+        if (ApiKey is not null)
+        {
+            startInfo.Environment[ApiKeyVariable] = ApiKey;
+        }
 
         // Enable CUDA graph optimization for NVIDIA GPUs (reduces token generation latency)
         if (_backend == LlamaServerBackend.Cuda12 || _backend == LlamaServerBackend.Cuda13)
@@ -630,6 +681,22 @@ public sealed class LlamaServerProcess : IAsyncDisposable
         }
 
         return args;
+    }
+
+    /// <summary>The <c>--api-key</c>/<c>--api-key-file</c> argument in <paramref name="args"/>, if any.</summary>
+    internal static string? FindApiKeyArgument(IReadOnlyList<string>? args)
+    {
+        if (args is null)
+            return null;
+
+        foreach (var arg in args)
+        {
+            var name = arg.Split('=', 2)[0].Trim();
+            if (name is "--api-key" or "--api-key-file")
+                return name;
+        }
+
+        return null;
     }
 
     private string BuildArguments()
