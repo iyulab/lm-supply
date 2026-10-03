@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [0.104.0] - Unreleased
+## [0.104.0] - 2026-10-04
 
 ### Changed
 - **The captioner's `default` and `auto` load Florence-2 base** (`onnx-community/Florence-2-base-ft`, MIT), the model
