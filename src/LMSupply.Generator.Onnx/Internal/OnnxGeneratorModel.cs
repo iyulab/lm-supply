@@ -677,7 +677,6 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
             TopK = options.TopK,
             RepetitionPenalty = options.RepetitionPenalty,
             StopSequences = merged,
-            IncludePromptInOutput = options.IncludePromptInOutput,
             DoSample = options.DoSample,
             NumBeams = options.NumBeams,
             PastPresentShareBuffer = options.PastPresentShareBuffer,

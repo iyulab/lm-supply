@@ -144,12 +144,6 @@ public sealed class GenerationOptions
     public IReadOnlyList<string>? StopSequences { get; set; }
 
     /// <summary>
-    /// Gets or sets whether to include the input prompt in the output.
-    /// Defaults to false.
-    /// </summary>
-    public bool IncludePromptInOutput { get; set; }
-
-    /// <summary>
     /// Gets or sets whether to enable random sampling.
     /// When false, uses greedy decoding (always picks highest probability token).
     /// Defaults to true.

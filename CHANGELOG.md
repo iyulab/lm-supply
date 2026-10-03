@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.99.0] - Unreleased
+
+### Removed
+- **Breaking: `GenerationOptions.IncludePromptInOutput` is removed.** No generator ever acted on it — setting it left
+  the output unchanged. Migration: delete the assignment; to show the prompt with the answer, prepend the prompt you
+  already hold.
+
 ## [0.98.2] - 2026-10-02
 
 ### Fixed

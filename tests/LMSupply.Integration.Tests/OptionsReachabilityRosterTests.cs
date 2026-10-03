@@ -35,10 +35,8 @@ public class OptionsReachabilityRosterTests
     {
         // The thirteen options this roster's first run found were each wired or removed (issue draft
         // "options nothing reads, across seven types"). A new entry needs its own draft.
-        // Moving to Iyu.Conventions.Testing 0.3.0 (2026-10-03) found one more: every read copies the value into the
-        // same property of another GenerationOptions (speculative decoding, the text extensions, the ONNX model's
-        // per-call options) and no generator acts on it.
-        ["LMSupply.Generator.Models.GenerationOptions"] = ["IncludePromptInOutput"],
+        // Moving to Iyu.Conventions.Testing 0.3.0 (2026-10-03) found one more, GenerationOptions.IncludePromptInOutput
+        // (every read copied it, no generator acted on it) — removed in 0.99.0.
     };
 
     private static readonly Lazy<OptionsReachabilityReport> Result = new(() =>

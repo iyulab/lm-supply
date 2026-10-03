@@ -704,7 +704,6 @@ public class GeneratorFunctionalTests
         opts.FrequencyPenalty.Should().Be(0f);
         opts.PresencePenalty.Should().Be(0f);
         opts.StopSequences.Should().BeNull();
-        opts.IncludePromptInOutput.Should().BeFalse();
         opts.DoSample.Should().BeTrue();
         opts.NumBeams.Should().Be(1);
         opts.PastPresentShareBuffer.Should().BeTrue();
