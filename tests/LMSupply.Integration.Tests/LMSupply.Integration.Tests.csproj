@@ -16,6 +16,7 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
     <PackageReference Include="AwesomeAssertions" />
+    <PackageReference Include="Iyu.Conventions.Testing" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="NAudio" />
     <PackageReference Include="NAudio.Lame" />
