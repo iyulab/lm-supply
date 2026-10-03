@@ -68,4 +68,7 @@ public sealed class OcrOptions : LMSupplyOptionsBase
     /// are the same either way. Default is true.
     /// </summary>
     public bool UsePolygon { get; set; } = true;
+
+    /// <summary>A copy of these options, for an operation that must not modify the caller's instance.</summary>
+    public OcrOptions Clone() => (OcrOptions)MemberwiseClone();
 }

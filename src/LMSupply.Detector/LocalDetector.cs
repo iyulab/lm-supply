@@ -38,7 +38,7 @@ public static class LocalDetector
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        options ??= new DetectorOptions();
+        options = options?.Clone() ?? new DetectorOptions();
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 

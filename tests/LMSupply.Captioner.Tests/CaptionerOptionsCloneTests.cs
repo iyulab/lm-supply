@@ -4,9 +4,9 @@ using AwesomeAssertions;
 namespace LMSupply.Captioner.Tests;
 
 /// <summary>
-/// <see cref="CaptionerOptions.Clone"/> copies by hand, which is how an option gets dropped when it is added later.
-/// The reflection fact below sets every public settable property to a non-default value and requires the copy to carry
-/// it, so a property added without a line in <c>Clone</c> fails here instead of silently reverting to its default.
+/// <see cref="CaptionerOptions.Clone"/> must carry every option — a hand-written copy is how an option gets dropped
+/// when it is added later. The reflection fact below sets every public settable property to a non-default value and
+/// requires the copy to carry it, whichever way <c>Clone</c> is written.
 /// </summary>
 public sealed class CaptionerOptionsCloneTests
 {

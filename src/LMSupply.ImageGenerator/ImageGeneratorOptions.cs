@@ -50,4 +50,7 @@ public sealed class ImageGeneratorOptions
     /// Default: <see cref="OrtLogLevel.Error"/> (suppresses provider fallback warnings)
     /// </summary>
     public OrtLogLevel LogLevel { get; set; } = OrtLogLevel.Error;
+
+    /// <summary>A copy of these options, for an operation that must not modify the caller's instance.</summary>
+    public ImageGeneratorOptions Clone() => (ImageGeneratorOptions)MemberwiseClone();
 }

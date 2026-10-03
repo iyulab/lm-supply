@@ -40,7 +40,7 @@ public static class LocalTranscriber
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        options ??= new TranscriberOptions();
+        options = options?.Clone() ?? new TranscriberOptions();
         PrepareOptions(modelIdOrPath, options);
 
         var transcriber = CreateModel(options, progress);

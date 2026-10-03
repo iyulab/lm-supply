@@ -52,7 +52,7 @@ public static class LocalImageGenerator
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
 
-        options ??= new ImageGeneratorOptions();
+        options = options?.Clone() ?? new ImageGeneratorOptions();
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 

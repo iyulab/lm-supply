@@ -39,7 +39,7 @@ public static class LocalSegmenter
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        options ??= new SegmenterOptions();
+        options = options?.Clone() ?? new SegmenterOptions();
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 
@@ -76,7 +76,7 @@ public static class LocalSegmenter
         SegmenterOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        options ??= new SegmenterOptions();
+        options = options?.Clone() ?? new SegmenterOptions();
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 
         var modelInfo = SegmenterModelRegistry.Default.Resolve(modelIdOrAlias);

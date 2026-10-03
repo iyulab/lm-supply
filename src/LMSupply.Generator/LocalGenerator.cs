@@ -257,7 +257,7 @@ public static class LocalGenerator
     public static bool IsModelDownloaded(string modelId, GeneratorOptions? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
-        options ??= new GeneratorOptions();
+        options = options?.Clone() ?? new GeneratorOptions();
 
         // Mirrors DownloadModelAsync's resolution — see LoadAsync for why each check sits where it does.
         if (GeneratorModelRegistry.Default.TryGetUserAliasTarget(modelId, out var userAliasTarget))
@@ -352,7 +352,7 @@ public static class LocalGenerator
             throw new FileNotFoundException($"Model path not found: {modelPath}");
         }
 
-        options ??= new GeneratorOptions();
+        options = options?.Clone() ?? new GeneratorOptions();
 
         return Internal.GeneratorModelLoader.LoadFromPathAsync(modelPath, options);
     }

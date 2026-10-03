@@ -168,7 +168,7 @@ public static class LocalCaptioner
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
-        options ??= new CaptionerOptions();
+        options = options?.Clone() ?? new CaptionerOptions();
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 
         var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);

@@ -52,7 +52,7 @@ public static class LocalOcr
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(detectionModel);
-        options ??= new OcrOptions();
+        options = options?.Clone() ?? new OcrOptions();
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 
@@ -104,7 +104,7 @@ public static class LocalOcr
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        options ??= new OcrOptions { LanguageHint = languageCode };
+        options = options?.Clone() ?? new OcrOptions { LanguageHint = languageCode };
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
         options.LanguageHint = languageCode;

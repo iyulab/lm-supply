@@ -44,7 +44,7 @@ public static class LocalSynthesizer
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        options ??= new SynthesizerOptions();
+        options = options?.Clone() ?? new SynthesizerOptions();
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 

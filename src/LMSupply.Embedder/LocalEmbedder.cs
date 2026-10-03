@@ -65,7 +65,7 @@ public static class LocalEmbedder
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        options ??= new EmbedderOptions();
+        options = options?.Clone() ?? new EmbedderOptions();
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 
@@ -583,7 +583,7 @@ public static class LocalEmbedder
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        options ??= new EmbedderOptions();
+        options = options?.Clone() ?? new EmbedderOptions();
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 

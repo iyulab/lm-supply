@@ -38,7 +38,7 @@ public static class LocalTranslator
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        options ??= new TranslatorOptions();
+        options = options?.Clone() ?? new TranslatorOptions();
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 

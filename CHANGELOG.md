@@ -7,13 +7,16 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [0.101.0] - Unreleased
 
 ### Added
-- **`CaptionerOptions.Clone()`**, as every other LMSupply options type has. A test now requires the copy to carry every
-  settable property, so an option added later cannot be dropped from it silently.
+- **`Clone()` on every options type**: new on `CaptionerOptions`, `OcrOptions` and `ImageGeneratorOptions`, and
+  `EmbedderOptions.Clone()` is now public. The others already had one.
 
 ### Fixed
-- **`LocalCaptioner.LoadAsync` no longer changes the options it is given.** A `:variant` qualifier (`"quality:fp16"`)
-  was written into the caller's `QuantizationHint`, so the next load with the same options object took that variant
-  for a different model. The load now works on a copy, as the other `Local*` loaders do.
+- **No `Local*` entry point changes the options it is given any more.** Most loaders wrote what they resolved into
+  the caller's instance: a `:variant` qualifier into `QuantizationHint` (Captioner, Detector, Embedder, OCR, Reranker,
+  Segmenter, Synthesizer, Transcriber, Translator), the resolved model id into `ModelId`, the language into
+  `OcrOptions.LanguageHint`. An options object reused for a second load (`"quality:fp16"`, then `"default"`) carried
+  the first load's variant into the second. Every entry point now works on a copy. A source-scan test fails on the
+  mutating shape.
 
 ## [0.100.0] - 2026-10-03
 

@@ -54,20 +54,7 @@ public sealed class CaptionerOptions : LMSupplyOptionsBase
     /// instance it was given (a <c>:variant</c> qualifier no longer lands in the caller's
     /// <see cref="LMSupplyOptionsBase.QuantizationHint"/>).
     /// </summary>
-    public CaptionerOptions Clone() => new()
-    {
-        MaxLength = MaxLength,
-        NumBeams = NumBeams,
-        Temperature = Temperature,
-        Prompt = Prompt,
-        Detail = Detail,
-        DisableAutoDownload = DisableAutoDownload,
-        CacheDirectory = CacheDirectory,
-        Provider = Provider,
-        ThreadCount = ThreadCount,
-        LogLevel = LogLevel,
-        QuantizationHint = QuantizationHint
-    };
+    public CaptionerOptions Clone() => (CaptionerOptions)MemberwiseClone();
 }
 
 /// <summary>
