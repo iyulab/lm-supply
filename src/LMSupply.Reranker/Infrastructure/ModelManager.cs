@@ -178,6 +178,30 @@ internal sealed class ModelManager : IDisposable
     }
 
     /// <summary>
+    /// Bytes <see cref="EnsureModelAsync"/> downloads for <paramref name="modelInfo"/> into an empty cache: the graph (and
+    /// its external weights), the tokenizer file and the vocabulary files, from the repositories it reads them from, at
+    /// the lengths those list. A file a repository does not have is left out, as the download skips it. 0 for a model on
+    /// local disk.
+    /// </summary>
+    public async Task<long> PlanDownloadBytesAsync(ModelInfo modelInfo, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(modelInfo);
+        if (IsLocalPath(modelInfo.Id))
+            return 0;
+
+        var tokenizerRepo = modelInfo.TokenizerRepoId ?? modelInfo.Id;
+        string[] weights = modelInfo.OnnxDataFile is null ? [modelInfo.OnnxFile] : [modelInfo.OnnxFile, modelInfo.OnnxDataFile];
+        string[] tokenizerFiles = [modelInfo.TokenizerFile, "vocab.txt", "sentencepiece.bpe.model"];
+
+        if (tokenizerRepo == modelInfo.Id)
+            return (await _downloader.PlanModelAsync(modelInfo.Id, [.. weights, .. tokenizerFiles], cancellationToken: cancellationToken)).TotalBytes;
+
+        var weightPlan = await _downloader.PlanModelAsync(modelInfo.Id, weights, cancellationToken: cancellationToken);
+        var tokenizerPlan = await _downloader.PlanModelAsync(tokenizerRepo, tokenizerFiles, cancellationToken: cancellationToken);
+        return weightPlan.TotalBytes + tokenizerPlan.TotalBytes;
+    }
+
+    /// <summary>
     /// The directories the model's files are read from: for the weights, the first snapshot of the model's
     /// repository that holds the graph (and its external weights) together — ONNX Runtime opens the weights
     /// beside the graph — and for the tokenizer, the first that holds the tokenizer file (with the weights when

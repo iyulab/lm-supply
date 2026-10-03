@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.102.0] - Unreleased
+
+### Added
+- **`LocalReranker.GetDownloadSizeBytesAsync(modelId, options)` and `LocalOcr.GetDownloadSizeBytesAsync(language,
+  options)`** — what a first load would fetch, read from the repository listing without downloading, as Captioner,
+  Embedder, Generator and Transcriber already answer. Reranker: the GGUF file at the load's quantization, or the graph
+  and tokenizer files; OCR: the detection model plus that language's recognizer and dictionary (about 10 MB for
+  English, about 87 MB for Japanese or Chinese). Offline (`DisableAutoDownload`) the listing comes from the cache only
+  and an unlisted repository throws, as the load does.
+
+### Changed
+- The embedder's and the reranker's GGUF downloaders were two copies of one class; they are now one shared
+  implementation, so selection, cache layout and the download plan cannot drift between them.
+
 ## [0.101.0] - 2026-10-03
 
 ### Added

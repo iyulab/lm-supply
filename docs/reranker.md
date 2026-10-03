@@ -89,6 +89,18 @@ var reranker = await LocalReranker.LoadAsync("cross-encoder/ms-marco-MiniLM-L-12
 var reranker = await LocalReranker.LoadAsync("BAAI/bge-reranker-large");
 ```
 
+### Download size before a load
+
+`LocalReranker.GetDownloadSizeBytesAsync(modelId, options)` is what a first load of that id would fetch, read from the
+repository listing without downloading — for a GGUF id the one file at the load's quantization, otherwise the graph and
+the tokenizer files. `auto` resolves as the load would. A local path is 0.
+
+```csharp
+using LMSupply.Reranker;
+
+long bytes = await LocalReranker.GetDownloadSizeBytesAsync("multilingual-fast");
+```
+
 ## GGUF Models (via llama-server)
 
 GGUF reranker models are auto-detected by repo name patterns (`-GGUF`, `_gguf`). LMSupply automatically downloads and manages llama-server binaries for GPU-accelerated inference.

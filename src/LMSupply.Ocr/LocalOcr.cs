@@ -143,6 +143,48 @@ public static class LocalOcr
         return new OcrCacheStatus(languageCode, recognition.AliasName, files);
     }
 
+    /// <summary>
+    /// Bytes <see cref="LoadForLanguageAsync"/> would download for the same language and options into an empty cache:
+    /// the default detection model, plus the language's recognizer and its dictionary, at the lengths the repositories
+    /// list. For a consent screen that states what a first run will fetch.
+    /// </summary>
+    /// <remarks>
+    /// The files are the ones the loader fetches (the same lists <see cref="GetCacheStatusForLanguage"/> probes). Reads
+    /// the repository listings (cached for a day and reused by the download that follows); downloads and loads nothing.
+    /// The figure is the whole download whatever the cache already holds — <see cref="GetCacheStatusForLanguage"/>
+    /// answers what is present. The native ONNX Runtime a first load also provisions, once per host and shared by every
+    /// model, is not counted. With <see cref="OcrOptions.DisableAutoDownload"/> the listings come from the cache only,
+    /// as the load's do.
+    /// </remarks>
+    /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh", "ja").</param>
+    /// <param name="options">The options the load will use (<see cref="LMSupplyOptionsBase.CacheDirectory"/>, <see cref="OcrOptions.DisableAutoDownload"/>); not modified.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ModelNotFoundException">A repository does not exist, or (downloads disabled) was never listed into this cache.</exception>
+    /// <exception cref="ModelDownloadException">A file the load needs is not in its repository.</exception>
+    public static async Task<long> GetDownloadSizeBytesAsync(
+        string languageCode,
+        OcrOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageCode);
+        options = options?.Clone() ?? new OcrOptions();
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        var detection = OcrDetectionModelRegistry.Default.Resolve(DefaultDetectionModel);
+        var recognition = OcrRecognitionModelRegistry.Default.ResolveForLanguage(languageCode);
+
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+        var detectionPlan = await downloader.PlanModelAsync(
+            detection.RepoId, RequiredFiles(detection), subfolder: detection.Subfolder, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        var recognitionPlan = await downloader.PlanModelAsync(
+            recognition.RepoId, RequiredFiles(recognition), subfolder: recognition.Subfolder, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        return detectionPlan.TotalBytes + recognitionPlan.TotalBytes;
+    }
+
     // The detection model a language load uses. The probe and the loader share it so they cannot disagree.
     private const string DefaultDetectionModel = "default";
 

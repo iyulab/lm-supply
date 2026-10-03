@@ -30,9 +30,11 @@
   <ItemGroup>
     <InternalsVisibleTo Include="LMSupply.Core.Tests" />
     <InternalsVisibleTo Include="LMSupply.Embedder" />
+    <InternalsVisibleTo Include="LMSupply.Embedder.Tests" />
     <InternalsVisibleTo Include="LMSupply.Generator" />
     <InternalsVisibleTo Include="LMSupply.Llama" />
     <InternalsVisibleTo Include="LMSupply.Reranker" />
+    <InternalsVisibleTo Include="LMSupply.Reranker.Tests" />
   </ItemGroup>
 
 </Project>

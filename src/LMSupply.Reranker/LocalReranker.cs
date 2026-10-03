@@ -411,6 +411,79 @@ public static class LocalReranker
     }
 
     /// <summary>
+    /// Bytes <see cref="LoadAsync"/> (and <see cref="DownloadModelAsync"/>) would download for the same id and options
+    /// into an empty cache: for a GGUF model the one file the loader picks at its quantization, otherwise the graph, its
+    /// external weights and the tokenizer files, at the lengths the repositories list. For a consent screen that states
+    /// what a first run will fetch.
+    /// </summary>
+    /// <remarks>
+    /// Chooses the backend the way <see cref="DownloadModelAsync"/> does (a user alias is followed first, and
+    /// <c>auto</c> may resolve to the GGUF build when a llama-server binary is already cached). Reads the repository
+    /// listings (cached for a day and reused by the download that follows); downloads and loads nothing. The figure is
+    /// the whole download whatever the cache already holds — <see cref="IsModelDownloaded"/> answers what is present. A
+    /// local path downloads nothing, so it is 0. Runtimes a first load also provisions (the native ONNX Runtime, or
+    /// llama-server for a GGUF model), once per host and shared by every model, are not counted. With
+    /// <see cref="RerankerOptions.DisableAutoDownload"/> the listings come from the cache only, as the load's do.
+    /// </remarks>
+    /// <param name="modelIdOrPath">Anything <see cref="LoadAsync"/> accepts; a <c>:variant</c> qualifier is honoured.</param>
+    /// <param name="options">The options the load will use; not modified.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ModelNotFoundException">The model is unknown, the repository does not exist or holds no model file, or (downloads disabled) it was never listed into this cache.</exception>
+    /// <exception cref="ModelDownloadException">A file the load needs is not in the repository, or its listing gives no length.</exception>
+    public static async Task<long> GetDownloadSizeBytesAsync(
+        string modelIdOrPath,
+        RerankerOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        options = options?.Clone() ?? new RerankerOptions();
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+
+        var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
+        options.ModelId = baseId;
+        options.QuantizationHint ??= qualifier;
+
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+
+        var ggufCandidate = FollowUserAlias(modelIdOrPath);
+        if (IsGgufModel(ggufCandidate))
+        {
+            var ggufTarget = StripGgufPrefix(ggufCandidate);
+            if (File.Exists(ggufTarget))
+                return 0;
+
+            if (!ggufTarget.Contains('/'))
+            {
+                throw new ModelNotFoundException(
+                    $"GGUF reranker model not found: '{modelIdOrPath}'. Provide a local path to a .gguf file or a HuggingFace repo ID.",
+                    modelIdOrPath);
+            }
+
+            using var ggufDownloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+            var plan = await ggufDownloader.PlanAsync(ggufTarget, GgufQuantizationFor(options), cancellationToken);
+            return plan.TotalBytes;
+        }
+
+        if (File.Exists(baseId) || Directory.Exists(baseId))
+            return 0;
+
+        ModelInfo modelInfo;
+        try
+        {
+            modelInfo = RerankerModelRegistry.Default.Resolve(options.ModelId);
+        }
+        catch (ModelNotFoundException) when (options.ModelId.Contains('/'))
+        {
+            // Unknown alias — a raw HuggingFace repository, fetched with the downloader's default file set.
+            using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+            return (await downloader.PlanModelAsync(options.ModelId, cancellationToken: cancellationToken)).TotalBytes;
+        }
+
+        using var manager = new ModelManager(cacheDir, autoDownload: !options.DisableAutoDownload);
+        return await manager.PlanDownloadBytesAsync(modelInfo, cancellationToken);
+    }
+
+    /// <summary>
     /// Gets a list of pre-configured model aliases available for use.
     /// </summary>
     /// <returns>Available model aliases.</returns>

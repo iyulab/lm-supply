@@ -122,6 +122,18 @@ await using var ocr = await LocalOcr.LoadAsync(
 );
 ```
 
+### Download size before a load
+
+`LocalOcr.GetDownloadSizeBytesAsync(languageCode, options)` is what `LoadForLanguageAsync` would fetch for that
+language — the detection model plus the language's recognizer and dictionary — read from the repository listing
+without downloading. It differs by script: about 10 MB for English, more for scripts with large character sets.
+
+```csharp
+using LMSupply.Ocr;
+
+long bytes = await LocalOcr.GetDownloadSizeBytesAsync("ko");
+```
+
 ### HuggingFace Model Requirements
 
 For custom HuggingFace OCR repositories, the following file structure is expected:
