@@ -168,16 +168,61 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
 
     private async Task<CaptionResult> GenerateCaptionAsync(float[] imageData, CancellationToken cancellationToken)
     {
-        // Run encoder to get image embeddings
         var imageEmbeddings = await RunEncoderAsync(imageData, cancellationToken).ConfigureAwait(false);
+        var encoderHiddenStates = EncoderHiddenStates(imageEmbeddings);
 
-        // Run decoder to generate caption tokens
-        var (tokenIds, confidence) = await GenerateTokensAsync(imageEmbeddings, cancellationToken).ConfigureAwait(false);
+        // Start with BOS, then the prompt when one is set: the decoder continues the caption from it (conditional
+        // captioning — the prompt's tokens become the start of the caption, as with decoder_input_ids in Transformers).
+        var promptTokens = string.IsNullOrWhiteSpace(_options.Prompt)
+            ? []
+            : _tokenizer.Encode(_options.Prompt.Trim(), addSpecialTokens: false);
+        var prefix = new List<int>(1 + promptTokens.Length) { _modelInfo.BosTokenId };
+        prefix.AddRange(promptTokens);
 
-        // Decode tokens to text, skipping special tokens
-        var caption = _tokenizer.Decode(tokenIds, skipSpecialTokens: true);
+        IReadOnlyList<BeamSearch<object?>.Hypothesis> hypotheses;
+        if (_options.NumBeams > 1)
+        {
+            hypotheses = await BeamSearch<object?>.RunAsync(
+                prefix,
+                null,
+                _options.NumBeams,
+                _options.MaxLength,
+                _modelInfo.EosTokenId,
+                async (sequence, state) => (await StepAsync(sequence, encoderHiddenStates, cancellationToken).ConfigureAwait(false), state),
+                adjust: null,
+                cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            var sequence = new List<int>(prefix);
+            var generated = new List<int>();
+            float totalLogProb = 0f;
+            for (var step = 0; step < _options.MaxLength; step++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
 
-        return new CaptionResult(caption, confidence);
+                var logits = await StepAsync(sequence, encoderHiddenStates, cancellationToken).ConfigureAwait(false);
+                var (token, logProb) = NextToken.Choose(logits, _options);
+                if (token == _modelInfo.EosTokenId)
+                    break;
+
+                totalLogProb += logProb;
+                generated.Add(token);
+                sequence.Add(token);
+            }
+
+            hypotheses = [new(generated.ToArray(), generated.Count > 0 ? totalLogProb / generated.Count : float.NegativeInfinity)];
+        }
+
+        // The caption includes the prompt it was continued from.
+        var captions = hypotheses
+            .Select(h => _tokenizer.Decode([.. promptTokens, .. h.Tokens], skipSpecialTokens: true))
+            .ToList();
+
+        return new CaptionResult(
+            captions[0],
+            MathF.Exp(hypotheses[0].MeanLogProb),
+            captions.Skip(1).Where(c => c != captions[0]).Distinct().ToList());
     }
 
     private Task<float[]> RunEncoderAsync(float[] imageData, CancellationToken cancellationToken)
@@ -201,25 +246,8 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
         }, cancellationToken: cancellationToken);
     }
 
-    private async Task<(int[] tokenIds, float confidence)> GenerateTokensAsync(float[] imageEmbeddings, CancellationToken cancellationToken)
+    private DenseTensor<float> EncoderHiddenStates(float[] imageEmbeddings)
     {
-        var generatedTokens = new List<int>();
-        float totalLogProb = 0f;
-        int tokenCount = 0;
-
-        // Start with BOS, then the prompt when one is set: the decoder continues the caption from it (conditional
-        // captioning — the prompt's tokens become the start of the caption, as with decoder_input_ids in Transformers).
-        var promptTokens = string.IsNullOrWhiteSpace(_options.Prompt)
-            ? []
-            : _tokenizer.Encode(_options.Prompt.Trim(), addSpecialTokens: false);
-        var currentTokenIds = new long[1 + promptTokens.Length];
-        currentTokenIds[0] = _modelInfo.BosTokenId;
-        for (var i = 0; i < promptTokens.Length; i++)
-        {
-            currentTokenIds[i + 1] = promptTokens[i];
-            generatedTokens.Add(promptTokens[i]);
-        }
-
         // Get embedding dimensions from encoder output metadata (identical on every provider).
         // For ViT-GPT2, typical shape is [1, seq_len, hidden_size]
         // Note: ONNX dynamic dimensions are represented as -1 in metadata, so we infer from actual data
@@ -243,90 +271,48 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
             seqLen = imageEmbeddings.Length / hiddenSize;
         }
 
-        // Create encoder hidden states tensor
-        var encoderHiddenStates = new DenseTensor<float>(
-            imageEmbeddings,
-            [1, seqLen, hiddenSize]);
+        return new DenseTensor<float>(imageEmbeddings, [1, seqLen, hiddenSize]);
+    }
 
-        // Pre-create tensors for optional inputs (check once, reuse per step)
-        var decoderInputs = _decoder.Session.InputMetadata;
-        bool needsAttentionMask = decoderInputs.ContainsKey("attention_mask");
-        bool needsCacheBranch = decoderInputs.ContainsKey("use_cache_branch");
-        // use_cache_branch=false: always use the non-cached decode path
-        DenseTensor<bool>? useCacheTensor = needsCacheBranch
-            ? new DenseTensor<bool>(UseCacheBranchFalse, UseCacheBranchDims)
-            : null;
-
-        for (int step = 0; step < _options.MaxLength; step++)
+    /// <summary>
+    /// One decoder pass over the whole sequence (this export is run without its key/value cache): the logits for the
+    /// token after the sequence's last.
+    /// </summary>
+    private async Task<float[]> StepAsync(
+        IReadOnlyList<int> sequence, DenseTensor<float> encoderHiddenStates, CancellationToken cancellationToken)
+    {
+        var tokenIds = sequence.Select(t => (long)t).ToArray();
+        var inputs = new List<NamedOnnxValue>
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            NamedOnnxValue.CreateFromTensor("input_ids", new DenseTensor<long>(tokenIds, [1, tokenIds.Length])),
+            NamedOnnxValue.CreateFromTensor("encoder_hidden_states", encoderHiddenStates)
+        };
 
-            // Prepare decoder inputs
-            var inputIdsTensor = new DenseTensor<long>(currentTokenIds, [1, currentTokenIds.Length]);
-            var attentionMask = TensorUtils.CreateAttentionMask(currentTokenIds.Length);
+        var decoderInputs = _decoder.Session.InputMetadata;
+        if (decoderInputs.ContainsKey("attention_mask"))
+            inputs.Add(NamedOnnxValue.CreateFromTensor("attention_mask", TensorUtils.CreateAttentionMask(tokenIds.Length)));
 
-            var inputs = new List<NamedOnnxValue>
-            {
-                NamedOnnxValue.CreateFromTensor("input_ids", inputIdsTensor),
-                NamedOnnxValue.CreateFromTensor("encoder_hidden_states", encoderHiddenStates)
-            };
+        // use_cache_branch=false: always the non-cached decode path
+        if (decoderInputs.ContainsKey("use_cache_branch"))
+            inputs.Add(NamedOnnxValue.CreateFromTensor("use_cache_branch", new DenseTensor<bool>(UseCacheBranchFalse, UseCacheBranchDims)));
 
-            if (needsAttentionMask)
-            {
-                inputs.Add(NamedOnnxValue.CreateFromTensor("attention_mask", attentionMask));
-            }
+        // One bounded decode step; a provider crash or hang inside it moves the session to the
+        // next provider and retries this step (decoder state is on the managed side).
+        var logits = await _decoder.RunWithRecoveryAsync((session, runOptions) =>
+        {
+            using var results = session.Run(inputs, ["logits"], runOptions);
+            return results[0].AsEnumerable<float>().ToArray();
+        }, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            if (needsCacheBranch)
-            {
-                inputs.Add(NamedOnnxValue.CreateFromTensor("use_cache_branch", useCacheTensor!));
-            }
+        // Logits for the last position; some exports return only the current position, or [batch, vocab].
+        var vocabSize = _modelInfo.VocabSize;
+        var lastTokenLogitsStart = (tokenIds.Length - 1) * vocabSize;
+        if (logits.Length == vocabSize)
+            lastTokenLogitsStart = 0;
+        else if (logits.Length < lastTokenLogitsStart + vocabSize)
+            lastTokenLogitsStart = logits.Length - vocabSize;
 
-            // One bounded decode step; a provider crash or hang inside it moves the session to the
-            // next provider and retries this step (decoder state is on the managed side).
-            var logits = await _decoder.RunWithRecoveryAsync((session, runOptions) =>
-            {
-                using var results = session.Run(inputs, ["logits"], runOptions);
-                return results[0].AsEnumerable<float>().ToArray();
-            }, cancellationToken: cancellationToken).ConfigureAwait(false);
-
-            // Get logits for last token position
-            int vocabSize = _modelInfo.VocabSize;
-            int lastTokenLogitsStart = (currentTokenIds.Length - 1) * vocabSize;
-
-            // Handle case where logits might be just for current position
-            if (logits.Length == vocabSize)
-            {
-                lastTokenLogitsStart = 0;
-            }
-            else if (logits.Length < lastTokenLogitsStart + vocabSize)
-            {
-                // Logits shape might be [batch, vocab] instead of [batch, seq, vocab]
-                lastTokenLogitsStart = logits.Length - vocabSize;
-            }
-
-            var lastTokenLogits = logits.AsSpan(lastTokenLogitsStart, vocabSize);
-
-            var (nextToken, logProb) = NextToken.Choose(lastTokenLogits, _options);
-
-            // Check for EOS
-            if (nextToken == _modelInfo.EosTokenId)
-                break;
-
-            generatedTokens.Add(nextToken);
-            totalLogProb += logProb;
-            tokenCount++;
-
-            // Update input for next iteration
-            currentTokenIds = [.. currentTokenIds, nextToken];
-        }
-
-        // Calculate average log probability as confidence
-        float confidence = tokenCount > 0 ? totalLogProb / tokenCount : 0f;
-
-        // Normalize to 0-1 range (log prob is typically negative)
-        confidence = MathF.Exp(confidence);
-
-        return (generatedTokens.ToArray(), confidence);
+        return logits.AsSpan(lastTokenLogitsStart, vocabSize).ToArray();
     }
 
     /// <inheritdoc />

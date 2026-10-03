@@ -237,6 +237,14 @@ public static class LocalCaptioner
     /// </summary>
     internal static void EnsureOptionsSupported(ModelInfo modelInfo, CaptionerOptions options)
     {
+        if (options.NumBeams < 1)
+            throw new NotSupportedException($"CaptionerOptions.NumBeams must be at least 1; it is {options.NumBeams}.");
+        if (options.Temperature is <= 0f)
+            throw new NotSupportedException($"CaptionerOptions.Temperature must be positive when set; it is {options.Temperature}.");
+        if (options.Temperature is not null && options.NumBeams > 1)
+            throw new NotSupportedException(
+                "CaptionerOptions.Temperature samples one token at a time and NumBeams searches deterministically; set one of them.");
+
         switch (modelInfo.Architecture)
         {
             case CaptionerArchitecture.Florence2 when !string.IsNullOrWhiteSpace(options.Prompt):

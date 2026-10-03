@@ -40,6 +40,20 @@ public sealed class Florence2CaptionerIntegrationTests
         d.Caption.Length.Should().BeGreaterThan(b.Caption.Length);
     }
 
+    [Theory]
+    [InlineData("quality")]
+    [InlineData("default")]
+    public async Task BeamSearch_ReturnsTheBestCaption_AndTheRunnersUp(string alias)
+    {
+        await using var captioner = await LocalCaptioner.LoadAsync(alias, new CaptionerOptions { NumBeams = 3 }, cancellationToken: Ct);
+
+        var result = await captioner.CaptionAsync(Fixture("fruit-bowl.jpg"), Ct);
+
+        result.Caption.Should().MatchRegex("(?i)(banana|apple|fruit|tangerine|orange)");
+        result.AlternativeCaptions.Should().NotContain(result.Caption);
+        result.Confidence.Should().BeInRange(0f, 1f);
+    }
+
     [Fact]
     public async Task PromptTokens_MatchTheReferenceTokenizer()
     {

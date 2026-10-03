@@ -58,6 +58,10 @@ await using var captioner = await LocalCaptioner.LoadAsync("quality",
 var result = await captioner.CaptionAsync("photo.jpg");
 ```
 
+Decoding is greedy by default. `NumBeams = 3` (for example) runs a beam search and returns the runners-up in
+`CaptionResult.AlternativeCaptions`, at one decoder pass per beam per token; `Temperature = 0.7f` samples instead.
+The two are exclusive.
+
 `Detail` is `Brief` (default, one sentence), `Detailed` or `Paragraph`; a paragraph needs a larger `MaxLength` than the
 default 50. Only `quality` reads it — `default` captions at one level and refuses any other value at load
 (`NotSupportedException`). The reverse holds for `Prompt`: `default` continues a caption from it, `quality` refuses it

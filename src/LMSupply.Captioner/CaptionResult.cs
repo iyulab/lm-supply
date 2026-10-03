@@ -4,8 +4,8 @@ namespace LMSupply.Captioner;
 /// Result of an image captioning operation.
 /// </summary>
 /// <param name="Caption">The generated caption text.</param>
-/// <param name="Confidence">Average log probability of tokens (higher is more confident).</param>
-/// <param name="AlternativeCaptions">Alternative captions from beam search (if NumBeams > 1).</param>
+/// <param name="Confidence">exp of the mean token log-probability, between 0 and 1 (higher is more confident).</param>
+/// <param name="AlternativeCaptions">The other finished beams, best first, when <see cref="CaptionerOptions.NumBeams"/> is above 1 (distinct from <paramref name="Caption"/>); empty otherwise.</param>
 public record CaptionResult(
     string Caption,
     float Confidence,

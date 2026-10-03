@@ -14,7 +14,7 @@ public class CaptionerOptionsTests
         // Assert
         options.MaxLength.Should().Be(50);
         options.NumBeams.Should().Be(1);
-        options.Temperature.Should().Be(1.0f);
+        options.Temperature.Should().BeNull("greedy unless a temperature is set");
         options.Prompt.Should().BeNull();
         options.Provider.Should().Be(ExecutionProvider.Auto);
         options.CacheDirectory.Should().BeNull();

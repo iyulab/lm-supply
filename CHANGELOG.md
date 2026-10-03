@@ -10,6 +10,15 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 - **`Clone()` on every options type**: new on `CaptionerOptions`, `OcrOptions` and `ImageGeneratorOptions`, and
   `EmbedderOptions.Clone()` is now public. The others already had one.
 
+### Changed
+- **Captioner: `NumBeams` is a beam search, `Temperature` a sampling temperature.** `NumBeams` above 1 used to sample
+  at `Temperature` instead of searching, and at the default `NumBeams = 1` `Temperature` was never read. Now
+  `NumBeams > 1` runs a beam search (ViT-GPT2 and Florence-2) and fills `CaptionResult.AlternativeCaptions` with the
+  runners-up — a field that was always empty. **Breaking:** `CaptionerOptions.Temperature` is `float?`, null by
+  default (greedy); setting it samples. A non-positive temperature, `NumBeams < 1`, or a temperature together with
+  beams is refused at load. Migration: delete an assignment of `Temperature = 1.0f` (that was the old default).
+- `CaptionResult.Confidence` is documented as what it is: exp of the mean token log-probability, between 0 and 1.
+
 ### Fixed
 - **No `Local*` entry point changes the options it is given any more.** Most loaders wrote what they resolved into
   the caller's instance: a `:variant` qualifier into `QuantizationHint` (Captioner, Detector, Embedder, OCR, Reranker,

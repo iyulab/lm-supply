@@ -16,8 +16,9 @@ namespace LMSupply.Captioner.Inference;
 /// <remarks>
 /// Generation follows the model's <c>generation_config.json</c> except for the beam width: the decoder starts from
 /// <see cref="ModelInfo.DecoderStartTokenId"/>, the first generated token is forced to <see cref="ModelInfo.BosTokenId"/>,
-/// and no 3-gram repeats. Decoding is greedy (or temperature sampling, as <see cref="NextToken"/> decides) rather than
-/// the config's three beams — measured on everyday photos, greedy named the same subjects at a third of the cost.
+/// and no 3-gram repeats. Decoding is greedy by default rather than the config's three beams — measured on everyday
+/// photos, greedy named the same subjects at a third of the cost; <see cref="CaptionerOptions.NumBeams"/> runs the
+/// beam search, <see cref="CaptionerOptions.Temperature"/> samples.
 /// </remarks>
 internal sealed class Florence2Captioner : ICaptionerModel
 {
@@ -216,80 +217,112 @@ internal sealed class Florence2Captioner : ICaptionerModel
             },
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        var (tokens, confidence) = await DecodeAsync(hiddenStates, attentionMask, cancellationToken).ConfigureAwait(false);
-        var caption = _tokenizer.Decode(
-            tokens.Where(id => id >= FirstOrdinaryTokenId && id < FirstAddedTokenId).ToArray(), skipSpecialTokens: false);
+        var hypotheses = await DecodeAsync(hiddenStates, attentionMask, cancellationToken).ConfigureAwait(false);
+        var captions = hypotheses.Select(h => Text(h.Tokens)).ToList();
 
-        return new CaptionResult(caption.Trim(), confidence);
+        return new CaptionResult(
+            captions[0],
+            MathF.Exp(hypotheses[0].MeanLogProb),
+            captions.Skip(1).Where(c => c != captions[0]).Distinct().ToList());
     }
 
-    private async Task<(int[] Tokens, float Confidence)> DecodeAsync(
+    private string Text(int[] tokens)
+        => _tokenizer.Decode(
+            tokens.Where(id => id >= FirstOrdinaryTokenId && id < FirstAddedTokenId).ToArray(), skipSpecialTokens: false).Trim();
+
+    private async Task<IReadOnlyList<BeamSearch<Dictionary<string, DenseTensor<float>>>.Hypothesis>> DecodeAsync(
         DenseTensor<float> hiddenStates, DenseTensor<long> attentionMask, CancellationToken cancellationToken)
     {
         var start = _modelInfo.DecoderStartTokenId ?? _modelInfo.BosTokenId;
-        var sequence = new List<int> { start };
-        var generated = new List<int>();
-        var past = EmptyCache();
-        float totalLogProb = 0f;
 
-        // Step 0 emits the forced <s>; the caption is the MaxLength steps after it.
-        for (var step = 0; step <= _options.MaxLength; step++)
+        // The decoder start token's output is ignored — the first generated token is forced to <s>
+        // (forced_bos_token_id) — but its pass computes the cross-attention cache every later step reuses.
+        var (_, cache) = await StepAsync([start], EmptyCache(), hiddenStates, attentionMask, firstStep: true, cancellationToken)
+            .ConfigureAwait(false);
+        var sequence = new List<int> { start, _modelInfo.BosTokenId };
+
+        if (_options.NumBeams > 1)
+        {
+            return await BeamSearch<Dictionary<string, DenseTensor<float>>>.RunAsync(
+                sequence,
+                cache,
+                _options.NumBeams,
+                _options.MaxLength,
+                _modelInfo.EosTokenId,
+                (seq, state) => StepAsync(seq, state, hiddenStates, attentionMask, firstStep: false, cancellationToken),
+                (logits, seq) => NextToken.BanRepeatedNgrams(logits, seq, NoRepeatNgramSize),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        var generated = new List<int>();
+        float totalLogProb = 0f;
+        for (var step = 0; step < _options.MaxLength; step++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var embeds = await EmbedAsync(new long[] { sequence[^1] }, cancellationToken).ConfigureAwait(false);
-            var inputs = new List<NamedOnnxValue>
-            {
-                NamedOnnxValue.CreateFromTensor("encoder_attention_mask", attentionMask),
-                NamedOnnxValue.CreateFromTensor("encoder_hidden_states", hiddenStates),
-                NamedOnnxValue.CreateFromTensor("inputs_embeds", embeds),
-                NamedOnnxValue.CreateFromTensor("use_cache_branch", new DenseTensor<bool>(new[] { step > 0 }, [1]))
-            };
-            inputs.AddRange(past.Select(kv => NamedOnnxValue.CreateFromTensor(kv.Key, kv.Value)));
+            var (logits, next) = await StepAsync(sequence, cache, hiddenStates, attentionMask, firstStep: false, cancellationToken)
+                .ConfigureAwait(false);
+            cache = next;
 
-            var firstStep = step == 0;
-            var (logits, present) = await _decoder.RunWithRecoveryAsync(
-                (session, runOptions) =>
-                {
-                    using var results = session.Run(inputs, session.OutputNames, runOptions);
-                    var row = LastRow(results[0]);
-                    var cache = new Dictionary<string, DenseTensor<float>>();
-                    for (var i = 1; i < results.Count; i++)
-                    {
-                        var name = results[i].Name.Replace("present", "past_key_values", StringComparison.Ordinal);
-                        // The cross-attention cache is computed once, from the encoder output, at the first step.
-                        if (!firstStep && name.Contains(".encoder.", StringComparison.Ordinal))
-                            continue;
-                        cache[name] = Copy(results[i]);
-                    }
+            NextToken.BanRepeatedNgrams(logits, sequence, NoRepeatNgramSize);
+            var (token, logProb) = NextToken.Choose(logits, _options);
+            if (token == _modelInfo.EosTokenId)
+                break;
 
-                    return (row, cache);
-                },
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-
-            foreach (var (name, value) in present)
-                past[name] = value;
-
-            int next;
-            if (firstStep)
-            {
-                next = _modelInfo.BosTokenId; // forced_bos_token_id
-            }
-            else
-            {
-                NextToken.BanRepeatedNgrams(logits, sequence, NoRepeatNgramSize);
-                (next, var logProb) = NextToken.Choose(logits, _options);
-                if (next == _modelInfo.EosTokenId)
-                    break;
-                totalLogProb += logProb;
-                generated.Add(next);
-            }
-
-            sequence.Add(next);
+            totalLogProb += logProb;
+            generated.Add(token);
+            sequence.Add(token);
         }
 
-        var confidence = generated.Count > 0 ? MathF.Exp(totalLogProb / generated.Count) : 0f;
-        return (generated.ToArray(), confidence);
+        var mean = generated.Count > 0 ? totalLogProb / generated.Count : float.NegativeInfinity;
+        return [new(generated.ToArray(), mean)];
+    }
+
+    /// <summary>
+    /// One decoder pass for the last token of <paramref name="sequence"/>: the logits for the token after it, and the
+    /// cache extended by it. <paramref name="past"/> is not changed, so beams that share a parent can share its cache.
+    /// </summary>
+    private async Task<(float[] Logits, Dictionary<string, DenseTensor<float>> Cache)> StepAsync(
+        IReadOnlyList<int> sequence,
+        Dictionary<string, DenseTensor<float>> past,
+        DenseTensor<float> hiddenStates,
+        DenseTensor<long> attentionMask,
+        bool firstStep,
+        CancellationToken cancellationToken)
+    {
+        var embeds = await EmbedAsync(new long[] { sequence[^1] }, cancellationToken).ConfigureAwait(false);
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("encoder_attention_mask", attentionMask),
+            NamedOnnxValue.CreateFromTensor("encoder_hidden_states", hiddenStates),
+            NamedOnnxValue.CreateFromTensor("inputs_embeds", embeds),
+            NamedOnnxValue.CreateFromTensor("use_cache_branch", new DenseTensor<bool>(new[] { !firstStep }, [1]))
+        };
+        inputs.AddRange(past.Select(kv => NamedOnnxValue.CreateFromTensor(kv.Key, kv.Value)));
+
+        var (logits, present) = await _decoder.RunWithRecoveryAsync(
+            (session, runOptions) =>
+            {
+                using var results = session.Run(inputs, session.OutputNames, runOptions);
+                var row = LastRow(results[0]);
+                var cache = new Dictionary<string, DenseTensor<float>>();
+                for (var i = 1; i < results.Count; i++)
+                {
+                    var name = results[i].Name.Replace("present", "past_key_values", StringComparison.Ordinal);
+                    // The cross-attention cache is computed once, from the encoder output, at the first step.
+                    if (!firstStep && name.Contains(".encoder.", StringComparison.Ordinal))
+                        continue;
+                    cache[name] = Copy(results[i]);
+                }
+
+                return (row, cache);
+            },
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        var extended = new Dictionary<string, DenseTensor<float>>(past);
+        foreach (var (name, value) in present)
+            extended[name] = value;
+        return (logits, extended);
     }
 
     private Dictionary<string, DenseTensor<float>> EmptyCache()

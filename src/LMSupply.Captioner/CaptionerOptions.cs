@@ -12,16 +12,19 @@ public sealed class CaptionerOptions : LMSupplyOptionsBase
     public int MaxLength { get; set; } = 50;
 
     /// <summary>
-    /// Number of beams for beam search decoding.
-    /// 1 = greedy decoding (default), higher values explore more candidates.
+    /// Number of beams for beam search. 1 (the default) decodes greedily; 2 or more keeps that many candidate captions
+    /// per step and returns the best by mean token log-probability, with the runners-up in
+    /// <see cref="CaptionResult.AlternativeCaptions"/>. Each beam costs one decoder pass per step. Less than 1 is
+    /// refused at load.
     /// </summary>
     public int NumBeams { get; set; } = 1;
 
     /// <summary>
-    /// Temperature for sampling. Lower values make output more deterministic.
-    /// Default is 1.0 (no temperature scaling).
+    /// Sampling temperature. Null (the default) decodes deterministically (greedy, or beam search with
+    /// <see cref="NumBeams"/>); a value samples each token at that temperature — lower is closer to greedy. Refused at
+    /// load when not positive, or together with <see cref="NumBeams"/> above 1.
     /// </summary>
-    public float Temperature { get; set; } = 1.0f;
+    public float? Temperature { get; set; }
 
     /// <summary>
     /// Optional text the caption starts with (conditional captioning). The decoder continues from it, so the returned
