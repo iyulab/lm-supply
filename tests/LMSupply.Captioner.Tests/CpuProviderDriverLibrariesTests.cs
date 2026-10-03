@@ -16,7 +16,7 @@ namespace LMSupply.Captioner.Tests;
 [Trait("Category", "LocalOnly")]
 public sealed class CpuProviderDriverLibrariesTests
 {
-    private const string Alias = "default";
+    private const string Alias = "fast";
     private static readonly string[] DriverLibraries = ["nvml.dll", "nvcuda.dll", "nvcuda64.dll"];
 
     private static string[] LoadedDriverLibraries()

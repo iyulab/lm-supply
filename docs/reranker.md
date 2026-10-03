@@ -101,6 +101,20 @@ using LMSupply.Reranker;
 long bytes = await LocalReranker.GetDownloadSizeBytesAsync("multilingual-fast");
 ```
 
+### What a load would open — name and licence
+
+`LocalReranker.Describe(modelId)` answers, without downloading or loading anything, what that id loads on this host: the
+repository (`ResolvedId`), the backend (`ModelBackend.Onnx` or `ModelBackend.Gguf`), a `DisplayName` and the curated
+`License` — for a GGUF build, the licence of the model it was quantized from. It follows a user alias, `auto` for this
+host and the built-in GGUF aliases, as the load does; a repository the catalog does not know reports its own name and a
+null licence.
+
+```csharp
+var d = LocalReranker.Describe("multilingual-fast");
+// d.ResolvedId  = "gpustack/bge-reranker-v2-m3-GGUF", d.Backend = ModelBackend.Gguf
+// d.DisplayName = "BGE Reranker v2 M3 (GGUF Q4_K_M)",  d.License = "Apache-2.0"
+```
+
 ## GGUF Models (via llama-server)
 
 GGUF reranker models are auto-detected by repo name patterns (`-GGUF`, `_gguf`). LMSupply automatically downloads and manages llama-server binaries for GPU-accelerated inference.

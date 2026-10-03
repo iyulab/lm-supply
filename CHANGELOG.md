@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.104.0] - Unreleased
+
+### Changed
+- **The captioner's `default` and `auto` load Florence-2 base** (`onnx-community/Florence-2-base-ft`, MIT), the model
+  `quality` already loaded. On 12 everyday photos ViT-GPT2 named 4 subjects wrongly and Florence-2 none, and its int8
+  download (about 275 MB, chosen on most machines) is smaller than ViT-GPT2's (about 960 MB). **Breaking** for a caller
+  that relied on `default` being ViT-GPT2 (for its exact captions, or because `Detail`/`NumBeams` behave per model): load
+  `fast`, which is ViT-GPT2. `DefaultModels.Default` is now `DefaultModels.Florence2Default`; `DefaultModels.VitGpt2` is
+  registered under `fast`, and `DefaultModels.VitGpt2Fast` is removed (use `VitGpt2`).
+
+### Added
+- **`LocalReranker.Describe(modelId)` and `LocalEmbedder.Describe(modelIdOrPath)`: what an id loads on this host — name,
+  licence, repository and backend — without downloading.** They follow the same resolution as the load: a user alias,
+  `auto` for this host, and a built-in GGUF alias such as `multilingual-fast`, which had no public name or licence (no
+  registry entry describes a GGUF build). A GGUF build reports the licence of the model it was quantized from
+  (`multilingual-fast` → Apache-2.0, bge-reranker-v2-m3). A model the catalog does not know reports its own name and
+  a null licence. New shared types `ModelDescription` and `ModelBackend` (`LMSupply.Core`).
+
+### Fixed
+- A ViT-GPT2 model loaded from a local directory is identified as ViT-GPT2 rather than as whatever `default` names.
+
 ## [0.103.0] - 2026-10-04
 
 ### Changed

@@ -42,7 +42,7 @@ public sealed class Florence2CaptionerIntegrationTests
 
     [Theory]
     [InlineData("quality")]
-    [InlineData("default")]
+    [InlineData("fast")]
     public async Task BeamSearch_ReturnsTheBestCaption_AndTheRunnersUp(string alias)
     {
         await using var captioner = await LocalCaptioner.LoadAsync(alias, new CaptionerOptions { NumBeams = 3 }, cancellationToken: Ct);

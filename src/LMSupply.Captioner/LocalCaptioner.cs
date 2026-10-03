@@ -385,7 +385,8 @@ public static class LocalCaptioner
             && File.Exists(Path.Combine(onnxDir, "encoder_model.onnx"))
             && File.Exists(Path.Combine(onnxDir, "decoder_model_merged.onnx")))
         {
-            modelInfo = CaptionerModelRegistry.Default.Resolve("default");
+            // The model this layout belongs to — not "default", which names Florence-2 since 0.104.0.
+            modelInfo = DefaultModels.VitGpt2;
             return true;
         }
 

@@ -8,14 +8,15 @@ namespace LMSupply.Captioner.Tests;
 public class ModelRegistryTests
 {
     [Fact]
-    public void Resolve_WithDefaultAlias_ShouldReturnVitGpt2()
+    public void Resolve_WithDefaultAlias_ShouldReturnFlorence2()
     {
         // Act
         var modelInfo = CaptionerModelRegistry.Default.Resolve("default");
 
         // Assert
         modelInfo.Should().NotBeNull();
-        modelInfo.RepoId.Should().Be("Xenova/vit-gpt2-image-captioning");
+        modelInfo.RepoId.Should().Be("onnx-community/Florence-2-base-ft");
+        modelInfo.AliasName.Should().Be("default", "a consent screen reads the entry registered under the alias it loads");
     }
 
     [Fact]
@@ -39,7 +40,7 @@ public class ModelRegistryTests
         // Assert
         result.Should().BeTrue();
         modelInfo.Should().NotBeNull();
-        modelInfo!.AliasName.Should().Be("default");
+        modelInfo!.AliasName.Should().Be("fast");
     }
 
     [Fact]
@@ -161,7 +162,7 @@ public class ModelRegistryTests
     public void VitGpt2Model_ShouldHaveCorrectConfiguration()
     {
         // Act
-        var model = CaptionerModelRegistry.Default.Resolve("default");
+        var model = CaptionerModelRegistry.Default.Resolve("fast");
 
         // Assert
         model.EncoderFile.Should().Be("encoder_model.onnx");
@@ -178,7 +179,7 @@ public class ModelRegistryTests
     public void VitGpt2Model_ShouldUseViTGpt2PreprocessProfile()
     {
         // Act
-        var model = CaptionerModelRegistry.Default.Resolve("default");
+        var model = CaptionerModelRegistry.Default.Resolve("fast");
 
         // Assert
         model.PreprocessProfile.Width.Should().Be(224);
@@ -192,14 +193,16 @@ public class ModelRegistryTests
         DefaultModels.All.Should().HaveCount(3);
         DefaultModels.All.Should().Contain(DefaultModels.Florence2Base);
         DefaultModels.All.Should().Contain(DefaultModels.VitGpt2);
-        DefaultModels.All.Should().Contain(DefaultModels.VitGpt2Fast);
+        DefaultModels.All.Should().Contain(DefaultModels.Florence2Default);
+        DefaultModels.All.Select(m => m.AliasName).Should().OnlyHaveUniqueItems();
     }
 
     [Fact]
-    public void DefaultModels_Default_ShouldBeVitGpt2()
+    public void DefaultModels_Default_ShouldBeFlorence2()
     {
         // Assert
-        DefaultModels.Default.Should().Be(DefaultModels.VitGpt2);
+        DefaultModels.Default.Should().Be(DefaultModels.Florence2Default);
+        DefaultModels.Default.RepoId.Should().Be(DefaultModels.Florence2Base.RepoId);
     }
 
     [Fact]

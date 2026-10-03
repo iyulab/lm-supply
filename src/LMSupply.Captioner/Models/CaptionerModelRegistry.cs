@@ -29,13 +29,13 @@ public sealed class CaptionerModelRegistry : ModelRegistryBase<ModelInfo>
         : base(systemModels) { }
 
     /// <summary>
-    /// Gets the optimal model based on current hardware profile.
-    /// Currently only ViT-GPT2 is available (BLIP repos became inaccessible circa 2026-03).
+    /// The model <c>auto</c> loads: Florence-2 base on every hardware tier — its int8 variant (chosen on CPU-only tiers)
+    /// is smaller than ViT-GPT2 and names the subject far more often.
     /// </summary>
     protected override ModelInfo GetAutoModel()
     {
         Trace.TraceInformation("[CaptionerModelRegistry] Auto-selecting default captioning model");
-        return DefaultModels.VitGpt2 with { AliasName = "auto" };
+        return DefaultModels.Florence2Base with { AliasName = "auto" };
     }
 
     /// <summary>

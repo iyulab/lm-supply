@@ -898,20 +898,58 @@ public static class LocalEmbedder
     /// sentence-transformers prompts, so a repository named "&lt;org&gt;/&lt;model&gt;-GGUF" takes the catalog entry of
     /// "&lt;org&gt;/&lt;model&gt;"; anything else (a local file, an unknown model) has none.
     /// </summary>
-    internal static (string? QueryPrefix, string? PassagePrefix) ResolveGgufPrefixes(string repoIdOrPath)
+    internal static (string? QueryPrefix, string? PassagePrefix) ResolveGgufPrefixes(string repoIdOrPath) =>
+        TryResolveGgufSourceModel(repoIdOrPath, out var info) ? (info!.QueryPrefix, info.PassagePrefix) : (null, null);
+
+    /// <summary>
+    /// The catalog entry of the model a GGUF repository was converted from: "&lt;org&gt;/&lt;model&gt;-GGUF" →
+    /// "&lt;org&gt;/&lt;model&gt;". False for a local file or a model the catalog does not know.
+    /// </summary>
+    internal static bool TryResolveGgufSourceModel(string repoIdOrPath, out ModelInfo? info)
     {
+        info = null;
         if (!repoIdOrPath.Contains('/') || File.Exists(repoIdOrPath))
-            return (null, null);
+            return false;
 
         foreach (var suffix in new[] { "-GGUF", "_GGUF", ".GGUF" })
         {
             if (!repoIdOrPath.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
                 continue;
-            var baseRepo = repoIdOrPath[..^suffix.Length];
-            return EmbedderModelRegistry.Default.TryResolveCatalog(baseRepo, out var info, out _) && info is not null
-                ? (info.QueryPrefix, info.PassagePrefix)
-                : (null, null);
+            return EmbedderModelRegistry.Default.TryResolveCatalog(repoIdOrPath[..^suffix.Length], out info, out _) && info is not null;
         }
-        return (null, null);
+        return false;
     }
+
+    /// <summary>
+    /// What <see cref="LoadAsync"/> would load for <paramref name="modelId"/> — the repository, the backend, a name and
+    /// the licence — without downloading or loading anything.
+    /// </summary>
+    /// <remarks>
+    /// Follows the load's own resolution: a user alias (which may point at a <c>gguf:</c> repository), then the catalog
+    /// (<c>auto</c> included). A GGUF repository the catalog knows the source of (<c>&lt;org&gt;/&lt;model&gt;-GGUF</c>)
+    /// reports that model's licence; any other repository or path reports its own name and a <see langword="null"/>
+    /// licence. A <c>:variant</c> qualifier is ignored.
+    /// </remarks>
+    /// <param name="modelId">Anything <see cref="LoadAsync"/> accepts.</param>
+    public static ModelDescription Describe(string modelId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        var target = PrepareLoadTarget(modelId, new EmbedderOptions());
+
+        if (IsGgufModel(target))
+        {
+            var repo = StripGgufPrefix(target);
+            return TryResolveGgufSourceModel(repo, out var source)
+                ? new ModelDescription(modelId, repo, ModelBackend.Gguf, $"{OwnName(source!.RepoId)} (GGUF)", source.License, null)
+                : new ModelDescription(modelId, repo, ModelBackend.Gguf, OwnName(repo), null, null);
+        }
+
+        return EmbedderModelRegistry.Default.TryResolveCatalog(target, out var info, out var resolvedId) && info is not null
+            ? new ModelDescription(modelId, info.RepoId, ModelBackend.Onnx, OwnName(info.RepoId), info.License, info)
+            : new ModelDescription(modelId, resolvedId, ModelBackend.Onnx, OwnName(resolvedId), null, null);
+    }
+
+    /// <summary>The last segment of a repository id or path, as its own name.</summary>
+    private static string OwnName(string repoIdOrPath) =>
+        repoIdOrPath.TrimEnd('/', '\\').Split('/', '\\')[^1];
 }

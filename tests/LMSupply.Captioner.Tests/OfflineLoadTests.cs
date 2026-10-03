@@ -51,7 +51,8 @@ public sealed class OfflineLoadTests : IDisposable
     [Fact]
     public async Task DisableAutoDownload_WithTheModelCached_PassesTheDownloadStage_AndWritesNothing()
     {
-        var model = LocalCaptioner.Registry.Resolve("default");
+        // ViT-GPT2's layout (two graphs): the file list below is that model's.
+        var model = LocalCaptioner.Registry.Resolve("fast");
         var modelDir = Path.Combine(CacheManager.GetModelDirectory(_cacheDir, model.RepoId), model.Subfolder ?? string.Empty);
         Directory.CreateDirectory(modelDir);
         foreach (var file in new[] { model.EncoderFile, model.DecoderFile, "config.json", "vocab.json", "merges.txt", "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json" })
@@ -59,7 +60,7 @@ public sealed class OfflineLoadTests : IDisposable
         var before = Snapshot();
 
         var options = new CaptionerOptions { CacheDirectory = _cacheDir, DisableAutoDownload = true };
-        var load = () => LocalCaptioner.LoadAsync("default", options, cancellationToken: Ct);
+        var load = () => LocalCaptioner.LoadAsync("fast", options, cancellationToken: Ct);
 
         var failure = await load.Should().ThrowAsync<Exception>("placeholder files are not a model");
         failure.Which.Message.Should().NotContain("downloads are disabled", "every file the loader needs is in the cache");

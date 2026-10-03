@@ -47,11 +47,24 @@ public static class LocalReranker
     /// latency, at the price of running a llama-server process. <c>multilingual</c> and <c>auto</c> keep
     /// resolving to ONNX, so a caller that did not ask for llama-server never gets one.
     /// </remarks>
-    internal static readonly IReadOnlyDictionary<string, string> GgufAliases =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    internal static readonly IReadOnlyDictionary<string, GgufAlias> GgufAliases =
+        new Dictionary<string, GgufAlias>(StringComparer.OrdinalIgnoreCase)
         {
-            ["multilingual-fast"] = "gguf:gpustack/bge-reranker-v2-m3-GGUF",
+            ["multilingual-fast"] = new(
+                "gguf:gpustack/bge-reranker-v2-m3-GGUF",
+                "BGE Reranker v2 M3 (GGUF Q4_K_M)",
+                "Apache-2.0"), // the quantized model, BAAI/bge-reranker-v2-m3
         };
+
+    /// <summary>
+    /// A built-in alias to a GGUF build: where it points, a name to show, and the licence of the model the build was
+    /// quantized from.
+    /// </summary>
+    internal sealed record GgufAlias(string Target, string DisplayName, string License)
+    {
+        /// <summary>The repository the target names, without the <c>gguf:</c> prefix.</summary>
+        public string RepoId => StripGgufPrefix(Target);
+    }
 
     /// <summary>
     /// Gets the model registry for the Reranker domain.
@@ -201,9 +214,9 @@ public static class LocalReranker
             }
         }
 
-        if (GgufAliases.TryGetValue(target, out var ggufTarget))
+        if (GgufAliases.TryGetValue(target, out var ggufAlias))
         {
-            target = ggufTarget;
+            target = ggufAlias.Target;
             followed = true;
         }
 
@@ -482,6 +495,40 @@ public static class LocalReranker
         using var manager = new ModelManager(cacheDir, autoDownload: !options.DisableAutoDownload);
         return await manager.PlanDownloadBytesAsync(modelInfo, cancellationToken);
     }
+
+    /// <summary>
+    /// What <see cref="LoadAsync"/> would load for <paramref name="modelId"/> on this host — the repository, the backend,
+    /// a name and the licence — without downloading or loading anything.
+    /// </summary>
+    /// <remarks>
+    /// Follows the load's own resolution: a user alias, then <c>auto</c> for this host (the GGUF build of the
+    /// multilingual model where a llama-server binary is cached, an ONNX model otherwise — so the answer is per host,
+    /// like <see cref="GetDownloadSizeBytesAsync"/>), then a built-in GGUF alias such as <c>multilingual-fast</c>. A GGUF
+    /// build reports the licence of the model it was quantized from. A repository or path the catalog does not know
+    /// reports its own name and a <see langword="null"/> licence. A <c>:variant</c> qualifier is ignored.
+    /// </remarks>
+    /// <param name="modelId">Anything <see cref="LoadAsync"/> accepts.</param>
+    public static ModelDescription Describe(string modelId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelId);
+        var target = TryFollowAlias(baseId, out var followed) ? followed : baseId;
+
+        if (IsGgufModel(target))
+        {
+            var repo = StripGgufPrefix(target);
+            var alias = GgufAliases.Values.FirstOrDefault(a => string.Equals(a.RepoId, repo, StringComparison.OrdinalIgnoreCase));
+            return new ModelDescription(modelId, repo, ModelBackend.Gguf, alias?.DisplayName ?? OwnName(repo), alias?.License, null);
+        }
+
+        return RerankerModelRegistry.Default.TryResolveCatalog(target, out var info, out var resolvedId) && info is not null
+            ? new ModelDescription(modelId, info.Id, ModelBackend.Onnx, info.DisplayName, info.License, info)
+            : new ModelDescription(modelId, resolvedId, ModelBackend.Onnx, OwnName(resolvedId), null, null);
+    }
+
+    /// <summary>The last segment of a repository id or path, as its own name.</summary>
+    private static string OwnName(string repoIdOrPath) =>
+        repoIdOrPath.TrimEnd('/', '\\').Split('/', '\\')[^1];
 
     /// <summary>
     /// Gets a list of pre-configured model aliases available for use.

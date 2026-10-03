@@ -40,10 +40,12 @@ var result = await captioner.CaptionAsync(stream);
 
 | Alias | Model | Download | Description |
 |-------|-------|----------|-------------|
-| `default` (also `fast`, `auto`) | ViT-GPT2 | ~1 GB | Fast, one-sentence captions; tends to name a familiar scene rather than the subject |
-| `quality` | Florence-2 base (MIT) | ~275 MB int8 · ~545 MB fp16 · ~1.1 GB fp32 | Names the main subjects of everyday photos; brief, detailed or paragraph captions |
+| `default` (also `quality`, `auto`) | Florence-2 base (MIT) | ~275 MB int8 · ~545 MB fp16 · ~1.1 GB fp32 | Names the main subjects of everyday photos; brief, detailed or paragraph captions |
+| `fast` | ViT-GPT2 (Apache-2.0) | ~960 MB | One-sentence captions; tends to name a familiar scene rather than the subject |
 
-`quality` is published in quantized variants. A load takes the variant this machine's hardware tier picks (int8 on most
+`default` was ViT-GPT2 before 0.104.0; load `fast` (or `Xenova/vit-gpt2-image-captioning`) to keep it.
+
+Florence-2 is published in quantized variants. A load takes the variant this machine's hardware tier picks (int8 on most
 machines), or the one named by `CaptionerOptions.QuantizationHint` or a qualifier (`"quality:fp16"`).
 `LocalCaptioner.GetDownloadSizeBytesAsync(alias, options)` answers what that load will download — for a consent screen —
 without downloading anything.

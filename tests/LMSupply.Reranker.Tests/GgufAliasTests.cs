@@ -32,7 +32,7 @@ public sealed class GgufAliasTests : IDisposable
     public void TheAlias_IsListed_AndPointsAtARepositoryNotAtAnOnnxEntry()
     {
         LocalReranker.GetAvailableModels().Should().Contain(Alias);
-        LocalReranker.GgufAliases[Alias].Should().Be("gguf:" + TargetRepo);
+        LocalReranker.GgufAliases[Alias].Target.Should().Be("gguf:" + TargetRepo);
     }
 
     [Fact]

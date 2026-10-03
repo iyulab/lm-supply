@@ -386,6 +386,11 @@ reused by the download that follows) and downloads nothing. The figure is the wh
 holds, and `IsModelDownloaded` answers what is present. A local path is 0. Runtimes a first load also provisions (the
 native ONNX Runtime, or llama-server for GGUF) are not counted.
 
+`LocalEmbedder.Describe(modelIdOrPath)` names what that load would open — repository, backend (`ModelBackend.Onnx` /
+`ModelBackend.Gguf`), display name and curated licence — without downloading anything. A user alias is followed; a GGUF
+repository named `<org>/<model>-GGUF` whose source model is in the catalog reports that model's licence; any other
+repository or path reports its own name and a null licence.
+
 ## Microsoft.Extensions.AI
 
 `model.AsEmbeddingGenerator(textKind)` returns an `IEmbeddingGenerator<string, Embedding<float>>` over a loaded model:

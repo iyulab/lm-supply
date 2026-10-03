@@ -33,10 +33,11 @@ public sealed class Florence2CaptionerTests : IDisposable
     }
 
     [Fact]
-    public void DefaultAlias_StaysViTGpt2()
+    public void DefaultAndAuto_AreFlorence2_AndFastIsViTGpt2()
     {
-        LocalCaptioner.Registry.Resolve("default").Architecture.Should().Be(CaptionerArchitecture.VitGpt2);
-        LocalCaptioner.Registry.Resolve("auto").Architecture.Should().Be(CaptionerArchitecture.VitGpt2);
+        LocalCaptioner.Registry.Resolve("default").Architecture.Should().Be(CaptionerArchitecture.Florence2);
+        LocalCaptioner.Registry.Resolve("auto").Architecture.Should().Be(CaptionerArchitecture.Florence2);
+        LocalCaptioner.Registry.Resolve("fast").Architecture.Should().Be(CaptionerArchitecture.VitGpt2);
     }
 
     [Theory]
@@ -73,7 +74,7 @@ public sealed class Florence2CaptionerTests : IDisposable
     {
         var options = new CaptionerOptions { Detail = CaptionDetail.Detailed, CacheDirectory = _dir, DisableAutoDownload = true };
 
-        var load = () => LocalCaptioner.LoadAsync("default", options, cancellationToken: Ct);
+        var load = () => LocalCaptioner.LoadAsync("fast", options, cancellationToken: Ct);
 
         // NotSupported, not ModelNotFound: the refusal comes before the (offline) cache lookup.
         await load.Should().ThrowAsync<NotSupportedException>().WithMessage("*quality*");

@@ -37,7 +37,7 @@ public sealed class CaptionerOptionsCloneTests
         // Refused before any download (Detail on ViT-GPT2), after the qualifier has been parsed into the options.
         var options = new CaptionerOptions { Detail = CaptionDetail.Detailed, DisableAutoDownload = true };
 
-        var load = () => LocalCaptioner.LoadAsync("default:fp16", options, cancellationToken: Ct);
+        var load = () => LocalCaptioner.LoadAsync("fast:fp16", options, cancellationToken: Ct);
 
         await load.Should().ThrowAsync<NotSupportedException>();
         options.QuantizationHint.Should().BeNull("the load works on a copy of the caller's options");
