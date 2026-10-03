@@ -48,6 +48,26 @@ public sealed class CaptionerOptions : LMSupplyOptionsBase
     /// <para>Default: false</para>
     /// </summary>
     public bool DisableAutoDownload { get; set; }
+
+    /// <summary>
+    /// Creates a copy of these options. <see cref="LocalCaptioner"/> works on a copy, so a load never changes the
+    /// instance it was given (a <c>:variant</c> qualifier no longer lands in the caller's
+    /// <see cref="LMSupplyOptionsBase.QuantizationHint"/>).
+    /// </summary>
+    public CaptionerOptions Clone() => new()
+    {
+        MaxLength = MaxLength,
+        NumBeams = NumBeams,
+        Temperature = Temperature,
+        Prompt = Prompt,
+        Detail = Detail,
+        DisableAutoDownload = DisableAutoDownload,
+        CacheDirectory = CacheDirectory,
+        Provider = Provider,
+        ThreadCount = ThreadCount,
+        LogLevel = LogLevel,
+        QuantizationHint = QuantizationHint
+    };
 }
 
 /// <summary>

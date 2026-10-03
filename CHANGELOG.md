@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.101.0] - Unreleased
+
+### Added
+- **`CaptionerOptions.Clone()`**, as every other LMSupply options type has. A test now requires the copy to carry every
+  settable property, so an option added later cannot be dropped from it silently.
+
+### Fixed
+- **`LocalCaptioner.LoadAsync` no longer changes the options it is given.** A `:variant` qualifier (`"quality:fp16"`)
+  was written into the caller's `QuantizationHint`, so the next load with the same options object took that variant
+  for a different model. The load now works on a copy, as the other `Local*` loaders do.
+
 ## [0.100.0] - 2026-10-03
 
 ### Added

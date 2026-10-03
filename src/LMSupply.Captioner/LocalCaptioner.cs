@@ -34,7 +34,7 @@ public static class LocalCaptioner
     /// <param name="options">
     /// Optional configuration options. With <see cref="CaptionerOptions.DisableAutoDownload"/> set, a model
     /// id is served from the cache only: a file that is not there throws <see cref="ModelNotFoundException"/>
-    /// and nothing is downloaded or written.
+    /// and nothing is downloaded or written. Not modified: the load works on a copy.
     /// </param>
     /// <param name="progress">Optional progress reporting for downloads.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -52,7 +52,8 @@ public static class LocalCaptioner
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
-        options ??= new CaptionerOptions();
+        // A copy: the qualifier below must not land in the caller's instance (and so in its next load).
+        options = options?.Clone() ?? new CaptionerOptions();
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 
