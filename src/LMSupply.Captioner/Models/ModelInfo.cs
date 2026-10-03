@@ -48,6 +48,40 @@ public record ModelInfo(
     /// Additional ONNX files required by the model.
     /// </summary>
     public IReadOnlyList<string> AdditionalFiles { get; init; } = [];
+
+    /// <summary>
+    /// The model family, which decides how the files are run. Defaults to <see cref="CaptionerArchitecture.VitGpt2"/>.
+    /// </summary>
+    public CaptionerArchitecture Architecture { get; init; } = CaptionerArchitecture.VitGpt2;
+
+    /// <summary>
+    /// The token the decoder starts from, when it is not <see cref="BosTokenId"/> (BART-style decoders start from
+    /// <c>&lt;/s&gt;</c> and force <c>&lt;s&gt;</c> as the first generated token).
+    /// </summary>
+    public int? DecoderStartTokenId { get; init; }
+
+    /// <summary>
+    /// Whether the repository publishes every ONNX file in quantized variants (<c>_fp16</c>, <c>_quantized</c>,
+    /// <c>_q4</c>) beside the full-precision one. When true, a load picks the variant from
+    /// <see cref="LMSupplyOptionsBase.QuantizationHint"/> or, without one, the hardware tier — so the file names above
+    /// are the full-precision names, not necessarily what is downloaded.
+    /// </summary>
+    public bool HasQuantizationVariants { get; init; }
+}
+
+/// <summary>
+/// Captioning model families <see cref="LocalCaptioner"/> can run.
+/// </summary>
+public enum CaptionerArchitecture
+{
+    /// <summary>A vision encoder with a GPT-2 decoder that reads its hidden states (ViT-GPT2).</summary>
+    VitGpt2,
+
+    /// <summary>
+    /// Florence-2: a vision encoder, a text encoder over the image features and a task prompt, and a BART-style
+    /// decoder. The caption detail is a task the prompt selects (<see cref="CaptionerOptions.Detail"/>).
+    /// </summary>
+    Florence2
 }
 
 /// <summary>

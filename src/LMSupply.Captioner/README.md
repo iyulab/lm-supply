@@ -5,7 +5,7 @@ Local image captioning for .NET with automatic model downloading.
 ## Features
 
 - **Zero-config**: Models download automatically from HuggingFace
-- **GPU Acceleration**: CUDA, DirectML (Windows), CoreML (macOS)
+- **GPU Acceleration**: CUDA, CoreML (macOS)
 - **Cross-platform**: Windows, Linux, macOS
 - **Simple API**: Just 2 lines of code to get started
 
@@ -25,12 +25,27 @@ Console.WriteLine(result.Caption);
 
 ## Available Models
 
-| Model ID | Size | Description |
-|----------|------|-------------|
-| `default` | ~500MB | ViT-GPT2 - fast, general purpose |
-| `vit-gpt2` | ~500MB | Same as default |
-| `smolvlm` | ~600MB | SmolVLM-256M - lightweight multimodal |
-| `florence2` | ~500MB | Florence-2-base - multi-task vision |
+| Model ID | Download | Description |
+|----------|----------|-------------|
+| `default` (also `fast`, `auto`) | ~1 GB | ViT-GPT2 — fast, one-sentence captions; tends to name a familiar scene rather than the subject |
+| `quality` | ~275 MB (int8) · ~545 MB (fp16) · ~1.1 GB (fp32) | Florence-2 base — names the main subjects of everyday photos; brief, detailed or paragraph captions |
+
+`quality` is published in quantized variants; a load takes the one the hardware tier picks, or the one you name with
+`QuantizationHint` or a qualifier (`"quality:fp16"`). `LocalCaptioner.GetDownloadSizeBytesAsync` answers what a load
+will download, for a consent screen.
+
+```csharp
+using LMSupply.Captioner;
+
+long bytes = await LocalCaptioner.GetDownloadSizeBytesAsync("quality");
+
+await using var captioner = await LocalCaptioner.LoadAsync("quality",
+    new CaptionerOptions { Detail = CaptionDetail.Detailed, MaxLength = 100 });
+var result = await captioner.CaptionAsync("photo.jpg");
+```
+
+`Detail` (`Brief` · `Detailed` · `Paragraph`) is read by `quality`; `default` captions at one level and refuses any other
+value at load. `Prompt` (caption prefix) is read by `default`; `quality` refuses it — its prompt selects the task.
 
 ## Advanced Usage
 
@@ -41,7 +56,7 @@ using LMSupply;   // ExecutionProvider
 var options = new CaptionerOptions
 {
     MaxLength = 50,
-    Provider = ExecutionProvider.DirectML
+    Provider = ExecutionProvider.Cuda
 };
 
 var captioner = await LocalCaptioner.LoadAsync("default", options);
@@ -58,7 +73,7 @@ Install the appropriate GPU package for your hardware:
 ```bash
 # NVIDIA GPU
 dotnet add package Microsoft.ML.OnnxRuntime.Gpu
-
-# Windows (AMD/Intel/NVIDIA)
-dotnet add package Microsoft.ML.OnnxRuntime.DirectML
 ```
+
+AMD / Intel GPUs on Windows have no ONNX provider on ONNX Runtime 1.25+ (DirectML was removed in 0.67.0); captioning
+runs on CPU there.

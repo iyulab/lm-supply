@@ -123,9 +123,10 @@ public class ModelRegistryTests
         var models = CaptionerModelRegistry.Default.GetAvailableModels();
 
         // Assert
-        // Both default and fast point to the same repo, so GetAvailableModels deduplicates
-        models.Should().HaveCount(1);
+        // default and fast point to the same repo, so GetAvailableModels deduplicates them; quality is Florence-2
+        models.Should().HaveCount(2);
         models.Select(m => m.RepoId).Should().Contain("Xenova/vit-gpt2-image-captioning");
+        models.Select(m => m.RepoId).Should().Contain("onnx-community/Florence-2-base-ft");
     }
 
     [Fact]
@@ -188,7 +189,8 @@ public class ModelRegistryTests
     public void DefaultModels_All_ShouldContainAllModels()
     {
         // Assert
-        DefaultModels.All.Should().HaveCount(2);
+        DefaultModels.All.Should().HaveCount(3);
+        DefaultModels.All.Should().Contain(DefaultModels.Florence2Base);
         DefaultModels.All.Should().Contain(DefaultModels.VitGpt2);
         DefaultModels.All.Should().Contain(DefaultModels.VitGpt2Fast);
     }

@@ -38,12 +38,30 @@ var result = await captioner.CaptionAsync(stream);
 
 ## Available Models
 
-| Alias | Model | Size | Description |
-|-------|-------|------|-------------|
-| `default` | ViT-GPT2 | ~500MB | Fast, general purpose captioning |
-| `vit-gpt2` | ViT-GPT2 | ~500MB | Same as default |
-| `smolvlm` | SmolVLM-256M | ~600MB | Lightweight multimodal model |
-| `florence2` | Florence-2-base | ~500MB | Multi-task vision model |
+| Alias | Model | Download | Description |
+|-------|-------|----------|-------------|
+| `default` (also `fast`, `auto`) | ViT-GPT2 | ~1 GB | Fast, one-sentence captions; tends to name a familiar scene rather than the subject |
+| `quality` | Florence-2 base (MIT) | ~275 MB int8 · ~545 MB fp16 · ~1.1 GB fp32 | Names the main subjects of everyday photos; brief, detailed or paragraph captions |
+
+`quality` is published in quantized variants. A load takes the variant this machine's hardware tier picks (int8 on most
+machines), or the one named by `CaptionerOptions.QuantizationHint` or a qualifier (`"quality:fp16"`).
+`LocalCaptioner.GetDownloadSizeBytesAsync(alias, options)` answers what that load will download — for a consent screen —
+without downloading anything.
+
+### Level of detail
+
+```csharp
+using LMSupply.Captioner;
+
+await using var captioner = await LocalCaptioner.LoadAsync("quality",
+    new CaptionerOptions { Detail = CaptionDetail.Paragraph, MaxLength = 150 });
+var result = await captioner.CaptionAsync("photo.jpg");
+```
+
+`Detail` is `Brief` (default, one sentence), `Detailed` or `Paragraph`; a paragraph needs a larger `MaxLength` than the
+default 50. Only `quality` reads it — `default` captions at one level and refuses any other value at load
+(`NotSupportedException`). The reverse holds for `Prompt`: `default` continues a caption from it, `quality` refuses it
+because its prompt selects a task.
 
 You can also use any HuggingFace vision-language model by its full ID:
 

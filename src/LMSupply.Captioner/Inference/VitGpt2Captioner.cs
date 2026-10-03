@@ -306,24 +306,7 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
 
             var lastTokenLogits = logits.AsSpan(lastTokenLogitsStart, vocabSize);
 
-            // Sample next token
-            int nextToken;
-            float logProb;
-
-            if (_options.Temperature <= 0 || _options.NumBeams == 1)
-            {
-                // Greedy decoding
-                nextToken = TensorUtils.ArgMax(lastTokenLogits);
-                var probs = TensorUtils.Softmax(lastTokenLogits);
-                logProb = MathF.Log(probs[nextToken] + 1e-10f);
-            }
-            else
-            {
-                // Temperature sampling
-                var probs = TensorUtils.Softmax(lastTokenLogits, _options.Temperature);
-                nextToken = TensorUtils.SampleFromDistribution(probs);
-                logProb = MathF.Log(probs[nextToken] + 1e-10f);
-            }
+            var (nextToken, logProb) = NextToken.Choose(lastTokenLogits, _options);
 
             // Check for EOS
             if (nextToken == _modelInfo.EosTokenId)

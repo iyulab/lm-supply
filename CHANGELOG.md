@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.100.0] - Unreleased
+
+### Added
+- **Captioner: a second, current captioning model — alias `quality` (Florence-2 base, MIT).** On everyday photos it names
+  the main subject where ViT-GPT2 tends to substitute a familiar scene (a lasagna as "bread with a fork and knife", a
+  concert ticket as a sign reading "don't miss the holidays"). Same `ICaptionerModel` surface, same
+  `DisableAutoDownload` behaviour. Its files are published in quantized variants; a load takes the one
+  `QuantizationHint` (or a `"quality:fp16"` qualifier) names, else the one the hardware tier picks — int8, about 275 MB,
+  on most machines. `default`, `fast` and `auto` stay ViT-GPT2.
+- **`CaptionerOptions.Detail`** (`Brief` · `Detailed` · `Paragraph`) selects how much a caption says, on models that
+  caption at several levels (`quality`). A paragraph needs a larger `MaxLength` than the default 50.
+- **`LocalCaptioner.GetDownloadSizeBytesAsync`** answers what a load will download for the same id and options (the
+  variant it would pick), without downloading — for a consent screen, as Embedder, Generator and Transcriber already
+  offer.
+- A local model directory holding the Florence-2 graphs (any one variant) loads as Florence-2.
+
+### Changed
+- **Options a captioning model cannot honour are refused at load, before anything is downloaded**
+  (`NotSupportedException`): `Detail` other than `Brief` on ViT-GPT2, and `Prompt` on Florence-2, whose prompt selects
+  a task rather than starting the caption.
+- The Captioner package README and guide listed aliases that do not exist (`vit-gpt2`, `smolvlm`, `florence2`), a
+  ~500 MB size for ViT-GPT2 (it downloads about 1 GB) and DirectML, which was removed in 0.67.0; corrected.
+
 ## [0.99.0] - 2026-10-03
 
 ### Removed

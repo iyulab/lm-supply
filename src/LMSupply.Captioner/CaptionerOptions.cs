@@ -31,6 +31,15 @@ public sealed class CaptionerOptions : LMSupplyOptionsBase
     public string? Prompt { get; set; }
 
     /// <summary>
+    /// How much the caption says. <see cref="CaptionDetail.Brief"/> (the default) is one sentence; the other levels are
+    /// read by models that caption at several levels of detail (Florence-2, alias <c>quality</c>). A model that captions
+    /// at one level only refuses any other value at load with <see cref="NotSupportedException"/> rather than ignoring it.
+    /// A paragraph needs more tokens than the default <see cref="MaxLength"/>; raise it (about 150) for
+    /// <see cref="CaptionDetail.Paragraph"/>.
+    /// </summary>
+    public CaptionDetail Detail { get; set; } = CaptionDetail.Brief;
+
+    /// <summary>
     /// Gets or sets whether to disable automatic model download.
     /// When true, loading uses only the local cache and throws <see cref="LMSupply.Exceptions.ModelNotFoundException"/>
     /// if a model file is not there, writing nothing to the cache.
@@ -39,4 +48,19 @@ public sealed class CaptionerOptions : LMSupplyOptionsBase
     /// <para>Default: false</para>
     /// </summary>
     public bool DisableAutoDownload { get; set; }
+}
+
+/// <summary>
+/// How much a caption says.
+/// </summary>
+public enum CaptionDetail
+{
+    /// <summary>One sentence naming the main subject.</summary>
+    Brief = 0,
+
+    /// <summary>A few sentences on what is shown.</summary>
+    Detailed = 1,
+
+    /// <summary>A paragraph.</summary>
+    Paragraph = 2
 }
