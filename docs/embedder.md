@@ -361,9 +361,20 @@ You can use locally stored ONNX models:
 var model = await LocalEmbedder.LoadAsync("/path/to/model.onnx");
 ```
 
-The directory should contain:
-- `model.onnx` - The ONNX model file
-- `vocab.txt` - Vocabulary file
+The model's directory (or, for a copied repository with the model in `onnx/`, the repository root one level up)
+should contain:
+- `model.onnx` - the ONNX model file
+- a tokenizer: `tokenizer.json`, `vocab.txt` (WordPiece) or `sentencepiece.bpe.model` (SentencePiece — the
+  multilingual models)
+
+Root files of a sentence-transformers repository (`modules.json`, `1_Pooling/`, `config_sentence_transformers.json`,
+`sentence_bert_config.json`) are read from the repository root, as a load by repository id reads them.
+
+A model the catalog knows loads with the catalog's declarations — query/passage prefixes, pooling and sequence length —
+when the files say which repository they are: the download manifest LMSupply writes next to a model it fetched, or
+`_name_or_path` in `config.json`. A copied multilingual E5 model therefore keeps its `query: `/`passage: ` prefixes,
+which its repository does not declare anywhere. Shipping a model for offline use through the catalog id with
+`CacheDirectory` + `DisableAutoDownload` (README «Offline / air-gapped use») works the same way.
 
 ## Download Size and Cache State
 

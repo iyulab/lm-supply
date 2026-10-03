@@ -4,6 +4,33 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.103.0] - Unreleased
+
+### Changed
+- **Every llama-server LMSupply launches now requires a per-process key.** The server listens on loopback, which keeps
+  other machines out but not other processes or other users of the same machine; until now any of them could send
+  prompts to the model or read the ones it held. Each server gets a random 256-bit key, handed to the process through
+  its environment (not its command line), and every request LMSupply sends carries it. Nothing changes for callers of
+  the generator, embedder or reranker. **Breaking** for a host that starts `LlamaServerProcess` itself and calls
+  `Info.BaseUrl` with its own client: send `Authorization: Bearer <LlamaServerProcess.ApiKey>` (for an
+  OpenAI-compatible client, set its API key to `ApiKey`), or set `LlamaServerConfig.RequireApiKey = false`.
+  `--api-key`/`--api-key-file` in `AdditionalArgs` is refused while `RequireApiKey` is on.
+
+### Fixed
+- **An embedding model loaded by path from a copied repository is read like the same model loaded by id.** With
+  `model.onnx` in `onnx/`, the repository's root files (`modules.json`, `1_Pooling/`, `config_sentence_transformers.json`,
+  a root tokenizer) one level up were never read. And a model the catalog knows lost the catalog's declarations — a
+  copied multilingual E5 model embedded queries and passages without its `query: `/`passage: ` prefixes, silently,
+  since E5's repository does not declare them. A path load now reads the root files from the repository root, and when
+  the files name their repository (the download manifest LMSupply writes, or `_name_or_path` in `config.json`) and the
+  catalog knows it, the catalog's prefixes, pooling and sequence length apply.
+- `docs/embedder.md` «Local Models» listed `vocab.txt` as required (the multilingual models use SentencePiece);
+  `docs/llama.md` suggested an `HF_HUB_OFFLINE` variable nothing reads.
+
+### Added
+- **`LlamaServerConfig.RequireApiKey`** (default `true`), **`LlamaServerProcess.ApiKey`**, and an `apiKey` parameter on
+  `LlamaServerClient`.
+
 ## [0.102.0] - 2026-10-03
 
 ### Added

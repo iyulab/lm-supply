@@ -357,8 +357,25 @@ public static class LocalEmbedder
             modelId = Path.GetFileNameWithoutExtension(modelPath);
 
             tokenizerPrimaryDir = Path.GetDirectoryName(modelPath) ?? ".";
-            tokenizerFallbackDir = null;
-            modelRootDir = tokenizerPrimaryDir;
+            // A copied repository keeps model.onnx in onnx/ and its root files (modules.json, 1_Pooling/,
+            // config_sentence_transformers.json, often the tokenizer) one level up — read them where the repository
+            // and catalog loads read them.
+            modelRootDir = FindRepositoryRoot(tokenizerPrimaryDir);
+            tokenizerFallbackDir = string.Equals(modelRootDir, tokenizerPrimaryDir, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : modelRootDir;
+
+            // A file the catalog knows is the same model as its alias: same prefixes, pooling and length. Without this an
+            // E5 model loaded by path embedded queries and passages with no "query: "/"passage: " prefix, and nothing
+            // said so — E5's repository does not declare them; only the catalog does.
+            if (ReadDeclaredRepositoryId(tokenizerPrimaryDir, modelRootDir) is { } declaredRepoId
+                && EmbedderModelRegistry.Default.TryResolveCatalog(declaredRepoId, out var pathModelInfo, out _))
+            {
+                loadedModelInfo = pathModelInfo;
+                catalogMaxSequenceLength = pathModelInfo!.MaxSequenceLength;
+                catalogPoolingMode = pathModelInfo.PoolingMode;
+                options.DoLowerCase = pathModelInfo.DoLowerCase;
+            }
         }
         // Check if it's a model the catalog knows. Not TryResolve: that answers any "org/repo" with a
         // fallback entry whose dimensions, pooling, length and subfolder are placeholders, and the
@@ -476,6 +493,61 @@ public static class LocalEmbedder
         return new OnnxSources(
             modelId, modelPath, tokenizerDir, modelRootDir, subfolder, repoIdForInfo, loadedModelInfo,
             maxSequenceLength, poolingMode, effectiveQuery, effectivePassage);
+    }
+
+    /// <summary>
+    /// The repository root for a model file in <paramref name="modelDir"/>: <paramref name="modelDir"/> itself unless it
+    /// holds no sentence-transformers root file and its parent does (the <c>onnx/model.onnx</c> layout of a copied
+    /// repository).
+    /// </summary>
+    internal static string FindRepositoryRoot(string modelDir)
+    {
+        static bool IsRoot(string dir) =>
+            File.Exists(Path.Combine(dir, "modules.json"))
+            || File.Exists(Path.Combine(dir, "config_sentence_transformers.json"))
+            || Directory.Exists(Path.Combine(dir, "1_Pooling"));
+
+        if (IsRoot(modelDir))
+            return modelDir;
+
+        var parent = Path.GetDirectoryName(Path.GetFullPath(modelDir));
+        return parent is not null && IsRoot(parent) ? parent : modelDir;
+    }
+
+    /// <summary>
+    /// The repository a model on disk says it came from: the download manifest LMSupply writes next to it, then
+    /// <c>_name_or_path</c> in its <c>config.json</c> when that is a repository id (<c>org/name</c>), not a local path.
+    /// </summary>
+    internal static string? ReadDeclaredRepositoryId(string modelDir, string rootDir)
+    {
+        foreach (var dir in new[] { modelDir, rootDir }.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (DownloadManifest.Read(dir)?.RepoId is { Length: > 0 } manifestRepo)
+                return manifestRepo;
+        }
+
+        foreach (var dir in new[] { rootDir, modelDir }.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var config = Path.Combine(dir, "config.json");
+            if (!File.Exists(config))
+                continue;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(config));
+                if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                    && doc.RootElement.TryGetProperty("_name_or_path", out var name)
+                    && name.ValueKind == System.Text.Json.JsonValueKind.String
+                    && name.GetString() is { } id
+                    && id.Count(c => c == '/') == 1 && !Path.IsPathRooted(id) && !id.StartsWith('.') && !id.Contains('\\'))
+                    return id;
+            }
+            catch (Exception e) when (e is System.Text.Json.JsonException or IOException or UnauthorizedAccessException)
+            {
+                // An unreadable config declares nothing.
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The dimension the files declare: the catalog entry, then the repository's <c>config.json</c>.</summary>
