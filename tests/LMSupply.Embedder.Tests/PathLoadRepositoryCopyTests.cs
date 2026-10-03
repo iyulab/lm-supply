@@ -106,6 +106,22 @@ public sealed class PathLoadRepositoryCopyLiveTests : IDisposable
         byPath.GetModelInfo()?.QueryPrefix.Should().BeNull();
     }
 
+    [Fact]
+    public async Task CopiedRepositoryThatDeclaresItsOwnPrompts_KeepsThem_OverTheCatalogs()
+    {
+        // A fine-tune whose config still names its base model: what its own files declare wins.
+        Assert.SkipUnless(File.Exists(Path.Combine(CachedOnnx, "model.onnx")), $"model not cached: {CachedOnnx}");
+        CopyAsRepository(declareRepository: true);
+        File.WriteAllText(Path.Combine(_root, "config_sentence_transformers.json"),
+            """{"prompts":{"query":"search_query: ","passage":"search_document: "}}""");
+
+        await using var byPath = await LocalEmbedder.LoadAsync(Path.Combine(_root, "onnx", "model.onnx"),
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        byPath.GetModelInfo()!.QueryPrefix.Should().Be("search_query: ");
+        byPath.GetModelInfo()!.PassagePrefix.Should().Be("search_document: ");
+    }
+
     private void CopyAsRepository(bool declareRepository)
     {
         var onnx = Directory.CreateDirectory(Path.Combine(_root, "onnx")).FullName;

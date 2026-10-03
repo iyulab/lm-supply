@@ -373,7 +373,9 @@ Root files of a sentence-transformers repository (`modules.json`, `1_Pooling/`, 
 A model the catalog knows loads with the catalog's declarations — query/passage prefixes, pooling and sequence length —
 when the files say which repository they are: the download manifest LMSupply writes next to a model it fetched, or
 `_name_or_path` in `config.json`. A copied multilingual E5 model therefore keeps its `query: `/`passage: ` prefixes,
-which its repository does not declare anywhere. Shipping a model for offline use through the catalog id with
+which its repository does not declare anywhere. Prompts the files declare themselves
+(`config_sentence_transformers.json` `prompts`) still win over the catalog's, so a fine-tune whose config names its base
+model keeps its own. Shipping a model for offline use through the catalog id with
 `CacheDirectory` + `DisableAutoDownload` (README «Offline / air-gapped use») works the same way.
 
 ## Download Size and Cache State

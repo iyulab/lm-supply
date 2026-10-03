@@ -107,7 +107,13 @@ public static class LocalEmbedder
                 Subfolder = sources.Subfolder,
                 SizeBytes = File.Exists(sources.ModelPath) ? new FileInfo(sources.ModelPath).Length : 0
             }
-            : sources.CatalogInfo with { MaxSequenceLength = sources.MaxSequenceLength, PoolingMode = sources.PoolingMode };
+            : sources.CatalogInfo with
+            {
+                MaxSequenceLength = sources.MaxSequenceLength,
+                PoolingMode = sources.PoolingMode,
+                QueryPrefix = sources.QueryPrefix,
+                PassagePrefix = sources.PassagePrefix,
+            };
 
         // GetVectorSpaceRevisionAsync answers the dimension from the files (catalog entry, then config.json);
         // the graph is the authority here. When the two disagree the pre-load revision differs from this one —
@@ -349,6 +355,8 @@ public static class LocalEmbedder
         string? modelRootDir;
         string? subfolder = null;
         var repoIdForInfo = modelIdOrPath;
+        // A file on disk whose catalog identity came from its own config — its declared prompts, if any, still win.
+        var identityFromFiles = false;
 
         // Check if it's a local path
         if (File.Exists(modelIdOrPath) || modelIdOrPath.EndsWith(".onnx", StringComparison.OrdinalIgnoreCase))
@@ -372,6 +380,7 @@ public static class LocalEmbedder
                 && EmbedderModelRegistry.Default.TryResolveCatalog(declaredRepoId, out var pathModelInfo, out _))
             {
                 loadedModelInfo = pathModelInfo;
+                identityFromFiles = true;
                 catalogMaxSequenceLength = pathModelInfo!.MaxSequenceLength;
                 catalogPoolingMode = pathModelInfo.PoolingMode;
                 options.DoLowerCase = pathModelInfo.DoLowerCase;
@@ -484,9 +493,11 @@ public static class LocalEmbedder
 
         var (queryPrefix, passagePrefix) = SentenceTransformersModules.TryReadPrompts(modelRootDir);
 
-        // The catalog is the authority for the prefixes of a model it knows (as before: its entry, not the
-        // repository's prompts); a repository-id model declares them in its own files or not at all.
-        var (effectiveQuery, effectivePassage) = loadedModelInfo is not null
+        // The catalog is the authority for the prefixes of a model it knows by name (as before: its entry, not the
+        // repository's prompts); a repository-id model declares them in its own files or not at all. A file on disk
+        // that only names a catalog model in its config may be a fine-tune of it: prompts its own files declare win.
+        var filesDeclarePrompts = queryPrefix is not null || passagePrefix is not null;
+        var (effectiveQuery, effectivePassage) = loadedModelInfo is not null && !(identityFromFiles && filesDeclarePrompts)
             ? (loadedModelInfo.QueryPrefix, loadedModelInfo.PassagePrefix)
             : (queryPrefix, passagePrefix);
 
