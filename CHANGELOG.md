@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [0.105.1] - Unreleased
+## [0.105.1] - 2026-10-05
 
 ### Dependencies
 - Microsoft.Extensions.AI.Abstractions 10.10.1; .NET 10.0.12 servicing for System.Numerics.Tensors, ASP.NET Core, EF Core and FileProviders pins; Microsoft.OpenApi 2.12.2 (required by Microsoft.AspNetCore.OpenApi 10.0.12).
