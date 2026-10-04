@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.105.2] - Unreleased
+
+### Fixed
+- **Exception messages are plain ASCII.** Five carried an em dash or an arrow (the llama-server «VRAM is insufficient»
+  load failure, the ONNX generator's variant-search failure, the WordPiece vocabulary shape error, the transducer
+  vocabulary check, the Whisper translate check); they now use `-` and `->`. A convention test over every LMSupply
+  library assembly keeps exception messages ASCII.
+
 ## [0.105.1] - 2026-10-05
 
 ### Dependencies

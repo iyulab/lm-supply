@@ -298,7 +298,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             {
                 throw new InvalidOperationException(
                     $"[LlamaServerGeneratorModel] GPU backend '{backend}' can only provide a {safeContext}-token context " +
-                    $"(requested {contextLength}) — VRAM is insufficient for a usable context. " +
+                    $"(requested {contextLength}) - VRAM is insufficient for a usable context. " +
                     $"Pin ExecutionProvider.Cpu or free VRAM.");
             }
 

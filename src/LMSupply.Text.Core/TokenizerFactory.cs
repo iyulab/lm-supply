@@ -555,7 +555,7 @@ public static class TokenizerFactory
         {
             throw new InvalidOperationException(
                 $"Invalid tokenizer.json: 'model.vocab' has unexpected type '{vocab.ValueKind}'. " +
-                "Expected Object (token → id) or Array ([{{id, content}}]).");
+                "Expected Object (token -> id) or Array ([{{id, content}}]).");
         }
 
         if (vocabDict.Count == 0)

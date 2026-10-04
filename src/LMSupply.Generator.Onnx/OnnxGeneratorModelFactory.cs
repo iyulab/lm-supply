@@ -232,11 +232,11 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
             if (IsValidModelDirectory(registrySubfolderPath))
             {
                 Trace.TraceInformation(
-                    $"[OnnxGenerator] Path resolution: registry-subfolder hit for {modelId} — {registryInfo.Subfolder}");
+                    $"[OnnxGenerator] Path resolution: registry-subfolder hit for {modelId} - {registryInfo.Subfolder}");
                 return (registrySubfolderPath, snapshotPath);
             }
             Trace.TraceInformation(
-                $"[OnnxGenerator] Path resolution: registry-subfolder MISS for {modelId} — tried {registrySubfolderPath}");
+                $"[OnnxGenerator] Path resolution: registry-subfolder MISS for {modelId} - tried {registrySubfolderPath}");
         }
         else
         {
@@ -250,7 +250,7 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
         if (foundPath != null)
         {
             Trace.TraceInformation(
-                $"[OnnxGenerator] Path resolution: variant-search hit for {modelId} — {Path.GetRelativePath(snapshotPath, foundPath)}");
+                $"[OnnxGenerator] Path resolution: variant-search hit for {modelId} - {Path.GetRelativePath(snapshotPath, foundPath)}");
             return (foundPath, snapshotPath);
         }
 
@@ -276,7 +276,7 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
         throw new FileNotFoundException(
             $"Model '{modelId}' not found. Tried:\n  " +
             string.Join("\n  ", triedPaths) +
-            "\nSearched variant subfolders (2 levels deep) — no directory containing 'genai_config.json' was found.");
+            "\nSearched variant subfolders (2 levels deep) - no directory containing 'genai_config.json' was found.");
     }
 
     /// <summary>

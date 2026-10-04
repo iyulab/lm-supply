@@ -54,7 +54,7 @@ internal sealed partial class SentencePieceVocabulary
         }
 
         if (blankId < 0)
-            throw new InvalidDataException($"Vocabulary {source} has no <blk> token — not a transducer vocabulary.");
+            throw new InvalidDataException($"Vocabulary {source} has no <blk> token - not a transducer vocabulary.");
 
         return new SentencePieceVocabulary([.. pieces], blankId);
     }

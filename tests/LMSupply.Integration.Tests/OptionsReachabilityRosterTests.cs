@@ -69,7 +69,7 @@ public class OptionsReachabilityRosterTests
     // Every library assembly copied next to the tests — not the tests themselves, and not the console
     // host, which is a consumer: its reading an option does not make the library honour it. Loaded by
     // name because the compiler drops a project reference the test code never names.
-    private static List<Assembly> LibraryAssemblies()
+    internal static List<Assembly> LibraryAssemblies()
         => [.. Directory.EnumerateFiles(AppContext.BaseDirectory, "LMSupply.*.dll")
             .Select(Path.GetFileNameWithoutExtension)
             .Where(name => name is not null

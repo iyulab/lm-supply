@@ -160,7 +160,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel, Diarization.IDia
         {
             throw new NotSupportedException(
                 $"Model '{_modelInfo.Id}' is English-only and does not support the Whisper translate task. " +
-                $"Whisper translate (speech → English text) requires a multilingual model. " +
+                $"Whisper translate (speech -> English text) requires a multilingual model. " +
                 $"Use an alias such as 'default', 'quality', 'large', or 'turbo' instead.");
         }
     }
