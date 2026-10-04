@@ -102,8 +102,7 @@ public sealed class TranslatorModelRegistry : ModelRegistryBase<TranslatorModelI
             VocabSize = 0,
             EncoderFile = fileName.Contains("encoder") ? fileName : "encoder_model.onnx",
             DecoderFile = fileName.Contains("decoder") ? fileName : "decoder_model.onnx",
-            Description = $"Local model from {directory}",
-            License = "Unknown"
+            Description = $"Local model from {directory}"
         };
     }
 
@@ -140,8 +139,7 @@ public sealed class TranslatorModelRegistry : ModelRegistryBase<TranslatorModelI
             VocabSize = 0,
             EncoderFile = "encoder_model.onnx",
             DecoderFile = "decoder_model.onnx",
-            Description = $"HuggingFace model: {modelId}",
-            License = "Unknown"
+            Description = $"HuggingFace model: {modelId}"
         };
     }
 

@@ -68,9 +68,11 @@ public sealed record SynthesizerModelInfo : IModelInfoBase, IModelMemoryInfo
     public string? Description { get; init; }
 
     /// <summary>
-    /// Gets the model license.
+    /// The licence of the model's weights as curated in the catalog (for a converted build, the licence of the model it
+    /// was made from), or <see langword="null"/> when nobody declared one — a user-registered model reports no licence
+    /// rather than a guessed default.
     /// </summary>
-    public string License { get; init; } = "MIT";
+    public string? License { get; init; }
 
     // IModelMemoryInfo explicit implementation
     long? IModelMemoryInfo.EstimatedSizeBytes => SizeBytes;

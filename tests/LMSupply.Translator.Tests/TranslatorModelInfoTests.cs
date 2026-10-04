@@ -46,7 +46,7 @@ public class TranslatorModelInfoTests
         modelInfo.UseAutoDiscovery.Should().BeTrue();
         modelInfo.TokenizerFile.Should().Be("source.spm");
         modelInfo.Description.Should().BeEmpty();
-        modelInfo.License.Should().Be("Unknown");
+        modelInfo.License.Should().BeNull("an entry nobody curated declares no licence");
         modelInfo.ParametersM.Should().Be(0);
         modelInfo.SizeBytes.Should().Be(0);
         modelInfo.BleuScore.Should().Be(0);

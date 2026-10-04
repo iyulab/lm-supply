@@ -123,8 +123,7 @@ public sealed class SegmenterModelRegistry : ModelRegistryBase<SegmenterModelInf
             NumClasses = 150,
             OnnxFile = fileName,
             Dataset = "Unknown",
-            Description = $"Local model from {directory}",
-            License = "Unknown"
+            Description = $"Local model from {directory}"
         };
     }
 
@@ -172,8 +171,7 @@ public sealed class SegmenterModelRegistry : ModelRegistryBase<SegmenterModelInf
             NumClasses = numClasses,
             OnnxFile = "model.onnx",
             Dataset = "Unknown",
-            Description = $"HuggingFace model: {modelId}",
-            License = "Unknown"
+            Description = $"HuggingFace model: {modelId}"
         };
     }
 }

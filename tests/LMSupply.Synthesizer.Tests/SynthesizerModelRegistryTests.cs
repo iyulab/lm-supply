@@ -322,6 +322,6 @@ public class SynthesizerModelInfoTests
         info.ConfigFile.Should().Be("config.json");
         info.SizeBytes.Should().Be(0);
         info.Description.Should().BeNull();
-        info.License.Should().Be("MIT");
+        info.License.Should().BeNull("an entry nobody curated declares no licence");
     }
 }

@@ -107,9 +107,11 @@ public sealed class TranslatorModelInfo : IModelInfoBase, IModelMemoryInfo
     public string Description { get; init; } = "";
 
     /// <summary>
-    /// Gets or sets the license identifier.
+    /// The licence of the model's weights as curated in the catalog (for a converted build, the licence of the model it
+    /// was made from), or <see langword="null"/> when nobody declared one — a user-registered model reports no licence
+    /// rather than a guessed default.
     /// </summary>
-    public string License { get; init; } = "Unknown";
+    public string? License { get; init; }
 
     // IModelMemoryInfo explicit implementation
     long? IModelMemoryInfo.EstimatedSizeBytes => SizeBytes;

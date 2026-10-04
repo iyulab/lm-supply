@@ -157,7 +157,7 @@ public static class DefaultModels
         ConfigFile = "zh_CN-huayan-medium.onnx.json",
         SizeBytes = 64_000_000,
         Description = "Mandarin Chinese female voice.",
-        License = "Unknown"
+        License = null // its model card states no licence; a consent screen must not show one
     };
 
     /// <summary>

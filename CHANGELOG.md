@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.105.0] - Unreleased
+
+### Changed
+- **Breaking:** `License` on `TranscriberModelInfo`, `DetectorModelInfo`, `SegmenterModelInfo`, `SynthesizerModelInfo` and
+  `TranslatorModelInfo` is `string?` with no default — as on the Embedder, Reranker, Captioner and OCR entries since
+  0.103.0. An entry nobody curated (a user-registered model, a repository or a local file the catalog does not know)
+  reported a licence nobody declared: `"MIT"`, `"Apache-2.0"` or `"Unknown"`, from the type's default or the registry's
+  fallback entry. It now reports `null`. Every built-in entry keeps its curated licence (a test per domain), except the
+  `chinese` voice, whose model card states none — it is `null` instead of `"Unknown"`. A caller that printed `License`
+  unconditionally should handle `null`.
+
 ## [0.104.0] - 2026-10-04
 
 ### Changed

@@ -107,8 +107,7 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
             InputWidth = 640,
             InputHeight = 640,
             OnnxFile = fileName,
-            Description = $"Local model from {directory}",
-            License = "Unknown"
+            Description = $"Local model from {directory}"
         };
     }
 
@@ -151,8 +150,7 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
             ClassLabels = isPose ? ["person"] : CocoLabels.Labels,
             OutputLayout = layout,
             OnnxFile = "model.onnx",
-            Description = $"HuggingFace model: {modelId}",
-            License = "Unknown"
+            Description = $"HuggingFace model: {modelId}"
         };
     }
 }
