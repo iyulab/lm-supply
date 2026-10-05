@@ -50,7 +50,7 @@ public sealed class DownloadManifest
     /// a snapshot named after its revision. A download into the hub layout writes it with
     /// <see cref="WriteForSnapshotAsync"/> instead.
     /// </summary>
-    public static async Task WriteAsync(string directoryPath, DownloadManifest manifest)
+    public static async Task WriteAsync(string directoryPath, DownloadManifest manifest, CancellationToken cancellationToken = default)
         => await WriteFileAsync(Path.Combine(directoryPath, FileName), manifest);
 
     /// <summary>
@@ -77,7 +77,7 @@ public sealed class DownloadManifest
     /// Reads the manifest of a model directory: for a snapshot (or a subfolder of one) in a hub cache, the one in the
     /// repository's private directory, else the one inside the directory. Returns null if not found or corrupt.
     /// </summary>
-    public static async Task<DownloadManifest?> ReadAsync(string directoryPath)
+    public static async Task<DownloadManifest?> ReadAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
         foreach (var path in CandidatePaths(directoryPath))
         {
@@ -86,7 +86,7 @@ public sealed class DownloadManifest
 
             try
             {
-                var json = await File.ReadAllTextAsync(path);
+                var json = await File.ReadAllTextAsync(path, cancellationToken);
                 return JsonSerializer.Deserialize(json, s_jsonOptions.TypeInfo<DownloadManifest>());
             }
             catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)

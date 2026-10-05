@@ -33,7 +33,7 @@ public class DynamicPaddingTests : IDisposable
     [Fact]
     public async Task EncodeSequence_ShortText_IsSizedToContentNotCap()
     {
-        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(_tempDir, maxSequenceLength: 64);
+        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(_tempDir, maxSequenceLength: 64, cancellationToken: TestContext.Current.CancellationToken);
 
         var encoded = tokenizer.EncodeSequence("hello world");
 
@@ -47,7 +47,7 @@ public class DynamicPaddingTests : IDisposable
     [Fact]
     public async Task EncodeSequence_LongText_IsTruncatedToCap()
     {
-        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(_tempDir, maxSequenceLength: 8);
+        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(_tempDir, maxSequenceLength: 8, cancellationToken: TestContext.Current.CancellationToken);
 
         var encoded = tokenizer.EncodeSequence(string.Join(' ', Enumerable.Repeat("hello", 20)));
 
@@ -59,7 +59,7 @@ public class DynamicPaddingTests : IDisposable
     [Fact]
     public async Task EncodeBatch_PadsToLongestMember_NotToCap()
     {
-        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(_tempDir, maxSequenceLength: 64);
+        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(_tempDir, maxSequenceLength: 64, cancellationToken: TestContext.Current.CancellationToken);
 
         var batch = tokenizer.EncodeBatch(["hello", "hello world again"]);
 
@@ -83,7 +83,7 @@ public class DynamicPaddingTests : IDisposable
     [Fact]
     public async Task EncodePairBatch_PadsToLongestPair_NotToCap()
     {
-        var tokenizer = await TokenizerFactory.CreateAutoPairAsync(_tempDir, maxSequenceLength: 64);
+        var tokenizer = await TokenizerFactory.CreateAutoPairAsync(_tempDir, maxSequenceLength: 64, cancellationToken: TestContext.Current.CancellationToken);
 
         var batch = tokenizer.EncodePairBatch("hello", ["world", "world again"]);
 

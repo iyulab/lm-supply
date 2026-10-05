@@ -328,7 +328,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act - Load directly from path
-        await using var model = await LocalGenerator.LoadFromPathAsync(Phi4CachedPath, options);
+        await using var model = await LocalGenerator.LoadFromPathAsync(Phi4CachedPath, options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - Load
         model.Should().NotBeNull();
@@ -357,7 +357,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act - Load directly from path
-        await using var model = await LocalGenerator.LoadFromPathAsync(Phi4CachedPath, options);
+        await using var model = await LocalGenerator.LoadFromPathAsync(Phi4CachedPath, options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - Load
         model.Should().NotBeNull();
@@ -385,7 +385,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act
-        await using var model = await LocalGenerator.LoadFromPathAsync(Phi4CachedPath, options);
+        await using var model = await LocalGenerator.LoadFromPathAsync(Phi4CachedPath, options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         var warmupAction = () => model.WarmupAsync();
@@ -405,7 +405,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act
-        await using var model = await LocalGenerator.LoadFromPathAsync(Phi4CachedPath, options);
+        await using var model = await LocalGenerator.LoadFromPathAsync(Phi4CachedPath, options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         var warmupAction = () => model.WarmupAsync();

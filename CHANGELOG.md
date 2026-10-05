@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.106.0] - Unreleased
+
+### Changed
+- **Loading a tokenizer, a vocabulary, a download manifest or a generator from a path can be cancelled.**
+  `TokenizerFactory.Create*Async` (7), `VocabularyLoader.LoadFrom*Async` (4), `DownloadManifest.ReadAsync` /
+  `WriteAsync`, `LocalGenerator.LoadFromPathAsync` and `LlamaServerPool.ReleaseIdleAsync` take an optional
+  `CancellationToken` and pass it to the file reads and loads under them. Source that calls them still compiles; a
+  test that calls them inside an xUnit v3 test now gets xUnit1051 (pass `TestContext.Current.CancellationToken`),
+  and a binary compiled against 0.105.x must be rebuilt.
+
 ## [0.105.2] - 2026-10-05
 
 ### Fixed

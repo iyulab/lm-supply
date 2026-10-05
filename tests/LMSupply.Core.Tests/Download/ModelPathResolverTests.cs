@@ -86,7 +86,7 @@ public class ModelPathResolverTests : IDisposable
                 new ManifestFileEntry { Path = "config.json", Size = 2 }
             ]
         };
-        await DownloadManifest.WriteAsync(modelDir, manifest);
+        await DownloadManifest.WriteAsync(modelDir, manifest, cancellationToken: TestContext.Current.CancellationToken);
 
         using var resolver = new ModelPathResolver(_tempDir);
 

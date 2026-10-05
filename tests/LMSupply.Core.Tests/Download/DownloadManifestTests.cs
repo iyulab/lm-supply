@@ -27,9 +27,9 @@ public class DownloadManifestTests
                 ]
             };
 
-            await DownloadManifest.WriteAsync(dir, manifest);
+            await DownloadManifest.WriteAsync(dir, manifest, cancellationToken: TestContext.Current.CancellationToken);
 
-            var loaded = await DownloadManifest.ReadAsync(dir);
+            var loaded = await DownloadManifest.ReadAsync(dir, cancellationToken: TestContext.Current.CancellationToken);
             loaded.Should().NotBeNull();
             loaded!.RepoId.Should().Be("org/model");
             loaded.Files.Should().HaveCount(2);
@@ -49,7 +49,7 @@ public class DownloadManifestTests
 
         try
         {
-            var result = await DownloadManifest.ReadAsync(dir);
+            var result = await DownloadManifest.ReadAsync(dir, cancellationToken: TestContext.Current.CancellationToken);
             result.Should().BeNull();
         }
         finally
@@ -68,7 +68,7 @@ public class DownloadManifestTests
         {
             await File.WriteAllTextAsync(Path.Combine(dir, ".lmsupply-manifest.json"), "not json{{{", TestContext.Current.CancellationToken);
 
-            var result = await DownloadManifest.ReadAsync(dir);
+            var result = await DownloadManifest.ReadAsync(dir, cancellationToken: TestContext.Current.CancellationToken);
             result.Should().BeNull();
         }
         finally

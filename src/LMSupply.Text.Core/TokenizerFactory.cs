@@ -12,10 +12,12 @@ public static class TokenizerFactory
     /// </summary>
     /// <param name="modelDir">Path to model directory.</param>
     /// <param name="maxSequenceLength">Maximum sequence length.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A sequence tokenizer instance.</returns>
     public static async Task<ISequenceTokenizer> CreateWordPieceAsync(
         string modelDir,
-        int maxSequenceLength = 512)
+        int maxSequenceLength = 512,
+        CancellationToken cancellationToken = default)
     {
         var vocabPath = Path.Combine(modelDir, "vocab.txt");
         var tokenizerJsonPath = Path.Combine(modelDir, "tokenizer.json");
@@ -28,7 +30,7 @@ public static class TokenizerFactory
             // Load from vocab.txt
             using var vocabStream = File.OpenRead(vocabPath);
             tokenizer = WordPieceTokenizer.Create(vocabStream);
-            var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(vocabPath);
+            var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(vocabPath, cancellationToken);
             specialTokens = SpecialTokens.FromVocabulary(vocab);
         }
         else if (File.Exists(tokenizerJsonPath))
@@ -51,10 +53,12 @@ public static class TokenizerFactory
     /// </summary>
     /// <param name="modelDir">Path to model directory.</param>
     /// <param name="maxSequenceLength">Maximum sequence length.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A pair tokenizer instance.</returns>
     public static async Task<IPairTokenizer> CreateWordPiecePairAsync(
         string modelDir,
-        int maxSequenceLength = 512)
+        int maxSequenceLength = 512,
+        CancellationToken cancellationToken = default)
     {
         var vocabPath = Path.Combine(modelDir, "vocab.txt");
         var tokenizerJsonPath = Path.Combine(modelDir, "tokenizer.json");
@@ -66,7 +70,7 @@ public static class TokenizerFactory
         {
             using var vocabStream = File.OpenRead(vocabPath);
             tokenizer = WordPieceTokenizer.Create(vocabStream);
-            var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(vocabPath);
+            var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(vocabPath, cancellationToken);
             specialTokens = SpecialTokens.FromVocabulary(vocab);
         }
         else if (File.Exists(tokenizerJsonPath))
@@ -148,10 +152,12 @@ public static class TokenizerFactory
     /// </summary>
     /// <param name="modelDir">Path to model directory.</param>
     /// <param name="maxSequenceLength">Maximum sequence length (for sequence tokenizers).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A tokenizer instance.</returns>
     public static async Task<ITextTokenizer> CreateAutoAsync(
         string modelDir,
-        int maxSequenceLength = 512)
+        int maxSequenceLength = 512,
+        CancellationToken cancellationToken = default)
     {
         // Check for SentencePiece model
         if (FindSentencePieceModel(modelDir) != null)
@@ -172,7 +178,7 @@ public static class TokenizerFactory
         var tokenizerJsonPath = Path.Combine(modelDir, "tokenizer.json");
         if (File.Exists(vocabTxtPath) || File.Exists(tokenizerJsonPath))
         {
-            return await CreateWordPieceAsync(modelDir, maxSequenceLength);
+            return await CreateWordPieceAsync(modelDir, maxSequenceLength, cancellationToken);
         }
 
         throw new FileNotFoundException(
@@ -187,12 +193,14 @@ public static class TokenizerFactory
     /// </summary>
     /// <param name="modelDir">Path to model directory.</param>
     /// <param name="maxSequenceLength">Maximum sequence length.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A sequence tokenizer instance.</returns>
     public static async Task<ISequenceTokenizer> CreateSentencePieceSequenceAsync(
         string modelDir,
-        int maxSequenceLength = 512)
+        int maxSequenceLength = 512,
+        CancellationToken cancellationToken = default)
     {
-        return await CreateSentencePiecePairAsync(modelDir, maxSequenceLength);
+        return await CreateSentencePiecePairAsync(modelDir, maxSequenceLength, cancellationToken);
     }
 
     /// <summary>
@@ -202,10 +210,12 @@ public static class TokenizerFactory
     /// </summary>
     /// <param name="modelDir">Path to model directory.</param>
     /// <param name="maxSequenceLength">Maximum sequence length.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A sequence tokenizer instance.</returns>
     public static async Task<ISequenceTokenizer> CreateAutoSequenceAsync(
         string modelDir,
-        int maxSequenceLength = 512)
+        int maxSequenceLength = 512,
+        CancellationToken cancellationToken = default)
     {
         var vocabTxtPath = Path.Combine(modelDir, "vocab.txt");
         var tokenizerJsonPath = Path.Combine(modelDir, "tokenizer.json");
@@ -213,7 +223,7 @@ public static class TokenizerFactory
         // vocab.txt is a definitive WordPiece signal
         if (File.Exists(vocabTxtPath))
         {
-            return await CreateWordPieceAsync(modelDir, maxSequenceLength);
+            return await CreateWordPieceAsync(modelDir, maxSequenceLength, cancellationToken);
         }
 
         // Inspect tokenizer.json model.type when present
@@ -223,19 +233,19 @@ public static class TokenizerFactory
 
             return tokenizerType switch
             {
-                "WordPiece" => await CreateWordPieceAsync(modelDir, maxSequenceLength),
-                "Unigram" or "BPE" => await CreateSentencePieceSequenceAsync(modelDir, maxSequenceLength),
+                "WordPiece" => await CreateWordPieceAsync(modelDir, maxSequenceLength, cancellationToken),
+                "Unigram" or "BPE" => await CreateSentencePieceSequenceAsync(modelDir, maxSequenceLength, cancellationToken),
                 // Unknown type: prefer SentencePiece if a model file is present, otherwise WordPiece
                 _ => FindSentencePieceModel(modelDir) != null
-                    ? await CreateSentencePieceSequenceAsync(modelDir, maxSequenceLength)
-                    : await CreateWordPieceAsync(modelDir, maxSequenceLength)
+                    ? await CreateSentencePieceSequenceAsync(modelDir, maxSequenceLength, cancellationToken)
+                    : await CreateWordPieceAsync(modelDir, maxSequenceLength, cancellationToken)
             };
         }
 
         // No tokenizer.json: fall back to SentencePiece file probe
         if (FindSentencePieceModel(modelDir) != null)
         {
-            return await CreateSentencePieceSequenceAsync(modelDir, maxSequenceLength);
+            return await CreateSentencePieceSequenceAsync(modelDir, maxSequenceLength, cancellationToken);
         }
 
         throw new FileNotFoundException(
@@ -248,10 +258,12 @@ public static class TokenizerFactory
     /// </summary>
     /// <param name="modelDir">Path to model directory.</param>
     /// <param name="maxSequenceLength">Maximum sequence length.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A pair tokenizer instance.</returns>
     public static async Task<IPairTokenizer> CreateSentencePiecePairAsync(
         string modelDir,
-        int maxSequenceLength = 512)
+        int maxSequenceLength = 512,
+        CancellationToken cancellationToken = default)
     {
         var tokenizerJsonPath = Path.Combine(modelDir, "tokenizer.json");
         var spmPath = FindSentencePieceModel(modelDir);
@@ -305,10 +317,12 @@ public static class TokenizerFactory
     /// </summary>
     /// <param name="modelDir">Path to model directory.</param>
     /// <param name="maxSequenceLength">Maximum sequence length.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A pair tokenizer instance.</returns>
     public static async Task<IPairTokenizer> CreateAutoPairAsync(
         string modelDir,
-        int maxSequenceLength = 512)
+        int maxSequenceLength = 512,
+        CancellationToken cancellationToken = default)
     {
         var tokenizerJsonPath = Path.Combine(modelDir, "tokenizer.json");
         var vocabTxtPath = Path.Combine(modelDir, "vocab.txt");
@@ -316,7 +330,7 @@ public static class TokenizerFactory
         // If vocab.txt exists, use WordPiece (BERT-style)
         if (File.Exists(vocabTxtPath))
         {
-            return await CreateWordPiecePairAsync(modelDir, maxSequenceLength);
+            return await CreateWordPiecePairAsync(modelDir, maxSequenceLength, cancellationToken);
         }
 
         // Check tokenizer.json for model type
@@ -326,16 +340,16 @@ public static class TokenizerFactory
 
             return tokenizerType switch
             {
-                "WordPiece" => await CreateWordPiecePairAsync(modelDir, maxSequenceLength),
-                "Unigram" or "BPE" => await CreateSentencePiecePairAsync(modelDir, maxSequenceLength),
-                _ => await CreateSentencePiecePairAsync(modelDir, maxSequenceLength)
+                "WordPiece" => await CreateWordPiecePairAsync(modelDir, maxSequenceLength, cancellationToken),
+                "Unigram" or "BPE" => await CreateSentencePiecePairAsync(modelDir, maxSequenceLength, cancellationToken),
+                _ => await CreateSentencePiecePairAsync(modelDir, maxSequenceLength, cancellationToken)
             };
         }
 
         // Check for SentencePiece model
         if (FindSentencePieceModel(modelDir) != null)
         {
-            return await CreateSentencePiecePairAsync(modelDir, maxSequenceLength);
+            return await CreateSentencePiecePairAsync(modelDir, maxSequenceLength, cancellationToken);
         }
 
         throw new FileNotFoundException(

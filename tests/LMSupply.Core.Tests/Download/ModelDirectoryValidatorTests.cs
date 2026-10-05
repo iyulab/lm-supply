@@ -64,7 +64,7 @@ public class ModelDirectoryValidatorTests : IDisposable
                 new ManifestFileEntry { Path = "config.json", Size = 2 }
             ]
         };
-        await DownloadManifest.WriteAsync(_testDir, manifest);
+        await DownloadManifest.WriteAsync(_testDir, manifest, cancellationToken: TestContext.Current.CancellationToken);
 
         var result = ModelDirectoryValidator.Validate(_testDir);
         result.IsValid.Should().BeTrue();
@@ -83,7 +83,7 @@ public class ModelDirectoryValidatorTests : IDisposable
                 new ManifestFileEntry { Path = "config.json", Size = 2 }
             ]
         };
-        await DownloadManifest.WriteAsync(_testDir, manifest);
+        await DownloadManifest.WriteAsync(_testDir, manifest, cancellationToken: TestContext.Current.CancellationToken);
 
         var result = ModelDirectoryValidator.Validate(_testDir);
         result.IsValid.Should().BeFalse();
@@ -104,7 +104,7 @@ public class ModelDirectoryValidatorTests : IDisposable
                 new ManifestFileEntry { Path = "config.json", Size = 2 }
             ]
         };
-        await DownloadManifest.WriteAsync(_testDir, manifest);
+        await DownloadManifest.WriteAsync(_testDir, manifest, cancellationToken: TestContext.Current.CancellationToken);
 
         var result = ModelDirectoryValidator.Validate(_testDir);
         result.IsValid.Should().BeFalse();

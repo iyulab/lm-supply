@@ -144,7 +144,7 @@ public sealed class LlamaServerPool : IAsyncDisposable
             if (backend != LlamaServerBackend.Cpu)
             {
                 await ReleaseIdleAsync(s => s.Backend != LlamaServerBackend.Cpu
-                    && !string.Equals(s.ModelPath, config.ModelPath, StringComparison.OrdinalIgnoreCase));
+                    && !string.Equals(s.ModelPath, config.ModelPath, StringComparison.OrdinalIgnoreCase), cancellationToken);
             }
 
             // Check server limit
@@ -266,16 +266,17 @@ public sealed class LlamaServerPool : IAsyncDisposable
     /// memory).
     /// A server a model is using is never stopped.
     /// </remarks>
-    public Task<int> ReleaseIdleAsync() => ReleaseIdleAsync(static _ => true);
+    public Task<int> ReleaseIdleAsync(CancellationToken cancellationToken = default) => ReleaseIdleAsync(static _ => true, cancellationToken);
 
     /// <summary>
-    /// <see cref="ReleaseIdleAsync()"/> for the idle servers <paramref name="filter"/> selects.
+    /// <see cref="ReleaseIdleAsync(CancellationToken)"/> for the idle servers <paramref name="filter"/> selects.
     /// </summary>
-    internal async Task<int> ReleaseIdleAsync(Func<PooledServer, bool> filter)
+    internal async Task<int> ReleaseIdleAsync(Func<PooledServer, bool> filter, CancellationToken cancellationToken = default)
     {
         var released = 0;
         foreach (var server in _servers.Values.Where(filter).ToList())
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (await TryRetireAsync(server).ConfigureAwait(false))
                 released++;
         }

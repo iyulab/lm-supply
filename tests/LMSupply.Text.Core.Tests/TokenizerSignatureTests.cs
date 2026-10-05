@@ -45,7 +45,7 @@ public sealed class TokenizerSignatureTests : IDisposable
             ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", "hello", "world", "Hello"], TestContext.Current.CancellationToken);
         await File.WriteAllTextAsync(Path.Combine(_modelDir, "tokenizer_config.json"), """{"do_lower_case": false}""", TestContext.Current.CancellationToken);
 
-        var tokenizer = await TokenizerFactory.CreateWordPieceAsync(_modelDir, maxSequenceLength: 32);
+        var tokenizer = await TokenizerFactory.CreateWordPieceAsync(_modelDir, maxSequenceLength: 32, cancellationToken: TestContext.Current.CancellationToken);
 
         tokenizer.Signature.Should().Be($"wordpiece/{TokenizerEpochs.WordPiece};clean=1;chinese=1;accents=0;lower=0;punct=1");
     }
@@ -56,8 +56,8 @@ public sealed class TokenizerSignatureTests : IDisposable
         await File.WriteAllLinesAsync(Path.Combine(_modelDir, "vocab.txt"),
             ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", "hello", "world"], TestContext.Current.CancellationToken);
 
-        var a = await TokenizerFactory.CreateWordPieceAsync(_modelDir, maxSequenceLength: 32);
-        var b = await TokenizerFactory.CreateWordPieceAsync(_modelDir, maxSequenceLength: 512);
+        var a = await TokenizerFactory.CreateWordPieceAsync(_modelDir, maxSequenceLength: 32, cancellationToken: TestContext.Current.CancellationToken);
+        var b = await TokenizerFactory.CreateWordPieceAsync(_modelDir, maxSequenceLength: 512, cancellationToken: TestContext.Current.CancellationToken);
 
         a.Signature.Should().Be(b.Signature, "the sequence length is a truncation bound, not part of what the tokenizer does to text");
     }

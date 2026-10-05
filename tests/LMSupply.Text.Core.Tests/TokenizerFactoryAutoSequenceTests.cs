@@ -28,7 +28,7 @@ public class TokenizerFactoryAutoSequenceTests : IDisposable
         // SpecialTokens.FromVocabulary uses to populate ClsTokenId / SepTokenId.
         WriteFile("vocab.txt", "[PAD]\n[UNK]\n[CLS]\n[SEP]\nhello\nworld\n");
 
-        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(_tempDir, maxSequenceLength: 16);
+        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(_tempDir, maxSequenceLength: 16, cancellationToken: TestContext.Current.CancellationToken);
 
         tokenizer.Should().NotBeNull();
         tokenizer.MaxSequenceLength.Should().Be(16);
@@ -41,7 +41,7 @@ public class TokenizerFactoryAutoSequenceTests : IDisposable
     {
         WriteFile("tokenizer.json", BuildWordPieceTokenizerJson());
 
-        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(_tempDir, maxSequenceLength: 32);
+        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(_tempDir, maxSequenceLength: 32, cancellationToken: TestContext.Current.CancellationToken);
 
         tokenizer.Should().NotBeNull();
         tokenizer.MaxSequenceLength.Should().Be(32);

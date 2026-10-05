@@ -17,23 +17,10 @@ public class PublicApiConventionTests
 {
     private static readonly string[] KnownUncancellable =
     [
-        "LMSupply.Download.DownloadManifest.ReadAsync(String)",
-        "LMSupply.Download.DownloadManifest.WriteAsync(String, DownloadManifest)",
-        "LMSupply.Generator.LocalGenerator.LoadFromPathAsync(String, GeneratorOptions)",
+        // Disposal, like DisposeAsync: releasing the pool is not something a caller abandons halfway.
         "LMSupply.Llama.Server.LlamaServerPool.DisposeInstanceAsync()",
-        "LMSupply.Llama.Server.LlamaServerPool.ReleaseIdleAsync()",
+        // Fire-and-forget: returns at once; the background check is bounded by RuntimeUpdateOptions.VersionCheckTimeout, so a caller token would have nothing to cancel.
         "LMSupply.Runtime.RuntimeUpdateService.TriggerBackgroundCheckAsync(String, String, PlatformInfo, Func<String, IProgress<DownloadProgress>, CancellationToken, Task<String>>)",
-        "LMSupply.Text.TokenizerFactory.CreateAutoAsync(String, Int32)",
-        "LMSupply.Text.TokenizerFactory.CreateAutoPairAsync(String, Int32)",
-        "LMSupply.Text.TokenizerFactory.CreateAutoSequenceAsync(String, Int32)",
-        "LMSupply.Text.TokenizerFactory.CreateSentencePiecePairAsync(String, Int32)",
-        "LMSupply.Text.TokenizerFactory.CreateSentencePieceSequenceAsync(String, Int32)",
-        "LMSupply.Text.TokenizerFactory.CreateWordPieceAsync(String, Int32)",
-        "LMSupply.Text.TokenizerFactory.CreateWordPiecePairAsync(String, Int32)",
-        "LMSupply.Text.VocabularyLoader.LoadFromModelDirectoryAsync(String)",
-        "LMSupply.Text.VocabularyLoader.LoadFromTokenizerJsonAsync(String)",
-        "LMSupply.Text.VocabularyLoader.LoadFromVocabJsonAsync(String)",
-        "LMSupply.Text.VocabularyLoader.LoadFromVocabTxtAsync(String)",
     ];
 
     private static readonly string[] KnownResultReturns =

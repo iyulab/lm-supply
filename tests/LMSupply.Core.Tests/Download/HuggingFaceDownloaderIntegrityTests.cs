@@ -45,7 +45,7 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
         Assert.Equal(Model, await File.ReadAllBytesAsync(ModelPath, Ct));
         Assert.False(File.Exists(ModelPath + ".part"));
         Assert.Equal(["bytes=2400-"], hub.Ranges);
-        var manifest = await DownloadManifest.ReadAsync(dir);
+        var manifest = await DownloadManifest.ReadAsync(dir, cancellationToken: TestContext.Current.CancellationToken);
         Assert.NotNull(manifest);
         Assert.Equal(DownloadManifest.VerifiedVersion, manifest.Version);
         Assert.Equal(4000, Assert.Single(manifest.Files, f => f.Path == "model.onnx").Size);
@@ -88,7 +88,7 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
         Assert.Contains("2400 of 4000", ex.Message);
         Assert.False(File.Exists(ModelPath));
         Assert.True(File.Exists(ModelPath + ".part"));
-        Assert.Null(await DownloadManifest.ReadAsync(ModelDir));
+        Assert.Null(await DownloadManifest.ReadAsync(ModelDir, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
             Version = DownloadManifest.VerifiedVersion,
             RepoId = Repo,
             Files = [new ManifestFileEntry { Path = "model.onnx", Size = 4000 }],
-        });
+        }, cancellationToken: TestContext.Current.CancellationToken);
         var hub = new Hub();
         using var downloader = new HuggingFaceDownloader(_cacheDir, hub);
 
@@ -135,14 +135,14 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
             Version = 1,
             RepoId = Repo,
             Files = [new ManifestFileEntry { Path = "model.onnx", Size = 2400 }],
-        });
+        }, cancellationToken: TestContext.Current.CancellationToken);
         var hub = new Hub();
         using var downloader = new HuggingFaceDownloader(_cacheDir, hub);
 
         await downloader.DownloadModelAsync(Repo, ["model.onnx"], cancellationToken: Ct);
 
         Assert.Equal(Model, await File.ReadAllBytesAsync(ModelPath, Ct));
-        Assert.Equal(DownloadManifest.VerifiedVersion, (await DownloadManifest.ReadAsync(ModelDir))!.Version);
+        Assert.Equal(DownloadManifest.VerifiedVersion, (await DownloadManifest.ReadAsync(ModelDir, cancellationToken: TestContext.Current.CancellationToken))!.Version);
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
         var (dir, _) = await downloader.DownloadWithDiscoveryAsync(Repo, cancellationToken: Ct);
 
         Assert.Equal(Model, await File.ReadAllBytesAsync(Path.Combine(dir, "model.onnx"), Ct));
-        var manifest = await DownloadManifest.ReadAsync(dir);
+        var manifest = await DownloadManifest.ReadAsync(dir, cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(DownloadManifest.VerifiedVersion, manifest!.Version);
         Assert.Equal(4000, Assert.Single(manifest.Files, f => f.Path == "model.onnx").Size);
     }

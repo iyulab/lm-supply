@@ -176,7 +176,7 @@ public sealed class LocalGeneratorIsModelDownloadedTests : IDisposable
             Version = DownloadManifest.VerifiedVersion,
             RepoId = repo,
             Files = [new ManifestFileEntry { Path = "model.onnx", Size = 4 }, new ManifestFileEntry { Path = "genai_config.json", Size = 2 }],
-        });
+        }, cancellationToken: TestContext.Current.CancellationToken);
         LocalGenerator.IsModelDownloaded(repo, Options()).Should().BeFalse("a listed file is missing");
 
         await File.WriteAllBytesAsync(Path.Combine(snapshot, "genai_config.json"), [(byte)'{', (byte)'}'], TestContext.Current.CancellationToken);

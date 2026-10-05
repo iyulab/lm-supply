@@ -137,7 +137,7 @@ public class EmbedderFunctionalTests
 
         tokenizerDir.Should().NotBeNull($"the snapshot under '{snapshotDir}' must carry tokenizer.json");
 
-        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(tokenizerDir!, maxSequenceLength: 512);
+        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(tokenizerDir!, maxSequenceLength: 512, cancellationToken: TestContext.Current.CancellationToken);
 
         var ids = tokenizer.Encode("query: refund policy");
 

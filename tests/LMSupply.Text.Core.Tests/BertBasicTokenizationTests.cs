@@ -121,7 +121,7 @@ public class BertBasicTokenizationTests : IDisposable
         WriteVocab(Vocab.Where(t => t.StartsWith('[') || !t.Any(char.IsUpper)));
         WriteTokenizerConfig(doLowerCase: true);
 
-        var pair = await TokenizerFactory.CreateWordPiecePairAsync(_modelDir, maxSequenceLength: 32);
+        var pair = await TokenizerFactory.CreateWordPiecePairAsync(_modelDir, maxSequenceLength: 32, cancellationToken: TestContext.Current.CancellationToken);
         var encoded = pair.EncodePair("The capital of France?", "Paris is the capital of France.");
 
         var tokens = encoded.InputIds.ToArray().Select(id => Vocab.Where(t => t.StartsWith('[') || !t.Any(char.IsUpper)).ElementAt((int)id)).ToArray();
@@ -156,7 +156,7 @@ public class BertBasicTokenizationTests : IDisposable
         (await TokensOf(text)).Should().Equal(expected);
 
         // With the special tokens added, each special id appears exactly where the tokenizer puts it.
-        var tokenizer = await TokenizerFactory.CreateWordPieceAsync(_modelDir, maxSequenceLength: 32);
+        var tokenizer = await TokenizerFactory.CreateWordPieceAsync(_modelDir, maxSequenceLength: 32, cancellationToken: TestContext.Current.CancellationToken);
         var ids = tokenizer.Encode(text, addSpecialTokens: true);
         var sep = Array.IndexOf(SpecialTokenVocab, "[SEP]");
         var cls = Array.IndexOf(SpecialTokenVocab, "[CLS]");

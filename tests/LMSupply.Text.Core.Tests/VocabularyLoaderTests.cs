@@ -24,7 +24,7 @@ public class VocabularyLoaderTests : IDisposable
     {
         var path = CreateFile("vocab.txt", "[PAD]\n[UNK]\n[CLS]\n[SEP]\nhello\nworld");
 
-        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path);
+        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(6);
         vocab["[PAD]"].Should().Be(0);
@@ -40,7 +40,7 @@ public class VocabularyLoaderTests : IDisposable
     {
         var path = CreateFile("vocab.txt", "hello\n\n\nworld\n");
 
-        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path);
+        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(2);
         vocab["hello"].Should().Be(0);
@@ -53,7 +53,7 @@ public class VocabularyLoaderTests : IDisposable
     {
         var path = CreateFile("vocab.txt", "hello\nworld\nhello");
 
-        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path);
+        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(2);
         vocab["hello"].Should().Be(0); // First occurrence kept
@@ -64,7 +64,7 @@ public class VocabularyLoaderTests : IDisposable
     {
         var path = CreateFile("vocab.txt", "hello   \nworld\t");
 
-        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path);
+        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().ContainKey("hello");
         vocab.Should().ContainKey("world");
@@ -75,7 +75,7 @@ public class VocabularyLoaderTests : IDisposable
     {
         var path = CreateFile("vocab.txt", "");
 
-        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path);
+        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().BeEmpty();
     }
@@ -95,7 +95,7 @@ public class VocabularyLoaderTests : IDisposable
     {
         var path = CreateFile("vocab.txt", "Hello\nhello\nHELLO");
 
-        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path);
+        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(3);
         vocab["Hello"].Should().Be(0);
@@ -113,7 +113,7 @@ public class VocabularyLoaderTests : IDisposable
         var path = CreateFile("vocab.json",
             """{"[PAD]": 0, "[UNK]": 1, "hello": 100, "world": 101}""");
 
-        var vocab = await VocabularyLoader.LoadFromVocabJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromVocabJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(4);
         vocab["[PAD]"].Should().Be(0);
@@ -128,7 +128,7 @@ public class VocabularyLoaderTests : IDisposable
         var path = CreateFile("vocab.json",
             """{"hello": 1, "invalid": "not_a_number", "world": 2}""");
 
-        var vocab = await VocabularyLoader.LoadFromVocabJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromVocabJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(2);
         vocab["hello"].Should().Be(1);
@@ -155,7 +155,7 @@ public class VocabularyLoaderTests : IDisposable
 
         // Manual parser should handle this (it splits by commas)
         // But System.Text.Json will throw, triggering fallback
-        var vocab = await VocabularyLoader.LoadFromVocabJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromVocabJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         // Manual parser should extract these
         vocab.Should().ContainKey("hello");
@@ -182,7 +182,7 @@ public class VocabularyLoaderTests : IDisposable
         """;
         var path = CreateFile("tokenizer.json", json);
 
-        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(3);
         vocab["[PAD]"].Should().Be(0);
@@ -206,7 +206,7 @@ public class VocabularyLoaderTests : IDisposable
         """;
         var path = CreateFile("tokenizer.json", json);
 
-        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(3);
         vocab["[PAD]"].Should().Be(0);
@@ -230,7 +230,7 @@ public class VocabularyLoaderTests : IDisposable
         """;
         var path = CreateFile("tokenizer.json", json);
 
-        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(3);
         vocab["<unk>"].Should().Be(0);
@@ -244,7 +244,7 @@ public class VocabularyLoaderTests : IDisposable
         var json = """{"version": "1.0"}""";
         var path = CreateFile("tokenizer.json", json);
 
-        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().BeEmpty();
     }
@@ -255,7 +255,7 @@ public class VocabularyLoaderTests : IDisposable
         var json = """{"model": {"type": "BPE"}}""";
         var path = CreateFile("tokenizer.json", json);
 
-        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().BeEmpty();
     }
@@ -275,7 +275,7 @@ public class VocabularyLoaderTests : IDisposable
     {
         var path = CreateFile("tokenizer.json", "not valid json at all");
 
-        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().BeEmpty();
     }
@@ -295,7 +295,7 @@ public class VocabularyLoaderTests : IDisposable
         """;
         var path = CreateFile("tokenizer.json", json);
 
-        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(1);
         vocab["valid"].Should().Be(1);
@@ -310,7 +310,7 @@ public class VocabularyLoaderTests : IDisposable
     {
         CreateFile("vocab.txt", "[PAD]\nhello");
 
-        var vocab = await VocabularyLoader.LoadFromModelDirectoryAsync(_tempDir);
+        var vocab = await VocabularyLoader.LoadFromModelDirectoryAsync(_tempDir, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(2);
         vocab["[PAD]"].Should().Be(0);
@@ -321,7 +321,7 @@ public class VocabularyLoaderTests : IDisposable
     {
         CreateFile("vocab.json", """{"hello": 0, "world": 1}""");
 
-        var vocab = await VocabularyLoader.LoadFromModelDirectoryAsync(_tempDir);
+        var vocab = await VocabularyLoader.LoadFromModelDirectoryAsync(_tempDir, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(2);
         vocab["hello"].Should().Be(0);
@@ -333,7 +333,7 @@ public class VocabularyLoaderTests : IDisposable
         var json = """{"model": {"vocab": {"token": 0}}}""";
         CreateFile("tokenizer.json", json);
 
-        var vocab = await VocabularyLoader.LoadFromModelDirectoryAsync(_tempDir);
+        var vocab = await VocabularyLoader.LoadFromModelDirectoryAsync(_tempDir, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(1);
         vocab["token"].Should().Be(0);
@@ -346,7 +346,7 @@ public class VocabularyLoaderTests : IDisposable
         CreateFile("vocab.txt", "from_txt");
         CreateFile("vocab.json", """{"from_json": 0}""");
 
-        var vocab = await VocabularyLoader.LoadFromModelDirectoryAsync(_tempDir);
+        var vocab = await VocabularyLoader.LoadFromModelDirectoryAsync(_tempDir, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().ContainKey("from_txt");
         vocab.Should().NotContainKey("from_json");
@@ -488,7 +488,7 @@ public class VocabularyLoaderTests : IDisposable
     {
         var path = CreateFile("vocab.txt", "[PAD]");
 
-        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path);
+        var vocab = await VocabularyLoader.LoadFromVocabTxtAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(1);
         vocab["[PAD]"].Should().Be(0);
@@ -499,7 +499,7 @@ public class VocabularyLoaderTests : IDisposable
     {
         var path = CreateFile("vocab.json", "{}");
 
-        var vocab = await VocabularyLoader.LoadFromVocabJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromVocabJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().BeEmpty();
     }
@@ -510,7 +510,7 @@ public class VocabularyLoaderTests : IDisposable
         var path = CreateFile("vocab.json",
             """{"##ing": 0, "Ġhello": 1, "▁world": 2}""");
 
-        var vocab = await VocabularyLoader.LoadFromVocabJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromVocabJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(3);
         vocab["##ing"].Should().Be(0);
@@ -530,7 +530,7 @@ public class VocabularyLoaderTests : IDisposable
         var json = "{\"model\": {\"vocab\": {" + string.Join(", ", entries) + "}}}";
         var path = CreateFile("tokenizer.json", json);
 
-        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromTokenizerJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         vocab.Should().HaveCount(1000);
         vocab["token_0"].Should().Be(0);
@@ -545,7 +545,7 @@ public class VocabularyLoaderTests : IDisposable
         var path = CreateFile("vocab.json",
             "{\"hello\\\"world\": 1, \"normal\": 2,}");
 
-        var vocab = await VocabularyLoader.LoadFromVocabJsonAsync(path);
+        var vocab = await VocabularyLoader.LoadFromVocabJsonAsync(path, cancellationToken: TestContext.Current.CancellationToken);
 
         // Manual parser should handle escaped quotes
         vocab.Should().ContainKey("normal");

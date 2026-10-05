@@ -86,7 +86,7 @@ public sealed class HubCacheWriteTests : IDisposable
             .Should().BeEquivalentTo(["model.onnx", "config.json"], "a snapshot holds repository files only");
         File.Exists(Path.Combine(RepoDir, ".lmsupply", "manifests", Commit + ".json")).Should().BeTrue();
 
-        var manifest = await DownloadManifest.ReadAsync(dir);
+        var manifest = await DownloadManifest.ReadAsync(dir, cancellationToken: TestContext.Current.CancellationToken);
         manifest.Should().NotBeNull();
         manifest!.Version.Should().Be(DownloadManifest.VerifiedVersion);
         manifest.Files.Select(f => (f.Path, f.Size)).Should().BeEquivalentTo([("model.onnx", (long)Model.Length), ("config.json", (long)Config.Length)]);
@@ -116,7 +116,7 @@ public sealed class HubCacheWriteTests : IDisposable
 
         dir.Should().Be(Path.Combine(CommitSnapshot, "onnx", "int8"));
         File.Exists(Path.Combine(RepoDir, ".lmsupply", "manifests", Commit + "__onnx_int8.json")).Should().BeTrue();
-        (await DownloadManifest.ReadAsync(dir))!.Files.Should().ContainSingle(f => f.Path == "model.onnx");
+        (await DownloadManifest.ReadAsync(dir, cancellationToken: TestContext.Current.CancellationToken))!.Files.Should().ContainSingle(f => f.Path == "model.onnx");
         CacheManager.DeleteModel(_cacheDir, Repo).Should().BeTrue();
         Directory.Exists(RepoDir).Should().BeFalse("everything in it was this library's");
     }

@@ -339,10 +339,12 @@ public static class LocalGenerator
     /// </summary>
     /// <param name="modelPath">The path to the local model directory or GGUF file.</param>
     /// <param name="options">Model loading options.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A text generator instance.</returns>
     public static Task<IGeneratorModel> LoadFromPathAsync(
         string modelPath,
-        GeneratorOptions? options = null)
+        GeneratorOptions? options = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelPath);
 

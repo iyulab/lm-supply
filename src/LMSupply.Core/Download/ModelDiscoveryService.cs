@@ -966,7 +966,7 @@ public sealed class ModelDiscoveryService : IDisposable
         if (_cacheDir is not null)
         {
             var manifest = await DownloadManifest.ReadAsync(
-                CacheManager.FindOwnSnapshot(_cacheDir, repoId, revision) ?? CacheManager.GetModelDirectory(_cacheDir, repoId, revision));
+                CacheManager.FindOwnSnapshot(_cacheDir, repoId, revision) ?? CacheManager.GetModelDirectory(_cacheDir, repoId, revision), cancellationToken);
             if (manifest is { Files.Count: > 0 })
                 return [.. manifest.Files.Select(f => new RepoFile { Path = f.Path, Type = "file", Size = f.Size })];
 

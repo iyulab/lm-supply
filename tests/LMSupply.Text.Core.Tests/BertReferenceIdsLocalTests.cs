@@ -36,7 +36,7 @@ public class BertReferenceIdsLocalTests
             Assert.Skip($"{Repo} is not in the local HuggingFace cache; this test never downloads.");
         }
 
-        var tokenizer = await TokenizerFactory.CreateWordPieceAsync(modelDir, maxSequenceLength: 256);
+        var tokenizer = await TokenizerFactory.CreateWordPieceAsync(modelDir, maxSequenceLength: 256, cancellationToken: TestContext.Current.CancellationToken);
 
         tokenizer.Encode(text, addSpecialTokens: false).Should().Equal(expected);
     }

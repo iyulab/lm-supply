@@ -80,7 +80,7 @@ public static class LocalEmbedder
         var sources = await ResolveOnnxSourcesAsync(modelIdOrPath, options, progress, cancellationToken);
 
         // Load tokenizer using Text.Core (auto-detects WordPiece vs SentencePiece)
-        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(sources.TokenizerDir, sources.MaxSequenceLength);
+        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(sources.TokenizerDir, sources.MaxSequenceLength, cancellationToken);
 
         // Load inference engine (use async to ensure RuntimeManager initializes native binaries)
         var engine = await OnnxInferenceEngine.CreateAsync(sources.ModelPath, options.Provider, options, cancellationToken: cancellationToken);
@@ -311,7 +311,7 @@ public static class LocalEmbedder
         if (dimensions is null)
             return null;
 
-        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(sources.TokenizerDir, sources.MaxSequenceLength);
+        var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(sources.TokenizerDir, sources.MaxSequenceLength, cancellationToken);
         return BuildVectorSpace(sources, tokenizer.Signature, offline.NormalizeEmbeddings, dimensions.Value).Revision;
     }
 

@@ -148,7 +148,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         {
             var released = await LlamaServerPool.Instance.ReleaseIdleAsync(
                 s => s.Backend != LlamaServerBackend.Cpu
-                     && !string.Equals(s.ModelPath, modelPath, StringComparison.OrdinalIgnoreCase));
+                     && !string.Equals(s.ModelPath, modelPath, StringComparison.OrdinalIgnoreCase), cancellationToken);
             if (released > 0)
             {
                 Trace.TraceInformation(
@@ -192,7 +192,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                 s => s.Backend == backend
                      && s.Mode == ServerMode.Generation
                      && s.ContextSize < contextLength
-                     && string.Equals(s.ModelPath, modelPath, StringComparison.OrdinalIgnoreCase));
+                     && string.Equals(s.ModelPath, modelPath, StringComparison.OrdinalIgnoreCase), cancellationToken);
         }
 
         if (sharedContext is { } shared)

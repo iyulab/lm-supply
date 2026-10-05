@@ -11,14 +11,15 @@ public static class VocabularyLoader
     /// Loads vocabulary from a vocab.txt file (BERT format, one token per line).
     /// </summary>
     /// <param name="path">Path to vocab.txt.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Dictionary mapping tokens to IDs.</returns>
-    public static async Task<Dictionary<string, int>> LoadFromVocabTxtAsync(string path)
+    public static async Task<Dictionary<string, int>> LoadFromVocabTxtAsync(string path, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(path))
             throw new FileNotFoundException($"Vocabulary file not found: {path}", path);
 
         var vocab = new Dictionary<string, int>(StringComparer.Ordinal);
-        var lines = await File.ReadAllLinesAsync(path);
+        var lines = await File.ReadAllLinesAsync(path, cancellationToken);
 
         for (int i = 0; i < lines.Length; i++)
         {
@@ -36,13 +37,14 @@ public static class VocabularyLoader
     /// Loads vocabulary from a vocab.json file.
     /// </summary>
     /// <param name="path">Path to vocab.json.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Dictionary mapping tokens to IDs.</returns>
-    public static async Task<Dictionary<string, int>> LoadFromVocabJsonAsync(string path)
+    public static async Task<Dictionary<string, int>> LoadFromVocabJsonAsync(string path, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(path))
             throw new FileNotFoundException($"Vocabulary file not found: {path}", path);
 
-        var json = await File.ReadAllTextAsync(path);
+        var json = await File.ReadAllTextAsync(path, cancellationToken);
         return ParseVocabJson(json);
     }
 
@@ -50,13 +52,14 @@ public static class VocabularyLoader
     /// Loads vocabulary from tokenizer.json (HuggingFace format).
     /// </summary>
     /// <param name="path">Path to tokenizer.json.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Dictionary mapping tokens to IDs.</returns>
-    public static async Task<Dictionary<string, int>> LoadFromTokenizerJsonAsync(string path)
+    public static async Task<Dictionary<string, int>> LoadFromTokenizerJsonAsync(string path, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(path))
             throw new FileNotFoundException($"Tokenizer file not found: {path}", path);
 
-        var json = await File.ReadAllTextAsync(path);
+        var json = await File.ReadAllTextAsync(path, cancellationToken);
         return ExtractVocabFromTokenizerJson(json);
     }
 
@@ -64,28 +67,29 @@ public static class VocabularyLoader
     /// Auto-detects and loads vocabulary from a model directory.
     /// </summary>
     /// <param name="modelDir">Model directory path.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Dictionary mapping tokens to IDs.</returns>
-    public static async Task<Dictionary<string, int>> LoadFromModelDirectoryAsync(string modelDir)
+    public static async Task<Dictionary<string, int>> LoadFromModelDirectoryAsync(string modelDir, CancellationToken cancellationToken = default)
     {
         // Try vocab.txt first (BERT format)
         var vocabTxtPath = Path.Combine(modelDir, "vocab.txt");
         if (File.Exists(vocabTxtPath))
         {
-            return await LoadFromVocabTxtAsync(vocabTxtPath);
+            return await LoadFromVocabTxtAsync(vocabTxtPath, cancellationToken);
         }
 
         // Try vocab.json
         var vocabJsonPath = Path.Combine(modelDir, "vocab.json");
         if (File.Exists(vocabJsonPath))
         {
-            return await LoadFromVocabJsonAsync(vocabJsonPath);
+            return await LoadFromVocabJsonAsync(vocabJsonPath, cancellationToken);
         }
 
         // Try tokenizer.json
         var tokenizerJsonPath = Path.Combine(modelDir, "tokenizer.json");
         if (File.Exists(tokenizerJsonPath))
         {
-            return await LoadFromTokenizerJsonAsync(tokenizerJsonPath);
+            return await LoadFromTokenizerJsonAsync(tokenizerJsonPath, cancellationToken);
         }
 
         throw new FileNotFoundException(
