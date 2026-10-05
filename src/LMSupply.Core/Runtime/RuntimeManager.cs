@@ -290,7 +290,7 @@ public sealed class RuntimeManager : IAsyncDisposable
             {
                 throw; // Cancellation, or a conflict every remaining provider would hit identically
             }
-            catch (Exception ex) when (providerToTry != "cpu")
+            catch (Exception ex) when ((ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested) && (providerToTry != "cpu"))
             {
                 // Log and continue to next provider in chain
                 Trace.TraceInformation(

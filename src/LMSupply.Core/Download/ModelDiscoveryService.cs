@@ -1052,7 +1052,7 @@ public sealed class ModelDiscoveryService : IDisposable
             await using var stream = File.OpenRead(cachePath);
             return await JsonSerializer.DeserializeAsync(stream, CoreJsonOptions.Plain.TypeInfo<List<RepoFile>>(), cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             Trace.TraceInformation($"[ModelDiscoveryService] File list cache load failed: {ex.Message}");
             return null;
@@ -1078,7 +1078,7 @@ public sealed class ModelDiscoveryService : IDisposable
             await using var stream = File.Create(cachePath);
             await JsonSerializer.SerializeAsync(stream, files, CoreJsonOptions.Plain.TypeInfoOf(files), cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             Trace.TraceInformation($"[ModelDiscoveryService] File list cache write failed: {ex.Message}");
         }

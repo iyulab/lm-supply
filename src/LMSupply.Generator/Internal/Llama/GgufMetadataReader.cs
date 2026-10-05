@@ -230,7 +230,7 @@ public static class GgufMetadataReader
             var magic = BinaryPrimitives.ReadUInt32LittleEndian(buffer);
             return magic == GgufMagic;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             Trace.TraceInformation($"[GgufMetadataReader] GGUF magic check failed: {ex.Message}");
             return false;

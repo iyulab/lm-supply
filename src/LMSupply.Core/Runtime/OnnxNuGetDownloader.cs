@@ -443,7 +443,7 @@ public sealed class OnnxNuGetDownloader : IDisposable
                 await process.WaitForExitAsync(cancellationToken);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             Trace.TraceInformation($"[OnnxNuGetDownloader] dotnet command failed: {ex.Message}");
         }

@@ -485,7 +485,7 @@ public sealed class LlamaServerClient : IDisposable
                 cancellationToken);
             return response.IsSuccessStatusCode;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             Trace.TraceInformation($"[LlamaServerClient] Health check failed: {ex.Message}");
             return false;

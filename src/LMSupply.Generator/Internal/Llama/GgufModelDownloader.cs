@@ -331,7 +331,7 @@ public sealed class GgufModelDownloader : IDisposable
         {
             groups = await ListGgufGroupsAsync(modelInfo.RepoId, cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             Trace.TraceWarning(
                 $"[GgufModelDownloader] Repo listing failed for {modelInfo.RepoId} ({ex.Message}); " +
@@ -732,7 +732,7 @@ public sealed class GgufModelDownloader : IDisposable
 
             return match?.FileName;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             Trace.TraceInformation($"[GgufModelDownloader] GGUF file search failed: {ex.Message}");
             return null;

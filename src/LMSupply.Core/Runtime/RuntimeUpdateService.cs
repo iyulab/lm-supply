@@ -190,7 +190,7 @@ public sealed class RuntimeUpdateService : IAsyncDisposable
                 _downloadLock.Release();
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             Trace.TraceWarning($"[RuntimeUpdateService] Update download failed: {ex.Message}");
             return RuntimeUpdateResult.Failed($"Download failed: {ex.Message}");
@@ -378,7 +378,7 @@ public sealed class RuntimeUpdateService : IAsyncDisposable
             var path = await downloadFunc(previousVersion, null, ct);
             return RuntimeUpdateResult.Rollback(failedVersion, previousVersion, path);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             return RuntimeUpdateResult.Failed($"Rollback failed: {ex.Message}");
         }

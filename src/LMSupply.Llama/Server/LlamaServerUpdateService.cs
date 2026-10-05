@@ -374,7 +374,7 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
                 var existingPath = GetServerExecutablePath(state.InstalledPath);
                 return LlamaServerUpdateResult.NoUpdate(existingPath, backend, state.InstalledVersion);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
                 // Download/update failed, use existing
                 var existingPath = GetServerExecutablePath(state.InstalledPath);

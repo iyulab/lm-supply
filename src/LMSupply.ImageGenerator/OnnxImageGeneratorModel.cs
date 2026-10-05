@@ -77,7 +77,7 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
         {
             _ = await _pipeline.GenerateAsync("warmup", warmupOptions, cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             Trace.TraceInformation($"[OnnxImageGeneratorModel] Warmup failed: {ex.Message}");
         }

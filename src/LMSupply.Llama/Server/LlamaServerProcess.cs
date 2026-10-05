@@ -978,7 +978,7 @@ public sealed class LlamaServerProcess : IAsyncDisposable
             var response = await _httpClient.GetAsync($"http://{LoopbackHost}:{_port}/health", cancellationToken);
             return response.IsSuccessStatusCode;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             Trace.TraceInformation($"[LlamaServerProcess] Health check failed: {ex.Message}");
             return false;

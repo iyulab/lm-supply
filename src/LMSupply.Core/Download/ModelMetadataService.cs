@@ -220,7 +220,7 @@ public sealed class ModelMetadataService : IDisposable
             var json = JsonSerializer.Serialize(metadata, JsonOptions.TypeInfoOf(metadata));
             await File.WriteAllTextAsync(filePath, json, cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             Trace.TraceInformation($"[ModelMetadataService] Cache write failed: {ex.Message}");
         }

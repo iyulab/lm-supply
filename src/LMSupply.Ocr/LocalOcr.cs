@@ -384,7 +384,7 @@ public static class LocalOcr
                         break;
                     }
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
                     Trace.TraceInformation($"[LocalOcr] Model file check failed: {ex.Message}");
                 }
@@ -475,7 +475,7 @@ public static class LocalOcr
                             break;
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                     {
                         Trace.TraceInformation($"[LocalOcr] Recognition file check failed: {ex.Message}");
                     }

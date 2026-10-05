@@ -162,7 +162,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         {
             ggufMetadata = await GgufMetadataReader.ReadAsync(modelPath, false, cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             Trace.TraceInformation($"[LlamaServerGeneratorModel] GGUF metadata reading failed: {ex.Message}");
         }
@@ -428,7 +428,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                     cancellationToken);
                 break; // Success
             }
-            catch (Exception ex) when (IsOomError(ex) && currentGpuLayers > 0)
+            catch (Exception ex) when ((ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested) && (IsOomError(ex) && currentGpuLayers > 0))
             {
                 // Reduce GPU layers by ~25% (minimum 1 layer reduction)
                 var reduction = Math.Max(1, currentGpuLayers / 4);

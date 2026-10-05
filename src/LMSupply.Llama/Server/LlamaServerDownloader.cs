@@ -821,7 +821,7 @@ public sealed class LlamaServerDownloader : IDisposable
                     versionDir, backend, version, pattern, progress, cancellationToken),
                 cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             // Best-effort: never block model loading on companion provisioning. This also swallows
             // OperationCanceledException; RunGatedOnceAsync's acquired guard ensures the gate is never
