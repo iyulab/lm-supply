@@ -19,6 +19,7 @@
   <ItemGroup>
     <PackageReference Include="NAudio" />
     <PackageReference Include="NLayer.NAudioSupport" />
+    <PackageReference Include="Concentus" />
     <PackageReference Include="MathNet.Numerics" />
   </ItemGroup>
 

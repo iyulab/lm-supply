@@ -32,6 +32,10 @@ dotnet add package LMSupply.Transcriber
 - **Streaming**: Real-time transcription as audio is processed
 - **Speaker diarization**: `Diarize = true` labels each segment with its speaker (`S1`, `S2`, …), locally (0.79.0+)
 - **GPU Acceleration**: CUDA and CoreML support
+- **Audio formats**: WAV, MP3, and Opus in WebM or Ogg — what a browser records with `MediaRecorder` (Chromium/Edge
+  WebM/Opus, Firefox Ogg/Opus) — from a file path, a `Stream` or a `byte[]`; the container is recognised from its
+  bytes. Decoding is managed code only (NLayer for MP3, Concentus for Opus). MP4/AAC (Safari, `.m4a`) is not decoded
+  and throws `NotSupportedException`.
 
 ## Available Models
 

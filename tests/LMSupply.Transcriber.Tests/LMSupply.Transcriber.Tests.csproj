@@ -30,6 +30,12 @@
          once, offline, from a local TTS voice and checked in for the same reason as the MP3 above:
          a fixture generated at test time only exists on machines that have that voice. -->
     <None Include="Fixtures\*.wav" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Browser-recorder containers for the Opus decode tests: a 1 s 440 Hz tone as WebM/Opus written live (unknown
+         Segment/Cluster sizes, the way MediaRecorder writes), Ogg/Opus, stereo WebM, and an MP4/AAC file that must be
+         refused with a clear message. Encoded once with ffmpeg and checked in. -->
+    <None Include="Fixtures\*.webm" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\*.ogg" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\*.m4a" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.108.0] - Unreleased
+
+### Added
+- **The transcriber reads what a browser records.** WebM/Opus (Chromium, Edge and WebView2 `MediaRecorder`, including
+  live recordings whose sizes are left unknown) and Ogg/Opus (Firefox) decode on the device from a file path, a `Stream`
+  or a `byte[]`, recognised from their first bytes; stereo is mixed to mono. Decoding is managed code only (new
+  dependency: Concentus, the C# port of the Opus reference decoder). MP4/AAC (Safari) throws `NotSupportedException`
+  naming the formats that are supported, instead of failing inside the WAV reader.
+
 ## [0.107.0] - 2026-10-06
 
 ### Removed

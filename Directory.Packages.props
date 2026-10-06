@@ -26,6 +26,9 @@
          one — version-locked to NAudio.Core 3.0.1 per its own
          release notes. -->
     <PackageVersion Include="NLayer.NAudioSupport" Version="3.0.0" />
+    <!-- Pure-managed Opus decoder: audio recorded in a browser (MediaRecorder WebM/Opus, Ogg/Opus) is decoded without a
+         native library, the same cross-platform stance as NLayer above. -->
+    <PackageVersion Include="Concentus" Version="2.2.2" />
     <PackageVersion Include="MathNet.Numerics" Version="5.0.0" />
     <!-- ONNX Runtime GenAI for LLM Inference -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.13.2" />

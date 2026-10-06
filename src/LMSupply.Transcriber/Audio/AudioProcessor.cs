@@ -70,6 +70,13 @@ internal static class AudioProcessor
 
     private static float[] LoadAudio(string audioPath)
     {
+        // Recorder containers (WebM, Ogg, MP4) are recognised from their bytes, whatever the extension.
+        if (RecorderContainer(audioPath) != OpusAudio.Container.Unknown)
+        {
+            using var recording = new MemoryStream(File.ReadAllBytes(audioPath));
+            return LoadAudioFromStream(recording);
+        }
+
         // NAudio 3.0's cross-platform build dropped its bundled MP3 decoder — AudioFileReader throws for .mp3 input on this project's plain
         // net10.0 TFM. NLayer.NAudioSupport plugs a pure-managed MP3 decoder into NAudio's own
         // Mp3FileReader, keeping this fully cross-platform (no Windows-only reader reintroduced,
@@ -86,6 +93,22 @@ internal static class AudioProcessor
         // a 44.1 kHz stereo stream came back as 16 000 samples per second of *interleaved 44.1 kHz frames*, audio at
         // the wrong speed that the model transcribed as noise — and an MP3 stream threw, though the file overload
         // decodes MP3. A stream has no extension, so the container is recognised from its first bytes.
+        Span<byte> head = stackalloc byte[16];
+        var start = stream.Position;
+        var headLength = stream.Read(head);
+        stream.Position = start;
+        switch (OpusAudio.Detect(head[..headLength]))
+        {
+            case OpusAudio.Container.WebM:
+            case OpusAudio.Container.Ogg:
+                // What a browser records (MediaRecorder: WebM/Opus in Chromium, Ogg/Opus in Firefox).
+                return ResampleMono(OpusAudio.DecodeToMono(stream.ToArray()), OpusAudio.SampleRate);
+            case OpusAudio.Container.Mp4:
+                throw new NotSupportedException(
+                    "MP4/AAC audio (Safari MediaRecorder, .m4a) is not supported: this library decodes WAV, MP3 and " +
+                    "Opus in WebM or Ogg with managed code only. Record WebM/Opus or Ogg/Opus, or convert to WAV.");
+        }
+
         using WaveStream reader = LooksLikeMp3(stream)
             ? new Mp3FileReaderBase(stream, wf => new Mp3FrameDecompressor(wf))
             : new WaveFileReader(stream);
@@ -107,6 +130,39 @@ internal static class AudioProcessor
         if (read == 3 && head[0] == (byte)'I' && head[1] == (byte)'D' && head[2] == (byte)'3')
             return true;
         return head[0] == 0xFF && (head[1] & 0xE0) == 0xE0;
+    }
+
+    private static OpusAudio.Container RecorderContainer(string path)
+    {
+        Span<byte> head = stackalloc byte[16];
+        using var file = File.OpenRead(path);
+        var read = file.Read(head);
+        return OpusAudio.Detect(head[..read]);
+    }
+
+    /// <summary>Mono samples at <paramref name="sampleRate"/> resampled to Whisper's 16 kHz.</summary>
+    private static float[] ResampleMono(float[] samples, int sampleRate)
+    {
+        if (sampleRate == WhisperSampleRate)
+            return samples;
+
+        var provider = new WdlResamplingSampleProvider(new FloatArraySampleProvider(samples, sampleRate), WhisperSampleRate);
+        return ProcessSampleProvider(provider, TimeSpan.FromSeconds((double)samples.Length / sampleRate));
+    }
+
+    private sealed class FloatArraySampleProvider(float[] samples, int sampleRate) : ISampleProvider
+    {
+        private int _position;
+
+        public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, 1);
+
+        public int Read(Span<float> buffer)
+        {
+            var count = Math.Min(buffer.Length, samples.Length - _position);
+            samples.AsSpan(_position, count).CopyTo(buffer);
+            _position += count;
+            return count;
+        }
     }
 
     private static float[] ProcessAudioReader(WaveStream reader)

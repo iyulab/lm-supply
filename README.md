@@ -260,7 +260,8 @@ using LMSupply.Transcriber;
 
 await using var transcriber = await LocalTranscriber.LoadAsync("default");
 
-// Transcribe audio file
+// Transcribe audio file — WAV, MP3, or Opus in WebM/Ogg (what a browser's MediaRecorder writes), from a path,
+// a Stream or a byte[]; MP4/AAC throws NotSupportedException
 var result = await transcriber.TranscribeAsync("audio.wav");
 Console.WriteLine(result.Text);
 Console.WriteLine($"Language: {result.Language}");
