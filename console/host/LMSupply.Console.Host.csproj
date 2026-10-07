@@ -50,8 +50,6 @@
     <PackageReference Include="NAudio.Lame" />
     <!-- EF Core SQLite for API key storage -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
-    <!-- NU1903 lift for transitive SQLitePCLRaw 2.1.11 — see Directory.Packages.props -->
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>

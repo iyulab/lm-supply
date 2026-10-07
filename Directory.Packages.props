@@ -23,25 +23,27 @@
     <PackageVersion Include="NAudio" Version="3.0.1" />
     <PackageVersion Include="NAudio.Lame" Version="2.1.0" />
     <!-- Pure-managed MP3 decoder for NAudio 3.0's cross-platform build, which no longer bundles
-         one — version-locked to NAudio.Core 3.0.1 per its own
-         release notes. -->
+         one — version-locked to NAudio.Core 3.0.1 per its own release notes. This lock is also what holds NAudio at
+         3.0.1 (3.1.0 is out): move both when NLayer.NAudioSupport publishes a release for NAudio 3.1. -->
     <PackageVersion Include="NLayer.NAudioSupport" Version="3.0.0" />
     <!-- Pure-managed Opus decoder: audio recorded in a browser (MediaRecorder WebM/Opus, Ogg/Opus) is decoded without a
          native library, the same cross-platform stance as NLayer above. -->
     <PackageVersion Include="Concentus" Version="2.2.2" />
     <PackageVersion Include="MathNet.Numerics" Version="5.0.0" />
-    <!-- ONNX Runtime GenAI for LLM Inference -->
+    <!-- ONNX Runtime GenAI for LLM Inference. Held at 0.13.2 (0.17.x is out and dependency-compatible with
+         OnnxRuntime 1.30): the 0.x API changes between minors, and the generator paths are covered only by the
+         integration and local-model suites, which CI does not run. Move after those suites pass on the new version. -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.13.2" />
     <!-- llama-server process management -->
-    <PackageVersion Include="ChildProcessGuard" Version="1.1.1" />
+    <PackageVersion Include="ChildProcessGuard" Version="1.4.0" />
     <!-- GPU Providers (optional, user installs separately) -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.30.0" />
     <!-- Testing (xUnit v3 / Microsoft.Testing.Platform) -->
-    <PackageVersion Include="xunit.v3" Version="4.0.0" />
+    <PackageVersion Include="xunit.v3" Version="4.0.1" />
     <PackageVersion Include="Iyu.Conventions.Testing" Version="0.4.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.3.3" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.5.0" />
     <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
@@ -50,10 +52,10 @@
     <!-- Build Tooling -->
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
     <!-- Console Host -->
-    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.1.7" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.2.3" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.12" />
-    <!-- The M.E.AI embedding contract LMSupply.Embedder implements. Held with the ecosystem line (10.9.x). -->
+    <!-- The M.E.AI embedding contract LMSupply.Embedder implements. Held with the ecosystem line (10.10.x). -->
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.10.1" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
@@ -61,16 +63,10 @@
       DO NOT BUMP to 3.x until Microsoft.AspNetCore.OpenApi's XmlCommentGenerator
       is updated upstream. Microsoft.OpenApi 3.x made IOpenApiMediaType.Example
       read-only (JsonNode? getter), but the ASP.NET Core 10 source generator
-      (as of 10.0.8) still assigns to it, producing CS0200 at build time.
-      Keep on 2.x — Microsoft.AspNetCore.OpenApi 10.0.12 requires >= 2.12.0 (< 3.0.0).
+      still assigns to it, producing CS0200 at build time.
+      Keep on 2.x while Microsoft.AspNetCore.OpenApi requires < 3.0.0 (10.0.12: [2.12.0, 3.0.0)).
       See commit de95363 for the original fix.
     -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.12.2" />
-    <!--
-      Explicit lift: Microsoft.EntityFrameworkCore.Sqlite 10.0.8 pulls SQLitePCLRaw
-      2.1.11 (NU1903 high, GHSA-2m69-gcr7-jv3q).
-      Remove once EFCore.Sqlite's transitive floor reaches 2.1.12.
-    -->
-    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
   </ItemGroup>
 </Project>

@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.110.1] - Unreleased
+
+### Dependencies
+- `ChildProcessGuard` 1.1.1 -> 1.4.0 (llama-server process management).
+- The explicit `SQLitePCLRaw.bundle_e_sqlite3` 3.0.5 lift is removed: Entity Framework Core Sqlite 10.0.12 already
+  requires 2.1.12, which carries the fix the lift existed for. The console host resolves 2.1.12.
+- Test and host tooling: `xunit.v3` 4.0.1, `Microsoft.Testing.Extensions.HangDump` 2.5.0, `Swashbuckle.AspNetCore` 10.2.3.
+- Held versions now say why and when they move: `Microsoft.ML.OnnxRuntimeGenAI` 0.13.2 (0.x API changes; moves after the
+  integration and local-model suites pass), `NAudio` 3.0.1 (locked by `NLayer.NAudioSupport`), `Microsoft.OpenApi` 2.x.
+
 ## [0.110.0] - 2026-10-07
 
 ### Fixed
