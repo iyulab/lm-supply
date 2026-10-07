@@ -191,11 +191,12 @@ var documents = new[]
     "Neural networks are inspired by biological neurons"
 };
 
-float[][] docEmbeddings = await model.EmbedAsync(documents);
+// Each side of retrieval takes the model's own prefix (a no-op for models without one)
+float[][] docEmbeddings = await model.EmbedPassageAsync(documents);
 
 // Search
 string query = "What is AI?";
-float[] queryEmbedding = await model.EmbedAsync(query);
+float[] queryEmbedding = await model.EmbedQueryAsync(query);
 
 // Find most similar documents
 var results = documents
@@ -329,7 +330,7 @@ if (info != null)
 A release can change the vectors a model id produces — a tokenizer fix, a pooling read from the
 model's own files, a different sequence length — and every vector stored before it is then stale.
 `IEmbeddingModel.VectorSpaceRevision` is an opaque string derived from what the loader actually
-did for this model (tokenizer and normalization convention, pooling, L2 normalization, query/passage
+did for this model (tokenizer and normalization convention, pooling, L2 normalization, query/passage/default
 prefixes, effective sequence length, the model file opened, and the epoch of this library's
 implementation of each step). Store it next to the vectors; on a later load, a different value means
 those vectors need re-embedding for this model — and only for this model, since a fix to one
@@ -402,8 +403,9 @@ repository or path reports its own name and a null licence.
 
 | Behaviour | |
 |---|---|
-| `EmbeddingTextKind.Unspecified` | texts as given (`EmbedAsync`) |
+| `EmbeddingTextKind.Default` (default) | the model's `DefaultPrefix` (`EmbedAsync`) — similarity, clustering, features |
 | `EmbeddingTextKind.Query` / `Passage` | the model's `QueryPrefix` / `PassagePrefix` (`EmbedQueryAsync` / `EmbedPassageAsync`) |
+| `EmbeddingTextKind.Raw` | texts as given (`EmbedRawAsync`) |
 | `EmbeddingGenerationOptions.Dimensions` | Matryoshka truncation, 1 to `model.Dimensions`, otherwise `ArgumentOutOfRangeException` |
 | `EmbeddingGenerationOptions.ModelId` | must be this model's id (any case), otherwise `ArgumentException` |
 | `Metadata` | provider `"LMSupply"`, the model id, the native dimension count |

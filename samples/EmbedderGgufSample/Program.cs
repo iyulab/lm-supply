@@ -124,15 +124,15 @@ foreach (var doc in documents)
 }
 Console.WriteLine();
 
-// Embed all documents
-var docEmbeddings = await model.EmbedAsync(documents);
+// Embed all documents (the passage side of retrieval)
+var docEmbeddings = await model.EmbedPassageAsync(documents);
 
 // Search query
 var query = "What are good tools for machine learning?";
 Console.WriteLine($"Query: \"{query}\"");
 Console.WriteLine();
 
-var queryEmbedding = await model.EmbedAsync(query);
+var queryEmbedding = await model.EmbedQueryAsync(query);
 
 // Rank by similarity
 var results = documents

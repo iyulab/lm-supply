@@ -92,7 +92,7 @@ public static class LocalEmbedder
 
         // What the model info reports is what the loader did — not only what the catalog said. A model
         // without a catalog entry gets one built from its own files, so GetModelInfo() is never null and
-        // the query/passage prefixes it declares are applied.
+        // the prompt prefixes it declares are applied.
         var loadedModelInfo = sources.CatalogInfo is null
             ? new ModelInfo
             {
@@ -102,8 +102,9 @@ public static class LocalEmbedder
                 MaxSequenceLength = sources.MaxSequenceLength,
                 PoolingMode = sources.PoolingMode,
                 DoLowerCase = options.DoLowerCase,
-                QueryPrefix = sources.QueryPrefix,
-                PassagePrefix = sources.PassagePrefix,
+                QueryPrefix = sources.Prompts.Query,
+                PassagePrefix = sources.Prompts.Passage,
+                DefaultPrefix = sources.Prompts.Default,
                 Subfolder = sources.Subfolder,
                 SizeBytes = File.Exists(sources.ModelPath) ? new FileInfo(sources.ModelPath).Length : 0
             }
@@ -111,8 +112,9 @@ public static class LocalEmbedder
             {
                 MaxSequenceLength = sources.MaxSequenceLength,
                 PoolingMode = sources.PoolingMode,
-                QueryPrefix = sources.QueryPrefix,
-                PassagePrefix = sources.PassagePrefix,
+                QueryPrefix = sources.Prompts.Query,
+                PassagePrefix = sources.Prompts.Passage,
+                DefaultPrefix = sources.Prompts.Default,
             };
 
         // GetVectorSpaceRevisionAsync answers the dimension from the files (catalog entry, then config.json);
@@ -356,8 +358,7 @@ public static class LocalEmbedder
         ModelInfo? CatalogInfo,
         int MaxSequenceLength,
         PoolingMode PoolingMode,
-        string? QueryPrefix,
-        string? PassagePrefix);
+        PromptPrefixes Prompts);
 
     private static async Task<OnnxSources> ResolveOnnxSourcesAsync(
         string modelIdOrPath,
@@ -518,19 +519,18 @@ public static class LocalEmbedder
             ?? PoolingMode.Mean;
         options.PoolingMode = poolingMode;
 
-        var (queryPrefix, passagePrefix) = SentenceTransformersModules.TryReadPrompts(modelRootDir);
+        var filePrompts = SentenceTransformersModules.TryReadPrompts(modelRootDir);
 
         // The catalog is the authority for the prefixes of a model it knows by name (as before: its entry, not the
         // repository's prompts); a repository-id model declares them in its own files or not at all. A file on disk
         // that only names a catalog model in its config may be a fine-tune of it: prompts its own files declare win.
-        var filesDeclarePrompts = queryPrefix is not null || passagePrefix is not null;
-        var (effectiveQuery, effectivePassage) = loadedModelInfo is not null && !(identityFromFiles && filesDeclarePrompts)
-            ? (loadedModelInfo.QueryPrefix, loadedModelInfo.PassagePrefix)
-            : (queryPrefix, passagePrefix);
+        var prompts = loadedModelInfo is not null && !(identityFromFiles && filePrompts.Any)
+            ? PromptPrefixes.Of(loadedModelInfo)
+            : filePrompts;
 
         return new OnnxSources(
             modelId, modelPath, tokenizerDir, modelRootDir, subfolder, repoIdForInfo, loadedModelInfo,
-            maxSequenceLength, poolingMode, effectiveQuery, effectivePassage);
+            maxSequenceLength, poolingMode, prompts);
     }
 
     /// <summary>
@@ -603,8 +603,9 @@ public static class LocalEmbedder
             Normalize: normalize,
             MaxSequenceLength: sources.MaxSequenceLength,
             Dimensions: dimensions,
-            QueryPrefix: sources.QueryPrefix,
-            PassagePrefix: sources.PassagePrefix);
+            QueryPrefix: sources.Prompts.Query,
+            PassagePrefix: sources.Prompts.Passage,
+            DefaultPrefix: sources.Prompts.Default);
 
     private static void LogProviderSelection(string modelId, ExecutionProvider requested, OnnxInferenceEngine engine)
     {
@@ -909,24 +910,22 @@ public static class LocalEmbedder
             throw GgufModelNotFound(modelIdOrPath);
         }
 
-        var (queryPrefix, passagePrefix) = ResolveGgufPrefixes(cleanPath);
         return await LlamaServerEmbeddingModel.LoadAsync(
             modelId,
             modelPath,
             options,
-            queryPrefix,
-            passagePrefix,
+            ResolveGgufPrefixes(cleanPath),
             progress,
             cancellationToken);
     }
 
     /// <summary>
-    /// The query/passage prefixes of the model a GGUF repository was converted from. A GGUF file carries no
+    /// The prompt prefixes of the model a GGUF repository was converted from. A GGUF file carries no
     /// sentence-transformers prompts, so a repository named "&lt;org&gt;/&lt;model&gt;-GGUF" takes the catalog entry of
     /// "&lt;org&gt;/&lt;model&gt;"; anything else (a local file, an unknown model) has none.
     /// </summary>
-    internal static (string? QueryPrefix, string? PassagePrefix) ResolveGgufPrefixes(string repoIdOrPath) =>
-        TryResolveGgufSourceModel(repoIdOrPath, out var info) ? (info!.QueryPrefix, info.PassagePrefix) : (null, null);
+    internal static PromptPrefixes ResolveGgufPrefixes(string repoIdOrPath) =>
+        TryResolveGgufSourceModel(repoIdOrPath, out var info) ? PromptPrefixes.Of(info!) : PromptPrefixes.None;
 
     /// <summary>
     /// The catalog entry of the model a GGUF repository was converted from: "&lt;org&gt;/&lt;model&gt;-GGUF" →

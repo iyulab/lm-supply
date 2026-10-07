@@ -55,21 +55,31 @@ internal static class SentenceTransformersModules
     }
 
     /// <summary>
-    /// The query and passage prompts the model declares under <c>prompts</c> in
-    /// <c>config_sentence_transformers.json</c> (<c>query</c>, and <c>passage</c> or <c>document</c>).
-    /// Most repositories declare none; the result is then <c>(null, null)</c>.
+    /// The prompts the model declares under <c>prompts</c> in <c>config_sentence_transformers.json</c>:
+    /// <c>query</c>, <c>passage</c> or <c>document</c>, and the one <c>default_prompt_name</c> names (what
+    /// sentence-transformers applies when a call names no prompt). Most repositories declare none; the result is then
+    /// <see cref="PromptPrefixes.None"/>.
     /// </summary>
-    public static (string? QueryPrefix, string? PassagePrefix) TryReadPrompts(params string?[] rootDirectories)
+    public static PromptPrefixes TryReadPrompts(params string?[] rootDirectories)
     {
         var root = ReadJson(rootDirectories, SentenceTransformersConfigFileName);
         if (root is not { ValueKind: JsonValueKind.Object } config
             || !config.TryGetProperty("prompts", out var prompts)
             || prompts.ValueKind != JsonValueKind.Object)
         {
-            return (null, null);
+            return PromptPrefixes.None;
         }
 
-        return (Prompt(prompts, "query"), Prompt(prompts, "passage") ?? Prompt(prompts, "document"));
+        var defaultPrompt = config.TryGetProperty("default_prompt_name", out var name)
+            && name.ValueKind == JsonValueKind.String
+            && name.GetString() is { Length: > 0 } promptName
+                ? Prompt(prompts, promptName)
+                : null;
+
+        return new PromptPrefixes(
+            Prompt(prompts, "query"),
+            Prompt(prompts, "passage") ?? Prompt(prompts, "document"),
+            defaultPrompt);
     }
 
     private static bool Flag(JsonElement config, string name) =>

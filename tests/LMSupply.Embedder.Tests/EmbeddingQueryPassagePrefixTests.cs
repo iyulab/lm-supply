@@ -4,8 +4,9 @@ using LMSupply.Embedder.Utils;
 namespace LMSupply.Embedder.Tests;
 
 /// <summary>
-/// Tests for IEmbeddingModel.EmbedQueryAsync/EmbedPassageAsync —
-/// default interface methods that apply ModelInfo.QueryPrefix/PassagePrefix automatically.
+/// Tests for IEmbeddingModel.EmbedAsync/EmbedQueryAsync/EmbedPassageAsync —
+/// default interface methods that apply ModelInfo.DefaultPrefix/QueryPrefix/PassagePrefix automatically
+/// over the implementor's EmbedRawAsync.
 /// Uses a minimal fake implementor to isolate the default-method prefix logic from any real
 /// tokenizer/model/GPU dependency. Default interface method bodies are only reachable through
 /// the interface type (not the concrete class), so tests call through an `IEmbeddingModel`-typed
@@ -125,9 +126,66 @@ public class EmbeddingQueryPassagePrefixTests
         recorder.LastDimensions.Should().Be(256);
     }
 
+    private static ModelInfo E5Info() => new()
+    {
+        RepoId = "intfloat/multilingual-e5-base",
+        Dimensions = 768,
+        MaxSequenceLength = 512,
+        PoolingMode = PoolingMode.Mean,
+        DoLowerCase = false,
+        QueryPrefix = "query: ",
+        PassagePrefix = "passage: ",
+        DefaultPrefix = "query: "
+    };
+
+    [Fact]
+    public async Task EmbedAsync_AppliesDefaultPrefix_WhenModelHasOne()
+    {
+        var recorder = new RecordingEmbeddingModel(E5Info());
+        IEmbeddingModel model = recorder;
+
+        await model.EmbedAsync("two sentences to compare", TestContext.Current.CancellationToken);
+
+        recorder.LastEmbeddedText.Should().Be("query: two sentences to compare");
+    }
+
+    [Fact]
+    public async Task EmbedAsync_Batch_WithDimensions_AppliesDefaultPrefixAndForwardsDimensions()
+    {
+        var recorder = new RecordingEmbeddingModel(E5Info());
+        IEmbeddingModel model = recorder;
+
+        await model.EmbedAsync(["a", "b"], 128, TestContext.Current.CancellationToken);
+
+        recorder.LastEmbeddedBatch.Should().Equal("query: a", "query: b");
+        recorder.LastDimensions.Should().Be(128);
+    }
+
+    [Fact]
+    public async Task EmbedAsync_IsRaw_WhenModelHasNoDefaultPrefix()
+    {
+        var recorder = new RecordingEmbeddingModel(E5Info() with { DefaultPrefix = null });
+        IEmbeddingModel model = recorder;
+
+        await model.EmbedAsync("as given", TestContext.Current.CancellationToken);
+
+        recorder.LastEmbeddedText.Should().Be("as given");
+    }
+
+    [Fact]
+    public async Task EmbedRawAsync_AppliesNoPrefix_EvenWhenModelDeclaresAll()
+    {
+        var recorder = new RecordingEmbeddingModel(E5Info());
+        IEmbeddingModel model = recorder;
+
+        await model.EmbedRawAsync("query: my own instruction", TestContext.Current.CancellationToken);
+
+        recorder.LastEmbeddedText.Should().Be("query: my own instruction");
+    }
+
     /// <summary>
     /// Minimal IEmbeddingModel fake that records what text/dimensions the default interface
-    /// methods (EmbedQueryAsync/EmbedPassageAsync) forwarded to EmbedAsync, instead of running
+    /// methods (EmbedAsync/EmbedQueryAsync/EmbedPassageAsync) forwarded to EmbedRawAsync, instead of running
     /// real inference.
     /// </summary>
     private sealed class RecordingEmbeddingModel(ModelInfo? modelInfo) : IEmbeddingModel
@@ -143,26 +201,26 @@ public class EmbeddingQueryPassagePrefixTests
         public ExecutionProvider RequestedProvider => ExecutionProvider.Cpu;
         public long? EstimatedMemoryBytes => null;
 
-        public ValueTask<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default)
+        public ValueTask<float[]> EmbedRawAsync(string text, CancellationToken cancellationToken = default)
         {
             LastEmbeddedText = text;
             return ValueTask.FromResult(new float[Dimensions]);
         }
 
-        public ValueTask<float[][]> EmbedAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
+        public ValueTask<float[][]> EmbedRawAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
         {
             LastEmbeddedBatch = texts;
             return ValueTask.FromResult(texts.Select(_ => new float[Dimensions]).ToArray());
         }
 
-        public ValueTask<float[]> EmbedAsync(string text, int dimensions, CancellationToken cancellationToken = default)
+        public ValueTask<float[]> EmbedRawAsync(string text, int dimensions, CancellationToken cancellationToken = default)
         {
             LastEmbeddedText = text;
             LastDimensions = dimensions;
             return ValueTask.FromResult(new float[dimensions]);
         }
 
-        public ValueTask<float[][]> EmbedAsync(IReadOnlyList<string> texts, int dimensions, CancellationToken cancellationToken = default)
+        public ValueTask<float[][]> EmbedRawAsync(IReadOnlyList<string> texts, int dimensions, CancellationToken cancellationToken = default)
         {
             LastEmbeddedBatch = texts;
             LastDimensions = dimensions;

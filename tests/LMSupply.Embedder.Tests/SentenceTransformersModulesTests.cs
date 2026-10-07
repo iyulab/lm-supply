@@ -108,7 +108,28 @@ public sealed class SentenceTransformersModulesTests : IDisposable
             }
             """);
 
-        SentenceTransformersModules.TryReadPrompts(_dir).Should().Be(("query: ", "passage: "));
+        SentenceTransformersModules.TryReadPrompts(_dir).Should().Be(new PromptPrefixes("query: ", "passage: ", null));
+    }
+
+    [Fact]
+    public void TheDefaultPromptName_NamesThePromptAnUnmarkedEmbeddingTakes()
+    {
+        WriteStConfig("""
+            {
+              "prompts": { "query": "query: ", "passage": "passage: ", "similarity": "sim: " },
+              "default_prompt_name": "similarity"
+            }
+            """);
+
+        SentenceTransformersModules.TryReadPrompts(_dir).Should().Be(new PromptPrefixes("query: ", "passage: ", "sim: "));
+    }
+
+    [Fact]
+    public void ADefaultPromptName_ThatNamesNoPrompt_DeclaresNoDefault()
+    {
+        WriteStConfig("""{ "prompts": { "query": "query: " }, "default_prompt_name": "missing" }""");
+
+        SentenceTransformersModules.TryReadPrompts(_dir).Default.Should().BeNull();
     }
 
     [Fact]
@@ -116,10 +137,10 @@ public sealed class SentenceTransformersModulesTests : IDisposable
     {
         WriteStConfig("""{ "__version__": { "sentence_transformers": "2.0.0", "transformers": "4.6.1", "pytorch": "1.8.1" } }""");
 
-        SentenceTransformersModules.TryReadPrompts(_dir).Should().Be(((string?)null, (string?)null));
+        SentenceTransformersModules.TryReadPrompts(_dir).Should().Be(PromptPrefixes.None);
     }
 
     [Fact]
     public void NoConfigFile_DeclaresNoPrompts() =>
-        SentenceTransformersModules.TryReadPrompts(_dir).Should().Be(((string?)null, (string?)null));
+        SentenceTransformersModules.TryReadPrompts(_dir).Should().Be(PromptPrefixes.None);
 }

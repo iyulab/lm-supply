@@ -14,6 +14,19 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   other load: file names, phases, byte counts and the runtime step instead of one fraction that restarted per file.
 - **`IGeneratorModelFactory.DownloadModelAsync` takes `IProgress<DownloadProgress>`; `ModelDownloadProgress` is
   removed.** Its adapter in the ONNX generator factory swapped the total and downloaded byte counts.
+- **`EmbedAsync` applies the model's prefix for text with no retrieval role** — `query: ` for the E5 family (its model
+  card prescribes it for every task other than retrieval, and warns of degraded results without a prefix),
+  `clustering: ` for nomic-embed-text-v1.5 (whose card requires a task prefix). It used to embed the bare text: a
+  vector these models were never trained to produce, matching neither the query nor the passage side. Models without
+  a prefix convention (BGE, GTE, MPNet) are unchanged. The new `ModelInfo.DefaultPrefix` carries it; a model loaded by
+  repository id reads it from `config_sentence_transformers.json`'s `default_prompt_name`, as sentence-transformers
+  does. `VectorSpaceRevision` changes for the models affected, so stored vectors are re-embedded; revisions of the
+  others stay as they were.
+- **`EmbedRawAsync`** (four overloads) embeds the text exactly as given, for text that already carries the
+  instruction the model expects. It replaces `EmbedAsync` as the member an `IEmbeddingModel` implementation provides;
+  `EmbedAsync`, `EmbedQueryAsync` and `EmbedPassageAsync` apply the model's conventions over it.
+- **`EmbeddingTextKind.Unspecified` is now `Default`** (the model's default prefix, and still the generator's default);
+  **`EmbeddingTextKind.Raw`** is the bare path.
 - **`LocalGenerator.LoadFromPathAsync(path, options, progress, cancellationToken)`** — `progress` comes before the
   token, as in `LoadAsync`. **`LocalSegmenter.LoadInteractiveAsync(id, options, progress, cancellationToken)`** — the
   same.

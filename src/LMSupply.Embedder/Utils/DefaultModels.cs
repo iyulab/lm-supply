@@ -53,6 +53,7 @@ internal static class DefaultModels
         Description = "Fast: multilingual-e5-small, 118M params, 100+ languages, lightweight",
         Subfolder = "onnx",
         QueryPrefix = "query: ",
+        DefaultPrefix = "query: ",
         PassagePrefix = "passage: "
     };
 
@@ -93,6 +94,7 @@ internal static class DefaultModels
         Description = "Large: multilingual-e5-large, 560M params, 100+ languages, highest dense quality",
         Subfolder = "onnx",
         QueryPrefix = "query: ",
+        DefaultPrefix = "query: ",
         PassagePrefix = "passage: "
     };
 
@@ -101,7 +103,7 @@ internal static class DefaultModels
     /// <summary>
     /// nomic-embed-text-v1.5, 137M params, English-first, Matryoshka 64–768d, 8K context.
     /// Recommended for English-only RAG pipelines; instruction prefixes applied automatically
-    /// via <see cref="ModelInfo.QueryPrefix"/>/<see cref="ModelInfo.PassagePrefix"/>.
+    /// via <see cref="ModelInfo.QueryPrefix"/>/<see cref="ModelInfo.PassagePrefix"/>/<see cref="ModelInfo.DefaultPrefix"/>.
     /// </summary>
     public static ModelInfo NomicEmbedTextV15 { get; } = new()
     {
@@ -117,6 +119,7 @@ internal static class DefaultModels
         Description = "137M params, English-first, Matryoshka 64–768d, 8K context",
         Subfolder = "onnx",
         QueryPrefix = "search_query: ",
+        DefaultPrefix = "clustering: ",
         PassagePrefix = "search_document: "
     };
 
@@ -193,6 +196,7 @@ internal static class DefaultModels
         Description = "33M params, English",
         Subfolder = "onnx",
         QueryPrefix = "query: ",
+        DefaultPrefix = "query: ",
         PassagePrefix = "passage: "
     };
 
@@ -213,6 +217,7 @@ internal static class DefaultModels
         Description = "110M params, excellent retrieval, English",
         Subfolder = "onnx",
         QueryPrefix = "query: ",
+        DefaultPrefix = "query: ",
         PassagePrefix = "passage: "
     };
 
@@ -233,6 +238,7 @@ internal static class DefaultModels
         Description = "118M params, 100+ languages, compact",
         Subfolder = "onnx",
         QueryPrefix = "query: ",
+        DefaultPrefix = "query: ",
         PassagePrefix = "passage: "
     };
 
@@ -253,6 +259,7 @@ internal static class DefaultModels
         Description = "278M params, 100+ languages, quality",
         Subfolder = "onnx",
         QueryPrefix = "query: ",
+        DefaultPrefix = "query: ",
         PassagePrefix = "passage: "
     };
 
@@ -273,6 +280,7 @@ internal static class DefaultModels
         Description = "560M params, 100+ languages, highest quality",
         Subfolder = "onnx",
         QueryPrefix = "query: ",
+        DefaultPrefix = "query: ",
         PassagePrefix = "passage: "
     };
 

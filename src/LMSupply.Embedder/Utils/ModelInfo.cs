@@ -65,6 +65,15 @@ public sealed record ModelInfo : IModelInfoBase, IModelMemoryInfo
     public string? PassagePrefix { get; init; }
 
     /// <summary>
+    /// Gets the text prefix this model's fine-tuning expects for text with no retrieval role — semantic similarity,
+    /// clustering, embeddings used as features (e.g. "query: " for the E5 family, whose model card prescribes it for
+    /// every task other than retrieval; "clustering: " for Nomic). Null when the model needs no prefix for such text.
+    /// Applied automatically by <see cref="IEmbeddingModel.EmbedAsync(string, System.Threading.CancellationToken)"/>;
+    /// the counterpart of sentence-transformers' <c>default_prompt_name</c>.
+    /// </summary>
+    public string? DefaultPrefix { get; init; }
+
+    /// <summary>
     /// Gets the subfolder within the HuggingFace repository.
     /// </summary>
     public string? Subfolder { get; init; }

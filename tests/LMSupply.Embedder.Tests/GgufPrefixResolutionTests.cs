@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using LMSupply.Embedder.Utils;
 
 namespace LMSupply.Embedder.Tests;
 
@@ -16,10 +17,8 @@ public class GgufPrefixResolutionTests
     [InlineData("nomic-ai/nomic-embed-text-v1.5_GGUF")]
     public void A_GGUF_repository_of_a_catalog_model_takes_its_prefixes(string repo)
     {
-        var (query, passage) = LocalEmbedder.ResolveGgufPrefixes(repo);
-
-        query.Should().Be("search_query: ");
-        passage.Should().Be("search_document: ");
+        LocalEmbedder.ResolveGgufPrefixes(repo).Should().Be(
+            new PromptPrefixes("search_query: ", "search_document: ", "clustering: "));
     }
 
     [Theory]
@@ -27,5 +26,5 @@ public class GgufPrefixResolutionTests
     [InlineData("nomic-ai/nomic-embed-text-v1.5")]  // not a GGUF repository name
     [InlineData("model.gguf")]                        // a local file name carries no repository
     public void Anything_else_has_no_prefixes(string repoOrPath)
-        => LocalEmbedder.ResolveGgufPrefixes(repoOrPath).Should().Be(((string?)null, (string?)null));
+        => LocalEmbedder.ResolveGgufPrefixes(repoOrPath).Should().Be(PromptPrefixes.None);
 }

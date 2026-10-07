@@ -17,7 +17,7 @@ public sealed class LocalEmbeddingGeneratorTests
     public async Task Vectors_ComeBackInInputOrder_WithTheModelId()
     {
         var model = new RecordingModel();
-        using var generator = model.AsEmbeddingGenerator();
+        using var generator = model.AsEmbeddingGenerator(EmbeddingTextKind.Raw);
 
         var result = await generator.GenerateAsync(["a", "bb", "ccc"], cancellationToken: Ct);
 
@@ -27,9 +27,10 @@ public sealed class LocalEmbeddingGeneratorTests
     }
 
     [Theory]
-    [InlineData(EmbeddingTextKind.Unspecified, "x")]
+    [InlineData(EmbeddingTextKind.Default, "query: x")]
     [InlineData(EmbeddingTextKind.Query, "query: x")]
     [InlineData(EmbeddingTextKind.Passage, "passage: x")]
+    [InlineData(EmbeddingTextKind.Raw, "x")]
     public async Task TextKind_AppliesTheModelsConvention(EmbeddingTextKind kind, string expected)
     {
         var model = new RecordingModel();
@@ -136,21 +137,22 @@ public sealed class LocalEmbeddingGeneratorTests
             DoLowerCase = false,
             QueryPrefix = "query: ",
             PassagePrefix = "passage: ",
+            DefaultPrefix = "query: ",
         };
 
-        public ValueTask<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default) =>
+        public ValueTask<float[]> EmbedRawAsync(string text, CancellationToken cancellationToken = default) =>
             ValueTask.FromResult(Vector(text, Dimensions));
 
-        public ValueTask<float[][]> EmbedAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
+        public ValueTask<float[][]> EmbedRawAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
         {
             LastTexts = texts;
             return ValueTask.FromResult(texts.Select(t => Vector(t, Dimensions)).ToArray());
         }
 
-        public ValueTask<float[]> EmbedAsync(string text, int dimensions, CancellationToken cancellationToken = default) =>
+        public ValueTask<float[]> EmbedRawAsync(string text, int dimensions, CancellationToken cancellationToken = default) =>
             ValueTask.FromResult(Vector(text, dimensions));
 
-        public ValueTask<float[][]> EmbedAsync(IReadOnlyList<string> texts, int dimensions, CancellationToken cancellationToken = default)
+        public ValueTask<float[][]> EmbedRawAsync(IReadOnlyList<string> texts, int dimensions, CancellationToken cancellationToken = default)
         {
             LastTexts = texts;
             LastDimensions = dimensions;

@@ -16,8 +16,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
     private readonly string _modelPath;
     private bool _disposed;
 
-    private readonly string? _queryPrefix;
-    private readonly string? _passagePrefix;
+    private readonly PromptPrefixes _prompts;
 
     private LlamaServerEmbeddingModel(
         string modelId,
@@ -27,11 +26,9 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         int dimensions,
         EmbedderOptions options,
         VectorSpaceDescriptor vectorSpace,
-        string? queryPrefix,
-        string? passagePrefix)
+        PromptPrefixes prompts)
     {
-        _queryPrefix = queryPrefix;
-        _passagePrefix = passagePrefix;
+        _prompts = prompts;
         ModelId = modelId;
         VectorSpaceRevision = vectorSpace.Revision;
         _modelPath = modelPath;
@@ -49,19 +46,19 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         EmbedderOptions options,
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
-        => LoadAsync(modelId, modelPath, options, queryPrefix: null, passagePrefix: null, progress, cancellationToken);
+        => LoadAsync(modelId, modelPath, options, PromptPrefixes.None, progress, cancellationToken);
 
     /// <summary>
-    /// Loads a GGUF embedding model whose query/passage prefixes are known (from the catalog entry of the model the GGUF
-    /// file was converted from). <see cref="IEmbeddingModel.EmbedQueryAsync(string, CancellationToken)"/> and
+    /// Loads a GGUF embedding model whose prompt prefixes are known (from the catalog entry of the model the GGUF file
+    /// was converted from). <see cref="IEmbeddingModel.EmbedAsync(string, CancellationToken)"/>,
+    /// <see cref="IEmbeddingModel.EmbedQueryAsync(string, CancellationToken)"/> and
     /// <see cref="IEmbeddingModel.EmbedPassageAsync(string, CancellationToken)"/> apply them, as they do on the ONNX path.
     /// </summary>
     internal static async Task<LlamaServerEmbeddingModel> LoadAsync(
         string modelId,
         string modelPath,
         EmbedderOptions options,
-        string? queryPrefix,
-        string? passagePrefix,
+        PromptPrefixes prompts,
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -175,8 +172,9 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             Normalize: options.NormalizeEmbeddings,
             MaxSequenceLength: options.MaxSequenceLength.Value,
             Dimensions: dimensions,
-            QueryPrefix: queryPrefix,
-            PassagePrefix: passagePrefix);
+            QueryPrefix: prompts.Query,
+            PassagePrefix: prompts.Passage,
+            DefaultPrefix: prompts.Default);
         System.Diagnostics.Trace.TraceInformation($"[LocalEmbedder.vectorspace] {modelId}: {vectorSpace.Canonical} -> {vectorSpace.Revision}");
 
         return new LlamaServerEmbeddingModel(
@@ -187,8 +185,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             dimensions,
             options,
             vectorSpace,
-            queryPrefix,
-            passagePrefix);
+            prompts);
     }
 
     /// <inheritdoc />
@@ -215,7 +212,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
     public ExecutionProvider RequestedProvider => _options.Provider;
 
     /// <inheritdoc />
-    public async ValueTask<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default)
+    public async ValueTask<float[]> EmbedRawAsync(string text, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
 
@@ -230,7 +227,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
     }
 
     /// <inheritdoc />
-    public async ValueTask<float[][]> EmbedAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
+    public async ValueTask<float[][]> EmbedRawAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
 
@@ -248,7 +245,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
     }
 
     /// <inheritdoc />
-    public async ValueTask<float[]> EmbedAsync(
+    public async ValueTask<float[]> EmbedRawAsync(
         string text,
         int dimensions,
         CancellationToken cancellationToken = default)
@@ -258,7 +255,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             throw new ArgumentOutOfRangeException(
                 nameof(dimensions), $"dimensions must be between 1 and {Dimensions}.");
 
-        var full = await EmbedAsync(text, cancellationToken);
+        var full = await EmbedRawAsync(text, cancellationToken);
         if (dimensions == Dimensions)
             return full;
 
@@ -268,7 +265,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
     }
 
     /// <inheritdoc />
-    public async ValueTask<float[][]> EmbedAsync(
+    public async ValueTask<float[][]> EmbedRawAsync(
         IReadOnlyList<string> texts,
         int dimensions,
         CancellationToken cancellationToken = default)
@@ -278,7 +275,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             throw new ArgumentOutOfRangeException(
                 nameof(dimensions), $"dimensions must be between 1 and {Dimensions}.");
 
-        var full = await EmbedAsync(texts, cancellationToken);
+        var full = await EmbedRawAsync(texts, cancellationToken);
         if (dimensions == Dimensions)
             return full;
 
@@ -296,7 +293,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
     {
         // Server is already warmed up during LoadAsync (test embedding)
         // Perform another embedding to ensure everything is ready
-        await EmbedAsync("warmup", cancellationToken);
+        await EmbedRawAsync("warmup", cancellationToken);
     }
 
     /// <inheritdoc />
@@ -307,8 +304,9 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         MaxSequenceLength = _options.MaxSequenceLength ?? EmbedderOptions.DefaultMaxSequenceLength,
         PoolingMode = _options.PoolingMode ?? PoolingMode.Mean,
         DoLowerCase = _options.DoLowerCase,
-        QueryPrefix = _queryPrefix,
-        PassagePrefix = _passagePrefix,
+        QueryPrefix = _prompts.Query,
+        PassagePrefix = _prompts.Passage,
+        DefaultPrefix = _prompts.Default,
         Description = $"GGUF embedding model via llama-server-{_lease.Current.Backend}"
     };
 

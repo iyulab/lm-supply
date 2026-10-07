@@ -32,6 +32,8 @@ namespace LMSupply.Embedder;
 /// <param name="Dimensions">The vector dimension the model produces.</param>
 /// <param name="QueryPrefix">The prefix <see cref="IEmbeddingModel.EmbedQueryAsync(string, CancellationToken)"/> prepends, if any.</param>
 /// <param name="PassagePrefix">The prefix <see cref="IEmbeddingModel.EmbedPassageAsync(string, CancellationToken)"/> prepends, if any.</param>
+/// <param name="DefaultPrefix">The prefix <see cref="IEmbeddingModel.EmbedAsync(string, CancellationToken)"/> prepends, if any.
+/// It enters <see cref="Canonical"/> only when set, so the revision of a model without one is the one it always had.</param>
 internal sealed record VectorSpaceDescriptor(
     string Backend,
     string ModelFile,
@@ -41,7 +43,8 @@ internal sealed record VectorSpaceDescriptor(
     int MaxSequenceLength,
     int Dimensions,
     string? QueryPrefix,
-    string? PassagePrefix)
+    string? PassagePrefix,
+    string? DefaultPrefix)
 {
     /// <summary>
     /// The epoch of this library's pooling and normalization code — raised when a release changes how
@@ -59,7 +62,8 @@ internal sealed record VectorSpaceDescriptor(
     public string Canonical =>
         $"vs/{Format};embedder/{EmbedderEpoch};backend={Backend};model={ModelFile};tokenizer={Tokenizer};" +
         $"pooling={Pooling};normalize={(Normalize ? '1' : '0')};maxseq={MaxSequenceLength};dims={Dimensions};" +
-        $"query={Escape(QueryPrefix)};passage={Escape(PassagePrefix)}";
+        $"query={Escape(QueryPrefix)};passage={Escape(PassagePrefix)}" +
+        (DefaultPrefix is null ? "" : $";default={Escape(DefaultPrefix)}");
 
     /// <summary>The opaque revision: the first 16 hex characters of SHA-256 over <see cref="Canonical"/>.</summary>
     public string Revision

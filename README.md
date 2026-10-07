@@ -114,8 +114,15 @@ string? early = await LocalEmbedder.GetVectorSpaceRevisionAsync("default");
 // GGUF models (via llama-server) - Auto-detected by repo name pattern
 await using var ggufModel = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF");
 float[] ggufEmbedding = await ggufModel.EmbedAsync("Hello from GGUF!");
-// "<org>/<model>-GGUF" takes the base model's query/passage prefixes from the catalog (0.72.1+)
+// "<org>/<model>-GGUF" takes the base model's prompt prefixes from the catalog (0.72.1+)
 float[] ggufQuery = await ggufModel.EmbedQueryAsync("what is GGUF?");   // "search_query: what is GGUF?"
+
+// Models trained with prefixes (E5, Nomic): EmbedAsync applies the model's convention for text with no
+// retrieval role ("query: " for E5, "clustering: " for Nomic); retrieval embeds each side with its own;
+// EmbedRawAsync embeds the text exactly as given, for text that already carries its instruction
+await using var e5 = await LocalEmbedder.LoadAsync("multilingual-e5-small");
+float[] similar = await e5.EmbedAsync("a sentence to compare");        // "query: a sentence to compare"
+float[] stored = await e5.EmbedPassageAsync("a document to index");    // "passage: a document to index"
 
 // Before the first download: what a first load would fetch, for a consent screen (0 for a local path)
 long bytes = await LocalEmbedder.GetDownloadSizeBytesAsync("default");
@@ -130,8 +137,9 @@ Every built-in Embedder, Reranker, Captioner and OCR model carries the licence o
 of the model it converts, which the conversion's own card often leaves out.
 
 A loaded model is also a Microsoft.Extensions.AI `IEmbeddingGenerator<string, Embedding<float>>`, so a library that takes
-the standard contract needs no adapter. The generator does not own the model. For models trained with query/passage
-prefixes (E5), use one generator per side:
+the standard contract needs no adapter. The generator does not own the model. By default it applies the model's convention
+for text with no retrieval role (as `EmbedAsync` does); for retrieval with a model trained with query/passage prefixes
+(E5), use one generator per side:
 
 ```csharp
 using LMSupply.Embedder;

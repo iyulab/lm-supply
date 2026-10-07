@@ -24,10 +24,17 @@ Console.WriteLine($"Dimensions: {embedding.Length}");
 
 ## Query/Passage Embeddings
 
-Some models (the E5 family, Nomic) are fine-tuned with an asymmetric text-prefix convention —
-query embeddings and document/passage embeddings need different prefixes for accurate retrieval.
-`EmbedQueryAsync`/`EmbedPassageAsync` apply the right prefix automatically from the model's
-`ModelInfo` (a no-op passthrough for models that don't need one):
+Some models (the E5 family, Nomic) are fine-tuned with a text-prefix convention — query embeddings
+and document/passage embeddings need different prefixes for accurate retrieval, and text with no
+retrieval role (similarity, clustering) takes a third. Every entry point applies the model's own
+convention from its `ModelInfo` (a no-op for models that don't need one):
+
+| Method | Prefix applied | E5 | Nomic |
+|---|---|---|---|
+| `EmbedAsync` | `DefaultPrefix` — similarity, clustering, features | `query: ` | `clustering: ` |
+| `EmbedQueryAsync` | `QueryPrefix` — the search side of retrieval | `query: ` | `search_query: ` |
+| `EmbedPassageAsync` | `PassagePrefix` — what retrieval searches | `passage: ` | `search_document: ` |
+| `EmbedRawAsync` | none — the text as given, for text that already carries its instruction | | |
 
 ```csharp
 await using var model = await LocalEmbedder.LoadAsync("multilingual-e5-base");
@@ -36,7 +43,9 @@ float[] queryEmbedding = await model.EmbedQueryAsync("what is the capital of Fra
 float[] passageEmbedding = await model.EmbedPassageAsync("Paris is the capital of France.");
 ```
 
-Batch and Matryoshka-truncated (`dimensions:`) overloads exist for both, mirroring `EmbedAsync`.
+Batch and Matryoshka-truncated (`dimensions:`) overloads exist for all four. A model loaded by
+repository id takes these from `config_sentence_transformers.json` (`prompts` and
+`default_prompt_name`), as sentence-transformers does.
 
 ## Available Models
 
@@ -69,7 +78,7 @@ loadable by their explicit short name (`LocalEmbedder.LoadAsync("multilingual-e5
 
 "Prefix" marks models fine-tuned with the query/passage convention (see
 [Query/Passage Embeddings](#querypassage-embeddings) above) — `—` means the model needs no prefix
-and `EmbedQueryAsync`/`EmbedPassageAsync` behave as a plain passthrough for it.
+and `EmbedAsync`/`EmbedQueryAsync`/`EmbedPassageAsync` embed its text as given.
 
 ## GPU Acceleration
 

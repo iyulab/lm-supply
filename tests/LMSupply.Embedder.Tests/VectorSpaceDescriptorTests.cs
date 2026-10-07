@@ -19,7 +19,8 @@ public sealed class VectorSpaceDescriptorTests
         MaxSequenceLength: 512,
         Dimensions: 384,
         QueryPrefix: null,
-        PassagePrefix: null);
+        PassagePrefix: null,
+        DefaultPrefix: null);
 
     [Fact]
     public void Revision_is_deterministic_and_short()
@@ -41,10 +42,19 @@ public sealed class VectorSpaceDescriptorTests
         Baseline().Revision.Should().Be("a62056feeca5361b");
     }
 
+    [Fact]
+    public void A_default_prefix_enters_the_canonical_line_only_when_set()
+    {
+        // Revisions of models without a default prefix are the ones they always had (the fact above), so adding the
+        // field asks no consumer to re-embed a model whose vectors did not change.
+        Baseline().Canonical.Should().NotContain("default=");
+        (Baseline() with { DefaultPrefix = "query: " }).Canonical.Should().EndWith(";default=query: ");
+    }
+
     public static TheoryData<string> Moves => new()
     {
         "model file (quantization variant)", "tokenizer signature (epoch)", "tokenizer signature (normalization)",
-        "pooling", "normalization", "sequence length", "dimensions", "query prefix", "passage prefix", "backend",
+        "pooling", "normalization", "sequence length", "dimensions", "query prefix", "passage prefix", "default prefix", "backend",
     };
 
     private static VectorSpaceDescriptor Move(string what, VectorSpaceDescriptor d) => what switch
@@ -58,6 +68,7 @@ public sealed class VectorSpaceDescriptorTests
         "dimensions" => d with { Dimensions = 768 },
         "query prefix" => d with { QueryPrefix = "query: " },
         "passage prefix" => d with { PassagePrefix = "passage: " },
+        "default prefix" => d with { DefaultPrefix = "query: " },
         "backend" => d with { Backend = "gguf" },
         _ => throw new ArgumentOutOfRangeException(nameof(what)),
     };
@@ -122,10 +133,10 @@ public sealed class VectorSpaceDescriptorTests
         public IReadOnlyList<string> ActiveProviders => [];
         public ExecutionProvider RequestedProvider => ExecutionProvider.Cpu;
         public long? EstimatedMemoryBytes => null;
-        public ValueTask<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default) => new([1f]);
-        public ValueTask<float[][]> EmbedAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default) => new([[1f]]);
-        public ValueTask<float[]> EmbedAsync(string text, int dimensions, CancellationToken cancellationToken = default) => new([1f]);
-        public ValueTask<float[][]> EmbedAsync(IReadOnlyList<string> texts, int dimensions, CancellationToken cancellationToken = default) => new([[1f]]);
+        public ValueTask<float[]> EmbedRawAsync(string text, CancellationToken cancellationToken = default) => new([1f]);
+        public ValueTask<float[][]> EmbedRawAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default) => new([[1f]]);
+        public ValueTask<float[]> EmbedRawAsync(string text, int dimensions, CancellationToken cancellationToken = default) => new([1f]);
+        public ValueTask<float[][]> EmbedRawAsync(IReadOnlyList<string> texts, int dimensions, CancellationToken cancellationToken = default) => new([[1f]]);
         public Task WarmupAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Utils.ModelInfo? GetModelInfo() => null;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

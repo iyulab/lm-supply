@@ -88,7 +88,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         }
     }
 
-    public async ValueTask<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default)
+    public async ValueTask<float[]> EmbedRawAsync(string text, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -121,7 +121,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         return result;
     }
 
-    public async ValueTask<float[][]> EmbedAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
+    public async ValueTask<float[][]> EmbedRawAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -188,7 +188,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         return results;
     }
 
-    public async ValueTask<float[]> EmbedAsync(
+    public async ValueTask<float[]> EmbedRawAsync(
         string text,
         int dimensions,
         CancellationToken cancellationToken = default)
@@ -198,7 +198,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
             throw new ArgumentOutOfRangeException(
                 nameof(dimensions), $"dimensions must be between 1 and {Dimensions}.");
 
-        var full = await EmbedAsync(text, cancellationToken);
+        var full = await EmbedRawAsync(text, cancellationToken);
         if (dimensions == Dimensions)
             return full;
 
@@ -207,7 +207,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         return truncated;
     }
 
-    public async ValueTask<float[][]> EmbedAsync(
+    public async ValueTask<float[][]> EmbedRawAsync(
         IReadOnlyList<string> texts,
         int dimensions,
         CancellationToken cancellationToken = default)
@@ -217,7 +217,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
             throw new ArgumentOutOfRangeException(
                 nameof(dimensions), $"dimensions must be between 1 and {Dimensions}.");
 
-        var full = await EmbedAsync(texts, cancellationToken);
+        var full = await EmbedRawAsync(texts, cancellationToken);
         if (dimensions == Dimensions)
             return full;
 
@@ -237,7 +237,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         // Perform a dummy inference to warm up the model
-        await EmbedAsync("warmup", cancellationToken);
+        await EmbedRawAsync("warmup", cancellationToken);
         _warmedUp = true;
     }
 

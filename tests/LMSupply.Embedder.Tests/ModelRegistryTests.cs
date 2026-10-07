@@ -171,21 +171,24 @@ public class ModelRegistryTests
     // --- Query/passage prefix convention ---
 
     [Theory]
-    [InlineData("fast", "query: ", "passage: ")]
-    [InlineData("large", "query: ", "passage: ")]
-    [InlineData("e5-small-v2", "query: ", "passage: ")]
-    [InlineData("e5-base-v2", "query: ", "passage: ")]
-    [InlineData("multilingual-e5-small", "query: ", "passage: ")]
-    [InlineData("multilingual-e5-base", "query: ", "passage: ")]
-    [InlineData("multilingual-e5-large", "query: ", "passage: ")]
-    [InlineData("nomic-embed-text-v1.5", "search_query: ", "search_document: ")]
-    public void E5AndNomicPresets_HaveQueryPassagePrefixes(string modelId, string queryPrefix, string passagePrefix)
+    [InlineData("fast", "query: ", "passage: ", "query: ")]
+    [InlineData("large", "query: ", "passage: ", "query: ")]
+    [InlineData("e5-small-v2", "query: ", "passage: ", "query: ")]
+    [InlineData("e5-base-v2", "query: ", "passage: ", "query: ")]
+    [InlineData("multilingual-e5-small", "query: ", "passage: ", "query: ")]
+    [InlineData("multilingual-e5-base", "query: ", "passage: ", "query: ")]
+    [InlineData("multilingual-e5-large", "query: ", "passage: ", "query: ")]
+    [InlineData("nomic-embed-text-v1.5", "search_query: ", "search_document: ", "clustering: ")]
+    public void E5AndNomicPresets_HavePromptPrefixes(string modelId, string queryPrefix, string passagePrefix, string defaultPrefix)
     {
+        // The default is what EmbedAsync applies: E5's card prescribes "query: " for every task other than retrieval,
+        // Nomic's requires a task prefix and names "clustering: " for grouping texts.
         _registry.TryResolve(modelId, out var info);
 
         info.Should().NotBeNull();
         info!.QueryPrefix.Should().Be(queryPrefix);
         info.PassagePrefix.Should().Be(passagePrefix);
+        info.DefaultPrefix.Should().Be(defaultPrefix);
     }
 
     [Theory]
@@ -195,12 +198,13 @@ public class ModelRegistryTests
     [InlineData("bge-base-en-v1.5")]
     [InlineData("bge-large-en-v1.5")]
     [InlineData("gte-large-en-v1.5")]
-    public void NonPrefixModels_HaveNullQueryPassagePrefixes(string modelId)
+    public void NonPrefixModels_HaveNoPromptPrefixes(string modelId)
     {
         _registry.TryResolve(modelId, out var info);
 
         info.Should().NotBeNull();
         info!.QueryPrefix.Should().BeNull();
         info.PassagePrefix.Should().BeNull();
+        info.DefaultPrefix.Should().BeNull();
     }
 }

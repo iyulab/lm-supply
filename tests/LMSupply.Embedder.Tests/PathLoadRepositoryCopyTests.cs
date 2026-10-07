@@ -89,7 +89,9 @@ public sealed class PathLoadRepositoryCopyLiveTests : IDisposable
 
         byPath.GetModelInfo()!.QueryPrefix.Should().Be("query: ");
         byPath.GetModelInfo()!.PassagePrefix.Should().Be("passage: ");
+        byPath.GetModelInfo()!.DefaultPrefix.Should().Be("query: ");
         (await byPath.EmbedQueryAsync("서울 날씨", ct)).Should().Equal(await byAlias.EmbedQueryAsync("서울 날씨", ct));
+        (await byPath.EmbedAsync("서울 날씨", ct)).Should().Equal(await byAlias.EmbedQueryAsync("서울 날씨", ct));
     }
 
     [Fact]
@@ -120,6 +122,7 @@ public sealed class PathLoadRepositoryCopyLiveTests : IDisposable
 
         byPath.GetModelInfo()!.QueryPrefix.Should().Be("search_query: ");
         byPath.GetModelInfo()!.PassagePrefix.Should().Be("search_document: ");
+        byPath.GetModelInfo()!.DefaultPrefix.Should().BeNull("the files declare the whole convention; the catalog's is not mixed in");
     }
 
     private void CopyAsRepository(bool declareRepository)
