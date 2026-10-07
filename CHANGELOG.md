@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.109.1] - 2026-10-07
+
+### Fixed
+- **llama-server is found on Linux with a CUDA backend.** The archive pattern was not anchored, so the CUDA runtime
+  companion (`cudart-llama-b<n>-bin-ubuntu-cuda-12.8-x64.tar.gz`), which the release lists first, was taken as the server
+  archive and the load failed with "llama-server executable not found". Every server pattern is now anchored, and the
+  runtime companion is also found under its Linux name, which carries the build number.
+- **AMD and Intel backends resolve against current llama.cpp releases.** `Hip` matches the `rocm-<version>` archives
+  (and the older `hip-radeon` name); `Sycl` on Linux takes the `sycl-fp32` build, llama.cpp's default SYCL configuration.
+  Before, both found nothing and fell back to CPU.
+
 ## [0.109.0] - 2026-10-07
 
 ### Changed

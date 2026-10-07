@@ -668,7 +668,13 @@ public sealed class LlamaServerDownloader : IDisposable
         };
     }
 
-    private static Regex GetAssetPattern(LlamaServerPlatform platform, LlamaServerArchitecture arch, LlamaServerBackend backend)
+    /// <summary>
+    /// Builds the regex that picks the llama-server archive for a platform, architecture and backend
+    /// out of a llama.cpp release. Anchored at both ends: the CUDA runtime companion
+    /// ("cudart-llama-b&lt;n&gt;-bin-ubuntu-cuda-12.8-x64.tar.gz") contains the server archive's name
+    /// as a suffix, so an unanchored pattern picks it whenever the release lists it first.
+    /// </summary>
+    internal static Regex GetAssetPattern(LlamaServerPlatform platform, LlamaServerArchitecture arch, LlamaServerBackend backend)
     {
         var os = platform switch
         {
@@ -685,49 +691,44 @@ public sealed class LlamaServerDownloader : IDisposable
             _ => throw new NotSupportedException()
         };
 
-        var backendStr = backend switch
-        {
-            LlamaServerBackend.Cpu => "cpu",
-            LlamaServerBackend.Vulkan => "vulkan",
-            LlamaServerBackend.Cuda12 => "cuda-12",
-            LlamaServerBackend.Cuda13 => "cuda-13",
-            LlamaServerBackend.Hip => "hip",
-            LlamaServerBackend.Sycl => "sycl",
-            LlamaServerBackend.Metal => "", // macOS arm64 has Metal by default
-            _ => throw new NotSupportedException()
-        };
+        const string ext = @"\.(zip|tar\.gz)$";
 
-        // Build pattern based on backend
+        // macOS: llama-b7898-bin-macos-arm64.tar.gz (Metal is built in)
         if (backend == LlamaServerBackend.Metal && platform == LlamaServerPlatform.MacOS)
-        {
-            // macOS arm64 Metal: llama-b7898-bin-macos-arm64.tar.gz
-            return new Regex($@"llama-b\d+-bin-{os}-{archStr}\.(zip|tar\.gz)$", RegexOptions.IgnoreCase);
-        }
+            return new Regex($@"^llama-b\d+-bin-{os}-{archStr}{ext}", RegexOptions.IgnoreCase);
 
         if (backend == LlamaServerBackend.Cpu)
         {
-            // CPU build: llama-b7898-bin-win-cpu-x64.zip
+            // Windows CPU: llama-b7898-bin-win-cpu-x64.zip
             if (platform == LlamaServerPlatform.Windows)
-                return new Regex($@"llama-b\d+-bin-{os}-cpu-{archStr}\.zip$", RegexOptions.IgnoreCase);
-            // Linux CPU: llama-b7898-bin-ubuntu-x64.tar.gz (no "cpu" in name)
-            return new Regex($@"llama-b\d+-bin-{os}-{archStr}\.(zip|tar\.gz)$", RegexOptions.IgnoreCase);
+                return new Regex($@"^llama-b\d+-bin-{os}-cpu-{archStr}\.zip$", RegexOptions.IgnoreCase);
+            // Linux/macOS CPU: llama-b7898-bin-ubuntu-x64.tar.gz (no "cpu" in the name)
+            return new Regex($@"^llama-b\d+-bin-{os}-{archStr}{ext}", RegexOptions.IgnoreCase);
         }
 
         // GPU builds: llama-b7898-bin-win-vulkan-x64.zip
-        // CUDA builds have minor version: llama-b7902-bin-win-cuda-12.4-x64.zip
-        // HIP builds have suffix: llama-b7902-bin-win-hip-radeon-x64.zip
         var backendPattern = backend switch
         {
-            LlamaServerBackend.Cuda12 or LlamaServerBackend.Cuda13 => $@"{backendStr}\.\d+",
-            LlamaServerBackend.Hip => @"hip-radeon",
-            _ => backendStr
+            LlamaServerBackend.Vulkan => "vulkan",
+            // CUDA carries the toolkit minor: llama-b11459-bin-ubuntu-cuda-12.8-x64.tar.gz
+            LlamaServerBackend.Cuda12 => @"cuda-12\.\d+",
+            LlamaServerBackend.Cuda13 => @"cuda-13\.\d+",
+            // AMD: "rocm-<version>" in current releases, "hip-radeon" in older ones
+            LlamaServerBackend.Hip => @"(?:rocm-\d+(?:\.\d+)*|hip-radeon)",
+            // Intel: Windows ships one "sycl" build; Linux ships "sycl-fp16" and "sycl-fp32" and the FP32
+            // build is taken — it is llama.cpp's default SYCL configuration (GGML_SYCL_F16 off)
+            LlamaServerBackend.Sycl => @"sycl(?:-fp32)?",
+            // No such asset outside macOS: nothing matches and resolution falls back to CPU
+            LlamaServerBackend.Metal => "metal",
+            _ => throw new NotSupportedException()
         };
-        return new Regex($@"llama-b\d+-bin-{os}-{backendPattern}-{archStr}\.(zip|tar\.gz)$", RegexOptions.IgnoreCase);
+        return new Regex($@"^llama-b\d+-bin-{os}-{backendPattern}-{archStr}{ext}", RegexOptions.IgnoreCase);
     }
 
     /// <summary>
     /// Builds a regex matching the CUDA-runtime companion asset (cudart/cublas/cublasLt) that
-    /// llama.cpp ships SEPARATELY for a CUDA backend, e.g. "cudart-llama-bin-win-cuda-12.4-x64.zip".
+    /// llama.cpp ships SEPARATELY for a CUDA backend: "cudart-llama-bin-win-cuda-12.4-x64.zip" on Windows,
+    /// "cudart-llama-b&lt;n&gt;-bin-ubuntu-cuda-12.8-x64.tar.gz" (with the build number) on Linux.
     /// The main "llama-b&lt;n&gt;-bin-...-cuda-..." archive does NOT contain the runtime, so without
     /// this companion the cuda binary silently falls back to CPU. Matches any cuda minor for the
     /// backend major. Returns null for non-CUDA backends (no companion needed) and for macOS
@@ -761,7 +762,7 @@ public sealed class LlamaServerDownloader : IDisposable
         };
 
         return new Regex(
-            $@"^cudart-llama-bin-{os}-cuda-{major}\.\d+-{archStr}\.(zip|tar\.gz)$",
+            $@"^cudart-llama-(?:b\d+-)?bin-{os}-cuda-{major}\.\d+-{archStr}\.(zip|tar\.gz)$",
             RegexOptions.IgnoreCase);
     }
 
