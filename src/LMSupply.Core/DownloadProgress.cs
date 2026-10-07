@@ -79,6 +79,13 @@ public record DownloadProgress
     public DownloadPhase Phase { get; init; } = DownloadPhase.Downloading;
 
     /// <summary>
+    /// Gets what is being fetched: the model's files, or a runtime a first load provisions once per host and shares
+    /// between models (the native ONNX Runtime, llama-server). A load reports both through one progress callback; this
+    /// tells them apart, so a long first-run runtime step can be shown as such.
+    /// </summary>
+    public DownloadKind Kind { get; init; } = DownloadKind.Model;
+
+    /// <summary>
     /// Gets a human-readable speed string (e.g., "15.3 MB/s").
     /// </summary>
     public string SpeedDisplay => BytesPerSecond switch
@@ -99,6 +106,30 @@ public record DownloadProgress
         { TotalMinutes: < 60 } eta => $"{eta.Minutes}m {eta.Seconds}s",
         _ => EstimatedRemaining.Value.ToString(@"h\h\ m\m", CultureInfo.InvariantCulture)
     };
+}
+
+/// <summary>
+/// What a <see cref="DownloadProgress"/> report is about.
+/// </summary>
+public enum DownloadKind
+{
+    /// <summary>The model's own files.</summary>
+    Model,
+
+    /// <summary>A runtime the load provisions once per host: the native ONNX Runtime, or llama-server.</summary>
+    Runtime,
+}
+
+/// <summary>
+/// Tags every report passing through it as <see cref="DownloadKind.Runtime"/>, so the progress a runtime download shares
+/// with the generic file download (byte counts, speed) reaches the caller marked as runtime progress.
+/// </summary>
+internal sealed class RuntimeDownloadProgress(IProgress<DownloadProgress> inner) : IProgress<DownloadProgress>
+{
+    public void Report(DownloadProgress value) => inner.Report(value with { Kind = DownloadKind.Runtime });
+
+    public static IProgress<DownloadProgress>? Wrap(IProgress<DownloadProgress>? progress) =>
+        progress is null or RuntimeDownloadProgress ? progress : new RuntimeDownloadProgress(progress);
 }
 
 /// <summary>

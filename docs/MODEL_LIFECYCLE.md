@@ -61,11 +61,17 @@ await using var model = await LocalEmbedder.LoadAsync("default", options);
 ```csharp
 var progress = new Progress<DownloadProgress>(p =>
 {
-    Console.WriteLine($"Downloading: {p.OverallPercentComplete:F0}%");
+    // A first load can also fetch a runtime (the native ONNX Runtime, llama-server) once per host
+    var what = p.Kind == DownloadKind.Runtime ? "Preparing runtime" : "Downloading model";
+    Console.WriteLine($"{what} {p.FileName}: {p.Phase} {p.OverallPercentComplete:F0}%");
 });
 
 await using var model = await LocalEmbedder.LoadAsync("default", progress: progress);
 ```
+
+Runtime reports carry `DownloadKind.Runtime`, the package or archive being fetched as `FileName`, and a phase
+(`Preparing`, `Downloading` with byte counts, `Extracting`, `Complete`); a runtime already on disk is one `Complete`
+report. Which loads forward runtime progress today: the embedder and reranker ONNX paths and every llama-server path.
 
 ---
 

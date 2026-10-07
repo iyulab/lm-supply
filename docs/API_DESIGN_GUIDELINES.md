@@ -334,7 +334,9 @@ public record DownloadProgress
     int TotalFileCount,               // 0 for single-file
     long? OverallBytesDownloaded,     // whole download, null when a file size is unknown
     long? OverallTotalBytes,          // whole download, null when a file size is unknown
-    double OverallPercentComplete     // overall (0-100): byte-weighted when sizes are known, else by file count
+    double OverallPercentComplete,    // overall (0-100): byte-weighted when sizes are known, else by file count
+    DownloadPhase Phase,              // Preparing, Downloading, Extracting, Verifying, Finalizing, Complete
+    DownloadKind Kind                 // Model, or Runtime (the native ONNX Runtime, llama-server) a first load provisions
 }
 
 // Usage

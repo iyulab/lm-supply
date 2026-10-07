@@ -64,6 +64,8 @@ public sealed class OnnxNuGetDownloader : IDisposable
         string packageType = RuntimePackageRegistry.PackageTypes.OnnxRuntime,
         CancellationToken cancellationToken = default)
     {
+        progress = RuntimeDownloadProgress.Wrap(progress);
+
         // Get package configuration from registry
         var config = RuntimePackageRegistry.GetPackageConfig(
             packageType,
@@ -101,7 +103,7 @@ public sealed class OnnxNuGetDownloader : IDisposable
             if (Directory.Exists(cachePath) && IsValidCache(cachePath, config, platform))
             {
                 Trace.TraceInformation($"[OnnxNuGetDownloader] Using cached binaries: {cachePath}");
-                ReportCacheHit(progress);
+                ReportCacheHit(progress, config.NativeLibraryName);
                 return cachePath;
             }
 
@@ -130,7 +132,7 @@ public sealed class OnnxNuGetDownloader : IDisposable
             Trace.TraceWarning(
                 $"[OnnxNuGetDownloader] Package feed unreachable ({feedFailure}); using cached {existingCache} instead of {wanted}. " +
                 $"The managed and native ONNX Runtime versions may differ until the feed is reachable again.");
-            ReportCacheHit(progress);
+            ReportCacheHit(progress, config.NativeLibraryName);
             return existingCache;
         }
 
@@ -200,11 +202,13 @@ public sealed class OnnxNuGetDownloader : IDisposable
     {
         var downloadUrl = NuGetPackageResolver.GetPackageDownloadUrl(config.PackageId, version);
 
+        var packageFile = $"{config.PackageId}.{version}.nupkg";
         progress?.Report(new DownloadProgress
         {
-            FileName = $"{config.PackageId}.{version}.nupkg",
+            FileName = packageFile,
             BytesDownloaded = 0,
-            TotalBytes = 0
+            TotalBytes = 0,
+            Phase = DownloadPhase.Preparing,
         });
 
         var tempDir = Path.Combine(Path.GetTempPath(), $"lmsupply-onnx-{Guid.NewGuid()}");
@@ -220,9 +224,10 @@ public sealed class OnnxNuGetDownloader : IDisposable
             // Extract native binaries
             progress?.Report(new DownloadProgress
             {
-                FileName = "Extracting native libraries...",
+                FileName = packageFile,
                 BytesDownloaded = 0,
-                TotalBytes = 0
+                TotalBytes = 0,
+                Phase = DownloadPhase.Extracting,
             });
 
             var extractedPath = await ExtractNativeBinariesAsync(
@@ -240,9 +245,10 @@ public sealed class OnnxNuGetDownloader : IDisposable
 
             progress?.Report(new DownloadProgress
             {
-                FileName = $"{config.NativeLibraryName} ready",
+                FileName = packageFile,
                 BytesDownloaded = 1,
-                TotalBytes = 1
+                TotalBytes = 1,
+                Phase = DownloadPhase.Complete,
             });
 
             return cachePath;
@@ -501,13 +507,16 @@ public sealed class OnnxNuGetDownloader : IDisposable
         return null;
     }
 
-    private static void ReportCacheHit(IProgress<DownloadProgress>? progress)
+    // The runtime is already on disk: one Complete report names it, so a caller's progress view does not wait on it.
+    internal static void ReportCacheHit(IProgress<DownloadProgress>? progress, string runtimeName)
     {
         progress?.Report(new DownloadProgress
         {
-            FileName = "Using cached runtime (already downloaded)",
+            FileName = runtimeName,
             BytesDownloaded = 1,
-            TotalBytes = 1
+            TotalBytes = 1,
+            Phase = DownloadPhase.Complete,
+            Kind = DownloadKind.Runtime,
         });
     }
 

@@ -406,6 +406,7 @@ public sealed class LlamaServerDownloader : IDisposable
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = RuntimeDownloadProgress.Wrap(progress);
         var versionDir = Path.Combine(_cacheDirectory, asset.Version, asset.Backend.ToString().ToLowerInvariant());
         var serverPath = GetServerExecutablePath(versionDir, asset.Platform);
 

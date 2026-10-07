@@ -97,6 +97,7 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = RuntimeDownloadProgress.Wrap(progress);
         if (_options.UpdateOnWarmup && !IsPinned)
         {
             var updated = await CheckAndApplyUpdateAsync(backend, progress, cancellationToken);
@@ -297,6 +298,7 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = RuntimeDownloadProgress.Wrap(progress);
         // A pinned installation (exact version or an externally supplied binary) never re-checks
         // for or auto-applies a newer version — that is the whole point of pinning for an
         // offline/security-reviewed deployment (see LlamaServerUpdateOptions.PinnedVersion/

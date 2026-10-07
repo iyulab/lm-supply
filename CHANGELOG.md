@@ -7,12 +7,21 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Added
+- **`DownloadProgress.Kind`** (`DownloadKind.Model` / `DownloadKind.Runtime`): a load reports the model download and
+  a first-run runtime download (the native ONNX Runtime, llama-server) through one callback, and a caller can now tell
+  them apart.
 - **`GetRemainingDownloadBytesAsync`** beside every `GetDownloadSizeBytesAsync` (Embedder, Reranker, Generator,
   Captioner, OCR, Transcriber): what a load with the same id and options would still download now — the files the cache
   does not hold at the length the repository lists. `GetDownloadSizeBytesAsync` stays the whole first-run download, so
   a consent screen asked again for a model already on disk; this answers 0 once it is cached, and the missing part of a
   partly cached model. `DownloadPlan.GetRemainingBytes(cacheDir)` is the shared rule, including GGUF files in the tree
   earlier versions wrote.
+
+### Fixed
+- **Runtime download progress names what it fetches and the phase it is in.** The ONNX Runtime package download put
+  status text in `FileName` ("Extracting native libraries...", "Using cached runtime (already downloaded)") and left
+  every report in the `Downloading` phase. Reports now name the package, carry `Preparing`, `Extracting` and
+  `Complete`, and a cached runtime is one `Complete` report naming it.
 
 ## [0.111.0] - 2026-10-07
 
