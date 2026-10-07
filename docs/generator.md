@@ -522,7 +522,7 @@ await using var model = await LocalGenerator.LoadAsync("unsloth/Qwen3-32B-GGUF")
 await using var model = await LocalGenerator.LoadAsync("mistralai/Ministral-3-3B-Instruct-2512-GGUF");
 
 // Specify a particular quantization file
-// One specific file: download it by name, then load the path.
+// One specific file: download it by name, then load the path (GgufModelDownloader is in LMSupply.Generator.Gguf).
 using var downloader = new GgufModelDownloader();
 var path = await downloader.DownloadAsync("bartowski/Qwen2.5-7B-Instruct-GGUF", "Qwen2.5-7B-Instruct-Q5_K_M.gguf");
 await using var pinned = await LocalGenerator.LoadFromPathAsync(path);
@@ -1010,6 +1010,8 @@ await foreach (var token in model.GenerateChatAsync(messages, options))
 To check whether a model has this issue programmatically:
 
 ```csharp
+using LMSupply.Generator.Gguf;
+
 var info = GgufModelRegistry.Resolve("gguf:qwen3-default");
 bool thinkingOn = info?.KnownIssues.Contains(GgufModelKnownIssues.ThinkingEnabledByDefault) == true;
 ```

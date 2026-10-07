@@ -1,4 +1,4 @@
-using LMSupply.Generator.Internal.Llama;
+using LMSupply.Generator.Gguf;
 
 namespace LMSupply.Generator;
 

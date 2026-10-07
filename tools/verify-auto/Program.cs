@@ -3,7 +3,7 @@ using LMSupply;
 using LMSupply.Diagnostics;
 using LMSupply.Generator;
 using LMSupply.Generator.Abstractions;
-using LMSupply.Generator.Internal.Llama;
+using LMSupply.Generator.Gguf;
 using LMSupply.Generator.Models;
 using LMSupply.Hardware;
 

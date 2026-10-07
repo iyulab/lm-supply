@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using LMSupply.Generator.Abstractions;
+using LMSupply.Generator.Gguf;
 using LMSupply.Generator.Internal.Llama;
 using Xunit;
 

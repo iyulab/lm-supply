@@ -1,7 +1,7 @@
 using System.Text;
 using AwesomeAssertions;
 using LMSupply.Generator.Internal;
-using LMSupply.Generator.Internal.Llama;
+using LMSupply.Generator.Gguf;
 using LMSupply.Generator.Models;
 using Xunit;
 

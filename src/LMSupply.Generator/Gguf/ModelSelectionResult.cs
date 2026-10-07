@@ -1,4 +1,5 @@
-namespace LMSupply.Generator.Internal.Llama;
+
+namespace LMSupply.Generator.Gguf;
 
 /// <summary>
 /// Why a particular GGUF model was chosen by auto-selection.

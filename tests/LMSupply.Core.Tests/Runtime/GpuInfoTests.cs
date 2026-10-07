@@ -165,9 +165,7 @@ public class GpuInfoTests
         var providers = gpu.GetFallbackProviders();
 
         providers.Should().StartWith(ExecutionProvider.Cuda);
-#pragma warning disable CS0618 // the assertion is that the obsolete member is absent
-        providers.Should().NotContain(ExecutionProvider.DirectML);
-#pragma warning restore CS0618
+        providers.Should().NotContain((ExecutionProvider)2);
         providers.Should().EndWith(ExecutionProvider.Cpu);
     }
 

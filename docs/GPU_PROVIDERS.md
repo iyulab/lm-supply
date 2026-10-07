@@ -8,8 +8,9 @@ LMSupply uses ONNX Runtime for inference, which supports multiple execution prov
 
 > **DirectML removed (0.67.0).** ONNX Runtime 1.25+ ships no DirectML execution provider and the
 > `Microsoft.ML.OnnxRuntime.DirectML` package line ends at 1.24.4, so no build of LMSupply on the
-> current runtime (1.30.0) can provision it. `ExecutionProvider.DirectML` is obsolete: an explicit
-> request throws `NotSupportedException` on every path (ONNX session, GenAI, llama-server), and `Auto`
+> current runtime (1.30.0) can provision it. `ExecutionProvider.DirectML` was removed in 0.111.0; a
+> setting that still holds it is refused with `NotSupportedException` on every path (ONNX session, GenAI,
+> llama-server), and `Auto`
 > no longer tries it — on a Windows machine without CUDA, ONNX sessions run on CPU and the library
 > says so once per process in `Trace`. GGUF/llama-server paths still use the GPU through Vulkan
 > (`LlamaBackendSelector`). A machine that had cached the 1.24.4 native from an older release was

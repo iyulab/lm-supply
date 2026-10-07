@@ -2,7 +2,7 @@ using System.Collections;
 using System.Reflection;
 using AwesomeAssertions;
 using LMSupply.Core.Download;
-using LMSupply.Generator.Internal.Llama;
+using LMSupply.Generator.Gguf;
 
 namespace LMSupply.Integration.Tests;
 

@@ -3,7 +3,7 @@ using AwesomeAssertions;
 namespace LMSupply.Reranker.Tests;
 
 /// <summary>
-/// An explicit <see cref="ExecutionProvider.DirectML"/> pin is refused at the entry point — before any
+/// An explicit <c>ExecutionProvider</c> value 2 (DirectML, removed in 0.111.0) pin is refused at the entry point — before any
 /// model resolution or download (0.67.1; see the embedder's twin test).
 /// </summary>
 public sealed class UnsupportedProviderRefusalTests : IDisposable
@@ -19,9 +19,7 @@ public sealed class UnsupportedProviderRefusalTests : IDisposable
     [Fact]
     public async Task ExplicitDirectML_IsRefusedBeforeAnyDownload()
     {
-#pragma warning disable CS0618
-        var options = new RerankerOptions { CacheDirectory = _cacheDir, Provider = ExecutionProvider.DirectML };
-#pragma warning restore CS0618
+        var options = new RerankerOptions { CacheDirectory = _cacheDir, Provider = (ExecutionProvider)2 };
 
         var load = () => LocalReranker.LoadAsync("default", options, cancellationToken: TestContext.Current.CancellationToken);
 

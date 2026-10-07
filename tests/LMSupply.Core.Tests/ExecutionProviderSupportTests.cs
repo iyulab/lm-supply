@@ -37,12 +37,20 @@ public class ExecutionProviderSupportTests
     }
 
     [Fact]
+    public void AValueThatIsNotAProvider_IsRefusedAsOutOfRange()
+    {
+        ExecutionProviderSupport.IsSupported((ExecutionProvider)99).Should().BeFalse();
+
+        var act = () => ExecutionProviderSupport.ThrowIfUnsupported((ExecutionProvider)99);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
     public void DirectML_IsRefused_WithTheReasonAndTheAlternatives()
     {
-#pragma warning disable CS0618 // the member is obsolete because this class refuses it
-        ExecutionProviderSupport.IsSupported(ExecutionProvider.DirectML).Should().BeFalse();
-        var act = () => ExecutionProviderSupport.ThrowIfUnsupported(ExecutionProvider.DirectML);
-#pragma warning restore CS0618
+        ExecutionProviderSupport.IsSupported((ExecutionProvider)2).Should().BeFalse();
+        var act = () => ExecutionProviderSupport.ThrowIfUnsupported((ExecutionProvider)2);
 
         var ex = act.Should().Throw<NotSupportedException>().Which;
         ex.Message.Should().Contain("1.24.4", "the caller learns why: the package line ended there");

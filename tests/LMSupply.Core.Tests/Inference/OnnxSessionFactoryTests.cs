@@ -61,9 +61,7 @@ public class OnnxSessionFactoryTests
 
         var fallbackChain = gpu!.GetFallbackProviders();
 
-#pragma warning disable CS0618 // the assertion is that the obsolete member is absent
-        fallbackChain.Should().NotContain(ExecutionProvider.DirectML);
-#pragma warning restore CS0618
+        fallbackChain.Should().NotContain((ExecutionProvider)2);
         fallbackChain.Should().EndWith(ExecutionProvider.Cpu);
     }
 
@@ -72,11 +70,9 @@ public class OnnxSessionFactoryTests
     {
         // The refusal happens before provisioning or any file access: the model path here does not
         // exist, and a session on a different provider would fail on that instead.
-#pragma warning disable CS0618
         var act = async () => await OnnxSessionFactory.CreateWithInfoAsync(
-            "/nonexistent/directml-refusal.onnx", ExecutionProvider.DirectML,
+            "/nonexistent/directml-refusal.onnx", (ExecutionProvider)2,
             cancellationToken: TestContext.Current.CancellationToken);
-#pragma warning restore CS0618
 
         (await act.Should().ThrowAsync<NotSupportedException>())
             .WithMessage("*DirectML*1.24.4*ExecutionProvider.Auto*");
@@ -86,9 +82,7 @@ public class OnnxSessionFactoryTests
     public void ConfigureExecutionProvider_DirectML_ThrowsNotSupported()
     {
         using var options = new Microsoft.ML.OnnxRuntime.SessionOptions();
-#pragma warning disable CS0618
-        var act = () => OnnxSessionFactory.ConfigureExecutionProvider(options, ExecutionProvider.DirectML);
-#pragma warning restore CS0618
+        var act = () => OnnxSessionFactory.ConfigureExecutionProvider(options, (ExecutionProvider)2);
         act.Should().Throw<NotSupportedException>().WithMessage("*DirectML*");
     }
 

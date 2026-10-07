@@ -72,7 +72,7 @@ public static class LocalGenerator
         // fall through to SplitQualifier, producing ("gguf", "phi-4-mini") and then calling
         // GgufModelDownloader with repoId="gguf", triggering a HF 401.
         if (modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ||
-            Internal.Llama.GgufModelRegistry.IsAlias(modelId))
+            Gguf.GgufModelRegistry.IsAlias(modelId))
         {
             return Internal.GeneratorModelLoader.LoadAsync(modelId, options, progress, cancellationToken);
         }
@@ -192,7 +192,7 @@ public static class LocalGenerator
         }
 
         if (modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ||
-            Internal.Llama.GgufModelRegistry.IsAlias(modelId))
+            Gguf.GgufModelRegistry.IsAlias(modelId))
         {
             return (modelId, false);
         }
@@ -268,7 +268,7 @@ public static class LocalGenerator
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
 
         if (modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ||
-            Internal.Llama.GgufModelRegistry.IsAlias(modelId))
+            Gguf.GgufModelRegistry.IsAlias(modelId))
         {
             return IsGgufModelCached(modelId, options, cacheDir);
         }
@@ -303,8 +303,8 @@ public static class LocalGenerator
 
     private static bool IsGgufModelCached(string modelId, GeneratorOptions options, string cacheDir)
     {
-        using var downloader = new Internal.Llama.GgufModelDownloader(cacheDir, localFilesOnly: true);
-        var registryInfo = Internal.Llama.GgufModelRegistry.Resolve(modelId, options.SelectionProvider, options.MaxContextLength, options.AutoSelectionGoal);
+        using var downloader = new Gguf.GgufModelDownloader(cacheDir, localFilesOnly: true);
+        var registryInfo = Gguf.GgufModelRegistry.Resolve(modelId, options.SelectionProvider, options.MaxContextLength, options.AutoSelectionGoal);
         if (registryInfo is not null)
         {
             return downloader.IsRegistryModelCached(registryInfo, options.SelectionProvider, options.MaxContextLength);
@@ -466,7 +466,7 @@ public static class LocalGenerator
     }
 
     private static SelectionDiagnostics BuildGgufDiagnostics(
-        HardwareProfile profile, Internal.Llama.ModelSelectionResult selection)
+        HardwareProfile profile, Gguf.ModelSelectionResult selection)
         => new()
         {
             TotalVramBytes = profile.GpuInfo.TotalMemoryBytes,
@@ -489,7 +489,7 @@ public static class LocalGenerator
         // CPU — selects from system memory without probing the GPU.
         var profile = HardwareProfile.For(options.SelectionProvider);
         // Sized for the load's context like "gguf:auto" (GeneratorModelLoader) — one rule for all three names.
-        var selection = Internal.Llama.GgufModelRegistry.GetAutoSelection(
+        var selection = Gguf.GgufModelRegistry.GetAutoSelection(
             options.SelectionProvider, options.MaxContextLength, options.AutoSelectionGoal);
         // Pass the alias (e.g. "gguf:gemma4-fast") rather than RepoId so the downstream
         // loader can re-resolve the registry entry and use its DefaultFile. Passing
@@ -503,7 +503,7 @@ public static class LocalGenerator
     }
 
     private static void LogGgufAutoSelection(
-        HardwareProfile profile, Internal.Llama.ModelSelectionResult selection)
+        HardwareProfile profile, Gguf.ModelSelectionResult selection)
     {
         const double mb = 1024.0 * 1024.0;
         var vramTotalMb = (profile.GpuInfo.TotalMemoryBytes ?? 0) / mb;
@@ -547,7 +547,7 @@ public static class LocalGenerator
                 $"({(c.Fits ? "fits" : "OVER BUDGET")})");
         }
 
-        if (selection.Reason == Internal.Llama.ModelSelectionReason.FallbackToSmallest)
+        if (selection.Reason == Gguf.ModelSelectionReason.FallbackToSmallest)
         {
             System.Diagnostics.Trace.TraceWarning(
                 $"[LocalGenerator.auto] WARNING: no registered model fits in {budgetMb:F0}MB budget. " +

@@ -43,9 +43,7 @@ public class LlamaBackendSelectorTests
         // format. Auto still picks Vulkan for this GPU (Intel Arc: Vulkan on every OS — an AMD GPU would be HIP
         // on Linux, which is a vendor question, not the one this test asks); the caller is told to use it.
         var gpu = Gpu(GpuVendor.Intel, "Intel(R) Arc(TM) A770", total: 12 * GB, directMl: true);
-#pragma warning disable CS0618
-        var act = () => LlamaBackendSelector.MapProvider(ExecutionProvider.DirectML, gpu);
-#pragma warning restore CS0618
+        var act = () => LlamaBackendSelector.MapProvider((ExecutionProvider)2, gpu);
         act.Should().Throw<NotSupportedException>().WithMessage("*DirectML*Vulkan*");
         LlamaBackendSelector.MapProvider(ExecutionProvider.Auto, gpu).Should().Be(LlamaServerBackend.Vulkan);
     }

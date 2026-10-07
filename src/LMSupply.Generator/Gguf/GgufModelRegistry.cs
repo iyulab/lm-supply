@@ -1,7 +1,7 @@
 using LMSupply.Hardware;
 using LMSupply.Runtime;
 
-namespace LMSupply.Generator.Internal.Llama;
+namespace LMSupply.Generator.Gguf;
 
 /// <summary>
 /// Registry of well-known GGUF models with aliases for easy access.

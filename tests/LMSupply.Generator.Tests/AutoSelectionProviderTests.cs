@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using AwesomeAssertions;
-using LMSupply.Generator.Internal.Llama;
+using LMSupply.Generator.Gguf;
 using LMSupply.Hardware;
 
 namespace LMSupply.Generator.Tests;

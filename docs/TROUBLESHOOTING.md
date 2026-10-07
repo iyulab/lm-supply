@@ -145,7 +145,8 @@ Console.WriteLine($"Provider: {profile.RecommendedProvider}");
 
 ### 3.2 `NotSupportedException: The DirectML execution provider is not available`
 
-**Cause:** `ExecutionProvider.DirectML` was requested. Since 0.67.0 no build can provision it — ONNX
+**Cause:** a setting asks for DirectML (`"directml"`, or the value 2 that `ExecutionProvider.DirectML` had before it
+was removed in 0.111.0). Since 0.67.0 no build can provision it — ONNX
 Runtime 1.25+ ships no DirectML provider and the `Microsoft.ML.OnnxRuntime.DirectML` package line ends
 at 1.24.4.
 

@@ -1,7 +1,7 @@
 using AwesomeAssertions;
 using LMSupply.Hardware;
 using LMSupply.Runtime;
-using LMSupply.Generator.Internal.Llama;
+using LMSupply.Generator.Gguf;
 using Xunit;
 
 namespace LMSupply.Generator.Tests;

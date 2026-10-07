@@ -1,4 +1,4 @@
-using LMSupply.Generator.Internal.Llama;
+using LMSupply.Generator.Gguf;
 using LMSupply.Generator.Models;
 
 namespace LMSupply.Generator.Abstractions;

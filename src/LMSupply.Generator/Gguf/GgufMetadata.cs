@@ -1,4 +1,5 @@
-namespace LMSupply.Generator.Internal.Llama;
+
+namespace LMSupply.Generator.Gguf;
 
 /// <summary>
 /// Metadata extracted from a GGUF model file.

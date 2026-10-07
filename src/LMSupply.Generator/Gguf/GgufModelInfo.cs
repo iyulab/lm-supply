@@ -1,6 +1,6 @@
 using LMSupply.Hardware;
 
-namespace LMSupply.Generator.Internal.Llama;
+namespace LMSupply.Generator.Gguf;
 
 /// <summary>
 /// Metadata for a registered GGUF model.

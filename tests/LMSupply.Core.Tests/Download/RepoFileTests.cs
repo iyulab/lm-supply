@@ -234,15 +234,15 @@ public class DecoderVariantEnumTests
 public class ExecutionProviderEnumTests
 {
     [Fact]
-    public void ShouldHaveFiveValues()
+    public void ShouldHaveFourValues()
     {
-        Enum.GetValues<ExecutionProvider>().Should().HaveCount(5);
+        Enum.GetValues<ExecutionProvider>().Should().HaveCount(4, "DirectML left in 0.111.0");
     }
 
     [Theory]
     [InlineData(ExecutionProvider.Auto, 0)]
     [InlineData(ExecutionProvider.Cuda, 1)]
-    // 2 is ExecutionProvider.DirectML — obsolete since 0.67.0 (the provider left ONNX Runtime 1.25+); the
+    // 2 was DirectML — refused since 0.67.0, removed in 0.111.0 (the provider left ONNX Runtime 1.25+); the
     // slot stays reserved so a numerically bound setting keeps meaning what it meant.
     [InlineData(ExecutionProvider.CoreML, 3)]
     [InlineData(ExecutionProvider.Cpu, 4)]

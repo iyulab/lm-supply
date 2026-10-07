@@ -56,7 +56,6 @@ public class RerankerOptionsTests
     [Fact]
     public void ExecutionProvider_ShouldHaveAllOptions()
     {
-        Enum.GetValues<ExecutionProvider>().Should().HaveCount(5);
-        Enum.GetNames<ExecutionProvider>().Should().Contain(["Auto", "Cuda", "DirectML", "CoreML", "Cpu"]);
+        Enum.GetNames<ExecutionProvider>().Should().BeEquivalentTo(["Auto", "Cuda", "CoreML", "Cpu"]);
     }
 }

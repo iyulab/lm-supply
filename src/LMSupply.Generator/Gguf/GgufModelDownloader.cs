@@ -4,8 +4,9 @@ using LMSupply.Core.Download;
 using LMSupply.Hardware;
 using LMSupply.Download;
 using LMSupply.Exceptions;
+using LMSupply.Generator.Internal.Llama;
 
-namespace LMSupply.Generator.Internal.Llama;
+namespace LMSupply.Generator.Gguf;
 
 /// <summary>
 /// Downloads GGUF model files from HuggingFace with automatic quantization selection.

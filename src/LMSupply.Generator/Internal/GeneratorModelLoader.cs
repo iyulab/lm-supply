@@ -2,6 +2,7 @@ using LMSupply.Core.Download;
 using LMSupply.Download;
 using LMSupply.Generator.Abstractions;
 using LMSupply.Generator.ChatFormatters;
+using LMSupply.Generator.Gguf;
 using LMSupply.Generator.Internal.Llama;
 using LMSupply.Generator.Models;
 

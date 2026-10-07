@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Text;
 
-namespace LMSupply.Generator.Internal.Llama;
+namespace LMSupply.Generator.Gguf;
 
 /// <summary>
 /// Reads metadata from GGUF model files.

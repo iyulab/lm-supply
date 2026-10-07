@@ -6,11 +6,38 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Removed
+- **Breaking** — `ExecutionProvider.DirectML`, obsolete since 0.67.0 (ONNX Runtime 1.25+ has no DirectML provider). Its
+  value, 2, is never reused: a setting that still holds it, by number or as the provider name `"directml"`, is refused
+  with the same explanation as before. Migration: use `ExecutionProvider.Auto` (or `Cpu`).
+
+### Changed
+- **Breaking** — The GGUF types the documentation presents as API moved from `LMSupply.Generator.Internal.Llama` to
+  `LMSupply.Generator.Gguf`: `GgufModelRegistry`, `GgufModelInfo`, `GgufModelKnownIssues`, `GgufModelDownloader`,
+  `GgufFileInfo`, `GgufMetadata`, `GgufMetadataReader`, `ModelSelectionResult`, `ModelSelectionCandidate`,
+  `ModelSelectionReason`. `Internal` now holds only internal types. Migration: replace
+  `using LMSupply.Generator.Internal.Llama;` with `using LMSupply.Generator.Gguf;`.
+- The ViT-GPT2 captioner reports `SupportsVqa = false` and answers a question with `NotSupportedException`, as the
+  architecture has no question input; it no longer carries an unreachable `NotImplementedException` path.
+- **Packages ship debug symbols.** The build produced symbol packages but the publish workflow discarded them, and the
+  libraries do not embed their PDBs, so a consumer could not step into LMSupply or get line numbers in its stack
+  traces. The `.snupkg` files now go to the nuget.org symbol server with each package; SourceLink resolves the sources.
+- **CI runs for every change that can affect a build or a package.** The workflow listed the folders it watched, so a
+  change only to `samples/`, `benchmark/`, `tools/`, `global.json` or `nuget.config` started no CI run, and the
+  publish workflow, which follows a successful CI run, could ship code nothing had built. It now lists what cannot
+  affect a build (Markdown, `docs/`, `images/`, licence and git files) instead. `tools/verify-auto` and
+  `samples/RuntimeDownloadTest` are in the solution, so CI builds them.
+- Memory-based `auto` selection is one implementation for every domain that uses it (embedder, generator, detector,
+  segmenter, synthesizer, transcriber): `ModelRegistryBase.SelectLargestFitting`. A candidate without size metadata is
+  now an error naming it, instead of an estimate of zero that wins on every host.
+
 ### Fixed
 - **`LocalEmbedder.LoadAsync("auto")` follows the hardware.** The embedder catalog carried no model sizes, every
   candidate estimated to 0 bytes and fit any budget, so `auto` took BAAI/bge-m3 (about 2.2 GB) everywhere, including a
   CPU-only host. Every built-in embedder now carries its ONNX size and parameter count; on a host where nothing fits
-  the VRAM budget `auto` takes the smallest candidate (multilingual-e5-small).
+  the VRAM budget `auto` takes the smallest candidate (multilingual-e5-small). **Breaking** for an application that loads `auto` and
+  keeps the vectors: on such a host the model, and with it the vector size (1024 → 384), changes; re-embed the stored
+  vectors, or load a named model (`default`) to keep the previous one.
 - **A loaded embedder's `EstimatedMemoryBytes` counts the external weight file** (`model.onnx_data`) that large ONNX
   models keep beside a graph file of a few hundred kilobytes.
 
@@ -24,19 +51,6 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 - The model lifecycle and troubleshooting guides name the cache LMSupply actually uses (the Hugging Face cache), and
   the troubleshooting fix deletes one model's entry instead of the whole folder, which other tools share. The
   `CacheManager` snippet in the README has its `using`.
-
-### Changed
-- **Packages ship debug symbols.** The build produced symbol packages but the publish workflow discarded them, and the
-  libraries do not embed their PDBs, so a consumer could not step into LMSupply or get line numbers in its stack
-  traces. The `.snupkg` files now go to the nuget.org symbol server with each package; SourceLink resolves the sources.
-- **CI runs for every change that can affect a build or a package.** The workflow listed the folders it watched, so a
-  change only to `samples/`, `benchmark/`, `tools/`, `global.json` or `nuget.config` started no CI run, and the
-  publish workflow, which follows a successful CI run, could ship code nothing had built. It now lists what cannot
-  affect a build (Markdown, `docs/`, `images/`, licence and git files) instead. `tools/verify-auto` and
-  `samples/RuntimeDownloadTest` are in the solution, so CI builds them.
-- Memory-based `auto` selection is one implementation for every domain that uses it (embedder, generator, detector,
-  segmenter, synthesizer, transcriber): `ModelRegistryBase.SelectLargestFitting`. A candidate without size metadata is
-  now an error naming it, instead of an estimate of zero that wins on every host.
 
 ## [0.110.1] - 2026-10-07
 

@@ -24,26 +24,28 @@ public static class ExecutionProviderSupport
         "or ExecutionProvider.Cpu.";
 
     private const string DirectMLProviderName = "directml";
+
+    /// <summary>The value <c>ExecutionProvider.DirectML</c> had before it was removed; a setting may still hold it.</summary>
+    private const ExecutionProvider RetiredDirectML = (ExecutionProvider)2;
     private static int _directMLUnavailableTraced;
 
     /// <summary>
-    /// Whether <paramref name="provider"/> can be served by this build.
+    /// Whether <paramref name="provider"/> can be served by this build: any member of <see cref="ExecutionProvider"/>.
     /// </summary>
-    public static bool IsSupported(ExecutionProvider provider)
-    {
-#pragma warning disable CS0618 // the member is obsolete precisely because this method says so
-        return provider != ExecutionProvider.DirectML;
-#pragma warning restore CS0618
-    }
+    public static bool IsSupported(ExecutionProvider provider) => Enum.IsDefined(provider);
 
     /// <summary>
-    /// Throws <see cref="NotSupportedException"/> for a provider this build cannot serve.
+    /// Throws for a provider this build cannot serve: <see cref="NotSupportedException"/> with the reason for the
+    /// value DirectML had (a setting written before 0.111.0), <see cref="ArgumentOutOfRangeException"/> for any other
+    /// value that is not a member.
     /// </summary>
     /// <param name="provider">The provider the caller asked for.</param>
     public static void ThrowIfUnsupported(ExecutionProvider provider)
     {
-        if (!IsSupported(provider))
+        if (provider == RetiredDirectML)
             throw new NotSupportedException(DirectMLUnavailableMessage);
+        if (!IsSupported(provider))
+            throw new ArgumentOutOfRangeException(nameof(provider), provider, "Not an execution provider.");
     }
 
     /// <summary>

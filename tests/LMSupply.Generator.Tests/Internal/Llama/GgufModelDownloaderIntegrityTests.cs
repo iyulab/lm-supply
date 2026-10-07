@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
-using LMSupply.Generator.Internal.Llama;
+using LMSupply.Generator.Gguf;
 
 namespace LMSupply.Generator.Tests.Internal.Llama;
 

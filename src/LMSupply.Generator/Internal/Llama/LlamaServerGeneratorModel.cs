@@ -9,6 +9,7 @@ using LMSupply.Hardware;
 using LMSupply.Generator.Models;
 using LMSupply.Llama.Server;
 using LMSupply.Runtime;
+using LMSupply.Generator.Gguf;
 
 namespace LMSupply.Generator.Internal.Llama;
 

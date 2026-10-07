@@ -63,7 +63,8 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
         : null;
 
     /// <inheritdoc />
-    public bool SupportsVqa => _modelInfo.SupportsVqa;
+    // ViT-GPT2 is an image-to-text captioning architecture; it cannot take a question
+    public bool SupportsVqa => false;
 
     /// <inheritdoc />
     public Task WarmupAsync(CancellationToken cancellationToken = default)
@@ -149,22 +150,12 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
     }
 
     /// <inheritdoc />
-    public Task<VqaResult> AnswerAsync(string imagePath, string question, CancellationToken cancellationToken = default)
-    {
-        if (!SupportsVqa)
-            throw new NotSupportedException($"Model '{ModelId}' does not support visual question answering.");
-
-        throw new NotImplementedException("VQA support is not yet implemented for this model.");
-    }
+    public Task<VqaResult> AnswerAsync(string imagePath, string question, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException($"Model '{ModelId}' does not support visual question answering.");
 
     /// <inheritdoc />
-    public Task<VqaResult> AnswerAsync(Stream imageStream, string question, CancellationToken cancellationToken = default)
-    {
-        if (!SupportsVqa)
-            throw new NotSupportedException($"Model '{ModelId}' does not support visual question answering.");
-
-        throw new NotImplementedException("VQA support is not yet implemented for this model.");
-    }
+    public Task<VqaResult> AnswerAsync(Stream imageStream, string question, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException($"Model '{ModelId}' does not support visual question answering.");
 
     private async Task<CaptionResult> GenerateCaptionAsync(float[] imageData, CancellationToken cancellationToken)
     {

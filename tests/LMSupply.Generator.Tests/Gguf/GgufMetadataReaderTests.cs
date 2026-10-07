@@ -1,6 +1,6 @@
 using System.Text;
 using AwesomeAssertions;
-using LMSupply.Generator.Internal.Llama;
+using LMSupply.Generator.Gguf;
 using Xunit;
 
 namespace LMSupply.Generator.Tests.Gguf;
