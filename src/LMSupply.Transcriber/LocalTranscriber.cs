@@ -103,6 +103,35 @@ public static class LocalTranscriber
         return (plan?.TotalBytes ?? 0) + (options.PreloadDiarization ? DiarizationDownloadSizeBytes : 0);
     }
 
+    /// <summary>
+    /// Bytes a load with the same id and options would still download now: the files of
+    /// <see cref="GetDownloadSizeBytesAsync(string, TranscriberOptions?, CancellationToken)"/> that the cache does not
+    /// hold at the length the repository lists, and the speaker-diarization pair when it is preloaded and not cached. 0
+    /// when everything is cached or on local disk — for deciding whether to ask the user at all.
+    /// </summary>
+    /// <remarks>
+    /// Reads the repository listing as <see cref="GetDownloadSizeBytesAsync(string, TranscriberOptions?, CancellationToken)"/>
+    /// does, and the cache; downloads nothing. A partly downloaded file counts in full. Runtimes are not counted.
+    /// </remarks>
+    /// <param name="modelIdOrPath">A model alias, HuggingFace id or local path, as for <c>LoadAsync</c>.</param>
+    /// <param name="options">The options the load will use; not modified.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static async Task<long> GetRemainingDownloadBytesAsync(
+        string modelIdOrPath,
+        TranscriberOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        options = options?.Clone() ?? new TranscriberOptions();
+        PrepareOptions(modelIdOrPath, options);
+
+        var plan = await PlanDownloadAsync(options, cancellationToken);
+        var model = plan?.GetRemainingBytes(options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory()) ?? 0;
+        var diarization = options.PreloadDiarization && !await IsDiarizationDownloadedAsync(options, cancellationToken)
+            ? DiarizationDownloadSizeBytes
+            : 0;
+        return model + diarization;
+    }
+
     // The files a load with these (prepared) options fetches — null for a model on local disk. Shared by the size query
     // and the cache check, so that both pick the files the load picks.
     private static Task<DownloadPlan?> PlanDownloadAsync(TranscriberOptions options, CancellationToken cancellationToken)

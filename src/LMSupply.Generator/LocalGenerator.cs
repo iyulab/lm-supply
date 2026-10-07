@@ -181,6 +181,31 @@ public static class LocalGenerator
         return plan.TotalBytes;
     }
 
+    /// <summary>
+    /// Bytes a <see cref="LoadAsync(string, GeneratorOptions?, IProgress{DownloadProgress}?, CancellationToken)"/> with the
+    /// same id and options would still download now: the files of <see cref="GetDownloadSizeBytesAsync"/> that the cache
+    /// does not hold at the length the repository lists. 0 when the model is cached or on local disk.
+    /// </summary>
+    /// <remarks>
+    /// Reads the repository listing as <see cref="GetDownloadSizeBytesAsync"/> does, and the cache; downloads nothing. A
+    /// partly downloaded file counts in full. llama-server and the native runtimes are not counted.
+    /// </remarks>
+    public static async Task<long> GetRemainingDownloadBytesAsync(
+        string modelId,
+        GeneratorOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        options = options?.Clone() ?? new GeneratorOptions();
+
+        var (id, isLocal) = ResolveDownloadTarget(modelId, options);
+        if (isLocal)
+            return 0;
+
+        var plan = await Internal.GeneratorModelLoader.PlanDownloadAsync(id, options, cancellationToken).ConfigureAwait(false);
+        return plan.GetRemainingBytes(options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory());
+    }
+
     // Mirrors LoadAsync's resolution step for step — see the comments there for why each check sits where it does.
     // Divergence here would warm (or size) a file the load never opens. Sets a ":variant" qualifier as the options'
     // quantization hint, so callers pass a copy.

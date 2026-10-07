@@ -386,6 +386,11 @@ reused by the download that follows) and downloads nothing. The figure is the wh
 holds, and `IsModelDownloaded` answers what is present. A local path is 0. Runtimes a first load also provisions (the
 native ONNX Runtime, or llama-server for GGUF) are not counted.
 
+`LocalEmbedder.GetRemainingDownloadBytesAsync(modelIdOrPath, options)` is what that load would still fetch now: the same
+files, less those the cache already holds at the listed length. It is 0 once the model is cached, and the missing part
+of a partly cached model otherwise — the figure a consent screen asks about. A partly downloaded file counts in full.
+Every domain that has `GetDownloadSizeBytesAsync` has it (Reranker, Generator, Captioner, OCR, Transcriber).
+
 `LocalEmbedder.Describe(modelIdOrPath)` names what that load would open — repository, backend (`ModelBackend.Onnx` /
 `ModelBackend.Gguf`), display name and curated licence — without downloading anything. A user alias is followed; a GGUF
 repository named `<org>/<model>-GGUF` whose source model is in the catalog reports that model's licence; any other

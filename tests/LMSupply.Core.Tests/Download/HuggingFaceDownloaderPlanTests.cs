@@ -106,6 +106,32 @@ public sealed class HuggingFaceDownloaderPlanTests : IDisposable
         Assert.Equal(0, offlineHub.Requests);
     }
 
+    [Fact]
+    public async Task RemainingBytes_AreWhatTheCacheStillLacks()
+    {
+        var preferences = new ModelPreferences
+        {
+            PreferredSubfolder = "onnx",
+            QuantizationPriority = ModelPreferences.ForQuantizationHint("int8").QuantizationPriority,
+            RequireMatchedQuantization = true
+        };
+        using var downloader = new HuggingFaceDownloader(_cacheDir, new Hub());
+        var plan = await downloader.PlanWithDiscoveryAsync(Repo, preferences, cancellationToken: Ct);
+
+        Assert.Equal(plan.TotalBytes, plan.GetRemainingBytes(_cacheDir));
+
+        var (dir, _) = await downloader.DownloadWithDiscoveryAsync(Repo, preferences, cancellationToken: Ct);
+        Assert.Equal(0, plan.GetRemainingBytes(_cacheDir));
+
+        // A file gone from the cache is fetched again in full
+        File.Delete(Path.Combine(dir, "tokenizer.json"));
+        Assert.Equal(90, plan.GetRemainingBytes(_cacheDir));
+
+        // So is one cached at a length the listing does not give: the download discards it
+        await File.WriteAllBytesAsync(Path.Combine(dir, "onnx", "encoder_model_int8.onnx"), new byte[10], Ct);
+        Assert.Equal(90 + 1000, plan.GetRemainingBytes(_cacheDir));
+    }
+
     private static bool IsPayload(string path) => !Path.GetFileName(path).StartsWith('.');
 
     private static IEnumerable<string> WrittenFiles(string dir) =>

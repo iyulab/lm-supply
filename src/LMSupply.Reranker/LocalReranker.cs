@@ -452,6 +452,38 @@ public static class LocalReranker
         options = options?.Clone() ?? new RerankerOptions();
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 
+        var plans = await PlanDownloadsAsync(modelIdOrPath, options, cancellationToken).ConfigureAwait(false);
+        return plans.Sum(p => p.TotalBytes);
+    }
+
+    /// <summary>
+    /// Bytes a load with the same id and options would still download now: the files of
+    /// <see cref="GetDownloadSizeBytesAsync"/> that the cache does not hold at the length the repository lists. 0 when
+    /// the model is cached or on local disk — for deciding whether to ask the user at all.
+    /// </summary>
+    /// <remarks>
+    /// Reads the repository listing as <see cref="GetDownloadSizeBytesAsync"/> does, and the cache; downloads nothing. A
+    /// partly downloaded file counts in full. Runtimes are not counted.
+    /// </remarks>
+    public static async Task<long> GetRemainingDownloadBytesAsync(
+        string modelIdOrPath,
+        RerankerOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        options = options?.Clone() ?? new RerankerOptions();
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+
+        var plans = await PlanDownloadsAsync(modelIdOrPath, options, cancellationToken).ConfigureAwait(false);
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        return plans.Sum(p => p.GetRemainingBytes(cacheDir));
+    }
+
+    // The plans a load with these options fetches; empty for a model on local disk. Shared by the total and the
+    // remaining figure, so both count the files the load picks.
+    private static async Task<IReadOnlyList<DownloadPlan>> PlanDownloadsAsync(
+        string modelIdOrPath, RerankerOptions options, CancellationToken cancellationToken)
+    {
         var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
         options.ModelId = baseId;
         options.QuantizationHint ??= qualifier;
@@ -463,7 +495,7 @@ public static class LocalReranker
         {
             var ggufTarget = StripGgufPrefix(ggufCandidate);
             if (File.Exists(ggufTarget))
-                return 0;
+                return [];
 
             if (!ggufTarget.Contains('/'))
             {
@@ -474,11 +506,11 @@ public static class LocalReranker
 
             using var ggufDownloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
             var plan = await ggufDownloader.PlanAsync(ggufTarget, GgufQuantizationFor(options), cancellationToken);
-            return plan.TotalBytes;
+            return [plan];
         }
 
         if (File.Exists(baseId) || Directory.Exists(baseId))
-            return 0;
+            return [];
 
         ModelInfo modelInfo;
         try
@@ -489,11 +521,11 @@ public static class LocalReranker
         {
             // Unknown alias — a raw HuggingFace repository, fetched with the downloader's default file set.
             using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
-            return (await downloader.PlanModelAsync(options.ModelId, cancellationToken: cancellationToken)).TotalBytes;
+            return [await downloader.PlanModelAsync(options.ModelId, cancellationToken: cancellationToken)];
         }
 
         using var manager = new ModelManager(cacheDir, autoDownload: !options.DisableAutoDownload);
-        return await manager.PlanDownloadBytesAsync(modelInfo, cancellationToken);
+        return await manager.PlanDownloadsAsync(modelInfo, cancellationToken);
     }
 
     /// <summary>

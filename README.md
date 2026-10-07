@@ -119,6 +119,8 @@ float[] ggufQuery = await ggufModel.EmbedQueryAsync("what is GGUF?");   // "sear
 
 // Before the first download: what a first load would fetch, for a consent screen (0 for a local path)
 long bytes = await LocalEmbedder.GetDownloadSizeBytesAsync("default");
+// What that load would still fetch now: 0 once cached, the missing part of a partly cached model
+long remaining = await LocalEmbedder.GetRemainingDownloadBytesAsync("default");
 bool cached = LocalEmbedder.IsModelDownloaded("default");
 string? license = EmbedderModelRegistry.Default.Resolve("default").License;   // "MIT"
 ```
@@ -218,10 +220,10 @@ await using var preferred = await LocalGenerator.LoadAsync("auto", options);
 await using var responsive = await LocalGenerator.LoadAsync(
     "auto", new GeneratorOptions { AutoSelectionGoal = AutoSelectionGoal.Responsive });
 
-// Consent gate — true only when the load with the same id and options downloads nothing;
-// GetDownloadSizeBytesAsync is what that load fetches on this host ("auto" resolved like the load)
-if (!LocalGenerator.IsModelDownloaded("auto", options)
-    && !AskUserToDownload(await LocalGenerator.GetDownloadSizeBytesAsync("auto", options)))
+// Consent gate — ask only for what the load with the same id and options would still fetch on this host
+// ("auto" resolved like the load); GetDownloadSizeBytesAsync is the whole first-run download
+var remaining = await LocalGenerator.GetRemainingDownloadBytesAsync("auto", options);
+if (remaining > 0 && !AskUserToDownload(remaining))
     return;
 
 // Switching GGUF models on one GPU — stop the servers no model uses (dispose the old model first)

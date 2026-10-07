@@ -185,6 +185,33 @@ public static class LocalEmbedder
     }
 
     /// <summary>
+    /// Bytes a <see cref="LoadAsync"/> with the same id and options would still download now: the files of
+    /// <see cref="GetDownloadSizeBytesAsync"/> that the cache does not hold at the length the repository lists. 0 when the
+    /// model is cached or on local disk — for deciding whether to ask the user at all.
+    /// </summary>
+    /// <remarks>
+    /// Reads the repository listing as <see cref="GetDownloadSizeBytesAsync"/> does, and the cache; downloads nothing. A
+    /// partly downloaded file counts in full. Runtimes (the native ONNX Runtime, llama-server) are not counted.
+    /// </remarks>
+    /// <param name="modelIdOrPath">Anything <see cref="LoadAsync"/> accepts.</param>
+    /// <param name="options">The options the load will use; not modified.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ModelNotFoundException">As for <see cref="GetDownloadSizeBytesAsync"/>.</exception>
+    /// <exception cref="ModelDownloadException">As for <see cref="GetDownloadSizeBytesAsync"/>.</exception>
+    public static async Task<long> GetRemainingDownloadBytesAsync(
+        string modelIdOrPath,
+        EmbedderOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        options = options?.Clone() ?? new EmbedderOptions();
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+
+        var plan = await PlanDownloadAsync(PrepareLoadTarget(modelIdOrPath, options), options, cancellationToken);
+        return plan?.GetRemainingBytes(options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory()) ?? 0;
+    }
+
+    /// <summary>
     /// The files a load of <paramref name="target"/> (already through <see cref="PrepareLoadTarget"/>) fetches, chosen
     /// by the same branches as <see cref="LoadAsync"/>: null for a model on local disk.
     /// </summary>

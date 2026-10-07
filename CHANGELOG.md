@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Added
+- **`GetRemainingDownloadBytesAsync`** beside every `GetDownloadSizeBytesAsync` (Embedder, Reranker, Generator,
+  Captioner, OCR, Transcriber): what a load with the same id and options would still download now — the files the cache
+  does not hold at the length the repository lists. `GetDownloadSizeBytesAsync` stays the whole first-run download, so
+  a consent screen asked again for a model already on disk; this answers 0 once it is cached, and the missing part of a
+  partly cached model. `DownloadPlan.GetRemainingBytes(cacheDir)` is the shared rule, including GGUF files in the tree
+  earlier versions wrote.
+
 ## [0.111.0] - 2026-10-07
 
 ### Removed

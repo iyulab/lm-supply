@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using LMSupply.Download;
 using LMSupply.Embedder.Utils;
 using LMSupply.Exceptions;
 
@@ -46,6 +47,48 @@ public sealed class LocalEmbedderDownloadSizeTests : IDisposable
 
         (await LocalEmbedder.GetDownloadSizeBytesAsync("default", Options(), Ct)).Should().Be(90_700_000,
             "the alias loads model.onnx and its tokenizer; the int8 file beside it and the README are not fetched");
+    }
+
+    [Fact]
+    public async Task RemainingBytes_AreTheFilesTheCacheDoesNotHoldAtTheListedLength()
+    {
+        EmbedderModelRegistry.Default.TryResolveCatalog("default", out var info, out _).Should().BeTrue();
+        var model = string.IsNullOrEmpty(info!.Subfolder) ? "model.onnx" : $"{info.Subfolder}/model.onnx";
+        SeedListing(info.RepoId, (model, 9_000), ("tokenizer.json", 700));
+        var snapshot = CacheManager.GetModelDirectory(_cacheDir, info.RepoId);
+
+        (await LocalEmbedder.GetRemainingDownloadBytesAsync("default", Options(), Ct)).Should().Be(9_700, "nothing is cached");
+
+        Place(snapshot, "tokenizer.json", 700);
+        (await LocalEmbedder.GetRemainingDownloadBytesAsync("default", Options(), Ct)).Should().Be(9_000);
+
+        Place(snapshot, model, 10);
+        (await LocalEmbedder.GetRemainingDownloadBytesAsync("default", Options(), Ct)).Should().Be(9_000,
+            "a file at another length than the listing's is fetched again");
+
+        Place(snapshot, model, 9_000);
+        (await LocalEmbedder.GetRemainingDownloadBytesAsync("default", Options(), Ct)).Should().Be(0);
+        (await LocalEmbedder.GetDownloadSizeBytesAsync("default", Options(), Ct)).Should().Be(9_700, "the total is unchanged");
+    }
+
+    [Fact]
+    public async Task RemainingBytes_CountAGgufFileInTheTreeEarlierVersionsWrote_AsCached()
+    {
+        const string repo = "example-org/tiny-embed-GGUF";
+        SeedListing(repo, ("tiny-embed.Q4_K_M.gguf", 4_000));
+        (await LocalEmbedder.GetRemainingDownloadBytesAsync("gguf:" + repo, Options(), Ct)).Should().Be(4_000);
+
+        Place(Path.Combine(_cacheDir, "gguf-embeddings", "example-org_tiny-embed-GGUF"), "tiny-embed.Q4_K_M.gguf", 4_000);
+
+        (await LocalEmbedder.GetRemainingDownloadBytesAsync("gguf:" + repo, Options(), Ct)).Should().Be(0,
+            "the load opens that file without downloading");
+    }
+
+    private static void Place(string directory, string repoPath, int length)
+    {
+        var path = Path.Combine(directory, repoPath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, new byte[length]);
     }
 
     [Fact]

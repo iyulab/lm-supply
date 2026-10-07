@@ -130,6 +130,7 @@ internal class SingleFileGgufDownloader : IDisposable
                 RepoId = repoId,
                 Revision = Revision,
                 Files = [new PlannedFile(Path.GetFileName(cached), CacheManager.GetContentLength(cached))],
+                AlsoCachedIn = [GgufCacheLookup.GetLegacyDirectory(_cacheDirectory, _legacyTreeName, repoId)],
             };
         }
 
@@ -138,7 +139,13 @@ internal class SingleFileGgufDownloader : IDisposable
         if (selected.Size <= 0)
             throw new ModelDownloadException($"The listing of '{repoId}' gives no length for '{selected.Path}'.", repoId);
 
-        return new DownloadPlan { RepoId = repoId, Revision = Revision, Files = [new PlannedFile(selected.Path, selected.Size)] };
+        return new DownloadPlan
+        {
+            RepoId = repoId,
+            Revision = Revision,
+            Files = [new PlannedFile(selected.Path, selected.Size)],
+            AlsoCachedIn = [GgufCacheLookup.GetLegacyDirectory(_cacheDirectory, _legacyTreeName, repoId)],
+        };
     }
 
     /// <summary>

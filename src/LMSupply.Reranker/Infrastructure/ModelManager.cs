@@ -178,27 +178,27 @@ internal sealed class ModelManager : IDisposable
     }
 
     /// <summary>
-    /// Bytes <see cref="EnsureModelAsync"/> downloads for <paramref name="modelInfo"/> into an empty cache: the graph (and
-    /// its external weights), the tokenizer file and the vocabulary files, from the repositories it reads them from, at
-    /// the lengths those list. A file a repository does not have is left out, as the download skips it. 0 for a model on
-    /// local disk.
+    /// What <see cref="EnsureModelAsync"/> downloads for <paramref name="modelInfo"/>: the graph (and its external
+    /// weights), the tokenizer file and the vocabulary files, one plan per repository it reads them from, at the lengths
+    /// those list. A file a repository does not have is left out, as the download skips it. Empty for a model on local
+    /// disk.
     /// </summary>
-    public async Task<long> PlanDownloadBytesAsync(ModelInfo modelInfo, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DownloadPlan>> PlanDownloadsAsync(ModelInfo modelInfo, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(modelInfo);
         if (IsLocalPath(modelInfo.Id))
-            return 0;
+            return [];
 
         var tokenizerRepo = modelInfo.TokenizerRepoId ?? modelInfo.Id;
         string[] weights = modelInfo.OnnxDataFile is null ? [modelInfo.OnnxFile] : [modelInfo.OnnxFile, modelInfo.OnnxDataFile];
         string[] tokenizerFiles = [modelInfo.TokenizerFile, "vocab.txt", "sentencepiece.bpe.model"];
 
         if (tokenizerRepo == modelInfo.Id)
-            return (await _downloader.PlanModelAsync(modelInfo.Id, [.. weights, .. tokenizerFiles], cancellationToken: cancellationToken)).TotalBytes;
+            return [await _downloader.PlanModelAsync(modelInfo.Id, [.. weights, .. tokenizerFiles], cancellationToken: cancellationToken)];
 
         var weightPlan = await _downloader.PlanModelAsync(modelInfo.Id, weights, cancellationToken: cancellationToken);
         var tokenizerPlan = await _downloader.PlanModelAsync(tokenizerRepo, tokenizerFiles, cancellationToken: cancellationToken);
-        return weightPlan.TotalBytes + tokenizerPlan.TotalBytes;
+        return [weightPlan, tokenizerPlan];
     }
 
     /// <summary>

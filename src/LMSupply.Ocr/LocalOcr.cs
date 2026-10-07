@@ -170,6 +170,38 @@ public static class LocalOcr
         options = options?.Clone() ?? new OcrOptions();
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 
+        var plans = await PlanDownloadsAsync(languageCode, options, cancellationToken).ConfigureAwait(false);
+        return plans.Sum(p => p.TotalBytes);
+    }
+
+    /// <summary>
+    /// Bytes a load with the same language and options would still download now: the files of
+    /// <see cref="GetDownloadSizeBytesAsync"/> that the cache does not hold at the length the repository lists. 0 when
+    /// the model is cached or on local disk — for deciding whether to ask the user at all.
+    /// </summary>
+    /// <remarks>
+    /// Reads the repository listing as <see cref="GetDownloadSizeBytesAsync"/> does, and the cache; downloads nothing. A
+    /// partly downloaded file counts in full. Runtimes are not counted.
+    /// </remarks>
+    public static async Task<long> GetRemainingDownloadBytesAsync(
+        string languageCode,
+        OcrOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageCode);
+        options = options?.Clone() ?? new OcrOptions();
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+
+        var plans = await PlanDownloadsAsync(languageCode, options, cancellationToken).ConfigureAwait(false);
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        return plans.Sum(p => p.GetRemainingBytes(cacheDir));
+    }
+
+    // The plans a load with these options fetches; empty for a model on local disk. Shared by the total and the
+    // remaining figure, so both count the files the load picks.
+    private static async Task<IReadOnlyList<DownloadPlan>> PlanDownloadsAsync(
+        string languageCode, OcrOptions options, CancellationToken cancellationToken)
+    {
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         var detection = OcrDetectionModelRegistry.Default.Resolve(DefaultDetectionModel);
         var recognition = OcrRecognitionModelRegistry.Default.ResolveForLanguage(languageCode);
@@ -182,7 +214,7 @@ public static class LocalOcr
             recognition.RepoId, RequiredFiles(recognition), subfolder: recognition.Subfolder, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
-        return detectionPlan.TotalBytes + recognitionPlan.TotalBytes;
+        return [detectionPlan, recognitionPlan];
     }
 
     // The detection model a language load uses. The probe and the loader share it so they cannot disagree.

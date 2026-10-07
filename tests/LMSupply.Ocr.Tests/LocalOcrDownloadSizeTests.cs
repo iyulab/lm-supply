@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using LMSupply.Download;
 using LMSupply.Exceptions;
 using LMSupply.Ocr.Models;
 
@@ -53,6 +54,30 @@ public sealed class LocalOcrDownloadSizeTests : IDisposable
 
         (await LocalOcr.GetDownloadSizeBytesAsync(language, new OcrOptions { CacheDirectory = _cacheDir }, Ct))
             .Should().Be(9_430_000, "another language's recognizer is not fetched");
+    }
+
+    [Fact]
+    public async Task RemainingBytes_CountEachModelTheCacheLacks()
+    {
+        var detection = OcrDetectionModelRegistry.Default.Resolve("default");
+        var recognition = OcrRecognitionModelRegistry.Default.ResolveForLanguage("en");
+        var detectionFile = InFolder(detection.Subfolder, detection.ModelFile);
+        SeedListing(detection.RepoId,
+        [
+            (detectionFile, 2_400),
+            (InFolder(recognition.Subfolder, recognition.ModelFile), 7_000),
+            (InFolder(recognition.Subfolder, recognition.DictFile), 30),
+        ]);
+        var options = new OcrOptions { CacheDirectory = _cacheDir };
+        (await LocalOcr.GetRemainingDownloadBytesAsync("en", options, Ct)).Should().Be(9_430);
+
+        // The detector is cached; the recognizer is not
+        var path = Path.Combine(CacheManager.GetModelDirectory(_cacheDir, detection.RepoId), detectionFile.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        await File.WriteAllBytesAsync(path, new byte[2_400], Ct);
+
+        (await LocalOcr.GetRemainingDownloadBytesAsync("en", options, Ct)).Should().Be(7_030);
+        (await LocalOcr.GetDownloadSizeBytesAsync("en", options, Ct)).Should().Be(9_430);
     }
 
     [Fact]
