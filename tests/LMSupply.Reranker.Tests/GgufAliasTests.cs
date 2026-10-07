@@ -3,11 +3,20 @@ using LMSupply.Exceptions;
 
 namespace LMSupply.Reranker.Tests;
 
+[CollectionDefinition(nameof(BuiltInAliasShadowSerialGroup), DisableParallelization = true)]
+public sealed class BuiltInAliasShadowSerialGroup;
+
 /// <summary>
 /// <c>multilingual-fast</c> names the GGUF route by intent, the way the other aliases name ONNX models. It has
 /// to behave as an alias on every entry point — load, download probe, pre-download — and it must not change
 /// what <c>multilingual</c> or <c>auto</c> mean: a caller that did not ask for llama-server never gets one.
 /// </summary>
+/// <remarks>
+/// One test here registers a user alias named <c>multilingual-fast</c> on the process-wide registry, shadowing the
+/// built-in alias while it runs; a test in another class that resolved the built-in alias at that moment got the
+/// user's target instead. The class runs without parallel neighbours.
+/// </remarks>
+[Collection(nameof(BuiltInAliasShadowSerialGroup))]
 public sealed class GgufAliasTests : IDisposable
 {
     private const string Alias = "multilingual-fast";
