@@ -133,6 +133,70 @@ public sealed class LlamaServerDownloadExtractionTests : IDisposable
                 "the error must show what was actually extracted, not just that the binary is missing");
     }
 
+    // ---- Concurrent first-run provisioning ----
+
+    [Fact]
+    public async Task DownloadAsync_ConcurrentCalls_DownloadAndExtractOnce()
+    {
+        // Loads that start together on a cold cache converge on one download; the others find the build in place.
+        var archiveBytes = BuildZipWithWrapperDirectory("llama-b10290", ("llama-server", "bin"), ("libggml.so", "lib"));
+        var handler = new CountingSlowHandler("https://fake.local/asset.zip", archiveBytes);
+        using var http = new HttpClient(handler);
+        using var downloader = new LlamaServerDownloader(_dir, http);
+        var asset = new LlamaServerAsset
+        {
+            Name = "llama-b10290-bin-ubuntu-x64.zip",
+            DownloadUrl = "https://fake.local/asset.zip",
+            Version = "b10290",
+            Platform = LlamaServerPlatform.Linux,
+            Backend = LlamaServerBackend.Cpu,
+            Architecture = LlamaServerArchitecture.X64
+        };
+        var ct = TestContext.Current.CancellationToken;
+
+        var paths = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ =>
+            Task.Run(() => downloader.DownloadAsync(asset, cancellationToken: ct), ct)));
+
+        paths.Distinct().Should().ContainSingle();
+        File.Exists(paths[0]).Should().BeTrue();
+        handler.Requests.Should().Be(1, "callers that arrive while the build is being fetched wait for it instead of fetching it again");
+        Directory.EnumerateDirectories(Path.GetDirectoryName(paths[0])!, ".server-staging-*")
+            .Should().BeEmpty("the staging directory is removed once the build is in place");
+    }
+
+    [Fact]
+    public void PublishStagedServer_LeavesAnExecutableAnotherWriterPlaced_Untouched()
+    {
+        // Another process finished first and may already be running its executable: nothing is overwritten.
+        var versionDir = Directory.CreateDirectory(Path.Combine(_dir, "b10290", "cpu")).FullName;
+        var serverPath = Path.Combine(versionDir, "llama-server");
+        File.WriteAllText(serverPath, "theirs");
+        var staging = Directory.CreateDirectory(Path.Combine(versionDir, ".server-staging-x")).FullName;
+        File.WriteAllText(Path.Combine(staging, "llama-server"), "ours");
+
+        LlamaServerDownloader.PublishStagedServer(staging, versionDir, serverPath);
+
+        File.ReadAllText(serverPath).Should().Be("theirs");
+    }
+
+    [Fact]
+    public void PublishStagedServer_MovesTheWholeBuild_KeepingItsLayout()
+    {
+        var versionDir = Directory.CreateDirectory(Path.Combine(_dir, "b10290", "cpu")).FullName;
+        var serverPath = Path.Combine(versionDir, "llama-server");
+        var staging = Directory.CreateDirectory(Path.Combine(versionDir, ".server-staging-x")).FullName;
+        File.WriteAllText(Path.Combine(staging, "llama-server"), "bin");
+        File.WriteAllText(Path.Combine(staging, "libggml.so"), "lib");
+        Directory.CreateDirectory(Path.Combine(staging, "sub"));
+        File.WriteAllText(Path.Combine(staging, "sub", "extra.so"), "x");
+        LlamaServerDownloader.PublishStagedServer(staging, versionDir, serverPath);
+
+        File.Exists(serverPath).Should().BeTrue();
+        File.Exists(Path.Combine(versionDir, "libggml.so")).Should().BeTrue();
+        File.Exists(Path.Combine(versionDir, "sub", "extra.so")).Should().BeTrue("subdirectories keep their layout");
+        Directory.GetFiles(staging, "*", SearchOption.AllDirectories).Should().BeEmpty();
+    }
+
     private static byte[] BuildZipWithWrapperDirectory(string wrapperName, params (string name, string content)[] entries)
     {
         using var ms = new MemoryStream();
@@ -145,6 +209,24 @@ public sealed class LlamaServerDownloadExtractionTests : IDisposable
             }
         }
         return ms.ToArray();
+    }
+
+    private sealed class CountingSlowHandler(string downloadUrl, byte[] archiveBytes) : HttpMessageHandler
+    {
+        private int _requests;
+
+        public int Requests => Volatile.Read(ref _requests);
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri!.ToString() != downloadUrl)
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+
+            Interlocked.Increment(ref _requests);
+            await Task.Delay(200, cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(archiveBytes) };
+        }
     }
 
     private sealed class StubHandler(string downloadUrl, byte[] archiveBytes) : HttpMessageHandler

@@ -46,6 +46,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   earlier versions wrote.
 
 ### Fixed
+- **Loads that start together on a cold cache download the native ONNX Runtime once** — an image generator creating its
+  sessions in parallel, or two models loaded with `Task.WhenAll`. Each used to fetch its own copy, and the last to
+  finish deleted the runtime directory the first had already loaded to put its copy in place (the load failed on
+  Windows). A runtime already in the cache is never replaced by a second copy of itself, and the package is staged
+  beside the cache instead of in the system temp directory, so a cache on another drive works. llama-server builds
+  get the same treatment: concurrent first runs no longer extract over each other, and the executable appears only
+  once the rest of the build is in place.
 - **`EmbedQueryAsync` on bge-base-en-v1.5 and bge-large-en-v1.5 applies the retrieval instruction their model card
   recommends** (`Represent this sentence for searching relevant passages: `); passages and other text stay bare, as the
   card says. Queries were embedded without it. A GGUF repository of either model (`…-GGUF`) takes it too. Their

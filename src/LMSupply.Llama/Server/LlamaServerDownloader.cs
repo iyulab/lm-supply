@@ -48,6 +48,13 @@ public sealed class LlamaServerDownloader : IDisposable
     private static readonly SemaphoreSlim s_cudartGate = new(1, 1);
 
     /// <summary>
+    /// Process-wide gate around fetching a server build, for the same reason as <see cref="s_cudartGate"/>: loads that
+    /// start together on a cold cache converge on one download and one extraction instead of extracting over each
+    /// other (and over an executable the first of them may already have started). Taken only on a cache miss.
+    /// </summary>
+    private static readonly SemaphoreSlim s_serverGate = new(1, 1);
+
+    /// <summary>
     /// Creates a new downloader instance.
     /// </summary>
     /// <param name="cacheDirectory">Directory to store downloaded binaries.</param>
@@ -416,9 +423,49 @@ public sealed class LlamaServerDownloader : IDisposable
             return serverPath;
         }
 
+        await s_serverGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            // A caller that waited here usually finds the build the one before it fetched.
+            if (File.Exists(serverPath))
+            {
+                return serverPath;
+            }
+
+            await DownloadAndPublishAsync(asset, versionDir, serverPath, progress, cancellationToken);
+        }
+        finally
+        {
+            s_serverGate.Release();
+        }
+
+        progress?.Report(new DownloadProgress
+        {
+            FileName = asset.Name,
+            BytesDownloaded = 100,
+            TotalBytes = 100,
+            Phase = DownloadPhase.Complete
+        });
+
+        return serverPath;
+    }
+
+    /// <summary>
+    /// Downloads a server build and extracts it into a staging directory inside <paramref name="versionDir"/> (the
+    /// same volume, so every move into place is a rename), then publishes it with the executable last: the
+    /// <c>File.Exists(serverPath)</c> fast path only turns true once the build is complete, and a crash mid-publish
+    /// leaves no executable, so the next load provisions again instead of running a partial build.
+    /// </summary>
+    private async Task DownloadAndPublishAsync(
+        LlamaServerAsset asset,
+        string versionDir,
+        string serverPath,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
         Directory.CreateDirectory(versionDir);
 
-        // Download archive
+        // The archive stays at a fixed name in versionDir so an interrupted transfer resumes across process restarts.
         var archivePath = Path.Combine(versionDir, asset.Name);
 
         progress?.Report(new DownloadProgress
@@ -446,7 +493,6 @@ public sealed class LlamaServerDownloader : IDisposable
             },
             cancellationToken);
 
-        // Extract archive
         progress?.Report(new DownloadProgress
         {
             FileName = asset.Name,
@@ -455,35 +501,60 @@ public sealed class LlamaServerDownloader : IDisposable
             Phase = DownloadPhase.Extracting
         });
 
-        await ExtractArchiveAsync(archivePath, versionDir, asset.Platform, cancellationToken);
-
-        // A download + extract that completed without throwing does NOT guarantee the expected
-        // executable is actually there -- an archive layout mismatch (see
-        // FlattenSingleTopLevelDirectory) or a silently incomplete extraction would otherwise return
-        // a path nothing launches, and the real cause would only surface later as an opaque
-        // process-start failure far from here (2026-08-17: exactly what happened on the Linux e2e
-        // runner before this check existed -- confirmed against the actual b10290 release asset).
-        if (!File.Exists(serverPath))
+        // A unique name keeps concurrent processes (which the in-process gate cannot serialize) from colliding.
+        var stagingDir = Path.Combine(versionDir, ".server-staging-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(stagingDir);
+        try
         {
-            var extracted = Directory.Exists(versionDir)
-                ? string.Join(", ", Directory.EnumerateFileSystemEntries(versionDir).Select(Path.GetFileName))
-                : "(directory does not exist)";
-            throw new InvalidOperationException(
-                $"llama-server binary not found at '{serverPath}' after downloading and extracting " +
-                $"'{asset.Name}'. The archive was downloaded successfully but extraction did not " +
-                $"produce the expected executable -- the release's archive layout may have changed. " +
-                $"Extracted contents of '{versionDir}': {extracted}.");
+            await ExtractArchiveAsync(archivePath, stagingDir, asset.Platform, cancellationToken);
+
+            // A download + extract that completed without throwing does NOT guarantee the expected
+            // executable is actually there -- an archive layout mismatch (see
+            // FlattenSingleTopLevelDirectory) or a silently incomplete extraction would otherwise return
+            // a path nothing launches, and the real cause would only surface later as an opaque
+            // process-start failure far from here (2026-08-17: exactly what happened on the Linux e2e
+            // runner before this check existed -- confirmed against the actual b10290 release asset).
+            var stagedServer = GetServerExecutablePath(stagingDir, asset.Platform);
+            if (!File.Exists(stagedServer))
+            {
+                var extracted = string.Join(", ", Directory.EnumerateFileSystemEntries(stagingDir).Select(Path.GetFileName));
+                throw new InvalidOperationException(
+                    $"llama-server binary not found at '{serverPath}' after downloading and extracting " +
+                    $"'{asset.Name}'. The archive was downloaded successfully but extraction did not " +
+                    $"produce the expected executable -- the release's archive layout may have changed. " +
+                    $"Extracted contents: {extracted}.");
+            }
+
+            PublishStagedServer(stagingDir, versionDir, serverPath);
+        }
+        finally
+        {
+            try { Directory.Delete(stagingDir, recursive: true); }
+            catch { /* best-effort staging cleanup; the build is already in place */ }
+        }
+    }
+
+    /// <summary>
+    /// Moves an extracted server build from <paramref name="stagingDir"/> into <paramref name="versionDir"/>, the
+    /// executable last. When the executable is already there another writer finished first — and may have started
+    /// it — so nothing is overwritten.
+    /// </summary>
+    internal static void PublishStagedServer(string stagingDir, string versionDir, string serverPath)
+    {
+        if (File.Exists(serverPath))
+        {
+            return;
         }
 
-        progress?.Report(new DownloadProgress
+        var stagedServer = Path.Combine(stagingDir, Path.GetRelativePath(versionDir, serverPath));
+        var files = Directory.GetFiles(stagingDir, "*", SearchOption.AllDirectories)
+            .OrderBy(file => string.Equals(file, stagedServer, StringComparison.Ordinal) ? 1 : 0);
+        foreach (var file in files)
         {
-            FileName = asset.Name,
-            BytesDownloaded = 100,
-            TotalBytes = 100,
-            Phase = DownloadPhase.Complete
-        });
-
-        return serverPath;
+            var target = Path.Combine(versionDir, Path.GetRelativePath(stagingDir, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Move(file, target, overwrite: true);
+        }
     }
 
     /// <summary>
@@ -581,9 +652,10 @@ public sealed class LlamaServerDownloader : IDisposable
             await ExtractTarGzAsync(archivePath, destinationDir, cancellationToken);
         }
 
-        // Must happen before FlattenSingleTopLevelDirectory: the archive was downloaded directly into
-        // destinationDir (see DownloadAsync), so until it is removed it sits alongside the extracted
-        // tree as a spurious second top-level entry and defeats the single-wrapper-directory check.
+        // Must happen before FlattenSingleTopLevelDirectory: an archive downloaded into destinationDir
+        // itself would sit alongside the extracted tree as a spurious second top-level entry and defeat
+        // the single-wrapper-directory check. (The server build is extracted into a staging directory
+        // apart from its archive; the delete also drops the archive once it is no longer needed.)
         File.Delete(archivePath);
 
         FlattenSingleTopLevelDirectory(destinationDir);

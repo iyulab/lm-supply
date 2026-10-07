@@ -16,6 +16,15 @@ public sealed class OnnxNuGetDownloader : IDisposable
     private readonly string _cacheDirectory;
     private readonly bool _ownsHttpClient;
 
+    /// <summary>
+    /// Process-wide gate around fetching a runtime into the cache. Loads that start together on a cold cache (an image
+    /// generator creating its sessions in parallel, an application loading two models with Task.WhenAll) converge on
+    /// one download: the first fetches, the others wait and then find it in the cache. It is taken only on a cache
+    /// miss, so it is contended only during the one-time provisioning window — the same reasoning as the llama-server
+    /// downloader's CUDA runtime gate.
+    /// </summary>
+    private static readonly SemaphoreSlim s_provisionGate = new(1, 1);
+
     public OnnxNuGetDownloader() : this(null)
     {
     }
@@ -109,13 +118,28 @@ public sealed class OnnxNuGetDownloader : IDisposable
 
             try
             {
-                return await DownloadAndExtractAsync(
-                    config,
-                    requestedVersion,
-                    platform,
-                    cachePath,
-                    progress,
-                    cancellationToken);
+                await s_provisionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    // A caller that waited here usually finds the runtime the one before it fetched.
+                    if (Directory.Exists(cachePath) && IsValidCache(cachePath, config, platform))
+                    {
+                        ReportCacheHit(progress, config.NativeLibraryName);
+                        return cachePath;
+                    }
+
+                    return await DownloadAndExtractAsync(
+                        config,
+                        requestedVersion,
+                        platform,
+                        cachePath,
+                        progress,
+                        cancellationToken);
+                }
+                finally
+                {
+                    s_provisionGate.Release();
+                }
             }
             catch (Exception ex) when (IsFeedUnreachable(ex, cancellationToken))
             {
@@ -211,14 +235,19 @@ public sealed class OnnxNuGetDownloader : IDisposable
             Phase = DownloadPhase.Preparing,
         });
 
-        var tempDir = Path.Combine(Path.GetTempPath(), $"lmsupply-onnx-{Guid.NewGuid()}");
+        // Staged beside its final place, so the last step is a rename on the same volume: atomic, and possible at all
+        // when the cache is on another drive than the system temp directory. A unique name keeps concurrent
+        // processes (which the in-process gate cannot serialize) from colliding.
+        var parentDir = Path.GetDirectoryName(cachePath)!;
+        Directory.CreateDirectory(parentDir);
+        var stagingDir = Path.Combine(parentDir, ".staging-" + Guid.NewGuid().ToString("N"));
 
         try
         {
-            Directory.CreateDirectory(tempDir);
+            Directory.CreateDirectory(stagingDir);
 
             // Download .nupkg
-            var nupkgPath = Path.Combine(tempDir, $"{config.PackageId}.{version}.nupkg");
+            var nupkgPath = Path.Combine(stagingDir, $"{config.PackageId}.{version}.nupkg");
             await DownloadFileAsync(downloadUrl, nupkgPath, config.PackageId, progress, cancellationToken);
 
             // Extract native binaries
@@ -239,9 +268,7 @@ public sealed class OnnxNuGetDownloader : IDisposable
                     $"No native binaries found for {platform.RuntimeIdentifier} in {config.PackageId}");
             }
 
-            // Move to cache
-            EnsureCacheDirectory(cachePath);
-            Directory.Move(extractedPath, cachePath);
+            var published = PublishStagedRuntime(extractedPath, cachePath, dir => IsValidCache(dir, config, platform));
 
             progress?.Report(new DownloadProgress
             {
@@ -251,11 +278,11 @@ public sealed class OnnxNuGetDownloader : IDisposable
                 Phase = DownloadPhase.Complete,
             });
 
-            return cachePath;
+            return published;
         }
         finally
         {
-            CleanupTempDirectory(tempDir);
+            CleanupTempDirectory(stagingDir);
         }
     }
 
@@ -520,18 +547,36 @@ public sealed class OnnxNuGetDownloader : IDisposable
         });
     }
 
-    private static void EnsureCacheDirectory(string cachePath)
+    /// <summary>
+    /// Moves a fully extracted runtime into its cache directory. A valid runtime already there — another process
+    /// finished first, and its native library may already be loaded — is kept as it is and the staged copy dropped;
+    /// only a leftover that is not a valid runtime (an interrupted earlier attempt) is replaced.
+    /// </summary>
+    /// <returns><paramref name="cachePath"/>.</returns>
+    internal static string PublishStagedRuntime(string stagedPath, string cachePath, Func<string, bool> isValid)
     {
-        var parentDir = Path.GetDirectoryName(cachePath);
-        if (!string.IsNullOrEmpty(parentDir))
-        {
-            Directory.CreateDirectory(parentDir);
-        }
-
         if (Directory.Exists(cachePath))
         {
+            if (isValid(cachePath))
+            {
+                CleanupTempDirectory(stagedPath);
+                return cachePath;
+            }
+
             Directory.Delete(cachePath, recursive: true);
         }
+
+        try
+        {
+            Directory.Move(stagedPath, cachePath);
+        }
+        catch (IOException) when (Directory.Exists(cachePath) && isValid(cachePath))
+        {
+            // Another process published between the check and the move.
+            CleanupTempDirectory(stagedPath);
+        }
+
+        return cachePath;
     }
 
     private static void CleanupTempDirectory(string tempDir)
