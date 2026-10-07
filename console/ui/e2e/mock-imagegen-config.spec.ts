@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
 // ImageGen — model auto-config (steps + guidance scale)
-// Test plan: 13.2.5 — Model selection auto-configures parameters
+// Model selection auto-configures parameters
 // ================================================================
 
 test.describe('ImageGen — model auto-config', () => {

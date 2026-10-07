@@ -3,7 +3,7 @@ import { mockChatStream } from './fixtures/api-mocks';
 
 // ================================================================
 // Chat — advanced gap tests
-// Manual test plan: 4-09 (stream cancel), 4-13 (Korean), 4-14 (long text)
+// Covers: stream cancel, Korean, long text
 // ================================================================
 
 test.describe('Chat — stream cancel with partial response', () => {

@@ -2,7 +2,6 @@ import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
 // API Inference — Text endpoints (chat, embed, rerank)
-// Manual test plan: 5-18 to 5-22
 // Uses live backend — tests may auto-load models on first run
 // ================================================================
 

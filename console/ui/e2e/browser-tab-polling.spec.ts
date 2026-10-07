@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
 // Dashboard polling pauses when tab is hidden
-// Manual test plan: 2-12 (tab visibility polling pause/resume)
+// Covers: tab visibility polling pause/resume
 // ================================================================
 
 test.describe('Dashboard — tab visibility polling', () => {

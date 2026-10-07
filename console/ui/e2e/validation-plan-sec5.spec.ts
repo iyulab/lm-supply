@@ -6,7 +6,6 @@ const DOCS = ['Deep learning is a subset of machine learning', 'Cats are domesti
 
 // ================================================================
 // Section 5-1: POST /v1/rerank
-// Manual validation plan: 5-1-01 to 5-1-09
 // ================================================================
 test.describe('Section 5-1: Rerank', () => {
   test('[5-1-01] response structure: id, results[].index/relevance_score/document.text, meta', async ({ request }) => {

@@ -35,7 +35,7 @@ public class ModelRegistryTests
     [Fact]
     public void DetectionRegistry_Resolve_FastAlias_ShouldReturnDbNetV3()
     {
-        // Act — "fast" alias added in cycle 135 (single-model domain)
+        // Act — "fast" alias (single-model domain)
         var model = OcrDetectionModelRegistry.Default.Resolve("fast");
 
         // Assert

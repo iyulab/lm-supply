@@ -83,7 +83,7 @@ test.describe('Image Generate page', () => {
     await expect(stepsSlider).toHaveAttribute('max', '8');
   });
 
-  // Test plan: 13.2.3 — Guidance scale slider
+  // Guidance scale slider
   test('guidance scale slider has correct range (0-3)', async ({ page }) => {
     // Open advanced settings
     const advancedToggle = page.getByRole('button', { name: /Advanced Settings/i });

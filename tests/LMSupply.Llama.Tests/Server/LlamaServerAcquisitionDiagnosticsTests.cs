@@ -9,7 +9,7 @@ namespace LMSupply.Llama.Tests.Server;
 /// What the failure says when llama-server cannot be acquired.
 ///
 /// <para>
-/// Reported by a consumer whose machine had no GPU: local generation failed permanently with
+/// On a machine without a GPU, local generation could fail permanently with
 /// <c>"No llama-server binary found for platform ..., backend Cpu"</c>, and the word <c>Cpu</c> in it was
 /// read as "there is no CPU build" — a CPU-backend gap that does not exist. The real cause was upstream
 /// release-tag resolution, and <c>Cpu</c> was only the last link of the fallback chain, printed as if it

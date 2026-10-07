@@ -1,8 +1,8 @@
 import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
-// Cross-cutting: ModelSelector consistency — Test plan section 15.2
-// P0: No "undefined" in any model dropdown
+// Cross-cutting: ModelSelector consistency
+// No "undefined" in any model dropdown
 // ================================================================
 
 test.describe('ModelSelector consistency across pages', () => {
@@ -15,7 +15,7 @@ test.describe('ModelSelector consistency across pages', () => {
   ];
 
   for (const { path, heading, label } of pagesWithModelSelector) {
-    // Test plan: 15.2.1-15.2.5 — Alias not "undefined"
+    // Alias not "undefined"
     test(`${label} page model dropdown does not show "undefined"`, async ({ page }) => {
       await page.goto(path);
       await expect(page.locator('main').getByRole('heading', { name: heading }).first()).toBeVisible();
@@ -35,11 +35,11 @@ test.describe('ModelSelector consistency across pages', () => {
 });
 
 // ================================================================
-// Cross-cutting: Error handling — Test plan section 15.1
+// Cross-cutting: Error handling
 // ================================================================
 
 test.describe('Error handling', () => {
-  // Test plan: 15.1.1 — Pages load without crashing when navigated to quickly
+  // Pages load without crashing when navigated to quickly
   test('rapid navigation between pages does not crash', async ({ page }) => {
     const routes = ['/chat', '/embed', '/rerank', '/transcribe', '/synthesize',
       '/caption', '/ocr', '/detect', '/segment', '/translate', '/image-generate', '/models'];
@@ -53,11 +53,11 @@ test.describe('Error handling', () => {
 });
 
 // ================================================================
-// Cross-cutting: Responsive layout — Test plan section 15.3
+// Cross-cutting: Responsive layout
 // ================================================================
 
 test.describe('Responsive layout', () => {
-  // Test plan: 15.3.1 — Narrow viewport
+  // Narrow viewport
   test('layout remains usable at 1024px width', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.goto('/');

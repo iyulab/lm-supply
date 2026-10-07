@@ -1,37 +1,37 @@
 namespace LMSupply.Transcriber.Decoding;
 
 /// <summary>
-/// 한 프레임에 대한 prediction-network + joint 실행 결과.
-/// <see cref="Logits"/>는 토큰 logits(어휘 크기) 뒤에 지속시간(duration) bin logits가 이어진 joint 출력 그대로다.
+/// Result of running the prediction network + joint for one frame.
+/// <see cref="Logits"/> is the raw joint output: token logits (vocabulary size) followed by duration-bin logits.
 /// </summary>
 internal readonly record struct TdtJointOutput(float[] Logits, float[] StateH, float[] StateC);
 
 /// <summary>
-/// 프레임 <paramref name="frameIndex"/>의 인코더 출력과 마지막 토큰·LSTM 상태로 joint를 한 번 돌린다.
-/// 디코더 ONNX 세션을 감싼 델리게이트라 순수 함수인 <see cref="TdtGreedyDecoder"/>를 가짜로도 검증할 수 있다.
+/// Runs the joint once with the encoder output at frame <paramref name="frameIndex"/>, the last token, and the LSTM state.
+/// Because it is a delegate wrapping the decoder ONNX session, the pure <see cref="TdtGreedyDecoder"/> can be tested with a fake.
 /// </summary>
 internal delegate TdtJointOutput TdtJointStep(int frameIndex, int lastToken, float[] stateH, float[] stateC);
 
-/// <summary>디코딩된 토큰 하나 — 어느 인코더 프레임에서 나왔는지와 그 확률.</summary>
+/// <summary>A single decoded token, with the encoder frame it came from and its probability.</summary>
 internal readonly record struct TdtToken(int Id, int Frame, float LogProb);
 
 /// <summary>
-/// Token-and-Duration Transducer의 greedy 디코딩(onnx-asr `asr.py` 규칙 그대로).
-/// 프레임마다 (마지막 토큰, 상태)로 joint를 돌려 토큰과 «몇 프레임을 건너뛸지»를 함께 읽는다.
-/// blank가 아닐 때만 토큰을 내고 상태를 갱신한다; duration이 0이면 같은 프레임에서 계속 내되
-/// <see cref="MaxSymbolsPerStep"/>에서 강제로 한 프레임 전진한다 — whisper식 runaway decode가 구조적으로 없는 이유다.
+/// Greedy decoding for the Token-and-Duration Transducer (following onnx-asr's `asr.py` rules exactly).
+/// For each frame, runs the joint with (last token, state) and reads both the token and how many frames to skip.
+/// Emits a token and updates the state only for non-blank outputs; when the duration is 0 it keeps emitting on the same
+/// frame, but is forced forward one frame at <see cref="MaxSymbolsPerStep"/> — which is why Whisper-style runaway decoding cannot occur by construction.
 /// </summary>
 internal static class TdtGreedyDecoder
 {
-    /// <summary>같은 프레임에서 연속으로 낼 수 있는 최대 심볼 수(NeMo `max_symbols`, onnx-asr 기본 10).</summary>
+    /// <summary>Maximum number of consecutive symbols emitted on the same frame (NeMo `max_symbols`, onnx-asr default 10).</summary>
     public const int MaxSymbolsPerStep = 10;
 
-    /// <param name="encodedLength">유효 인코더 프레임 수.</param>
-    /// <param name="vocabSize">토큰 logits 길이(blank 포함). 그 뒤의 logits는 duration bin이다.</param>
-    /// <param name="blankId">blank 토큰 id.</param>
-    /// <param name="stateSize">LSTM h/c 각각의 원소 수(layers × hidden).</param>
-    /// <param name="step">joint 실행.</param>
-    /// <param name="maxSymbolsPerStep">같은 프레임에서 연속으로 낼 수 있는 최대 심볼 수 — 이 수에 닿으면 강제로 한 프레임 전진한다.</param>
+    /// <param name="encodedLength">Number of valid encoder frames.</param>
+    /// <param name="vocabSize">Length of the token logits (including blank). The logits after it are duration bins.</param>
+    /// <param name="blankId">Blank token id.</param>
+    /// <param name="stateSize">Number of elements in each of the LSTM h and c states (layers × hidden).</param>
+    /// <param name="step">Runs the joint.</param>
+    /// <param name="maxSymbolsPerStep">Maximum number of consecutive symbols on the same frame; reaching it forces a one-frame advance.</param>
     public static List<TdtToken> Decode(
         int encodedLength,
         int vocabSize,

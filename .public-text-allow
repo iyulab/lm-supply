@@ -1,0 +1,34 @@
+# Files listed here legitimately hold non-English text (multilingual inputs and fixtures)
+# and are skipped by the built-in public-text checks. Everything else must be English.
+# One exact git pathspec per line, followed by "  # <reason>".
+README.md  # Korean sentences are translator example inputs
+docs/embedder.md  # Korean sentence is a multilingual embedding example input
+docs/translator.md  # Korean sentences are translator example inputs and their expected outputs
+samples/EmbedderSample/Program.cs  # Korean sentence is a multilingual embedding sample input
+console/ui/e2e/chat-advanced-gaps.spec.ts  # Korean chat input and mocked streamed tokens
+console/ui/e2e/form-edge-cases.spec.ts  # CJK text is a Unicode input fixture
+console/ui/e2e/language-variants.spec.ts  # Korean TTS input and mocked OCR results
+console/ui/e2e/negative-paths.spec.ts  # Korean text is a Unicode input fixture
+console/ui/e2e/ocr-language-rerun.spec.ts  # Korean text is a mocked OCR result
+console/ui/e2e/transcribe-language.spec.ts  # Korean text is a mocked transcription result
+tests/LMSupply.Embedder.Tests/PathLoadRepositoryCopyTests.cs  # Korean query is an embedding input
+tests/LMSupply.Generator.Tests/ChatMLToolCallStreamParserTests.cs  # Korean tool-call arguments are parser inputs
+tests/LMSupply.Generator.Tests/Gemma4ToolCallStreamParserTests.cs  # Korean tool-call arguments and reasoning text are parser inputs
+tests/LMSupply.Integration.Tests/FastModelFunctionalTests.cs  # Korean sentence is a translation input
+tests/LMSupply.Integration.Tests/Functional/ConsoleHostApiTests.cs  # Korean text is a translation request input
+tests/LMSupply.Integration.Tests/Functional/CrossDomainScenarioTests.cs  # Korean sentences are translation and embedding inputs
+tests/LMSupply.Integration.Tests/Functional/EmbedderFunctionalTests.cs  # Korean text is a multilingual embedding input
+tests/LMSupply.Integration.Tests/Functional/RerankerFunctionalTests.cs  # Korean query and documents are multilingual reranking inputs
+tests/LMSupply.Integration.Tests/Functional/ResourceManagementTests.cs  # Korean sentences are translation inputs
+tests/LMSupply.Integration.Tests/Functional/SynthesizerIntelligibilityFacts.cs  # Korean sentence is a speech synthesis input
+tests/LMSupply.Integration.Tests/Functional/SynthesizerVoiceRegistryFunctionalTests.cs  # Korean sentence is a speech synthesis input
+tests/LMSupply.Integration.Tests/Functional/TranslatorFunctionalTests.cs  # Korean source sentences are translation inputs
+tests/LMSupply.Integration.Tests/Helpers/TestDataHelper.cs  # Korean sentence is a shared test input constant
+tests/LMSupply.Reranker.Tests/GgufRerankerLiveTests.cs  # Korean query and documents are reranking inputs
+tests/LMSupply.Transcriber.Tests/LongFormSeekTests.cs  # comment quotes a Korean Whisper hallucination observed in the fixture audio
+tests/LMSupply.Transcriber.Tests/SegmentPostProcessorTests.cs  # Korean segments are post-processor inputs
+tests/LMSupply.Transcriber.Tests/WhisperInitialPromptTests.cs  # Korean text is an initial-prompt input
+tests/LMSupply.Transcriber.Tests/WhisperLanguageAutodetectConformanceTests.cs  # Hangul regex asserts the transcript language
+tests/LMSupply.Transcriber.Tests/WhisperLongFormConformanceTests.cs  # Korean phrases are expected transcript content of the fixture audio
+tests/LMSupply.Translator.Tests/TranslationResultTests.cs  # Korean text is translation result fixture data
+src/LMSupply.Translator/README.md  # Korean source sentence is the input of the ko-en translation example

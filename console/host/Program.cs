@@ -21,13 +21,13 @@ if (args.Length > 0 && args[0].Equals("update", StringComparison.OrdinalIgnoreCa
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Kestrel 설정 - 대용량 파일 업로드 허용 (최대 500MB)
+// Kestrel configuration - allow large file uploads (up to 500 MB)
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = 500 * 1024 * 1024; // 500MB
 });
 
-// JSON 직렬화 설정
+// JSON serialization settings
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
@@ -35,7 +35,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
 });
 
-// CORS 설정 (개발용)
+// CORS configuration (for development)
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -79,7 +79,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// 서비스 등록
+// Service registration
 builder.Services.AddSingleton<CacheService>();
 builder.Services.AddSingleton<SystemMonitorService>();
 builder.Services.AddSingleton<ModelManagerService>();
@@ -122,7 +122,7 @@ app.UseMiddleware<RequestIdMiddleware>();
 app.UseMiddleware<ApiKeyMiddleware>();
 app.UseMiddleware<ErrorMiddleware>();
 
-// 임베디드 리소스에서 정적 파일 제공 (wwwroot가 빌드 시 없으면 매니페스트도 없음)
+// Serve static files from embedded resources (no manifest exists if wwwroot was missing at build time)
 var assembly = Assembly.GetExecutingAssembly();
 ManifestEmbeddedFileProvider? embeddedProvider = null;
 try
@@ -133,10 +133,10 @@ try
 }
 catch (InvalidOperationException)
 {
-    // 매니페스트가 없는 경우 (wwwroot 없이 빌드됨) — swagger만 제공
+    // No manifest (built without wwwroot) — only swagger is served
 }
 
-// API 엔드포인트 매핑
+// Map API endpoints
 app.MapModelsEndpoints();
 app.MapSystemEndpoints();
 app.MapChatEndpoints();
@@ -157,7 +157,7 @@ app.MapApiKeyEndpoints();
 // Health check
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
 
-// 루트 엔드포인트
+// Root endpoint
 app.MapGet("/", () =>
 {
     var indexFile = embeddedProvider?.GetFileInfo("index.html");
@@ -168,7 +168,7 @@ app.MapGet("/", () =>
     return Results.Redirect("/swagger");
 });
 
-// SPA 폴백: API 이외의 GET 경로는 index.html로 (클라이언트 사이드 라우팅)
+// SPA fallback: non-API GET paths go to index.html (client-side routing)
 // Only match GET requests — POST/PUT/DELETE to unknown routes should return 404, not HTML
 app.MapFallback(context =>
 {
@@ -244,6 +244,6 @@ static async Task RunCliUpdateAsync()
         }
     }
 
-    // UpdateService가 1.5초 후 StopApplication()을 호출하면 자연스럽게 종료
+    // Shuts down cleanly once UpdateService calls StopApplication() after 1.5 seconds
     await host.WaitForShutdownAsync();
 }

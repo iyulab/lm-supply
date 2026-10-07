@@ -159,7 +159,7 @@ test.describe('Caption → VQA mode switching', () => {
 // ================================================================
 
 test.describe('Chat — multi-turn', () => {
-  // Test plan: 6-04 — 3+ turn multi-turn chat
+  // 3+ turn multi-turn chat
   test('[6-04] can send multiple messages in sequence', async ({ page }) => {
     let messageCount = 0;
 
@@ -233,7 +233,7 @@ test.describe('Model selector — cross-page', () => {
 // ================================================================
 
 test.describe('Synthesize → Transcribe conceptual workflow', () => {
-  // Test plan: 6-03 — Synthesize → Transcribe round-trip
+  // Synthesize → Transcribe round-trip
   test('[6-03] synthesize page generates audio, transcribe page accepts audio', async ({ page }) => {
     // Mock synthesize to return audio
     await page.route('**/v1/audio/speech', async (route) => {
@@ -270,7 +270,7 @@ test.describe('Synthesize → Transcribe conceptual workflow', () => {
 // ================================================================
 
 test.describe('Download → Load → Inference pipeline', () => {
-  // Test plan: 6-06 — full pipeline: download model, pre-load, then use for inference
+  // full pipeline: download model, pre-load, then use for inference
   test('[6-06] download then load then inference across pages', async ({ page }) => {
     // Step 1: Mock Models page APIs — start with empty cache
     await page.route('**/api/cache/models', async (route) => {
@@ -332,7 +332,7 @@ test.describe('Download → Load → Inference pipeline', () => {
 // ================================================================
 
 test.describe('Concurrent download and inference', () => {
-  // Test plan: 6-09 — download in progress does not block inference on another page
+  // download in progress does not block inference on another page
   test('[6-09] inference works while download is in progress on models page', async ({ page }) => {
     // Mock embed endpoint for inference
     await page.route('**/v1/embeddings', async (route) => {

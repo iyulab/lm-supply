@@ -7,7 +7,7 @@ namespace LMSupply.Generator.Tests.Internal.Llama;
 
 /// <summary>
 /// Tests for the severity-aware Trace emission helper that runs at GPU layer decision time.
-/// Verifies the regression fix for B-3 (silent CPU-only fallback): full CPU fallback emits
+/// Guards against a silent CPU-only fallback: full CPU fallback emits
 /// TraceWarning, partial offload stays at TraceInformation.
 /// </summary>
 [Collection("TraceListeners")]

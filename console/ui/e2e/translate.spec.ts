@@ -17,7 +17,7 @@ test.describe('Translate page', () => {
     const options = await select.locator('option').allTextContents();
     expect(options.length).toBeGreaterThan(0);
 
-    // P0: No "undefined" in options
+    // No "undefined" in options
     for (const opt of options) {
       expect(opt).not.toContain('undefined');
     }

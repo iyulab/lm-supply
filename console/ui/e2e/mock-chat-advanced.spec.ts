@@ -3,7 +3,7 @@ import { mockChatStream, mockJsonError } from './fixtures/api-mocks';
 
 // ================================================================
 // Chat page — advanced mock tests
-// Test plan: 3.2.4 (cancel), 3.2.6 (disabled during load), 3.2.7 (multi-turn), 3.2.8 (auto-scroll)
+// Covers: cancel, disabled during load, multi-turn, auto-scroll
 // ================================================================
 
 test.describe('Chat — multi-turn and cancel', () => {
@@ -39,7 +39,7 @@ test.describe('Chat — multi-turn and cancel', () => {
     await expect(page.locator('.bg-muted').filter({ hasText: 'Second response' }).first()).toBeVisible();
   });
 
-  // Test plan: 3.2.6 — Input disabled during streaming
+  // Input disabled during streaming
   test('input is disabled during streaming', async ({ page }) => {
     // Use a slow mock to keep loading state visible
     await page.route('**/v1/chat/completions', async (route) => {
@@ -62,7 +62,7 @@ test.describe('Chat — multi-turn and cancel', () => {
     await expect(page.locator('button').filter({ has: page.locator('.lucide-square') })).toBeVisible();
   });
 
-  // Test plan: 3.2.4 — Cancel button stops streaming
+  // Cancel button stops streaming
   test('cancel button appears and is clickable during streaming', async ({ page }) => {
     // Use a very slow mock
     await page.route('**/v1/chat/completions', async (route) => {
@@ -104,7 +104,7 @@ test.describe('Chat — multi-turn and cancel', () => {
     await expect(page.locator('.bg-muted').filter({ hasText: 'Response' }).first()).toBeVisible({ timeout: 10_000 });
   });
 
-  // Test plan: 3.2.6 — Model selector disabled during streaming
+  // Model selector disabled during streaming
   test('model selector is disabled during streaming', async ({ page }) => {
     await page.route('**/v1/chat/completions', async (route) => {
       await new Promise(resolve => setTimeout(resolve, 3000));

@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/base.fixture';
 
 test.describe('Navigation & Layout', () => {
-  // Test plan: 1.1.1 — All nav links render
+  // All nav links render
   test('[8-06] sidebar renders all navigation links', async ({ page }) => {
     await page.goto('/');
 
@@ -23,7 +23,7 @@ test.describe('Navigation & Layout', () => {
     await expect(nav.getByRole('link', { name: /API Docs/ })).toBeVisible();
   });
 
-  // Test plan: 1.1.2 — Navigation works
+  // Navigation works
   test('[8-06] clicking nav items navigates to correct pages', async ({ page }) => {
     await page.goto('/');
 
@@ -52,7 +52,7 @@ test.describe('Navigation & Layout', () => {
     }
   });
 
-  // Test plan: 1.1.3 — API Docs link opens in new tab
+  // API Docs link opens in new tab
   test('[8-08] API Docs link has target=_blank', async ({ page }) => {
     await page.goto('/');
     const apiDocsLink = page.getByRole('link', { name: /API Docs/ });
@@ -60,7 +60,7 @@ test.describe('Navigation & Layout', () => {
     await expect(apiDocsLink).toHaveAttribute('href', '/swagger');
   });
 
-  // Test plan: 1.1.4 — SPA routing (refresh preserves page)
+  // SPA routing (refresh preserves page)
   test('[8-10] SPA fallback works on page refresh', async ({ page }) => {
     await page.goto('/chat');
     await expect(page).toHaveURL('/chat');
@@ -72,7 +72,7 @@ test.describe('Navigation & Layout', () => {
     await expect(page.getByRole('heading').first()).toBeVisible();
   });
 
-  // Test plan: 1.1.5 — Deep link
+  // Deep link
   test('[8-09] deep link to /models renders correctly', async ({ page }) => {
     await page.goto('/models');
     await expect(page).toHaveURL('/models');
@@ -85,7 +85,7 @@ test.describe('Navigation & Layout', () => {
     await expect(page.getByRole('heading', { name: /Embedding/ })).toBeVisible();
   });
 
-  // Test plan: 1.2.1 — Version display
+  // Version display
   test('[8-13] version is displayed in sidebar footer', async ({ page }) => {
     await page.goto('/');
     // Version format: v{major}.{minor}.{patch}

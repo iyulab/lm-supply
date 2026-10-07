@@ -6,7 +6,7 @@ namespace LMSupply.Core.Tests.Download;
 
 public class GgufFileGroupTests
 {
-    // --- 분할 파일 감지 ---
+    // --- Split file detection ---
 
     [Theory]
     [InlineData("model-Q4_K_M-00001-of-00003.gguf", true)]
@@ -20,7 +20,7 @@ public class GgufFileGroupTests
         GgufFileGroup.IsSplitPart(filename).Should().Be(expected);
     }
 
-    // --- 기본 이름 추출 ---
+    // --- Base name extraction ---
 
     [Theory]
     [InlineData("model-Q4_K_M-00001-of-00003.gguf", "model-Q4_K_M")]
@@ -32,7 +32,7 @@ public class GgufFileGroupTests
         GgufFileGroup.GetBaseName(filename).Should().Be(expected);
     }
 
-    // --- 그룹핑: 단일 파일 ---
+    // --- Grouping: single file ---
 
     [Fact]
     public void GroupFiles_SingleFile_OneGroup()
@@ -51,7 +51,7 @@ public class GgufFileGroupTests
         groups[0].Parts.Should().HaveCount(1);
     }
 
-    // --- 그룹핑: 분할 파일 합산 ---
+    // --- Grouping: split file sizes summed ---
 
     [Fact]
     public void GroupFiles_SplitFiles_OneGroupWithTotalSize()
@@ -72,7 +72,7 @@ public class GgufFileGroupTests
         groups[0].PrimaryFileName.Should().Be("model-Q4_K_M-00001-of-00003.gguf");
     }
 
-    // --- 그룹핑: 혼합 (분할 + 단일) ---
+    // --- Grouping: mixed (split + single) ---
 
     [Fact]
     public void GroupFiles_MixedFiles_GroupsCorrectly()
@@ -97,7 +97,7 @@ public class GgufFileGroupTests
         singleGroup.PrimaryFileName.Should().Be("model-Q8_0.gguf");
     }
 
-    // --- 그룹핑: 여러 단일 파일 ---
+    // --- Grouping: multiple single files ---
 
     [Fact]
     public void GroupFiles_MultipleQuantizations_EachIsOwnGroup()

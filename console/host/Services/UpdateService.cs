@@ -10,7 +10,7 @@ using System.Threading.Channels;
 namespace LMSupply.Console.Host.Services;
 
 /// <summary>
-/// GitHub Releases 기반 자동 업데이트 서비스
+/// Self-update service based on GitHub Releases
 /// </summary>
 public sealed partial class UpdateService
 {
@@ -148,14 +148,14 @@ public sealed partial class UpdateService
                 await ExtractTarGzAsync(downloadPath, extractDir);
 
             // 3. Prepare restart script
-            // 기존 프로세스 종료 후 파일 교체 → 새 프로세스 시작 (포트 충돌/파일 잠금 방지)
+            // Wait for the current process to exit, replace the files, then start a new process (avoids port conflicts and file locks)
             await writer.WriteAsync(new UpdateProgress { Status = "Replacing", Percent = 0 }, ct);
 
             var currentExePath = Environment.ProcessPath
                 ?? throw new InvalidOperationException("Cannot determine current executable path");
             var currentDir = Path.GetDirectoryName(currentExePath)!;
             var currentPid = Environment.ProcessId;
-            // CLI 커맨드 arg("update" 등)는 재시작 시 전달하지 않음 — 새 프로세스는 항상 서버 모드로 시작
+            // CLI command args (such as "update") are not passed on restart — the new process always starts in server mode
             var userArgs = string.Join(" ", Environment.GetCommandLineArgs().Skip(1)
                 .Where(a => !a.Equals("update", StringComparison.OrdinalIgnoreCase))
                 .Select(a => a.Contains(' ') ? $"\"{a}\"" : a));
@@ -165,17 +165,17 @@ public sealed partial class UpdateService
                 var scriptPath = Path.Combine(tempDir, "restart.cmd");
                 var script = string.Join("\r\n",
                     "@echo off",
-                    // 기존 프로세스 종료 대기
-                    // findstr /I "lm-supply.exe" 사용: PID 미존재 시 tasklist가 stdout에 출력하는
-                    // "INFO: No tasks are running..." 메시지도 ^[A-Za-z] 패턴에 매칭되어 무한루프 발생하는 버그 수정
+                    // Wait for the current process to exit.
+                    // Match on findstr /I "lm-supply.exe": when the PID no longer exists, tasklist prints
+                    // "INFO: No tasks are running..." to stdout, which a ^[A-Za-z] pattern would also match, looping forever.
                     ":wait",
                     $"tasklist /FI \"PID eq {currentPid}\" /NH 2>NUL | findstr /I \"lm-supply.exe\" >NUL",
                     "if not errorlevel 1 (timeout /t 1 /nobreak >NUL & goto wait)",
-                    // 파일 잠금 해제 대기
+                    // Wait for file locks to be released
                     "timeout /t 1 /nobreak >NUL",
-                    // 새 파일 복사 (프로세스 종료 후이므로 잠금 없음)
+                    // Copy the new files (no locks, since the process has exited)
                     $"xcopy \"{extractDir}\\*\" \"{currentDir}\\\" /s /y /q >NUL",
-                    // 새 프로세스 시작 (/D로 작업 디렉토리 명시)
+                    // Start the new process (/D sets the working directory)
                     $"start \"\" /D \"{currentDir}\" \"{currentExePath}\" {userArgs}");
                 await File.WriteAllTextAsync(scriptPath, script, ct);
 
@@ -189,7 +189,7 @@ public sealed partial class UpdateService
             }
             else
             {
-                // Unix: 실행 중인 파일도 덮어쓸 수 있으므로 먼저 복사
+                // Unix: a running executable can be overwritten, so copy first
                 foreach (var file in Directory.GetFiles(extractDir, "*", SearchOption.AllDirectories))
                 {
                     var relativePath = Path.GetRelativePath(extractDir, file);
@@ -202,7 +202,7 @@ public sealed partial class UpdateService
                 using var chmod = Process.Start("chmod", ["+x", newExe]);
                 chmod?.WaitForExit(5000);
 
-                // 프로세스 종료 대기 후 새 프로세스 시작
+                // Wait for the process to exit, then start the new process
                 var scriptPath = Path.Combine(tempDir, "restart.sh");
                 var script = string.Join("\n",
                     "#!/bin/bash",
@@ -227,7 +227,7 @@ public sealed partial class UpdateService
             // 4. Restart
             await writer.WriteAsync(new UpdateProgress { Status = "Restarting", Percent = 100 }, ct);
 
-            // 응답 전송 후 종료 스케줄
+            // Schedule shutdown after the response is sent
             _ = Task.Run(async () =>
             {
                 await Task.Delay(1500);
@@ -243,7 +243,7 @@ public sealed partial class UpdateService
         {
             writer.Complete();
 
-            // 스크립트가 실행된 경우 temp 디렉토리를 유지 (다음 시작 시 정리)
+            // Keep the temp directory if the script was launched (cleaned up on next start)
             if (tempDir is not null && !scriptLaunched)
             {
                 try { Directory.Delete(tempDir, true); }
@@ -305,16 +305,16 @@ public sealed partial class UpdateService
             var exePath = Environment.ProcessPath;
             if (exePath is null) return;
 
-            // .bak 파일 정리
+            // Remove the .bak file
             var backupPath = exePath + ".bak";
             if (File.Exists(backupPath))
                 File.Delete(backupPath);
 
-            // 이전 업데이트 temp 디렉토리 정리
+            // Remove temp directories from previous updates
             foreach (var dir in Directory.GetDirectories(Path.GetTempPath(), "lm-supply-update-*"))
             {
                 try { Directory.Delete(dir, true); }
-                catch { /* 사용 중이면 무시 */ }
+                catch { /* ignore if in use */ }
             }
         }
         catch (Exception ex)

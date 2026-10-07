@@ -2,7 +2,6 @@ import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
 // API System Endpoints — direct API tests via Playwright request context
-// Manual test plan: 5-01 to 5-06
 // ================================================================
 
 test.describe('API System Endpoints', () => {

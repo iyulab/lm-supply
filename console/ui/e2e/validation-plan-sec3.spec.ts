@@ -4,7 +4,6 @@ const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 // ================================================================
 // Section 3-1: Basic Chat Completions
-// Manual validation plan: 3-1-01 to 3-1-08
 // ================================================================
 test.describe('Section 3-1: Basic Chat Completions', () => {
   test('[3-1-01] response has required OpenAI fields', async ({ request }) => {
@@ -119,7 +118,6 @@ test.describe('Section 3-1: Basic Chat Completions', () => {
 
 // ================================================================
 // Section 3-2: Streaming
-// Manual validation plan: 3-2-01 to 3-2-05
 // ================================================================
 test.describe('Section 3-2: Chat Streaming', () => {
   test('[3-2-01] streaming response uses text/event-stream', async ({ request }) => {
@@ -159,7 +157,6 @@ test.describe('Section 3-2: Chat Streaming', () => {
 
 // ================================================================
 // Section 3-3: Multiple Choices (n > 1)
-// Manual validation plan: 3-3-01 to 3-3-03
 // ================================================================
 test.describe('Section 3-3: Multiple Choices', () => {
   test('[3-3-01] n=3 returns 3 choices', async ({ request }) => {
@@ -200,7 +197,6 @@ test.describe('Section 3-3: Multiple Choices', () => {
 
 // ================================================================
 // Section 3-4: Tool Calls
-// Manual validation plan: 3-4-01 to 3-4-07
 // ================================================================
 test.describe('Section 3-4: Tool Calls', () => {
   const TOOLS = [{
@@ -251,7 +247,6 @@ test.describe('Section 3-4: Tool Calls', () => {
 
 // ================================================================
 // Section 3-5: Response Format
-// Manual validation plan: 3-5-01 to 3-5-03
 // ================================================================
 test.describe('Section 3-5: Response Format', () => {
   test('[3-5-01] response_format json_object accepted', async ({ request }) => {
@@ -282,7 +277,6 @@ test.describe('Section 3-5: Response Format', () => {
 
 // ================================================================
 // Section 3-6: Multimodal (image_url)
-// Manual validation plan: 3-6-01 to 3-6-04
 // ================================================================
 test.describe('Section 3-6: Multimodal Vision', () => {
   // 1x1 red pixel PNG as base64

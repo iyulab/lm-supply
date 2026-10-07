@@ -16,7 +16,7 @@ public class OnnxQuantizationSelectionTests
             new() { Path = "onnx/model_int4.onnx", Type = "file", Size = 500_000_000L },
         };
 
-        var prefs = ModelPreferences.ForTier(PerformanceTier.Low);  // Quant4 우선
+        var prefs = ModelPreferences.ForTier(PerformanceTier.Low);  // Quant4 first
         var selected = ModelDiscoveryService.SelectBestVariantsForTest(candidates, prefs);
 
         selected.Should().Contain("onnx/model_int4.onnx");
@@ -32,7 +32,7 @@ public class OnnxQuantizationSelectionTests
             new() { Path = "onnx/model_int4.onnx", Type = "file", Size = 500_000_000L },
         };
 
-        var prefs = ModelPreferences.ForTier(PerformanceTier.Ultra);  // Default 우선
+        var prefs = ModelPreferences.ForTier(PerformanceTier.Ultra);  // Default first
         var selected = ModelDiscoveryService.SelectBestVariantsForTest(candidates, prefs);
 
         selected.Should().Contain("onnx/model.onnx");

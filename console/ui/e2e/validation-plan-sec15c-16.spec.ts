@@ -5,7 +5,6 @@ const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 // ================================================================
 // Section 15-8: Translate Page
-// Manual validation plan: 15-8-01 to 15-8-03
 // ================================================================
 test.describe('Section 15-8: Translate Page', () => {
   test('[15-8-01] source/target language selection present', async ({ page }) => {
@@ -25,7 +24,6 @@ test.describe('Section 15-8: Translate Page', () => {
 
 // ================================================================
 // Section 15-9: Vision Pages (Caption, Detect, OCR, Segment)
-// Manual validation plan: 15-9-01 to 15-9-05
 // ================================================================
 const VISION_PAGES = [
   { path: '/caption', name: 'Caption' },
@@ -69,7 +67,6 @@ test.describe('Section 15-9: Vision Pages', () => {
 
 // ================================================================
 // Section 15-10: ImageGenerate Page
-// Manual validation plan: 15-10-01 to 15-10-05
 // ================================================================
 test.describe('Section 15-10: ImageGenerate Page', () => {
   test('[15-10-01] prompt input field present', async ({ page }) => {
@@ -89,7 +86,6 @@ test.describe('Section 15-10: ImageGenerate Page', () => {
 
 // ================================================================
 // Section 16: Boundary and Stress Tests
-// Manual validation plan: 16-01 to 16-08
 // ================================================================
 test.describe('Section 16: Boundary and Stress Tests', () => {
   test('[16-01] empty body POST returns 400 with error message', async ({ request }) => {

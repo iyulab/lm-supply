@@ -110,13 +110,13 @@ public class EmbedderFunctionalTests
     // ── Tokenizer conformance ───────────────────────────────────────
 
     /// <summary>
-    /// XLM-Roberta 계열(default=bge-m3, fast/large=multilingual-e5-*)은 SentencePiece 모델의
-    /// raw id를 그대로 쓰지 않는다 — fairseq가 <c>0..3</c>을 예약해 내용 토큰이 한 칸 밀려 있다.
-    /// 이 축이 비어 있었기 때문에(기존 테스트는 shape/range만 단언했다) 어긋난 id가 배포됐다.
+    /// XLM-RoBERTa models (default=bge-m3, fast/large=multilingual-e5-*) do not use the SentencePiece
+    /// model's raw ids as-is — fairseq reserves <c>0..3</c>, which shifts content tokens by one.
+    /// Shape and range assertions alone cannot detect misaligned ids, so this pins the ids themselves.
     /// </summary>
     /// <remarks>
-    /// 기대값은 HuggingFace <c>tokenizers</c>가 같은 스냅샷의 <c>tokenizer.json</c>으로 낸 id다.
-    /// 실제 모델 다운로드가 필요해 CI에서는 돌지 않는다(<c>Category=Functional</c>).
+    /// Expected values are the ids HuggingFace <c>tokenizers</c> produces from the same snapshot's <c>tokenizer.json</c>.
+    /// Requires downloading the real model, so it does not run in CI (<c>Category=Functional</c>).
     /// </remarks>
     [Fact]
     [Trait("Axis", "Quality")]

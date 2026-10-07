@@ -10,7 +10,6 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 
 // ================================================================
 // API Inference — Audio + Media endpoints
-// Manual test plan: 5-23 to 5-35
 // ================================================================
 
 test.describe('API Inference — Audio & Media', () => {

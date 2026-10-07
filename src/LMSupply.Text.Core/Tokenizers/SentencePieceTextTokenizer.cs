@@ -30,9 +30,9 @@ internal sealed class SentencePieceTextTokenizer : ITextTokenizer
     }
 
     /// <summary>
-    /// 내용 토큰만 인코딩한다 — 특수 토큰은 이 클래스가 붙이므로 하위 토크나이저가 BOS/EOS를
-    /// 덧붙이지 않는다는 전제(<see cref="TokenizerFactory"/>가 그렇게 만든다)에 기대고,
-    /// 모델이 선언한 어휘 배치로 id를 옮긴다.
+    /// Encodes content tokens only. This class adds the special tokens itself, so it relies on the
+    /// inner tokenizer not adding BOS/EOS (<see cref="TokenizerFactory"/> builds it that way), and
+    /// maps the ids onto the vocabulary layout the model declares.
     /// </summary>
     private int[] EncodeContent(string text)
         => _idMap.Map(_tokenizer.EncodeToIds(text).ToArray());

@@ -3,7 +3,7 @@ import { mockJsonEndpoint, mockImageGenerationResponse, mockJsonError } from './
 
 // ================================================================
 // ImageGen — download button behavior
-// Test plan: 13.1.5 (download button creates PNG file)
+// Covers: download button creates PNG file
 // ================================================================
 
 test.describe('ImageGen — download flow', () => {
@@ -40,11 +40,11 @@ test.describe('ImageGen — download flow', () => {
 
 // ================================================================
 // Network error handling and recovery
-// Test plan: 15.1.1 (network error shows message), 15.1.2 (error recovery)
+// Covers: network error shows message, error recovery
 // ================================================================
 
 test.describe('Network error handling', () => {
-  // Test plan: 15.1.1 — API error shows error message (not blank page)
+  // API error shows error message (not blank page)
   test('embed page shows error message on API failure', async ({ page }) => {
     await page.goto('/embed');
     await expect(page.locator('main').getByRole('heading', { name: /Text Embedding/ })).toBeVisible();
@@ -64,7 +64,7 @@ test.describe('Network error handling', () => {
     await expect(page.locator('main').getByRole('heading', { name: /Text Embedding/ })).toBeVisible();
   });
 
-  // Test plan: 15.1.1 — Chat shows error as assistant message
+  // Chat shows error as assistant message
   test('chat page shows error as assistant message on API failure', async ({ page }) => {
     await page.goto('/chat');
     await expect(page.locator('main').getByRole('heading', { name: /Chat/ }).first()).toBeVisible();
@@ -86,7 +86,7 @@ test.describe('Network error handling', () => {
     await expect(page.getByText(/Model failed to load|Error|error/)).toBeVisible({ timeout: 10_000 });
   });
 
-  // Test plan: 15.1.2 — Error recovery: operations resume after error
+  // Error recovery: operations resume after error
   test('operations resume normally after error recovery', async ({ page }) => {
     await page.goto('/embed');
     await expect(page.locator('main').getByRole('heading', { name: /Text Embedding/ })).toBeVisible();

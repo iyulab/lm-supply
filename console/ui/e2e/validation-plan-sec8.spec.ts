@@ -4,7 +4,6 @@ const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 // ================================================================
 // Section 8-1: POST /v1/translate (Custom API)
-// Manual validation plan: 8-1-01 to 8-1-03
 // ================================================================
 test.describe('Section 8-1: Custom Translation API', () => {
   test('[8-1-01] basic translation returns translated text', async ({ request }) => {
@@ -41,7 +40,6 @@ test.describe('Section 8-1: Custom Translation API', () => {
 
 // ================================================================
 // Section 8-2: POST /v2/translate (DeepL-compatible)
-// Manual validation plan: 8-2-01 to 8-2-06
 // ================================================================
 test.describe('Section 8-2: DeepL-compatible Translation', () => {
   test('[8-2-01] response format matches DeepL: {translations:[{detected_source_language,text}]}', async ({ request }) => {

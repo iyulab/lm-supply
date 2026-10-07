@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
-// Embed page — deeper interaction tests (test plan section 4)
+// Embed page — deeper interaction tests
 // ================================================================
 
 test.describe('Embed — deeper UI', () => {
@@ -10,13 +10,13 @@ test.describe('Embed — deeper UI', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Text Embedding' })).toBeVisible();
   });
 
-  // Test plan: 4.2 — textarea placeholder
+  // textarea placeholder
   test('textarea has "one per line" placeholder', async ({ page }) => {
     const textarea = page.locator('textarea');
     await expect(textarea).toHaveAttribute('placeholder', 'Enter texts to embed, one per line...');
   });
 
-  // Test plan: 4.2 — label says "Texts (one per line)"
+  // label says "Texts (one per line)"
   test('label indicates one text per line', async ({ page }) => {
     await expect(page.locator('label', { hasText: /Texts.*one per line/ })).toBeVisible();
   });
@@ -40,7 +40,7 @@ test.describe('Embed — deeper UI', () => {
 });
 
 // ================================================================
-// Rerank page — deeper interaction tests (test plan section 5)
+// Rerank page — deeper interaction tests
 // ================================================================
 
 test.describe('Rerank — deeper UI', () => {
@@ -49,7 +49,7 @@ test.describe('Rerank — deeper UI', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Document Reranking' })).toBeVisible();
   });
 
-  // Test plan: 5.4 — Top K defaults to 5
+  // Top K defaults to 5
   test('Top K input defaults to 5', async ({ page }) => {
     const topKInput = page.locator('input[type="number"]');
     const value = await topKInput.inputValue();
@@ -101,7 +101,7 @@ test.describe('Rerank — deeper UI', () => {
 });
 
 // ================================================================
-// Chat page — deeper interaction tests (test plan section 3.2)
+// Chat page — deeper interaction tests
 // ================================================================
 
 test.describe('Chat — deeper interaction', () => {
@@ -110,7 +110,7 @@ test.describe('Chat — deeper interaction', () => {
     await expect(page.locator('main').getByRole('heading', { name: /Chat/ }).first()).toBeVisible();
   });
 
-  // Test plan: 3.2.5 — empty state message
+  // empty state message
   test('empty chat shows placeholder message', async ({ page }) => {
     await expect(page.getByText('Start a conversation with the AI model')).toBeVisible();
   });

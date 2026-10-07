@@ -4,7 +4,6 @@ const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 // ================================================================
 // Section 2-1: GET /v1/models — OpenAI-compatible list
-// Manual validation plan: 2-1-01 to 2-1-04
 // ================================================================
 test.describe('Section 2-1: GET /v1/models', () => {
   test('[2-1-01] response format is OpenAI list object', async ({ request }) => {
@@ -50,7 +49,6 @@ test.describe('Section 2-1: GET /v1/models', () => {
 
 // ================================================================
 // Section 2-2: GET /v1/models/{model}
-// Manual validation plan: 2-2-01 to 2-2-03
 // ================================================================
 test.describe('Section 2-2: GET /v1/models/{model}', () => {
   test('[2-2-01] existing alias returns 200 with ModelInfo', async ({ request }) => {
@@ -81,7 +79,6 @@ test.describe('Section 2-2: GET /v1/models/{model}', () => {
 
 // ================================================================
 // Section 2-3: Cache Management API
-// Manual validation plan: 2-3-01 to 2-3-09
 // ================================================================
 test.describe('Section 2-3: Cache Management API', () => {
   test('[2-3-01] GET /api/cache/models returns list with sizeBytes', async ({ request }) => {
@@ -147,7 +144,6 @@ test.describe('Section 2-3: Cache Management API', () => {
 
 // ================================================================
 // Section 2-4: Download API
-// Manual validation plan: 2-4-01 to 2-4-05
 // ================================================================
 test.describe('Section 2-4: Download API', () => {
   test('[2-4-01] POST /api/download/check with known repoId returns metadata', async ({ request }) => {
@@ -181,7 +177,6 @@ test.describe('Section 2-4: Download API', () => {
 
 // ================================================================
 // Section 2-5: Registry API
-// Manual validation plan: 2-5-01 to 2-5-04
 // ================================================================
 test.describe('Section 2-5: Registry API', () => {
   test('[2-5-01] GET /api/registry/models returns 11 model types', async ({ request }) => {

@@ -8,7 +8,7 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 
 // ================================================================
 // OCR — language change and re-run
-// Manual test plan: 4-72 (change language → re-run OCR)
+// Covers: change language → re-run OCR
 // ================================================================
 
 test.describe('OCR — language change re-run', () => {

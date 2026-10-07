@@ -3,7 +3,7 @@ import { mockJsonEndpoint, mockEmbedResponse, mockJsonError } from './fixtures/a
 
 // ================================================================
 // Embed page — mock API tests for result display
-// Test plan: 4.2-4.4 (embedding generation, vector display, elapsed time)
+// Covers: embedding generation, vector display, elapsed time
 // ================================================================
 
 test.describe('Embed — mock inference results', () => {
@@ -80,7 +80,7 @@ test.describe('Embed — mock inference results', () => {
     await expect(page.getByText('Text 3')).toBeVisible();
   });
 
-  // Test plan: 4.6 — Error display
+  // Error display
   test('API error shows error message', async ({ page }) => {
     await mockJsonError(page, '**/v1/embeddings', 'Model failed to load: not found');
 

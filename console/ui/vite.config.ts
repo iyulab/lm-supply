@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     tailwindcss()
   ],
-  // 프로덕션 빌드: host/wwwroot로 출력
+  // Production build: output to host/wwwroot
   build: {
     outDir: '../host/wwwroot',
     emptyOutDir: true
@@ -15,7 +15,7 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      // API 엔드포인트 (system, cache, registry)
+      // API endpoints (system, cache, registry)
       // Note: /api/download SSE endpoints connect directly to backend to avoid proxy issues
       '/api': {
         target: 'http://localhost:5000',

@@ -10,7 +10,6 @@ const PNG_BUFFER = Buffer.from(
 
 // ================================================================
 // Section 10-1: POST /v1/images/caption
-// Manual validation plan: 10-1-01 to 10-1-04
 // ================================================================
 test.describe('Section 10-1: Image Caption', () => {
   test('[10-1-01] response: id, model, choices[0].caption, usage', async ({ request }) => {
@@ -68,7 +67,6 @@ test.describe('Section 10-1: Image Caption', () => {
 
 // ================================================================
 // Section 11-1: POST /v1/images/detect
-// Manual validation plan: 11-1-01 to 11-1-05
 // ================================================================
 test.describe('Section 11-1: Object Detection', () => {
   test('[11-1-01] response: id, model, detections[].label/confidence/bounding_box', async ({ request }) => {

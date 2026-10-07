@@ -2,7 +2,6 @@ import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
 // Cross-domain workflow API tests
-// Manual test plan: 6-01, 6-05, 6-07
 // ================================================================
 
 test.describe('Cross-domain API workflows', () => {

@@ -13,7 +13,7 @@ test.describe('Synthesize page', () => {
     const optionCount = await select.locator('option').count();
     expect(optionCount).toBeGreaterThan(0);
 
-    // P0: No "undefined" in options
+    // No "undefined" in options
     const options = await select.locator('option').allTextContents();
     for (const opt of options) {
       expect(opt).not.toContain('undefined');
@@ -27,7 +27,7 @@ test.describe('Synthesize page', () => {
     await expect(submitButton).toBeDisabled();
   });
 
-  // Test plan: 7 — Text input present
+  // Text input present
   test('has textarea for text input', async ({ page }) => {
     const textarea = page.getByPlaceholder(/Enter text to convert to speech/);
     await expect(textarea).toBeVisible();

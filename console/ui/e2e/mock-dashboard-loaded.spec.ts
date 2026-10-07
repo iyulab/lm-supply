@@ -3,11 +3,11 @@ import { mockDashboardApis } from './fixtures/api-mocks';
 
 // ================================================================
 // Dashboard — loaded models display + refresh polling
-// Test plan: 2.2.3 (loaded models detail), 2.2.4 (loaded models refresh)
+// Covers: loaded models detail, loaded models refresh
 // ================================================================
 
 // ================================================================
-// Test plan: 2.2.3 — Dashboard shows loaded models with details
+// Dashboard shows loaded models with details
 // ================================================================
 
 test.describe('Dashboard — loaded models', () => {
@@ -39,7 +39,7 @@ test.describe('Dashboard — loaded models', () => {
 });
 
 // ================================================================
-// Test plan: 2.2.4 — Dashboard loaded models refresh via polling
+// Dashboard loaded models refresh via polling
 // ================================================================
 
 test.describe('Dashboard — loaded models refresh', () => {

@@ -9,7 +9,7 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 
 // ================================================================
 // File upload edge cases
-// Manual test plan: 7-11 (empty file), 7-13 (wrong format as image), 7-15 (image formats), 7-16 (audio formats)
+// Covers: empty file, wrong format as image, image formats, audio formats
 // ================================================================
 
 test.describe('Empty file upload', () => {

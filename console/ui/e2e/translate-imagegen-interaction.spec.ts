@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
-// Translate page — deeper interaction tests (test plan section 12)
+// Translate page — deeper interaction tests
 // ================================================================
 
 test.describe('Translate — deeper UI', () => {
@@ -10,7 +10,7 @@ test.describe('Translate — deeper UI', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Machine Translation' })).toBeVisible();
   });
 
-  // Test plan: 12.1 — model options show "alias (source → target)" format
+  // model options show "alias (source → target)" format
   test('model options show alias with language pair', async ({ page }) => {
     const select = page.locator('select');
     // Wait for options to be populated from API
@@ -25,7 +25,7 @@ test.describe('Translate — deeper UI', () => {
     }
   });
 
-  // Test plan: 12.2 — source/target language hint appears under model selector
+  // source/target language hint appears under model selector
   test('language hint shows source → target below model selector', async ({ page }) => {
     const select = page.locator('select');
     await expect(select.locator('option')).not.toHaveCount(0, { timeout: 5_000 });
@@ -62,7 +62,7 @@ test.describe('Translate — deeper UI', () => {
 });
 
 // ================================================================
-// Image Generate — deeper interaction tests (test plan section 13)
+// Image Generate — deeper interaction tests
 // ================================================================
 
 test.describe('ImageGenerate — deeper UI', () => {

@@ -650,13 +650,13 @@ public static class TokenizerFactory
     }
 
     /// <summary>
-    /// SentencePiece 모델의 raw id를, 그 모델과 함께 배포된 어휘가 실제로 쓰는 id로 옮기는
-    /// 사상을 만든다. 두 어휘가 이미 일치하면 아무것도 하지 않는 사상이 나온다.
+    /// Builds the mapping from a SentencePiece model's raw ids to the ids actually used by the
+    /// vocabulary shipped with that model. If the two vocabularies already agree, the result is the identity mapping.
     /// </summary>
     /// <remarks>
-    /// XLM-Roberta 계열(multilingual-e5-*, bge-m3)은 fairseq 예약 슬롯 때문에 내용 토큰이
-    /// spm 자신의 id보다 한 칸 뒤에 있다 — 그 어긋남을 계열 목록으로 알아맞히지 않고
-    /// 두 어휘를 대조해 도출한다(<see cref="SentencePieceIdMap"/>).
+    /// In the XLM-RoBERTa family (multilingual-e5-*, bge-m3), fairseq's reserved slots place content tokens
+    /// one position after spm's own ids. The offset is derived by comparing the two vocabularies
+    /// rather than guessed from a list of model families (<see cref="SentencePieceIdMap"/>).
     /// </remarks>
     private static SentencePieceIdMap BuildIdMap(Tokenizer tokenizer, Dictionary<string, int> targetVocabulary)
     {

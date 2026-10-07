@@ -6,7 +6,7 @@ namespace LMSupply.Core.Tests.Download;
 
 public class GgufFileSelectorTests
 {
-    // ─── 시나리오별 AvailableMemory ───
+    // ─── AvailableMemory per scenario ───
 
     // 4GB VRAM + 16GB RAM (Medium tier)
     private static readonly AvailableMemory MediumHardware = new(
@@ -23,13 +23,13 @@ public class GgufFileSelectorTests
         VramBytes: 0,
         RamBytes: 8L * 1024 * 1024 * 1024);
 
-    // ─── AvailableMemory 계산 ───
+    // ─── AvailableMemory computation ───
 
     [Fact]
     public void AvailableMemory_UsableVramBytes_DeductsOverhead()
     {
         var memory = new AvailableMemory(VramBytes: 8L * 1024 * 1024 * 1024, RamBytes: 0);
-        // 2GB GPU overhead 차감 → 6GB
+        // minus 2GB GPU overhead → 6GB
         memory.UsableVramBytes.Should().Be(6L * 1024 * 1024 * 1024);
     }
 
@@ -37,7 +37,7 @@ public class GgufFileSelectorTests
     public void AvailableMemory_UsableRamBytes_DeductsOverhead()
     {
         var memory = new AvailableMemory(VramBytes: 0, RamBytes: 8L * 1024 * 1024 * 1024);
-        // 4GB system overhead 차감 → 4GB
+        // minus 4GB system overhead → 4GB
         memory.UsableRamBytes.Should().Be(4L * 1024 * 1024 * 1024);
     }
 
@@ -51,7 +51,7 @@ public class GgufFileSelectorTests
     [Fact]
     public void AvailableMemory_FitsInGpu_TrueWhenSmallEnough()
     {
-        // 파일 2GB, VRAM 4GB (usable 2GB) → 2GB × 1.1 = 2.2GB > 2GB usable → false
+        // 2GB file, 4GB VRAM (2GB usable) → 2GB × 1.1 = 2.2GB > 2GB usable → false
         var memory = new AvailableMemory(
             VramBytes: 4L * 1024 * 1024 * 1024,
             RamBytes: 16L * 1024 * 1024 * 1024);
@@ -65,12 +65,12 @@ public class GgufFileSelectorTests
         LowHardware.FitsInGpu(1L * 1024 * 1024 * 1024).Should().BeFalse();
     }
 
-    // ─── 기본 선택: 메모리 안에서 가장 큰 파일 ───
+    // ─── Default selection: largest file that fits in memory ───
 
     [Fact]
     public void Select_PrefersBiggerFileWithinMemory()
     {
-        // 3GB, 5GB, 8GB 파일 / VRAM 16GB (usable 14GB)
+        // 3GB, 5GB, 8GB files / 16GB VRAM (14GB usable)
         var groups = new[]
         {
             MakeGroup("model-Q4_K_M.gguf", 3L * 1024 * 1024 * 1024),
@@ -86,9 +86,9 @@ public class GgufFileSelectorTests
     [Fact]
     public void Select_FiltersOutTooLargeFiles()
     {
-        // 3GB와 8GB 파일 / VRAM 4GB (usable 2GB), RAM 16GB (usable 12GB), total usable ~14GB
-        // 8GB × 1.1 = 8.8GB → total usable 14GB보다 작으므로 8GB도 통과!
-        // 이 경우 더 큰 8GB 선택
+        // 3GB and 8GB files / 4GB VRAM (2GB usable), 16GB RAM (12GB usable), ~14GB total usable
+        // 8GB × 1.1 = 8.8GB is below the 14GB total usable, so the 8GB file also passes
+        // so the larger 8GB file is selected
         var groups = new[]
         {
             MakeGroup("model-Q4_K_M.gguf", 3L * 1024 * 1024 * 1024),
@@ -98,15 +98,15 @@ public class GgufFileSelectorTests
         var result = GgufFileSelector.Select(groups, MediumHardware);
 
         // MediumHardware: VRAM 4GB(usable 2GB) + RAM 16GB(usable 12GB) = total 14GB
-        // 8GB × 1.1 = 8.8GB ≤ 14GB → 통과, 3GB × 1.1 = 3.3GB ≤ 14GB → 통과
-        // 8GB가 더 크므로 선택
+        // 8GB × 1.1 = 8.8GB ≤ 14GB → passes, 3GB × 1.1 = 3.3GB ≤ 14GB → passes
+        // 8GB is larger, so it is selected
         result.PrimaryFileName.Should().Be("model-Q8_0.gguf");
     }
 
     [Fact]
     public void Select_FiltersOutFilesTooLargeForTotalMemory()
     {
-        // 파일이 너무 커서 VRAM+RAM 합산으로도 불가
+        // File is too large even for combined VRAM + RAM
         var groups = new[]
         {
             MakeGroup("model-Q4_K_M.gguf", 2L * 1024 * 1024 * 1024),
@@ -114,19 +114,19 @@ public class GgufFileSelectorTests
         };
 
         // LowHardware: VRAM 0 + RAM 8GB(usable 4GB) = total 4GB
-        // 2GB × 1.1 = 2.2GB ≤ 4GB → 통과
-        // 20GB × 1.1 = 22GB > 4GB → 필터 아웃
+        // 2GB × 1.1 = 2.2GB ≤ 4GB → passes
+        // 20GB × 1.1 = 22GB > 4GB → filtered out
         var result = GgufFileSelector.Select(groups, LowHardware);
 
         result.PrimaryFileName.Should().Be("model-Q4_K_M.gguf");
     }
 
-    // ─── 분할 파일: 합산 크기로 메모리 체크 ───
+    // ─── Split files: memory check uses the summed size ───
 
     [Fact]
     public void Select_SplitFile_UsesTotalSizeForMemoryCheck()
     {
-        // 분할 파일: 각 파트 2.1GB × 3 = 6.3GB
+        // Split file: 2.1GB per part × 3 = 6.3GB
         var splitGroup = new GgufFileGroup
         {
             PrimaryFileName = "model-Q4_K_M-00001-of-00003.gguf",
@@ -135,18 +135,18 @@ public class GgufFileSelectorTests
                      "model-Q4_K_M-00003-of-00003.gguf"],
             TotalSizeBytes = 6_300_000_000L
         };
-        // 단일 파일 2.5GB
+        // Single 2.5GB file
         var smallGroup = MakeGroup("model-Q3_K_M.gguf", 2_500_000_000L);
 
         // LowHardware: total usable 4GB
-        // 6.3GB × 1.1 = 6.93GB > 4GB → 필터 아웃
-        // 2.5GB × 1.1 = 2.75GB ≤ 4GB → 통과
+        // 6.3GB × 1.1 = 6.93GB > 4GB → filtered out
+        // 2.5GB × 1.1 = 2.75GB ≤ 4GB → passes
         var result = GgufFileSelector.Select([splitGroup, smallGroup], LowHardware);
 
         result.PrimaryFileName.Should().Be("model-Q3_K_M.gguf");
     }
 
-    // ─── 사용자 지정 양자화 ───
+    // ─── User-specified quantization ───
 
     [Fact]
     public void Select_PreferredQuantization_UsedWhenFits()
@@ -158,7 +158,7 @@ public class GgufFileSelectorTests
             MakeGroup("model-Q8_0.gguf",   8L * 1024 * 1024 * 1024),
         };
 
-        // Ultra 하드웨어, Q6_K 선호 → Q6_K 선택 (Q8_0이 더 크지만 사용자 선택 우선)
+        // Ultra hardware, Q6_K preferred → Q6_K selected (Q8_0 is larger, but the user's choice wins)
         var result = GgufFileSelector.Select(groups, UltraHardware, preferredQuantization: "Q6_K");
 
         result.PrimaryFileName.Should().Be("model-Q6_K.gguf");
@@ -170,12 +170,12 @@ public class GgufFileSelectorTests
         var groups = new[]
         {
             MakeGroup("model-Q4_K_M.gguf", 2L * 1024 * 1024 * 1024),
-            MakeGroup("model-Q8_0.gguf",   50L * 1024 * 1024 * 1024),  // 50GB, 너무 큼
+            MakeGroup("model-Q8_0.gguf",   50L * 1024 * 1024 * 1024),  // 50GB, too large
         };
 
         // LowHardware: total usable 4GB
-        // Q8_0 선호하지만 50GB × 1.1 > 4GB → 필터 아웃
-        // Q4_K_M (2GB) 자동 선택
+        // Q8_0 preferred, but 50GB × 1.1 > 4GB → filtered out
+        // Q4_K_M (2GB) selected automatically
         var result = GgufFileSelector.Select(groups, LowHardware, preferredQuantization: "Q8_0");
 
         result.PrimaryFileName.Should().Be("model-Q4_K_M.gguf");
@@ -197,22 +197,22 @@ public class GgufFileSelectorTests
         resultEmpty.PrimaryFileName.Should().Be("model-Q8_0.gguf");
     }
 
-    // ─── 양자화 이름 매칭 ───
+    // ─── Quantization name matching ───
 
     [Theory]
     [InlineData("model-Q4_K_M.gguf", "Q4_K_M", true)]
-    [InlineData("model-Q4_K_M-imat.gguf", "Q4_K_M", true)]       // iMatrix 변형
-    [InlineData("Meta-Llama-3-8B.Q4_K_M.gguf", "Q4_K_M", true)]  // 점 구분자
-    [InlineData("model_Q4_K_M.gguf", "Q4_K_M", true)]             // 밑줄 구분자
+    [InlineData("model-Q4_K_M-imat.gguf", "Q4_K_M", true)]       // iMatrix variant
+    [InlineData("Meta-Llama-3-8B.Q4_K_M.gguf", "Q4_K_M", true)]  // dot separator
+    [InlineData("model_Q4_K_M.gguf", "Q4_K_M", true)]             // underscore separator
     [InlineData("model-Q8_0.gguf", "Q4_K_M", false)]
-    [InlineData("model-IQ4_XS.gguf", "IQ4_XS", true)]             // 신규 타입
+    [InlineData("model-IQ4_XS.gguf", "IQ4_XS", true)]             // newer type
     [InlineData("model-BF16.gguf", "BF16", true)]                  // BF16
     public void MatchesQuantization_WorksForVariousFormats(string filename, string quant, bool expected)
     {
         GgufFileSelector.MatchesQuantization(filename, quant).Should().Be(expected);
     }
 
-    // ─── 예외 케이스 ───
+    // ─── Error cases ───
 
     [Fact]
     public void Select_NothingFits_ThrowsWithDetails()
@@ -248,7 +248,7 @@ public class GgufFileSelectorTests
         memory.RamBytes.Should().BeGreaterThan(0);
     }
 
-    // ─── KV Cache 예산 포함 테스트 ───
+    // ─── Tests including the KV cache budget ───
 
     [Theory]
     [InlineData(1L * 1024 * 1024 * 1024, 4096)]   // 1GB file, 4K context
@@ -350,22 +350,22 @@ public class GgufFileSelectorTests
             "larger context should fit fewer or equal models");
     }
 
-    // ─── VRAM-only 모드: 4GB-VRAM/대용량-RAM 호스트의 bf16 오선택 방지 ───
+    // ─── VRAM-only mode: no bf16 selection on a 4GB-VRAM / large-RAM host ───
 
     [Fact]
     public void Select_VramOnly_PrefersFitInVramOverLargestInRam()
     {
-        // 4GB VRAM(usable 2GB) + 32GB RAM 시뮬레이션. bf16(15GB)은 RAM에는 들어가지만
-        // VRAM 예산을 초과 → vramOnly=true 일 때는 절대 선택되어선 안 됨.
+        // Simulates 4GB VRAM (2GB usable) + 32GB RAM. bf16 (15GB) fits in RAM but
+        // exceeds the VRAM budget, so it must never be selected when vramOnly=true.
         var memory = new AvailableMemory(
             VramBytes: 4L * 1024 * 1024 * 1024,
             RamBytes: 32L * 1024 * 1024 * 1024);
 
         var groups = new[]
         {
-            MakeGroup("model-Q4_K_M.gguf", 1L * 1024 * 1024 * 1024),    // 1GB → VRAM 적합
-            MakeGroup("model-Q8_0.gguf",   3L * 1024 * 1024 * 1024),    // 3GB → VRAM 초과
-            MakeGroup("model-bf16.gguf",   15L * 1024 * 1024 * 1024),   // 15GB → VRAM 초과 (RAM은 적합)
+            MakeGroup("model-Q4_K_M.gguf", 1L * 1024 * 1024 * 1024),    // 1GB → fits VRAM
+            MakeGroup("model-Q8_0.gguf",   3L * 1024 * 1024 * 1024),    // 3GB → exceeds VRAM
+            MakeGroup("model-bf16.gguf",   15L * 1024 * 1024 * 1024),   // 15GB → exceeds VRAM (fits RAM)
         };
 
         var result = GgufFileSelector.Select(groups, memory, vramOnly: true);
@@ -376,15 +376,15 @@ public class GgufFileSelectorTests
     [Fact]
     public void Select_VramOnly_NothingFits_FallsBackToSmallest()
     {
-        // VRAM에 들어갈 후보가 전혀 없을 때, vramOnly=true 는 예외 대신 최소 크기를 반환
-        // (llama-server가 부분 CPU 오프로드로 처리할 수 있도록).
+        // When no candidate fits VRAM, vramOnly=true returns the smallest file instead of throwing
+        // (so llama-server can handle it with partial CPU offload).
         var memory = new AvailableMemory(
             VramBytes: 4L * 1024 * 1024 * 1024,
             RamBytes: 32L * 1024 * 1024 * 1024);
 
         var groups = new[]
         {
-            MakeGroup("model-Q4_K_M.gguf", 4L * 1024 * 1024 * 1024),    // 4GB → VRAM(2GB usable) 초과
+            MakeGroup("model-Q4_K_M.gguf", 4L * 1024 * 1024 * 1024),    // 4GB → exceeds VRAM (2GB usable)
             MakeGroup("model-bf16.gguf",   15L * 1024 * 1024 * 1024),
         };
 
@@ -396,7 +396,7 @@ public class GgufFileSelectorTests
     [Fact]
     public void Select_VramOnly_FalseByDefault_PreservesLegacyBehavior()
     {
-        // vramOnly 미지정 시 기존 RAM 합산 동작 유지 (회귀 방지).
+        // Without vramOnly, the combined VRAM + RAM behavior is kept.
         var memory = new AvailableMemory(
             VramBytes: 4L * 1024 * 1024 * 1024,
             RamBytes: 32L * 1024 * 1024 * 1024);
@@ -409,11 +409,11 @@ public class GgufFileSelectorTests
 
         var result = GgufFileSelector.Select(groups, memory);
 
-        // 기존 동작: VRAM+RAM에 들어가는 가장 큰 파일 선택
+        // Default behavior: select the largest file that fits VRAM + RAM
         result.PrimaryFileName.Should().Be("model-bf16.gguf");
     }
 
-    // ─── 헬퍼 ───
+    // ─── Helpers ───
 
     private static GgufFileGroup MakeGroup(string filename, long sizeBytes) =>
         new() { PrimaryFileName = filename, Parts = [filename], TotalSizeBytes = sizeBytes };

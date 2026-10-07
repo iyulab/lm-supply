@@ -11,7 +11,7 @@ public static class SystemEndpoints
             .WithTags("System")
             ;
 
-        // 시스템 상태
+        // System status
         group.MapGet("/status", (SystemMonitorService monitor, ModelManagerService modelManager) =>
         {
             var status = monitor.GetStatus();
@@ -25,27 +25,27 @@ public static class SystemEndpoints
             });
         })
         .WithName("GetSystemStatus")
-        .WithSummary("시스템 상태 조회");
+        .WithSummary("Get system status");
 
-        // GPU 정보
+        // GPU info
         group.MapGet("/gpu", (SystemMonitorService monitor) =>
         {
             var gpuInfo = monitor.GetGpuInfo();
             return Results.Ok(gpuInfo);
         })
         .WithName("GetGpuInfo")
-        .WithSummary("GPU 정보 조회");
+        .WithSummary("Get GPU info");
 
-        // 메모리 메트릭
+        // Memory metrics
         group.MapGet("/memory", (SystemMonitorService monitor) =>
         {
             var memory = monitor.GetMemoryMetrics();
             return Results.Ok(memory);
         })
         .WithName("GetMemoryMetrics")
-        .WithSummary("메모리 메트릭 조회");
+        .WithSummary("Get memory metrics");
 
-        // 실시간 메트릭 스트림 (SSE)
+        // Real-time metrics stream (SSE)
         group.MapGet("/metrics/stream", async (HttpContext context, SystemMonitorService monitor) =>
         {
             var cancellationToken = context.RequestAborted;
@@ -54,26 +54,26 @@ public static class SystemEndpoints
             await SseHelper.StreamAsync(context, metrics, cancellationToken);
         })
         .WithName("StreamMetrics")
-        .WithSummary("실시간 메트릭 스트림 (SSE)");
+        .WithSummary("Real-time metrics stream (SSE)");
 
-        // 현재 버전 정보
+        // Current version info
         group.MapGet("/version", (UpdateService updateService) =>
         {
             return Results.Ok(new { version = updateService.CurrentVersion, rid = updateService.CurrentRid });
         })
         .WithName("GetVersion")
-        .WithSummary("현재 버전 정보 조회");
+        .WithSummary("Get current version info");
 
-        // 업데이트 확인
+        // Check for updates
         group.MapGet("/update", async (UpdateService updateService) =>
         {
             var result = await updateService.CheckForUpdateAsync();
             return Results.Ok(result);
         })
         .WithName("CheckUpdate")
-        .WithSummary("최신 버전 업데이트 확인");
+        .WithSummary("Check for a newer version");
 
-        // 업데이트 적용 (SSE 스트림)
+        // Apply update (SSE stream)
         group.MapPost("/update", async (HttpContext context, UpdateService updateService) =>
         {
             var ct = context.RequestAborted;
@@ -81,6 +81,6 @@ public static class SystemEndpoints
             await SseHelper.StreamAsync(context, progress, ct);
         })
         .WithName("ApplyUpdate")
-        .WithSummary("업데이트 다운로드 및 적용");
+        .WithSummary("Download and apply the update");
     }
 }

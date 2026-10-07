@@ -3,7 +3,7 @@ import { mockDashboardApis } from './fixtures/api-mocks';
 
 // ================================================================
 // Swagger + Dashboard CPU-only
-// Manual test plan: 1-06 (Swagger UI), 2-03 (CPU-only dashboard)
+// Covers: Swagger UI, CPU-only dashboard
 // ================================================================
 
 test.describe('Swagger UI', () => {

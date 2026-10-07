@@ -33,7 +33,7 @@ test.describe('Chat page', () => {
     }
   });
 
-  // Test plan: 3.1.3 — Auto-select
+  // Auto-select
   test('first model is auto-selected', async ({ page }) => {
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
 
@@ -55,18 +55,18 @@ test.describe('Chat page', () => {
     await expect(submitButton).toBeDisabled();
   });
 
-  // Test plan: Empty state
+  // Empty state
   test('shows empty state message when no messages', async ({ page }) => {
     await expect(page.getByText('Start a conversation with the AI model')).toBeVisible();
   });
 
-  // Test plan: Input placeholder
+  // Input placeholder
   test('chat input has correct placeholder', async ({ page }) => {
     const input = page.getByPlaceholder('Type your message...');
     await expect(input).toBeVisible();
   });
 
-  // Test plan: 3.2.5 — Send button enables when text entered
+  // Send button enables when text entered
   test('send button enables when text is entered', async ({ page }) => {
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
 
@@ -87,7 +87,7 @@ test.describe('Chat page', () => {
     }
   });
 
-  // Test plan: Cancel button exists (when loading)
+  // Cancel button exists (when loading)
   test('cancel button has destructive styling', async ({ page }) => {
     // The cancel button only appears during loading
     // We can verify the submit button exists and has correct structure

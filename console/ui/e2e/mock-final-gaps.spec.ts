@@ -6,7 +6,7 @@ import { mockJsonEndpoint, mockJsonError, mockCaptionResponse, mockModelsPageApi
 // ================================================================
 
 // ================================================================
-// Test plan: 6.6 — Invalid file upload to Transcribe shows error
+// Invalid file upload to Transcribe shows error
 // ================================================================
 
 test.describe('Transcribe — invalid file', () => {
@@ -63,7 +63,7 @@ test.describe('Transcribe — invalid file', () => {
 });
 
 // ================================================================
-// Test plan: 14.3.4 — Unload model via power icon
+// Unload model via power icon
 // ================================================================
 
 test.describe('Models — unload model', () => {
@@ -130,7 +130,7 @@ test.describe('Models — unload model', () => {
 });
 
 // ================================================================
-// Test plan: 8.1.2 — Auto-caption on image upload in caption mode
+// Auto-caption on image upload in caption mode
 // ================================================================
 
 test.describe('Caption — auto-trigger on upload', () => {

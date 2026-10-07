@@ -59,7 +59,6 @@ function mockRerankApi(page: Page) {
 
 // ================================================================
 // Section 15-3: Chat Page
-// Manual validation plan: 15-3-01 to 15-3-06
 // ================================================================
 test.describe('Section 15-3: Chat Page', () => {
   test('[15-3-01] message input and send button present', async ({ page }) => {
@@ -99,7 +98,6 @@ test.describe('Section 15-3: Chat Page', () => {
 
 // ================================================================
 // Section 15-4: Embed Page
-// Manual validation plan: 15-4-01 to 15-4-03
 // ================================================================
 test.describe('Section 15-4: Embed Page', () => {
   test('[15-4-01] text input field present on embed page', async ({ page }) => {
@@ -139,7 +137,6 @@ test.describe('Section 15-4: Embed Page', () => {
 
 // ================================================================
 // Section 15-5: Rerank Page
-// Manual validation plan: 15-5-01 to 15-5-03
 // ================================================================
 test.describe('Section 15-5: Rerank Page', () => {
   test('[15-5-01] query and documents input fields present', async ({ page }) => {
@@ -175,7 +172,6 @@ test.describe('Section 15-5: Rerank Page', () => {
 
 // ================================================================
 // Section 15-6: Transcribe Page
-// Manual validation plan: 15-6-01 to 15-6-04
 // ================================================================
 test.describe('Section 15-6: Transcribe Page', () => {
   test('[15-6-01] file upload input present on transcribe page', async ({ page }) => {
@@ -195,7 +191,6 @@ test.describe('Section 15-6: Transcribe Page', () => {
 
 // ================================================================
 // Section 15-7: Synthesize Page
-// Manual validation plan: 15-7-01 to 15-7-04
 // ================================================================
 test.describe('Section 15-7: Synthesize Page', () => {
   test('[15-7-01] text input present on synthesize page', async ({ page }) => {

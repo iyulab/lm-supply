@@ -109,10 +109,10 @@ public class Gemma4ToolCallStreamParserTests
     [Fact]
     public void Feed_ReasoningTextMentionsToolNamesWithoutWrapper_DoesNotProduceToolCallChunk()
     {
-        // §6.2 negative regression: reasoning text that names tools (e.g.
-        // "GlobFiles, ReadFile 등") must NOT be emitted as tool calls. Earlier
-        // cycles produced spurious half-formed name-only chunks for exactly this
-        // pattern, leaving u-tool-block stuck in pending UI state.
+        // Negative case: reasoning text that names tools (here in a Korean sentence,
+        // "GlobFiles, ReadFile ...") must NOT be emitted as tool calls. A parser that
+        // matches bare tool names would emit half-formed name-only chunks for this
+        // pattern, leaving a client's tool-call display stuck in a pending state.
         var parser = CreateParser();
 
         var result = parser.Feed(

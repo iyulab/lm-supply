@@ -1,78 +1,78 @@
 namespace LMSupply.Console.Host.Models.Responses;
 
 /// <summary>
-/// 시스템 상태
+/// System status
 /// </summary>
 public sealed record SystemStatus
 {
     /// <summary>
-    /// ONNX Runtime 준비 상태
+    /// Whether ONNX Runtime is ready
     /// </summary>
     public bool EngineReady { get; init; }
 
     /// <summary>
-    /// GPU 사용 가능 여부
+    /// Whether a GPU is available
     /// </summary>
     public bool GpuAvailable { get; init; }
 
     /// <summary>
-    /// 실행 공급자 (CUDA, DirectML, CPU 등)
+    /// Execution provider (CUDA, DirectML, CPU, etc.)
     /// </summary>
     public string? GpuProvider { get; init; }
 
     /// <summary>
-    /// GPU 이름
+    /// GPU name
     /// </summary>
     public string? GpuName { get; init; }
 
     /// <summary>
-    /// CPU 사용률 (0-100)
+    /// CPU usage (0-100)
     /// </summary>
     public float CpuUsage { get; init; }
 
     /// <summary>
-    /// RAM 사용량 (MB)
+    /// RAM used (MB)
     /// </summary>
     public double RamUsageMB { get; init; }
 
     /// <summary>
-    /// RAM 전체 용량 (MB)
+    /// Total RAM (MB)
     /// </summary>
     public double RamTotalMB { get; init; }
 
     /// <summary>
-    /// RAM 사용률 (0-100)
+    /// RAM usage (0-100)
     /// </summary>
     public double RamUsagePercent { get; init; }
 
     /// <summary>
-    /// VRAM 사용량 (MB)
+    /// VRAM used (MB)
     /// </summary>
     public double? VramUsageMB { get; init; }
 
     /// <summary>
-    /// VRAM 전체 용량 (MB)
+    /// Total VRAM (MB)
     /// </summary>
     public double? VramTotalMB { get; init; }
 
     /// <summary>
-    /// VRAM 사용률 (0-100)
+    /// VRAM usage (0-100)
     /// </summary>
     public double? VramUsagePercent { get; init; }
 
     /// <summary>
-    /// 현재 프로세스 메모리 (MB)
+    /// Current process memory (MB)
     /// </summary>
     public double ProcessMemoryMB { get; init; }
 
     /// <summary>
-    /// 타임스탬프
+    /// Timestamp
     /// </summary>
     public DateTime Timestamp { get; init; }
 }
 
 /// <summary>
-/// 메모리 메트릭
+/// Memory metrics
 /// </summary>
 public sealed record MemoryMetrics
 {
@@ -82,7 +82,7 @@ public sealed record MemoryMetrics
 }
 
 /// <summary>
-/// GPU 정보
+/// GPU info
 /// </summary>
 public sealed record GpuInfo
 {
@@ -95,7 +95,7 @@ public sealed record GpuInfo
 }
 
 /// <summary>
-/// 실시간 메트릭 (스트리밍용)
+/// Real-time metrics (for streaming)
 /// </summary>
 public sealed record SystemMetrics
 {
@@ -105,7 +105,7 @@ public sealed record SystemMetrics
 }
 
 /// <summary>
-/// 로드된 모델 정보
+/// Loaded model info
 /// </summary>
 public sealed record LoadedModelInfo
 {

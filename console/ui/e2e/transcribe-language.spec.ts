@@ -9,7 +9,7 @@ const TEST_AUDIO = path.resolve(__dirname, 'fixtures/test-files/test-audio.wav')
 
 // ================================================================
 // Transcribe — Korean language + format hints
-// Manual test plan: 4-38 (Korean audio), 4-40 (format hints)
+// Covers: Korean audio, format hints
 // ================================================================
 
 test.describe('Transcribe — Korean audio', () => {

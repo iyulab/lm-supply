@@ -1,22 +1,22 @@
 namespace LMSupply.Console.Host.Models.Requests;
 
 /// <summary>
-/// 번역 요청
+/// Translation request
 /// </summary>
 public sealed record TranslateRequest
 {
     /// <summary>
-    /// 모델 ID (예: "default", "ko-en", "ja-en")
+    /// Model ID (e.g. "default", "ko-en", "ja-en")
     /// </summary>
     public string ModelId { get; init; } = "default";
 
     /// <summary>
-    /// 번역할 텍스트 (단일)
+    /// Text to translate (single)
     /// </summary>
     public string? Text { get; init; }
 
     /// <summary>
-    /// 번역할 텍스트 목록 (배치)
+    /// Texts to translate (batch)
     /// </summary>
     public IReadOnlyList<string>? Texts { get; init; }
 }

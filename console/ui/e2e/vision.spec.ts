@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
-// Caption page tests — Test plan section 8
+// Caption page tests
 // ================================================================
 
 test.describe('Caption page', () => {
@@ -38,7 +38,7 @@ test.describe('Caption page', () => {
 });
 
 // ================================================================
-// OCR page tests — Test plan section 9
+// OCR page tests
 // ================================================================
 
 test.describe('OCR page', () => {
@@ -56,7 +56,7 @@ test.describe('OCR page', () => {
     await expect(select.locator('option')).not.toHaveCount(0, { timeout: 5_000 });
   });
 
-  // Test plan: 9.2 — Language text visible (P0 — not blank)
+  // Language text visible (not blank)
   test('language options show visible text', async ({ page }) => {
     const select = page.locator('select');
     // Wait for options to be populated
@@ -72,7 +72,7 @@ test.describe('OCR page', () => {
     expect(hasEn).toBe(true);
   });
 
-  // Test plan: 9 — Image upload zone
+  // Image upload zone
   test('has image file upload zone', async ({ page }) => {
     const fileInput = page.locator('input[type="file"]');
     await expect(fileInput).toHaveAttribute('accept', 'image/*');
@@ -87,7 +87,7 @@ test.describe('OCR page', () => {
 });
 
 // ================================================================
-// Detect page tests — Test plan section 10
+// Detect page tests
 // ================================================================
 
 test.describe('Detect page', () => {
@@ -128,7 +128,7 @@ test.describe('Detect page', () => {
 });
 
 // ================================================================
-// Segment page tests — Test plan section 11
+// Segment page tests
 // ================================================================
 
 test.describe('Segment page', () => {

@@ -4,7 +4,6 @@ const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 // ================================================================
 // Section 1-1: Server Startup
-// Manual validation plan: 1-1-01 to 1-1-04
 // ================================================================
 test.describe('Section 1-1: Server Startup', () => {
   test('[1-1-02] Swagger UI accessible', async ({ request }) => {
@@ -31,7 +30,6 @@ test.describe('Section 1-1: Server Startup', () => {
 
 // ================================================================
 // Section 1-2: ErrorMiddleware
-// Manual validation plan: 1-2-01 to 1-2-07
 // ================================================================
 test.describe('Section 1-2: ErrorMiddleware', () => {
   test('[1-2-01] error response has envelope format {error:{message,type,code}}', async ({ request }) => {

@@ -1,27 +1,27 @@
 namespace LMSupply.Console.Host.Models.Requests;
 
 /// <summary>
-/// 리랭킹 요청
+/// Rerank request
 /// </summary>
 public sealed record RerankRequest
 {
     /// <summary>
-    /// 모델 ID
+    /// Model ID
     /// </summary>
     public string ModelId { get; init; } = "default";
 
     /// <summary>
-    /// 검색 쿼리
+    /// Search query
     /// </summary>
     public required string Query { get; init; }
 
     /// <summary>
-    /// 리랭킹할 문서 목록
+    /// Documents to rerank
     /// </summary>
     public required IReadOnlyList<string> Documents { get; init; }
 
     /// <summary>
-    /// 상위 K개만 반환 (null이면 전체)
+    /// Return only the top K results (all when null)
     /// </summary>
     public int? TopK { get; init; }
 }

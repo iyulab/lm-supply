@@ -2,7 +2,6 @@ import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
 // API — Image Generation + Error Responses
-// Manual test plan: 5-36 to 5-45
 // ================================================================
 
 test.describe('API Image Generation', () => {

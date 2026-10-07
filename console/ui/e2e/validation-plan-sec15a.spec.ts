@@ -3,7 +3,6 @@ import type { Page, Route } from '@playwright/test';
 
 // ================================================================
 // Section 15-1: Dashboard Page
-// Manual validation plan: 15-1-01 to 15-1-08
 // ================================================================
 
 async function mockSystemApis(page: Page) {
@@ -125,7 +124,6 @@ test.describe('Section 15-1: Dashboard Page', () => {
 
 // ================================================================
 // Section 15-2: Models Page
-// Manual validation plan: 15-2-01 to 15-2-11
 // ================================================================
 test.describe('Section 15-2: Models Page', () => {
   test('[15-2-01] registry list is expandable (domain type click)', async ({ page }) => {

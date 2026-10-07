@@ -23,7 +23,7 @@ if (providerArg != null)
 
 string? requestedLanguage = languageArg?.Split('=')[1];
 
-// 1. 환경 감지 테스트
+// 1. Environment detection test
 Console.WriteLine("## 1. Environment Detection");
 
 // CUDA environment diagnostics
@@ -87,7 +87,7 @@ var cudnnInPath = dllPaths.Any(p => pathVar.Contains(p, StringComparison.Ordinal
 Console.WriteLine($"cuDNN dir in PATH: {cudnnInPath}");
 Console.WriteLine();
 
-// 2. 모델 로드 테스트
+// 2. Model load test
 Console.WriteLine($"## 2. Model Load Test (Provider: {requestedProvider})");
 Console.WriteLine($"Loading 'default' model with {requestedProvider} provider...");
 
@@ -107,7 +107,7 @@ Console.WriteLine($"Active Providers: [{string.Join(", ", model.ActiveProviders)
 Console.WriteLine($"Requested Provider: {model.RequestedProvider}");
 Console.WriteLine();
 
-// 3. 테스트 오디오 파일이 있으면 실제 추론 테스트
+// 3. Real inference test when a test audio file is given
 var testAudioPath = args.FirstOrDefault(a => !a.StartsWith("--") && File.Exists(a));
 
 if (!string.IsNullOrEmpty(testAudioPath) && File.Exists(testAudioPath))
@@ -115,7 +115,7 @@ if (!string.IsNullOrEmpty(testAudioPath) && File.Exists(testAudioPath))
     Console.WriteLine("## 3. Transcription Test");
     Console.WriteLine($"Audio file: {testAudioPath}");
 
-    // WordTimestamps 테스트
+    // WordTimestamps test
     var transcribeOptions = new TranscribeOptions
     {
         WordTimestamps = true,  // segment-level timestamps
@@ -160,7 +160,7 @@ else
 Console.WriteLine();
 Console.WriteLine("=== Test Complete ===");
 
-// 4. Large 모델 테스트 (선택적)
+// 4. Large model test (optional)
 if (args.Contains("--large"))
 {
     Console.WriteLine("\n## 4. Large Model Test");

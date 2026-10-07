@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
-// Synthesize page — deeper interaction tests (test plan section 7)
+// Synthesize page — deeper interaction tests
 // ================================================================
 
 test.describe('Synthesize — deeper UI', () => {
@@ -10,13 +10,13 @@ test.describe('Synthesize — deeper UI', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Text to Speech' })).toBeVisible();
   });
 
-  // Test plan: 7.6 — textarea placeholder
+  // textarea placeholder
   test('textarea has correct placeholder', async ({ page }) => {
     const textarea = page.locator('textarea');
     await expect(textarea).toHaveAttribute('placeholder', 'Enter text to convert to speech...');
   });
 
-  // Test plan: 7 — label says "Text to Synthesize"
+  // label says "Text to Synthesize"
   test('label says "Text to Synthesize"', async ({ page }) => {
     await expect(page.locator('label', { hasText: 'Text to Synthesize' })).toBeVisible();
   });
@@ -53,7 +53,7 @@ test.describe('Synthesize — deeper UI', () => {
 });
 
 // ================================================================
-// Transcribe page — deeper interaction tests (test plan section 6)
+// Transcribe page — deeper interaction tests
 // ================================================================
 
 test.describe('Transcribe — deeper UI', () => {
@@ -69,18 +69,18 @@ test.describe('Transcribe — deeper UI', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Speech to Text' })).toBeVisible();
   });
 
-  // Test plan: 6.2 — "Select a model first" text when no model
+  // "Select a model first" text when no model
   test('shows "Select a model first" when no model selected', async ({ page }) => {
     await expect(page.getByText('Select a model first')).toBeVisible();
   });
 
-  // Test plan: 6.2 — drop zone has reduced opacity when disabled
+  // drop zone has reduced opacity when disabled
   test('drop zone is dimmed when no model selected', async ({ page }) => {
     const dropZone = page.locator('.border-dashed');
     await expect(dropZone).toHaveClass(/opacity-50/);
   });
 
-  // Test plan: 6.2 — drop zone cursor is not-allowed when disabled
+  // drop zone cursor is not-allowed when disabled
   test('drop zone has cursor-not-allowed when disabled', async ({ page }) => {
     const dropZone = page.locator('.border-dashed');
     await expect(dropZone).toHaveClass(/cursor-not-allowed/);

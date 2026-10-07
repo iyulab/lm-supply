@@ -2,7 +2,6 @@ import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
 // cURL Examples — verify each domain page has a working cURL section
-// Manual test plan: 4-12, 4-21, 4-31, 4-39, 4-49, 4-57, 4-74, 4-83, 4-89, 4-101
 // ================================================================
 
 const domainPages = [

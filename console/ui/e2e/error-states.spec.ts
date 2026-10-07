@@ -328,7 +328,7 @@ test.describe('Error recovery — Embed', () => {
 });
 
 // ================================================================
-// Test plan: 5-45 — Inference with uncached/unloaded model
+// Inference with uncached/unloaded model
 // ================================================================
 
 test.describe('Uncached model inference error', () => {

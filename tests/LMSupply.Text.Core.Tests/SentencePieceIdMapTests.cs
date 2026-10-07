@@ -4,13 +4,13 @@ using Microsoft.ML.Tokenizers;
 namespace LMSupply.Text.Tests;
 
 /// <summary>
-/// XLM-Roberta 계열(multilingual-e5-*, bge-m3)은 SentencePiece 모델의 raw id를 그대로 쓰지 않는다 —
-/// fairseq가 <c>0..3</c>을 <c>&lt;s&gt; &lt;pad&gt; &lt;/s&gt; &lt;unk&gt;</c>로 예약했기 때문에
-/// 내용 토큰이 한 칸씩 밀린다. 그 사상을 spm 어휘와 HF 어휘의 «실측 차이»에서 도출한다.
+/// XLM-RoBERTa models (multilingual-e5-*, bge-m3) do not use the SentencePiece model's raw ids as-is —
+/// fairseq reserves <c>0..3</c> for <c>&lt;s&gt; &lt;pad&gt; &lt;/s&gt; &lt;unk&gt;</c>, so content
+/// tokens shift by one. The mapping is derived from the observed difference between the spm and HF vocabularies.
 /// </summary>
 public class SentencePieceIdMapTests
 {
-    // spm 자신의 배치: <unk>=0, <s>=1, </s>=2, 이후 내용 토큰.
+    // spm's own layout: <unk>=0, <s>=1, </s>=2, then content tokens.
     private static Dictionary<string, int> SpmVocab() => new(StringComparer.Ordinal)
     {
         ["<unk>"] = 0,
@@ -21,7 +21,7 @@ public class SentencePieceIdMapTests
         [":"] = 11,
     };
 
-    // XLM-R 배치: <s>=0, <pad>=1, </s>=2, <unk>=3, 내용 토큰은 spm id + 1.
+    // XLM-R layout: <s>=0, <pad>=1, </s>=2, <unk>=3; content tokens are spm id + 1.
     private static Dictionary<string, int> XlmRobertaVocab() => new(StringComparer.Ordinal)
     {
         ["<s>"] = 0,
@@ -50,8 +50,8 @@ public class SentencePieceIdMapTests
     }
 
     /// <summary>
-    /// spm의 <c>&lt;unk&gt;</c>(0)에 오프셋을 그냥 더하면 XLM-R의 <c>&lt;pad&gt;</c>(1)가 된다 —
-    /// 알 수 없는 조각이 조용히 패딩으로 둔갑한다. 특수 토큰은 이름으로 다시 찾는다.
+    /// Naively adding the offset to spm's <c>&lt;unk&gt;</c> (0) yields XLM-R's <c>&lt;pad&gt;</c> (1) —
+    /// unknown pieces would silently turn into padding. Special tokens are looked up again by name.
     /// </summary>
     [Fact]
     public void Map_ResolvesSpecialTokensByNameInsteadOfShiftingThem()
@@ -64,8 +64,8 @@ public class SentencePieceIdMapTests
     }
 
     /// <summary>
-    /// 제보된 실측 벡터(`query: refund policy`)를 그대로 고정한다 —
-    /// HF `tokenizers` 참조 구현이 낸 id와 같아야 한다.
+    /// Pins the ids for `query: refund policy` —
+    /// they must match the ids produced by the HF `tokenizers` reference implementation.
     /// </summary>
     [Fact]
     public void Map_ReproducesTheReferenceTokenizerIdsForAKnownSequence()
@@ -77,8 +77,8 @@ public class SentencePieceIdMapTests
     }
 
     /// <summary>
-    /// 오프셋이 없는 모델(spm 어휘와 HF 어휘가 같은 배치)에서는 아무것도 하지 않아야 한다 —
-    /// 이 수정이 XLM-R이 아닌 기존 SentencePiece 소비자를 건드리면 안 된다.
+    /// Models without an offset (spm and HF vocabularies share the same layout) must be left unchanged —
+    /// the mapping must not affect non-XLM-R SentencePiece models.
     /// </summary>
     [Fact]
     public void Create_ReturnsIdentityWhenTheVocabulariesAlreadyAgree()
@@ -106,7 +106,7 @@ public class SentencePieceIdMapTests
     }
 
     /// <summary>
-    /// 조각마다 차이가 제각각이면 «한 칸 밀림»이라는 전제 자체가 틀린 것이다 — 추측해서 밀지 않는다.
+    /// If the difference varies from piece to piece, the shift-by-one premise does not hold — no shift is guessed.
     /// </summary>
     [Fact]
     public void Create_ReturnsIdentityWhenTheDifferenceIsNotConstant()
@@ -128,12 +128,12 @@ public class SentencePieceIdMapTests
 }
 
 /// <summary>
-/// 래퍼가 특수 토큰을 소유한다는 불변식을 고정한다 — 하위 SentencePiece 토크나이저가 자기 BOS를
-/// 덧붙이면 XLM-R 어휘에서 그 id(1)는 <c>&lt;s&gt;</c>가 아니라 <c>&lt;pad&gt;</c>다.
+/// Pins the invariant that the wrapper owns the special tokens — if the inner SentencePiece tokenizer
+/// prepended its own BOS, that id (1) would be <c>&lt;pad&gt;</c> rather than <c>&lt;s&gt;</c> in the XLM-R vocabulary.
 /// </summary>
 public class SentencePieceWrapperSpecialTokenTests
 {
-    // XLM-R 배치의 특수 토큰: <s>=0, <pad>=1, </s>=2, <unk>=3.
+    // Special tokens in the XLM-R layout: <s>=0, <pad>=1, </s>=2, <unk>=3.
     private static SpecialTokens XlmRobertaSpecials() => new()
     {
         BosToken = "<s>",
@@ -169,7 +169,7 @@ public class SentencePieceWrapperSpecialTokenTests
         ids.Should().Equal(0, 41, 1294, 2);
     }
 
-    /// <summary>내용 토큰만 돌려주는 토크나이저 — 실제 spm이 BOS 방출을 끈 상태와 같다.</summary>
+    /// <summary>Tokenizer that returns content tokens only — equivalent to a real spm with BOS emission disabled.</summary>
     private sealed class StubTokenizer(int[] contentIds) : Tokenizer
     {
         protected override EncodeResults<int> EncodeToIds(

@@ -9,7 +9,7 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 
 // ================================================================
 // Detect — threshold effect
-// Test plan: 10.5 (threshold effect — fewer results with high threshold)
+// Covers: threshold effect — fewer results with high threshold
 // ================================================================
 
 test.describe('Detect — threshold effect', () => {
@@ -64,7 +64,7 @@ test.describe('Detect — threshold effect', () => {
 
 // ================================================================
 // Translate — loading state spinner
-// Test plan: 12.6 (loading state — spinner shown in output area)
+// Covers: loading state — spinner shown in output area
 // ================================================================
 
 test.describe('Translate — loading state', () => {
@@ -73,7 +73,7 @@ test.describe('Translate — loading state', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Machine Translation' })).toBeVisible();
   });
 
-  // Test plan: 12.6 — Spinner shown during translation
+  // Spinner shown during translation
   test('spinner appears in output area during translation', async ({ page }) => {
     // Mock with delay to keep loading visible
     await page.route('**/v1/translate', async (route) => {
@@ -99,7 +99,7 @@ test.describe('Translate — loading state', () => {
 
 // ================================================================
 // Synthesize — regenerate behavior
-// Test plan: 7.7 (regenerate replaces previous audio)
+// Covers: regenerate replaces previous audio
 // ================================================================
 
 test.describe('Synthesize — regenerate', () => {

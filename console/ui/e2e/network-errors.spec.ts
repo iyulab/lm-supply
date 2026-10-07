@@ -3,7 +3,7 @@ import { mockChatStream, mockJsonEndpoint } from './fixtures/api-mocks';
 
 // ================================================================
 // Network Error Scenarios
-// Manual test plan: 7-17 (server down), 7-19 (streaming error), 7-21 (recovery)
+// Covers: server down, streaming error, recovery
 // ================================================================
 
 test.describe('Network Error Scenarios', () => {

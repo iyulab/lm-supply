@@ -9,7 +9,7 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 
 // ================================================================
 // Caption page — mock API tests for result display
-// Test plan: 8.1.3 (caption result), 8.1.4 (alternatives), 8.2.2 (VQA answer)
+// Covers: caption result, alternatives, VQA answer
 // ================================================================
 
 test.describe('Caption — mock inference results', () => {
@@ -33,7 +33,7 @@ test.describe('Caption — mock inference results', () => {
     await expect(page.getByText(/Confidence: 87\.0%/)).toBeVisible();
   });
 
-  // Test plan: 8.1.4 — Alternatives listed
+  // Alternatives listed
   test('alternative captions are listed', async ({ page }) => {
     const mockResponse = mockCaptionResponse();
     await mockJsonEndpoint(page, '**/v1/images/caption', mockResponse);
@@ -83,7 +83,7 @@ test.describe('Caption — mock inference results', () => {
 
 // ================================================================
 // OCR page — mock API tests for result display
-// Test plan: 9.4-9.7 (recognition result, text blocks, no text, elapsed)
+// Covers: recognition result, text blocks, no text, elapsed
 // ================================================================
 
 test.describe('OCR — mock inference results', () => {
@@ -121,7 +121,7 @@ test.describe('OCR — mock inference results', () => {
     await expect(page.getByText('[98%]')).toBeVisible();
   });
 
-  // Test plan: 9.6 — No text detected
+  // No text detected
   test('no text detected shows placeholder', async ({ page }) => {
     const emptyResponse = { id: 'ocr-mock', model: 'mock-ocr', text: '', blocks: [] };
     await mockJsonEndpoint(page, '**/v1/images/ocr', emptyResponse);
@@ -133,7 +133,7 @@ test.describe('OCR — mock inference results', () => {
     await expect(page.getByText('(No text detected)')).toBeVisible();
   });
 
-  // Test plan: 9.7 — Elapsed time
+  // Elapsed time
   test('elapsed time shown after recognition', async ({ page }) => {
     const mockResponse = mockOcrResponse();
     await mockJsonEndpoint(page, '**/v1/images/ocr', mockResponse);
@@ -148,7 +148,7 @@ test.describe('OCR — mock inference results', () => {
 
 // ================================================================
 // Image Generate page — mock API tests for result display
-// Test plan: 13.1.3-13.1.4 (generated image, details card)
+// Covers: generated image, details card
 // ================================================================
 
 test.describe('ImageGenerate — mock inference results', () => {

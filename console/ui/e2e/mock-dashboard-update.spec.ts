@@ -3,11 +3,11 @@ import { mockDashboardApis } from './fixtures/api-mocks';
 
 // ================================================================
 // Dashboard — empty cached models + Registry download + Update check
-// Test plan: 2.2.2 (empty cached), 14.4.5 (registry download), 1.2.2 (update check)
+// Covers: empty cached, registry download, update check
 // ================================================================
 
 // ================================================================
-// Test plan: 2.2.2 — Dashboard shows empty cached state
+// Dashboard shows empty cached state
 // ================================================================
 
 test.describe('Dashboard — empty cached models', () => {
@@ -27,7 +27,7 @@ test.describe('Dashboard — empty cached models', () => {
 });
 
 // ================================================================
-// Test plan: 14.4.5 — Download from registry
+// Download from registry
 // ================================================================
 
 test.describe('Models — registry download', () => {
@@ -97,7 +97,7 @@ test.describe('Models — registry download', () => {
 });
 
 // ================================================================
-// Test plan: 1.2.2 — Update check shows download button
+// Update check shows download button
 // ================================================================
 
 test.describe('Layout — update check', () => {

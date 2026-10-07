@@ -13,7 +13,7 @@ test.describe('Transcribe page', () => {
     const optionCount = await select.locator('option').count();
     expect(optionCount).toBeGreaterThan(0);
 
-    // P0: No "undefined" in options
+    // No "undefined" in options
     const options = await select.locator('option').allTextContents();
     for (const opt of options) {
       expect(opt).not.toContain('undefined');

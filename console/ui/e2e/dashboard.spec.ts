@@ -6,7 +6,7 @@ test.describe('Dashboard', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
-  // Test plan: 2.1.1 — Status loads
+  // Status loads
   test('[2-01] system status card shows engine and GPU indicators', async ({ page }) => {
     const statusCard = page.getByText('System Status').locator('..');
 
@@ -16,7 +16,7 @@ test.describe('Dashboard', () => {
     await expect(statusCard.getByText('GPU Available')).toBeVisible();
   });
 
-  // Test plan: 2.1.2 — GPU info
+  // GPU info
   test('GPU info is displayed when available', async ({ page }) => {
     const statusCard = page.getByText('System Status').locator('..');
 
@@ -28,7 +28,7 @@ test.describe('Dashboard', () => {
     // This is environment-dependent, so we just verify the section renders
   });
 
-  // Test plan: 2.1.3 — Resource stats
+  // Resource stats
   test('[2-04] [2-05] [2-07] resource stats cards are displayed', async ({ page }) => {
     // CPU Usage card
     await expect(page.getByText('CPU Usage')).toBeVisible({ timeout: 10_000 });
@@ -45,7 +45,7 @@ test.describe('Dashboard', () => {
     await expect(page.getByText('Process Memory')).toBeVisible();
   });
 
-  // Test plan: 2.1.4 — Auto-refresh
+  // Auto-refresh
   test('[2-11] stats update automatically within 10 seconds', async ({ page }) => {
     // Intercept system status API calls
     const apiCalls: number[] = [];
@@ -59,7 +59,7 @@ test.describe('Dashboard', () => {
     await expect.poll(() => apiCalls.length, { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
   });
 
-  // Test plan: 2.2.1 — Cached models
+  // Cached models
   test('[2-08] cached models section shows count and list', async ({ page }) => {
     const heading = page.getByRole('heading', { name: /Cached Models/ });
     await expect(heading).toBeVisible();
@@ -69,7 +69,7 @@ test.describe('Dashboard', () => {
     expect(headingText).toMatch(/Cached Models \(\d+\)/);
   });
 
-  // Test plan: 2.2.2 — Loaded models section
+  // Loaded models section
   test('[2-10] loaded models section renders', async ({ page }) => {
     const heading = page.getByRole('heading', { name: /Loaded Models/ });
     await expect(heading).toBeVisible();

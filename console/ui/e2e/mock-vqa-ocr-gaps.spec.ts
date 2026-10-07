@@ -9,7 +9,7 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 
 // ================================================================
 // VQA — Enter key and no-auto-trigger gaps
-// Test plan: 8.2.3 (Enter key submit), 8.2.4 (no auto-trigger in VQA mode)
+// Covers: Enter key submit, no auto-trigger in VQA mode
 // ================================================================
 
 test.describe('VQA — keyboard and auto-trigger behavior', () => {
@@ -18,7 +18,7 @@ test.describe('VQA — keyboard and auto-trigger behavior', () => {
     await expect(page.locator('main').getByRole('heading', { name: /Image Captioning/ })).toBeVisible();
   });
 
-  // Test plan: 8.2.3 — Enter key submits VQA question
+  // Enter key submits VQA question
   test('Enter key in question input submits VQA', async ({ page }) => {
     const mockResponse = mockVqaResponse('What is this?');
     await mockJsonEndpoint(page, '**/v1/images/vqa', mockResponse);
@@ -74,11 +74,11 @@ test.describe('VQA — keyboard and auto-trigger behavior', () => {
 
 // ================================================================
 // OCR — Fallback languages when API fails
-// Test plan: 9.3 (fallback languages)
+// Covers: fallback languages
 // ================================================================
 
 test.describe('OCR — fallback languages', () => {
-  // Test plan: 9.3 — If OCR languages API fails, static options shown
+  // If OCR languages API fails, static options shown
   test('shows static fallback languages when API fails', async ({ page }) => {
     // Mock the OCR languages endpoint to fail BEFORE navigating
     await page.route('**/v1/images/ocr/languages', async (route) => {

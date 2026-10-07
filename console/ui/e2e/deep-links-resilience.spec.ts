@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
 // Deep links — all 13 pages load correctly via direct URL
-// Test plan: 1.1.5 (deep linking)
+// Covers: deep linking
 // ================================================================
 
 test.describe('Deep links — all pages load directly', () => {
@@ -34,7 +34,7 @@ test.describe('Deep links — all pages load directly', () => {
 
 // ================================================================
 // Error resilience — pages don't crash on initial load
-// Test plan: 15.1 (error handling / recovery)
+// Covers: error handling / recovery
 // ================================================================
 
 test.describe('Error resilience', () => {

@@ -25,7 +25,6 @@ namespace LMSupply.Integration.Tests.Functional;
 public class CrossDomainScenarioTests
 {
     // ── Scenario 1: TTS → STT Roundtrip (already in SynthesizerFunctionalTests) ──
-    // Covered in Cycle 5
 
     // ── Scenario 5: RAG Pipeline (Embed → Rerank) ───────────────────
 

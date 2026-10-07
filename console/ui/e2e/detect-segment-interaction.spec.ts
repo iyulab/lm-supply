@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png');
 
 // ================================================================
-// Detect page — deeper UI tests (test plan section 10)
+// Detect page — deeper UI tests
 // ================================================================
 
 test.describe('Detect — threshold interaction', () => {
@@ -17,13 +17,13 @@ test.describe('Detect — threshold interaction', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Object Detection' })).toBeVisible();
   });
 
-  // Test plan: 10.2 — slider step is 0.05
+  // slider step is 0.05
   test('threshold slider has step of 0.05', async ({ page }) => {
     const slider = page.locator('input[type="range"]');
     await expect(slider).toHaveAttribute('step', '0.05');
   });
 
-  // Test plan: 10.2 — slider default value is 0.5 (50%)
+  // slider default value is 0.5 (50%)
   test('threshold slider defaults to 50%', async ({ page }) => {
     const slider = page.locator('input[type="range"]');
     const value = await slider.inputValue();
@@ -33,7 +33,7 @@ test.describe('Detect — threshold interaction', () => {
     await expect(page.getByText('50%')).toBeVisible();
   });
 
-  // Test plan: 10.2 — label updates in real-time
+  // label updates in real-time
   test('threshold label updates when slider changes', async ({ page }) => {
     const slider = page.locator('input[type="range"]');
 
@@ -76,7 +76,7 @@ test.describe('Detect — threshold interaction', () => {
 });
 
 // ================================================================
-// Segment page — deeper UI tests (test plan section 11)
+// Segment page — deeper UI tests
 // ================================================================
 
 test.describe('Segment — UI details', () => {

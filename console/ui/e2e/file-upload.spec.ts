@@ -28,7 +28,7 @@ test.describe('File upload — Caption page', () => {
     await expect(fileInput).toHaveAttribute('accept', 'image/*');
   });
 
-  // Test plan: 4-61 — image preview on upload
+  // image preview on upload
   test('[4-61] uploading an image shows preview', async ({ page }) => {
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(TEST_IMAGE);

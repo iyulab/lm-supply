@@ -1,11 +1,10 @@
 import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
-// Dashboard — explicit plan item coverage
-// Manual test plan: 2-01 to 2-11
+// Dashboard — explicit per-item coverage
 // Note: Many items functionally covered in dashboard.spec.ts,
 //   mock-dashboard-loaded.spec.ts, and browser-tab-polling.spec.ts
-//   This file adds explicit ID tags for traceability
+//   This file tags each covered item explicitly
 // ================================================================
 
 test.describe('Dashboard — plan items', () => {

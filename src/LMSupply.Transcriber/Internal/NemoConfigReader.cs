@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace LMSupply.Transcriber.Internal;
 
-/// <summary>onnx-asr 형식 NeMo 내보내기의 <c>config.json</c>(<c>model_type</c>, <c>features_size</c>, <c>subsampling_factor</c>).</summary>
+/// <summary>The <c>config.json</c> of an onnx-asr-format NeMo export (<c>model_type</c>, <c>features_size</c>, <c>subsampling_factor</c>).</summary>
 internal sealed record NemoModelConfig(string ModelType, int? FeaturesSize, int? SubsamplingFactor)
 {
     public const string ConformerTdt = "nemo-conformer-tdt";
@@ -12,8 +12,8 @@ internal sealed record NemoModelConfig(string ModelType, int? FeaturesSize, int?
 }
 
 /// <summary>
-/// 모델 디렉터리의 <c>config.json</c>이 NeMo 내보내기인지 읽는다. <see cref="WhisperConfigReader"/>와 같은 자리, 같은 규칙 —
-/// <c>model_type</c>이 없거나 NeMo 계열이 아니면 <c>null</c>.
+/// Reads the model directory's <c>config.json</c> to determine whether it is a NeMo export. Same location and rules as
+/// <see cref="WhisperConfigReader"/>: returns <c>null</c> when <c>model_type</c> is missing or not a NeMo family.
 /// </summary>
 internal static class NemoConfigReader
 {

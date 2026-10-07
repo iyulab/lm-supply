@@ -8,7 +8,7 @@ using HostMemoryMetrics = LMSupply.Console.Host.Models.Responses.MemoryMetrics;
 namespace LMSupply.Console.Host.Services;
 
 /// <summary>
-/// 시스템 리소스 모니터링 서비스
+/// System resource monitoring service
 /// </summary>
 public sealed partial class SystemMonitorService : IDisposable
 {
@@ -27,7 +27,7 @@ public sealed partial class SystemMonitorService : IDisposable
     }
 
     /// <summary>
-    /// 전체 시스템 상태 조회
+    /// Gets the overall system status
     /// </summary>
     public SystemStatus GetStatus()
     {
@@ -36,7 +36,7 @@ public sealed partial class SystemMonitorService : IDisposable
 
         return new SystemStatus
         {
-            EngineReady = true, // ONNX Runtime은 항상 사용 가능
+            EngineReady = true, // ONNX Runtime is always available
             GpuAvailable = gpuInfo?.IsAvailable ?? false,
             GpuProvider = GetDetectedProvider(),
             GpuName = gpuInfo?.Name,
@@ -53,7 +53,7 @@ public sealed partial class SystemMonitorService : IDisposable
     }
 
     /// <summary>
-    /// CPU 사용률 (0-100) - 프로세스 기반 측정
+    /// CPU usage (0-100), measured from the current process
     /// </summary>
     public float GetCpuUsage()
     {
@@ -84,7 +84,7 @@ public sealed partial class SystemMonitorService : IDisposable
     }
 
     /// <summary>
-    /// 메모리 메트릭
+    /// Memory metrics
     /// </summary>
     public HostMemoryMetrics GetMemoryMetrics()
     {
@@ -94,7 +94,7 @@ public sealed partial class SystemMonitorService : IDisposable
             var totalMemory = gcMemory.TotalAvailableMemoryBytes;
             var usedMemory = totalMemory - gcMemory.HighMemoryLoadThresholdBytes;
 
-            // 시스템 전체 메모리 정보
+            // System-wide memory info
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 return GetWindowsMemoryMetrics();
@@ -115,11 +115,11 @@ public sealed partial class SystemMonitorService : IDisposable
     }
 
     /// <summary>
-    /// GPU 정보
+    /// GPU info
     /// </summary>
     public Models.Responses.GpuInfo? GetGpuInfo()
     {
-        // HardwareDetector를 사용하여 GPU 정보 확인
+        // Use HardwareDetector to get GPU info
         var provider = HardwareDetector.ResolveProvider(ExecutionProvider.Auto);
 
         if (provider == ExecutionProvider.Cpu)
@@ -137,14 +137,14 @@ public sealed partial class SystemMonitorService : IDisposable
             IsAvailable = true,
             Name = GetGpuName(provider),
             Provider = provider.ToString(),
-            // VRAM 정보는 nvidia-smi 등 외부 도구 필요
+            // VRAM info requires an external tool such as nvidia-smi
             TotalVramMB = null,
             UsedVramMB = null
         };
     }
 
     /// <summary>
-    /// 실시간 메트릭 스트림
+    /// Real-time metrics stream
     /// </summary>
     public async IAsyncEnumerable<SystemMetrics> StreamMetricsAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken,

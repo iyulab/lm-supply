@@ -1,44 +1,44 @@
 namespace LMSupply.Console.Host.Models.Requests;
 
 /// <summary>
-/// 채팅 요청
+/// Chat request
 /// </summary>
 public sealed record ChatRequest
 {
     /// <summary>
-    /// 모델 ID (예: "microsoft/Phi-4-mini-instruct-onnx" 또는 "default")
+    /// Model ID (e.g. "microsoft/Phi-4-mini-instruct-onnx" or "default")
     /// </summary>
     public string ModelId { get; init; } = "default";
 
     /// <summary>
-    /// 메시지 목록
+    /// Messages
     /// </summary>
     public required IReadOnlyList<ChatMessageDto> Messages { get; init; }
 
     /// <summary>
-    /// 생성 옵션
+    /// Generation options
     /// </summary>
     public ChatOptionsDto? Options { get; init; }
 }
 
 /// <summary>
-/// 채팅 메시지
+/// Chat message
 /// </summary>
 public sealed record ChatMessageDto
 {
     /// <summary>
-    /// 역할 (system, user, assistant)
+    /// Role (system, user, assistant)
     /// </summary>
     public required string Role { get; init; }
 
     /// <summary>
-    /// 내용
+    /// Content
     /// </summary>
     public required string Content { get; init; }
 }
 
 /// <summary>
-/// 생성 옵션
+/// Generation options
 /// </summary>
 public sealed record ChatOptionsDto
 {

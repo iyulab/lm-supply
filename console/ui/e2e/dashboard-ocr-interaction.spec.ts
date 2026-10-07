@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png');
 
 // ================================================================
-// Dashboard — deeper interaction tests (test plan section 2)
+// Dashboard — deeper interaction tests
 // ================================================================
 
 test.describe('Dashboard — deeper UI', () => {
@@ -61,7 +61,7 @@ test.describe('Dashboard — deeper UI', () => {
 });
 
 // ================================================================
-// OCR page — deeper interaction tests (test plan section 9)
+// OCR page — deeper interaction tests
 // ================================================================
 
 test.describe('OCR — deeper UI', () => {
@@ -70,7 +70,7 @@ test.describe('OCR — deeper UI', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Optical Character Recognition' })).toBeVisible();
   });
 
-  // Test plan: 9.3 — fallback languages when API fails
+  // fallback languages when API fails
   test('language dropdown has fallback options', async ({ page }) => {
     const select = page.locator('select');
     await expect(select).toBeVisible();

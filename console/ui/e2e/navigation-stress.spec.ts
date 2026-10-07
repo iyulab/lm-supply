@@ -116,7 +116,7 @@ test.describe('State isolation', () => {
     await expect(translateTextarea).toHaveValue('');
   });
 
-  // Test plan: 6-08 — page model independence
+  // page model independence
   test('[6-08] model selection is independent between pages', async ({ page }) => {
     // Go to Embed — should have its own model state
     await page.goto('/embed');

@@ -27,7 +27,7 @@ test.describe('Embed page', () => {
     await expect(submitButton).toBeDisabled();
   });
 
-  // Test plan: 4 — Textarea and form elements present
+  // Textarea and form elements present
   test('has textarea for text input', async ({ page }) => {
     const textarea = page.getByPlaceholder(/Enter texts.*one per line/);
     await expect(textarea).toBeVisible();

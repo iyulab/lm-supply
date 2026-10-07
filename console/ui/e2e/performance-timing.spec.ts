@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
 // Performance & Load Timing
-// Manual test plan: 8-19 (initial load), 8-20 (page switch)
+// Covers: initial load, page switch
 // ================================================================
 
 test.describe('Performance — load timing', () => {

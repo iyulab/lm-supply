@@ -13,14 +13,15 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 namespace LMSupply.Transcriber.Core;
 
 /// <summary>
-/// NVIDIA Parakeet TDT(Token-and-Duration Transducer) 계열의 <see cref="ITranscriberModel"/> — onnx-asr이 내보낸
-/// 세 ONNX(<c>nemo128.onnx</c> mel 전처리 · Conformer encoder · prediction-network+joint)와 SentencePiece 어휘로 돈다.
-/// Whisper 경로(<see cref="OnnxTranscriberModel"/>)와 아무것도 공유하지 않는다: 창 길이, 특징 추출, 디코딩, 토크나이저가 전부 다르다.
+/// <see cref="ITranscriberModel"/> for the NVIDIA Parakeet TDT (Token-and-Duration Transducer) family. Runs on the three ONNX
+/// graphs exported by onnx-asr (<c>nemo128.onnx</c> mel preprocessor, Conformer encoder, prediction network + joint) plus a SentencePiece vocabulary.
+/// Shares nothing with the Whisper path (<see cref="OnnxTranscriberModel"/>): window length, feature extraction, decoding and tokenizer all differ.
 /// </summary>
 /// <remarks>
-/// 시범 구현(spike)의 의도적 한계: 60 s 창을 겹침 없이 잇는다, 언어 식별 출력이 없어 <see cref="TranscriptionResult.Language"/>는
-/// 힌트 또는 <c>"und"</c>다, 번역·단어 타임스탬프·빔 서치는 지원하지 않는다. 자동 선택(<c>"auto"</c>) 후보에는 들어가지 않는다 —
-/// 별칭이나 저장소 id를 명시해야만 이 경로가 열린다.
+/// Deliberate limitations of this initial (spike) implementation: 60 s windows are concatenated without overlap; there is no
+/// language-identification output, so <see cref="TranscriptionResult.Language"/> is the hint or <c>"und"</c>; translation, word timestamps
+/// and beam search are not supported. It is not a candidate for automatic selection (<c>"auto"</c>) — this path is used only when an
+/// alias or repository id is given explicitly.
 /// </remarks>
 internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarization.IDiarizationPreload
 {
@@ -28,19 +29,19 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarizati
     private const string VocabFile = "vocab.txt";
     private const string ConfigFile = "config.json";
 
-    /// <summary><see cref="AudioProcessor"/>가 모든 입력을 16 kHz mono로 맞춘다 — NeMo 전처리기가 기대하는 것과 같다.</summary>
+    /// <summary><see cref="AudioProcessor"/> converts all input to 16 kHz mono, which is what the NeMo preprocessor expects.</summary>
     private const int SampleRate = 16000;
 
-    /// <summary>NeMo 전처리 hop 10 ms; 인코더 프레임 1개 = hop × subsampling.</summary>
+    /// <summary>NeMo preprocessor hop of 10 ms; one encoder frame = hop × subsampling.</summary>
     private const double HopSeconds = 0.01;
     private const int DefaultSubsamplingFactor = 8;
     private const int LstmLayers = 2;
     private const int LstmHidden = 640;
 
-    /// <summary>한 번에 인코더에 넣는 최대 길이. 겹침 없는 단순 분할 — 창 경계에서 단어가 잘릴 수 있다(spike 한계).</summary>
+    /// <summary>Maximum length fed to the encoder at once. Simple non-overlapping split — words can be cut at window boundaries (spike limitation).</summary>
     private static readonly int s_windowSamples = AudioProcessor.SecondsToSamples(60);
 
-    /// <summary>prediction network에는 항상 마지막 토큰 하나만 넣는다(이력은 LSTM 상태가 든다).</summary>
+    /// <summary>The prediction network always receives only the last token (the history lives in the LSTM state).</summary>
     private static readonly int[] s_singleTargetLength = [1];
 
     private readonly TranscriberOptions _options;
@@ -79,7 +80,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarizati
 
     public string ModelId => _modelInfo.Id;
 
-    /// <summary>TDT 내보내기는 언어 식별 출력이 없다 — 전사마다 힌트 또는 <c>"und"</c>.</summary>
+    /// <summary>TDT exports have no language-identification output — each transcription reports the hint or <c>"und"</c>.</summary>
     public string? Language => null;
 
     public bool IsGpuActive => _encoder?.IsGpuActive ?? false;
@@ -233,7 +234,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarizati
         var hidden = _hiddenSize;
         var stateSize = LstmLayers * LstmHidden;
 
-        // 전체 greedy 루프를 세션 Run 하나 안에서 돈다 — 복구(provider fallback)는 창 단위로 한 번만 적용된다.
+        // The whole greedy loop runs inside a single session Run, so recovery (provider fallback) applies once per window.
         return _decoderJoint!.RunWithRecoveryAsync((session, runOptions) =>
             TdtGreedyDecoder.Decode(
                 Math.Min(encodedLength, encodedFrames),
@@ -322,7 +323,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarizati
             var decoderPath = Require(Path.Combine(modelDir, _modelInfo.DecoderFile));
             _vocab = await SentencePieceVocabulary.LoadAsync(Require(Path.Combine(modelDir, VocabFile)), cancellationToken);
 
-            // 전처리기는 STFT 연산자 때문에 CPU 전용(onnx-asr도 CUDA/TensorRT에서 CPU로 돌린다).
+            // The preprocessor is CPU-only because of its STFT operator (onnx-asr also runs it on CPU under CUDA/TensorRT).
             var pre = await OnnxSessionFactory.CreateWithInfoAsync(preprocessorPath, ExecutionProvider.Cpu, ConfigureSessionOptions, cancellationToken: cancellationToken);
             _preprocessor = RecoverableOnnxSession.FromResult(pre, preprocessorPath, ConfigureSessionOptions, logPrefix: "[ParakeetTdt:preprocessor]");
 
@@ -367,7 +368,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarizati
         return await downloader.PlanModelAsync(modelInfo.Id, DownloadFiles(modelInfo), cancellationToken: cancellationToken);
     }
 
-    // 파일을 명시한다 — 이 저장소는 저장소 루트에 두 양자화 변형을 나란히 두므로 discovery의 whisper용 «onnx 하위 폴더» 규칙이 맞지 않는다.
+    // List the files explicitly: this repository keeps two quantized variants side by side at its root, so discovery's Whisper-oriented "onnx subfolder" rule does not apply.
     private static string[] DownloadFiles(TranscriberModelInfo modelInfo)
         => [modelInfo.EncoderFile, modelInfo.DecoderFile, PreprocessorFile, VocabFile, ConfigFile];
 

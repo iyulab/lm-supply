@@ -18,7 +18,6 @@ function minimalWav(): Buffer {
 
 // ================================================================
 // Section 6-1: POST /v1/audio/transcriptions
-// Manual validation plan: 6-1-01 to 6-1-10
 // ================================================================
 test.describe('Section 6-1: Audio Transcriptions', () => {
   test('[6-1-01] default response is JSON with text field', async ({ request }) => {
@@ -136,7 +135,6 @@ test.describe('Section 6-1: Audio Transcriptions', () => {
 
 // ================================================================
 // Section 6-2: POST /v1/audio/translations
-// Manual validation plan: 6-2-01 to 6-2-03
 // ================================================================
 test.describe('Section 6-2: Audio Translations', () => {
   test('[6-2-01] translation endpoint exists and returns response (not 404)', async ({ request }) => {

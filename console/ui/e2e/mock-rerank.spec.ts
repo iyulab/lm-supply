@@ -3,7 +3,7 @@ import { mockJsonEndpoint, mockRerankResponse, mockJsonError } from './fixtures/
 
 // ================================================================
 // Rerank page — mock API tests for result display
-// Test plan: 5.2-5.3 (rerank documents, result display)
+// Covers: rerank documents, result display
 // ================================================================
 
 test.describe('Rerank — mock inference results', () => {

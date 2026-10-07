@@ -3,7 +3,7 @@ import { mockChatStream, mockJsonError } from './fixtures/api-mocks';
 
 // ================================================================
 // Chat page — mock streaming tests
-// Test plan: 3.2.1-3.2.3, 3.2.9 (message display, streaming, elapsed time, error)
+// Covers: message display, streaming, elapsed time, error
 // ================================================================
 
 test.describe('Chat — mock streaming', () => {
@@ -48,13 +48,13 @@ test.describe('Chat — mock streaming', () => {
     await expect(page.getByText(/\d+ ms/)).toBeVisible({ timeout: 5_000 });
   });
 
-  // Test plan: 3.2.5 — Empty input disables send (already tested but verifying with mock)
+  // Empty input disables send (already tested but verifying with mock)
   test('send button is disabled with empty input', async ({ page }) => {
     const sendBtn = page.locator('button[type="submit"]');
     await expect(sendBtn).toBeDisabled();
   });
 
-  // Test plan: 3.2.9 — Error handling
+  // Error handling
   test('model error shows error message in chat', async ({ page }) => {
     // Mock error response
     await mockJsonError(page, '**/v1/chat/completions', 'Model failed to load: generator not found', 500);

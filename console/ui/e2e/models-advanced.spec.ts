@@ -2,7 +2,6 @@ import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
 // Models page — advanced features
-// Manual test plan: 3-06, 3-07, 3-23, 3-24, 3-25
 // ================================================================
 
 test.describe('Models — HF Check', () => {

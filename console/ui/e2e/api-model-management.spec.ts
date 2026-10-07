@@ -2,7 +2,6 @@ import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
 // API Model Management Endpoints
-// Manual test plan: 5-07 to 5-17
 // ================================================================
 
 test.describe('API Model Management', () => {

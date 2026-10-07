@@ -8,7 +8,7 @@ import { mockModelsPageApis } from './fixtures/api-mocks';
 // ================================================================
 
 // ================================================================
-// Test plan: 14.1.5 — Empty cached models state
+// Empty cached models state
 // ================================================================
 
 test.describe('Models — empty cached state', () => {
@@ -27,7 +27,7 @@ test.describe('Models — empty cached state', () => {
 });
 
 // ================================================================
-// Test plan: 14.2.2 — GGUF file selection
+// GGUF file selection
 // ================================================================
 
 test.describe('Models — GGUF selection', () => {
@@ -79,7 +79,7 @@ test.describe('Models — GGUF selection', () => {
 });
 
 // ================================================================
-// Test plan: 14.1.2 — Status badges (mocked scenario with loaded model)
+// Status badges (mocked scenario with loaded model)
 // ================================================================
 
 test.describe('Models — status badges', () => {
@@ -134,7 +134,7 @@ test.describe('Models — status badges', () => {
 });
 
 // ================================================================
-// Test plan: 14.1.3 — Delete model, 14.1.4 — Delete disabled on loaded
+// Delete model; delete disabled on loaded model
 // ================================================================
 
 test.describe('Models — delete behavior', () => {
@@ -146,7 +146,7 @@ test.describe('Models — delete behavior', () => {
     localPath: '/cache/models--BAAI--bge-small-en-v1.5',
   };
 
-  // Test plan: 14.1.3 — Delete model (click trash, confirm, model removed)
+  // Delete model (click trash, confirm, model removed)
   test('[3-15] delete button removes model after confirmation', async ({ page }) => {
     let deleteWasCalled = false;
     await mockModelsPageApis(page, {
@@ -189,7 +189,7 @@ test.describe('Models — delete behavior', () => {
     await expect(page.getByText('Cached Models (0)')).toBeVisible({ timeout: 5_000 });
   });
 
-  // Test plan: 14.1.4 — Delete disabled when model is loaded
+  // Delete disabled when model is loaded
   test('[3-16] delete button is disabled when model is loaded', async ({ page }) => {
     await mockModelsPageApis(page, {
       cachedModels: [mockModel],
@@ -214,13 +214,13 @@ test.describe('Models — delete behavior', () => {
 });
 
 // ================================================================
-// Test plan: 14.2.3-4, 14.2.6 — Download progress and completion
+// Download progress and completion
 // ================================================================
 
 test.describe('Models — download progress', () => {
-  // Test plan: 14.2.3 — Download button shows progress bar via SSE
-  // Test plan: 14.2.4 — Download complete shows green message
-  // Test plan: 14.2.6 — Active downloads section appears
+  // Download button shows progress bar via SSE
+  // Download complete shows green message
+  // Active downloads section appears
   test('[3-08] [3-09] [3-10] download shows progress bar and completion via SSE', async ({ page }) => {
     await mockModelsPageApis(page);
 
@@ -251,7 +251,7 @@ test.describe('Models — download progress', () => {
 });
 
 // ================================================================
-// Test plan: 3-13 — Duplicate download prevention
+// Duplicate download prevention
 // ================================================================
 
 test.describe('Models — duplicate download prevention', () => {
@@ -301,7 +301,7 @@ test.describe('Models — duplicate download prevention', () => {
 });
 
 // ================================================================
-// Test plan: 5-16 — DELETE /api/cache/models/{repoId}
+// DELETE /api/cache/models/{repoId}
 // ================================================================
 
 test.describe('Models — DELETE cache API', () => {

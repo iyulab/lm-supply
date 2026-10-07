@@ -254,7 +254,7 @@ public class SmartVariantSelectionTests
 
         var result = DiscoverFromFileList(MakeRepoFiles(WhisperLargeV3Files), prefs);
 
-        // bnb4 → Quant4. Priority: _int4(없음), _bnb4(있음) → bnb4 선택
+        // bnb4 → Quant4. Priority: _int4 (absent), _bnb4 (present) → bnb4 selected
         result.EncoderFiles.Should().ContainSingle().Which.Should().Contain("bnb4");
         result.DecoderFiles.Should().ContainSingle().Which.Should().Contain("bnb4");
     }

@@ -10,7 +10,6 @@ const PNG_BUFFER = Buffer.from(
 
 // ================================================================
 // Section 12-1: POST /v1/images/ocr
-// Manual validation plan: 12-1-01 to 12-1-07
 // ================================================================
 test.describe('Section 12-1: OCR', () => {
   test('[12-1-01] response: id, model, full_text, pages[].blocks[].text/confidence/bounding_box/lines', async ({ request }) => {
@@ -99,7 +98,6 @@ test.describe('Section 12-1: OCR', () => {
 
 // ================================================================
 // Section 12-2: GET /v1/images/ocr/languages
-// Manual validation plan: 12-2-01
 // ================================================================
 test.describe('Section 12-2: OCR Languages', () => {
   test('[12-2-01] GET /v1/images/ocr/languages returns languages array', async ({ request }) => {
@@ -113,7 +111,6 @@ test.describe('Section 12-2: OCR Languages', () => {
 
 // ================================================================
 // Section 13-1: POST /v1/images/segment
-// Manual validation plan: 13-1-01 to 13-1-07
 // ================================================================
 test.describe('Section 13-1: Image Segmentation', () => {
   test('[13-1-01] response: id, model, segments[].id/label/score/mask', async ({ request }) => {
@@ -215,7 +212,6 @@ test.describe('Section 13-1: Image Segmentation', () => {
 
 // ================================================================
 // Section 13-2: GET /v1/images/segment/labels
-// Manual validation plan: 13-2-01
 // ================================================================
 test.describe('Section 13-2: Segment Labels', () => {
   test('[13-2-01] GET /v1/images/segment/labels returns ADE20K label list', async ({ request }) => {

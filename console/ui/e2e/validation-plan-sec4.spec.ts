@@ -4,7 +4,6 @@ const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 // ================================================================
 // Section 4-1: POST /v1/embeddings
-// Manual validation plan: 4-1-01 to 4-1-08
 // ================================================================
 test.describe('Section 4-1: Embeddings', () => {
   test('[4-1-01] response structure: object list, data[0].embedding, usage', async ({ request }) => {

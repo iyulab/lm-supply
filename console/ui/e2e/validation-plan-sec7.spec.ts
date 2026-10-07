@@ -4,7 +4,6 @@ const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 // ================================================================
 // Section 7-1: POST /v1/audio/speech
-// Manual validation plan: 7-1-01 to 7-1-09
 // ================================================================
 test.describe('Section 7-1: TTS Speech Synthesis', () => {
   test('[7-1-01] default WAV response has correct Content-Type', async ({ request }) => {

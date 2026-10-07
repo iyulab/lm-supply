@@ -12,8 +12,8 @@ public static class GgufModelRegistry
     private static readonly Dictionary<string, GgufModelInfo> _models = new(StringComparer.OrdinalIgnoreCase)
     {
         // ============================================================
-        // Gemma 4 중심 레지스트리 (Apache 2.0, 멀티모달, 네이티브 function calling)
-        // llama.cpp b8672+ 에서 Gemma 4 네이티브 지원 (GGUF 메타데이터 자동 감지)
+        // Gemma 4-centered registry (Apache 2.0, multimodal, native function calling)
+        // llama.cpp b8672+ supports Gemma 4 natively (auto-detected from GGUF metadata)
         // ============================================================
 
         // Fast: Gemma 4 E2B — smallest Gemma 4, fits 4GB iGPU/mobile (~3.1GB VRAM).
@@ -188,8 +188,8 @@ public static class GgufModelRegistry
         },
 
         // ============================================================
-        // Qwen3/3.5/3.6 티어 — Apache 2.0, ChatML, GQA/MoE 혼합
-        // auto-selection pool: qwen3-fast/default/balanced/quality (qwen3-large 제외)
+        // Qwen3/3.5/3.6 tiers — Apache 2.0, ChatML, mix of GQA and MoE
+        // auto-selection pool: qwen3-fast/default/balanced/quality (qwen3-large excluded)
         // ============================================================
 
         // Fast: Qwen3.5-2B Q4_K_M — ~1.5GB model, ~2.25GB VRAM@4K, thinking OFF by default

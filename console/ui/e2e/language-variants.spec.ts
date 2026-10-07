@@ -10,7 +10,7 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 
 // ================================================================
 // Language Variant Tests
-// Manual test plan: 4-48 (Korean TTS), 4-73 (Korean OCR)
+// Covers: Korean TTS, Korean OCR
 // ================================================================
 
 test.describe('Language Variants', () => {

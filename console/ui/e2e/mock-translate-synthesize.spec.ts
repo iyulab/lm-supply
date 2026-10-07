@@ -3,7 +3,7 @@ import { mockJsonEndpoint, mockTranslateResponse, mockBlobEndpoint, mockWavBuffe
 
 // ================================================================
 // Translate page — mock API tests for result display
-// Test plan: 12.3-12.4, 12.6 (translation result, metadata, loading)
+// Covers: translation result, metadata, loading
 // ================================================================
 
 test.describe('Translate — mock inference results', () => {
@@ -60,7 +60,7 @@ test.describe('Translate — mock inference results', () => {
 
 // ================================================================
 // Synthesize page — mock API tests for audio result
-// Test plan: 7.2-7.5 (audio player, playback, download, elapsed)
+// Covers: audio player, playback, download, elapsed
 // ================================================================
 
 test.describe('Synthesize — mock audio results', () => {

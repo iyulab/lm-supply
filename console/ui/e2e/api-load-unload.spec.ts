@@ -9,7 +9,6 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 
 // ================================================================
 // API — Model Load/Unload cycle + Segment with mask
-// Manual test plan: 5-14, 5-15, 5-34
 // ================================================================
 
 test.describe('API Load/Unload cycle', () => {

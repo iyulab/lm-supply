@@ -3,7 +3,7 @@ import { mockChatStream, mockJsonEndpoint, mockEmbedResponse } from './fixtures/
 
 // ================================================================
 // Input edge cases — XSS, RTL, very long text
-// Manual test plan: 7-05 (XSS), 7-09 (RTL), 7-10 (very long text)
+// Covers: XSS, RTL, very long text
 // ================================================================
 
 test.describe('XSS / HTML injection', () => {

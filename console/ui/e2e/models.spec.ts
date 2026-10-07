@@ -43,7 +43,7 @@ test.describe('Models page', () => {
     }
   });
 
-  // Test plan: 14.1.5 — Empty state
+  // Empty state
   test('empty cached models shows message or table when populated', async ({ page }) => {
     // Wait for the refresh icon to stop spinning (API calls completed)
     const refreshBtn = page.getByRole('button', { name: /Refresh/ });
@@ -130,7 +130,7 @@ test.describe('Models page', () => {
     await expect(statusIndicators.first()).toBeVisible();
   });
 
-  // Test plan: 14.4.6 — Collapse type
+  // Collapse type
   test('clicking expanded type collapses it', async ({ page }) => {
     // Expand first type
     const typeButton = page.locator('button').filter({ hasText: /models$/ }).first();
@@ -150,7 +150,7 @@ test.describe('Models page', () => {
   // 14.5 Refresh
   // ================================================================
 
-  // Test plan: 14.5.1 — Refresh button
+  // Refresh button
   test('refresh button reloads all sections', async ({ page }) => {
     const refreshButton = page.getByRole('button', { name: /Refresh/ });
     await expect(refreshButton).toBeVisible();

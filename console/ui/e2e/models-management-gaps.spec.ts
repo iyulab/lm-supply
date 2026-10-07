@@ -3,8 +3,8 @@ import { mockModelsPageApis } from './fixtures/api-mocks';
 
 // ================================================================
 // Models management — coverage gaps (uses live backend for registry tests)
-// Manual test plan: 3-05 (no blank aliases), 3-12 (registry cached status),
-//   3-17 (delete during download), 3-20 (model load form)
+// Covers: no blank aliases, registry cached status,
+//   delete during download, model load form
 // ================================================================
 
 test.describe('Model Registry — alias integrity', () => {

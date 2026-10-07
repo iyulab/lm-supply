@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 /**
- * Gap closure tests — items from the manual validation plan that
+ * Gap closure tests — API behaviors that
  * require additional coverage beyond the primary section specs.
  */
 

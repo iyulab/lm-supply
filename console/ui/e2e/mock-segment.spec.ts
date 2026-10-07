@@ -9,7 +9,7 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 
 // ================================================================
 // Segment page — mock API tests for result display
-// Test plan: 11.2-11.4 (segmentation results, score display, top 10 note)
+// Covers: segmentation results, score display, top 10 note
 // ================================================================
 
 test.describe('Segment — mock inference results', () => {
@@ -49,7 +49,7 @@ test.describe('Segment — mock inference results', () => {
     await expect(page.getByText('road')).toBeVisible();
   });
 
-  // Test plan: 11.3 — Score display with percentage text
+  // Score display with percentage text
   test('score percentage is displayed for each class', async ({ page }) => {
     const mockResponse = mockSegmentResponse();
     await mockJsonEndpoint(page, '**/v1/images/segment', mockResponse);
@@ -65,7 +65,7 @@ test.describe('Segment — mock inference results', () => {
     await expect(page.getByText('15.0%')).toBeVisible();
   });
 
-  // Test plan: 11.4 — "Shows top 10 classes by pixel coverage" note
+  // "Shows top 10 classes by pixel coverage" note
   test('shows top 10 classes note', async ({ page }) => {
     const mockResponse = mockSegmentResponse();
     await mockJsonEndpoint(page, '**/v1/images/segment', mockResponse);

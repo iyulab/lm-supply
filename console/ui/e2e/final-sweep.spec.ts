@@ -1,8 +1,8 @@
 import { test, expect } from './fixtures/base.fixture';
 
 // ================================================================
-// Final sweep — coverage gaps from test plan
-// Fills remaining test plan items not covered by prior cycles
+// Final sweep — remaining UI coverage
+// Covers items not exercised by the other page specs
 // ================================================================
 
 // ================================================================
@@ -54,7 +54,7 @@ test.describe('Models page — download section details', () => {
     await expect(page.getByRole('heading', { name: /Model Management/ })).toBeVisible();
   });
 
-  // Test plan: 14.2 — HuggingFace download section has proper UI
+  // HuggingFace download section has proper UI
   test('HuggingFace download section has repo input and buttons', async ({ page }) => {
     const heading = page.getByRole('heading', { name: /Download.*Model.*HuggingFace/ });
     await expect(heading).toBeVisible();
@@ -69,7 +69,7 @@ test.describe('Models page — download section details', () => {
     await expect(downloadButton).toBeVisible();
   });
 
-  // Test plan: 14.1 — Cached models section heading shows count
+  // Cached models section heading shows count
   test('cached models heading shows count in parentheses', async ({ page }) => {
     const heading = page.getByRole('heading', { name: /Cached Models/ });
     await expect(heading).toBeVisible();
@@ -147,7 +147,7 @@ test.describe('Chat — form completeness', () => {
     await expect(page.locator('main').getByRole('heading', { name: /Chat/ }).first()).toBeVisible();
   });
 
-  // Test plan: 3.2.5 — Empty input disables send
+  // Empty input disables send
   test('send button is disabled when input is empty', async ({ page }) => {
     const input = page.getByPlaceholder('Type your message...');
     await expect(input).toBeVisible();
@@ -159,7 +159,7 @@ test.describe('Chat — form completeness', () => {
     await expect(sendButton).toBeVisible();
   });
 
-  // Test plan: 3.1 — Model selector loads generator models
+  // Model selector loads generator models
   test('model selector loads generator models', async ({ page }) => {
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
 

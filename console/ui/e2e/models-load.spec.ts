@@ -10,7 +10,7 @@ test.describe('Models page — Load/Unload & Download', () => {
   // 14.3 Loaded Models & Pre-load
   // ================================================================
 
-  // Test plan: 14.3.1 — Empty state
+  // Empty state
   test('[3-28] loaded models section renders with count', async ({ page }) => {
     const heading = page.getByRole('heading', { name: /Loaded Models/ });
     await expect(heading).toBeVisible();
@@ -24,7 +24,7 @@ test.describe('Models page — Load/Unload & Download', () => {
     }
   });
 
-  // Test plan: 14.3.2 — Pre-load form elements
+  // Pre-load form elements
   test('[3-19] pre-load form has type selector, model ID input, and load button', async ({ page }) => {
     // Type select
     const typeSelect = page.locator('select').filter({ hasText: 'Generator' });
@@ -53,7 +53,7 @@ test.describe('Models page — Load/Unload & Download', () => {
     await expect(loadButton).toBeVisible();
   });
 
-  // Test plan: 14.3.3 — Advanced options toggle
+  // Advanced options toggle
   test('[3-23] advanced options toggle shows/hides provider and thread inputs', async ({ page }) => {
     const settingsButton = page.getByTitle('Advanced options');
     await expect(settingsButton).toBeVisible();
@@ -106,7 +106,7 @@ test.describe('Models page — Load/Unload & Download', () => {
     await expect(page.getByText('Concurrency')).toBeHidden();
   });
 
-  // Test plan: 14.3.5 — Load error for non-existent model
+  // Load error for non-existent model
   test('[3-26] loading non-existent model shows error', async ({ page }) => {
     // Enter a non-existent model ID
     const modelInput = page.getByPlaceholder('default');
@@ -123,7 +123,7 @@ test.describe('Models page — Load/Unload & Download', () => {
   // 14.2 Download Section
   // ================================================================
 
-  // Test plan: 14.2.1 — Check model (valid repo)
+  // Check model (valid repo)
   // Network-dependent: calls backend → HuggingFace API
   test('[3-06] check model shows info for valid repository', async ({ page }) => {
     test.slow(); // triple the default timeout
@@ -146,7 +146,7 @@ test.describe('Models page — Load/Unload & Download', () => {
     await expect(page.getByText(/Type:\s*embedder/).first()).toBeVisible();
   });
 
-  // Test plan: 14.2.5 — Check invalid repo
+  // Check invalid repo
   test('[3-07] check model shows error for invalid repository', async ({ page }) => {
     const repoInput = page.getByPlaceholder(/e\.g\..*BAAI/);
     await repoInput.fill('totally-invalid-repo-does-not-exist/xyz');
@@ -158,7 +158,7 @@ test.describe('Models page — Load/Unload & Download', () => {
     await expect(page.getByText(/Model not found|Error/)).toBeVisible({ timeout: 30_000 });
   });
 
-  // Test plan: 14.2 — Download button exists
+  // Download button exists
   test('[3-08] download button exists in HuggingFace section', async ({ page }) => {
     const downloadButton = page.getByRole('button', { name: 'Download' }).first();
     await expect(downloadButton).toBeVisible();

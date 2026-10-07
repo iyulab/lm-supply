@@ -9,7 +9,7 @@ const TEST_AUDIO = path.resolve(__dirname, 'fixtures/test-files/test-audio.wav')
 
 // ================================================================
 // Transcribe page — mock API tests for result display
-// Test plan: 6.3-6.5 (file upload → transcription, result display, segments)
+// Covers: file upload → transcription, result display, segments
 // ================================================================
 
 test.describe('Transcribe — mock inference results', () => {

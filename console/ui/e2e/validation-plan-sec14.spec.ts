@@ -4,7 +4,6 @@ const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 // ================================================================
 // Section 14-1: System Status and Monitoring
-// Manual validation plan: 14-1-01 to 14-1-06
 // ================================================================
 test.describe('Section 14-1: System API', () => {
   test('[14-1-01] GET /api/system/status returns required fields', async ({ request }) => {

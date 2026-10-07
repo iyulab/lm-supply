@@ -381,15 +381,15 @@ before the first ONNX load:
 
 **GGUF aliases** (via llama-server):
 
-Gemma 4와 Qwen3 시리즈 중심 레지스트리. `gguf:auto`(와 `"default"`/`"auto"` — 같은 규칙)는 **qwen3 auto-pool** (qwen3-fast/default/balanced/quality)에서 VRAM에 맞는 가장 큰 모델을, VRAM이 부족하면 시스템 RAM 예산(시스템 RAM − 4 GB, 최대 절반)에 맞는 가장 큰 모델을 자동 선택합니다(`GeneratorOptions.AutoSelectionGoal = Responsive` 면 그 경로에서 가장 작은 모델). 선택은 요청한 `MaxContextLength` 기준입니다. `Provider = ExecutionProvider.Cpu` 를 명시하면 시스템 RAM만 보고 GPU를 탐지하지 않습니다. Gemma 4 aliases는 명시적으로 지정하거나 하드코딩된 워크로드에 사용하세요.
+The registry centers on the Gemma 4 and Qwen3 series. `gguf:auto` (and `"default"`/`"auto"`, which follow the same rule) picks from the **qwen3 auto-pool** (qwen3-fast/default/balanced/quality) the largest model that fits VRAM; when VRAM is insufficient, it picks the largest model that fits the system RAM budget (system RAM − 4 GB, at most half). With `GeneratorOptions.AutoSelectionGoal = Responsive`, it picks the smallest model on that path instead. Selection is based on the requested `MaxContextLength`. Setting `Provider = ExecutionProvider.Cpu` considers system RAM only and skips GPU detection. Use the Gemma 4 aliases by naming them explicitly or for hard-coded workloads.
 
-**Gemma 4 aliases** (Apache 2.0, 멀티모달, 네이티브 function calling; llama.cpp **b8672+** 필요):
+**Gemma 4 aliases** (Apache 2.0, multimodal, native function calling; requires llama.cpp **b8672+**):
 
 | Alias | Model | Params | Quant | Size | VRAM Target |
 |-------|-------|--------|-------|------|-------------|
 | `gguf:gemma4-fast` | Gemma 4 E2B Instruct | 2.3B | Q4_K_M | ~3.1 GB | <4GB iGPU/mobile |
 | `gguf:gemma4-default` | Gemma 4 E4B Instruct | 4.5B | Q4_0 | ~4.6 GB | 4-8GB |
-| `gguf:gemma4-balanced` | Gemma 4 E4B Instruct | 4.5B | Q8_0 | ~7.5 GB | 8-16GB (RTX 3060 12GB 등) |
+| `gguf:gemma4-balanced` | Gemma 4 E4B Instruct | 4.5B | Q8_0 | ~7.5 GB | 8-16GB (e.g. RTX 3060 12GB) |
 | `gguf:gemma4-quality` | Gemma 4 26B A4B (MoE) | 26B (4B active) | Q4_0 | ~13.6 GB | 16-20GB |
 | `gguf:gemma4-large` | Gemma 4 31B Instruct | 31B | Q4_0 | ~16.8 GB | 20-48GB |
 

@@ -10,7 +10,6 @@ const PNG_BUFFER = Buffer.from(
 
 // ================================================================
 // Section 9-1: POST /v1/images/generations
-// Manual validation plan: 9-1-01 to 9-1-12
 // ================================================================
 test.describe('Section 9-1: Image Generations (OpenAI compat)', () => {
   test('[9-1-01] response format: created, data[0].b64_json or url', async ({ request }) => {
@@ -114,7 +113,6 @@ test.describe('Section 9-1: Image Generations (OpenAI compat)', () => {
 
 // ================================================================
 // Section 9-2: POST /v1/images/edits
-// Manual validation plan: 9-2-01 to 9-2-04
 // ================================================================
 test.describe('Section 9-2: Image Edits', () => {
   test('[9-2-01] edits endpoint returns OpenAI-compatible response (not 404)', async ({ request }) => {
@@ -152,7 +150,6 @@ test.describe('Section 9-2: Image Edits', () => {
 
 // ================================================================
 // Section 9-3: POST /v1/images/variations
-// Manual validation plan: 9-3-01 to 9-3-02
 // ================================================================
 test.describe('Section 9-3: Image Variations', () => {
   test('[9-3-01] variations endpoint returns OpenAI-compatible response (not 404)', async ({ request }) => {
@@ -179,7 +176,6 @@ test.describe('Section 9-3: Image Variations', () => {
 
 // ================================================================
 // Section 9-4: TempFileService
-// Manual validation plan: 9-4-01 to 9-4-03
 // ================================================================
 test.describe('Section 9-4: TempFileService', () => {
   test('[9-4-01][9-4-02] generated URL returns 200 with image content-type', async ({ request }) => {
@@ -205,7 +201,6 @@ test.describe('Section 9-4: TempFileService', () => {
 
 // ================================================================
 // Section 9-5: POST /v1/images/generate (Extended API)
-// Manual validation plan: 9-5-01 to 9-5-03
 // ================================================================
 test.describe('Section 9-5: Extended Image Generation', () => {
   test('[9-5-01] /v1/images/generate response includes extended fields', async ({ request }) => {

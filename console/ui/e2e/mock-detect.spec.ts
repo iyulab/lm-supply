@@ -9,7 +9,7 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 
 // ================================================================
 // Detect page — mock API tests for result display
-// Test plan: 10.3-10.6 (detection results, class summary, threshold, empty)
+// Covers: detection results, class summary, threshold, empty
 // ================================================================
 
 test.describe('Detect — mock inference results', () => {

@@ -16,7 +16,7 @@ namespace LMSupply.Integration.Tests.Functional;
 
 /// <summary>
 /// Functional tests for infrastructure: model downloading, caching, GPU detection.
-/// Tests DL-1 to DL-6, CACHE-1 to CACHE-3, GPU-1 to GPU-4 from the test plan.
+/// Covers download (DL-*), cache (CACHE-*), and GPU detection (GPU-*) cases.
 /// </summary>
 [Trait("Category", "Functional")]
 [Trait("Category", "LocalOnly")]

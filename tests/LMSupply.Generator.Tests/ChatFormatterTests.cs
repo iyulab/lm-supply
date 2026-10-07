@@ -346,9 +346,10 @@ public class ChatFormatterTests
     // ChatRole.Tool round-trip: every formatter must accept a 4-message history
     // [system, user, assistant-tool-call, tool-result] without throwing, and
     // include the tool result content in the formatted prompt.
-    // Regression guard for the IronHive 0.5.4 unmasking incident (2026-04-28):
-    // ToolResult messages must not throw ArgumentOutOfRangeException, and
-    // assistant-emitted tool calls must not silently disappear from history.
+    // Formatting a history that contains a tool round-trip must not throw
+    // ArgumentOutOfRangeException on the ToolResult message, and an assistant
+    // turn that carries only tool calls (empty Content) must still be rendered
+    // into the prompt rather than silently dropped.
     // ──────────────────────────────────────────────────────────────────────────
 
     private static ChatMessage[] ToolRoundTripHistory() =>
@@ -429,8 +430,8 @@ public class ChatFormatterTests
     [InlineData(typeof(MistralChatFormatter))]
     public void AllFormatters_FormatPrompt_MultipleToolResults_DoesNotThrow(Type formatterType)
     {
-        // Re-entrancy guard from issue §9: multiple Tool messages in history must
-        // also format successfully, not just the first.
+        // Multiple Tool messages in one history must all format successfully,
+        // not just the first.
         var formatter = (IChatFormatter)Activator.CreateInstance(formatterType)!;
 
         var history = new[]

@@ -4,7 +4,6 @@ const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 /**
  * Section 17: OpenAI SDK Compatibility Tests
- * Manual validation plan: 17-1-01 to 17-1-07
  *
  * These tests validate that the API responses are structurally compatible
  * with what the OpenAI Python/JS SDK expects. We test the raw API shapes

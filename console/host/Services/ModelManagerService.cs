@@ -19,10 +19,10 @@ using HostLoadedModelInfo = LMSupply.Console.Host.Models.Responses.LoadedModelIn
 namespace LMSupply.Console.Host.Services;
 
 /// <summary>
-/// 모델 생명주기 관리 서비스 (싱글톤)
-/// - On-Demand 로딩
-/// - LRU 캐싱
-/// - 동시성 제어
+/// Model lifecycle management service (singleton)
+/// - On-demand loading
+/// - LRU caching
+/// - Concurrency control
 /// </summary>
 public sealed partial class ModelManagerService : IAsyncDisposable
 {
@@ -52,14 +52,14 @@ public sealed partial class ModelManagerService : IAsyncDisposable
         _memoryPressureThreshold = configuration.GetValue("ModelManager:MemoryPressureThreshold", 80);
         _defaultEstimatedMemoryMB = configuration.GetValue("ModelManager:DefaultEstimatedMemoryMB", 500);
 
-        // 주기적 정리 타이머 (5분마다)
+        // Periodic cleanup timer (every 5 minutes)
         _cleanupTimer = new Timer(CleanupIdleModels, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
 
         LogManagerInitialized(_logger, _maxLoadedModels, _idleTimeout);
     }
 
     /// <summary>
-    /// Generator 모델 조회 (없으면 로드)
+    /// Gets the Generator model (loads it if not already loaded)
     /// </summary>
     public async Task<ModelScope<IGeneratorModel>> GetGeneratorAsync(
         string modelId,
@@ -77,7 +77,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Embedder 모델 조회 (없으면 로드)
+    /// Gets the Embedder model (loads it if not already loaded)
     /// </summary>
     public async Task<ModelScope<IEmbeddingModel>> GetEmbedderAsync(
         string modelId,
@@ -95,7 +95,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Reranker 모델 조회 (없으면 로드)
+    /// Gets the Reranker model (loads it if not already loaded)
     /// </summary>
     public async Task<ModelScope<IRerankerModel>> GetRerankerAsync(
         string modelId,
@@ -113,7 +113,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Transcriber 모델 조회 (없으면 로드)
+    /// Gets the Transcriber model (loads it if not already loaded)
     /// </summary>
     public async Task<ModelScope<ITranscriberModel>> GetTranscriberAsync(
         string modelId,
@@ -131,7 +131,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Synthesizer 모델 조회 (없으면 로드)
+    /// Gets the Synthesizer model (loads it if not already loaded)
     /// </summary>
     public async Task<ModelScope<ISynthesizerModel>> GetSynthesizerAsync(
         string modelId,
@@ -149,7 +149,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Captioner 모델 조회 (없으면 로드)
+    /// Gets the Captioner model (loads it if not already loaded)
     /// </summary>
     public async Task<ModelScope<ICaptionerModel>> GetCaptionerAsync(
         string modelId,
@@ -167,7 +167,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
     }
 
     /// <summary>
-    /// OCR 모델 조회 (없으면 로드)
+    /// Gets the OCR model (loads it if not already loaded)
     /// </summary>
     public async Task<ModelScope<IOcr>> GetOcrAsync(
         string languageHint = "en",
@@ -185,7 +185,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Detector 모델 조회 (없으면 로드)
+    /// Gets the Detector model (loads it if not already loaded)
     /// </summary>
     public async Task<ModelScope<IDetectorModel>> GetDetectorAsync(
         string modelId,
@@ -203,7 +203,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Segmenter 모델 조회 (없으면 로드)
+    /// Gets the Segmenter model (loads it if not already loaded)
     /// </summary>
     public async Task<ModelScope<ISegmenterModel>> GetSegmenterAsync(
         string modelId,
@@ -221,7 +221,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Translator 모델 조회 (없으면 로드)
+    /// Gets the Translator model (loads it if not already loaded)
     /// </summary>
     public async Task<ModelScope<ITranslatorModel>> GetTranslatorAsync(
         string modelId,
@@ -239,7 +239,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
     }
 
     /// <summary>
-    /// ImageGenerator 모델 조회 (없으면 로드)
+    /// Gets the ImageGenerator model (loads it if not already loaded)
     /// </summary>
     public async Task<ModelScope<IImageGeneratorModel>> GetImageGeneratorAsync(
         string modelId,
@@ -399,7 +399,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
     }
 
     /// <summary>
-    /// 로드된 모델 목록
+    /// Lists loaded models
     /// </summary>
     public IReadOnlyList<HostLoadedModelInfo> GetLoadedModels()
     {
@@ -416,7 +416,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
     }
 
     /// <summary>
-    /// 특정 모델 언로드
+    /// Unloads a specific model
     /// </summary>
     public async Task UnloadModelAsync(string key)
     {
@@ -428,7 +428,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
     }
 
     /// <summary>
-    /// 모든 모델 언로드
+    /// Unloads all models
     /// </summary>
 
     /// <summary>
@@ -476,7 +476,7 @@ public sealed partial class ModelManagerService : IAsyncDisposable
         string modelId,
         CancellationToken cancellationToken)
     {
-        // 이미 로드된 경우
+        // Already loaded
         if (_loadedModels.TryGetValue(key, out var entry))
         {
             entry.LastUsedAt = DateTime.UtcNow;
@@ -493,10 +493,10 @@ public sealed partial class ModelManagerService : IAsyncDisposable
                 return entry.Model;
             }
 
-            // 용량 초과 시 가장 오래된 모델 제거
+            // Evict the oldest models when over capacity
             await EnsureCapacityAsync();
 
-            // 모델 로드
+            // Load the model
             var model = await loadFunc();
             var newEntry = new LoadedModelEntry
             {

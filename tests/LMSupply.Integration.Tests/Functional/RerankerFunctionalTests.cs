@@ -7,7 +7,7 @@ namespace LMSupply.Integration.Tests.Functional;
 /// <summary>
 /// Comprehensive functional tests for the Reranker domain.
 /// Tests L (loading), I (inference), Q (quality), E (edge cases) axes.
-/// Also validates known bugs BUG-001/002/003 from the test plan.
+/// Also guards known defects BUG-001/002/003.
 /// Requires GPU + network access. Run locally only.
 /// </summary>
 [Trait("Category", "Functional")]
@@ -408,7 +408,7 @@ public class RerankerFunctionalTests
         results.Should().HaveCount(1);
     }
 
-    // ── BUG validation: Known defects from test plan ────────────────
+    // ── BUG validation: known defects ───────────────────────────────
 
     /// <summary>
     /// BUG-003: Score validation — verify near-zero score warning exists.

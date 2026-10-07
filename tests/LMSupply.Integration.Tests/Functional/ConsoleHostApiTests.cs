@@ -1152,7 +1152,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
-    // ── Group D2: Empty/Null Body Tests (test plan 7.3) ─────────────
+    // ── Group D2: Empty/Null Body Tests ─────────────────────────────
 
     [Fact]
     [Trait("Axis", "API-Error")]
@@ -1198,7 +1198,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             "empty JSON body should not be accepted");
     }
 
-    // ── Group D2b: Pre-model validation (cycle 127) ─────────────
+    // ── Group D2b: Pre-model validation ─────────────────────────
 
     [Fact]
     [Trait("Axis", "API-Error")]
@@ -1260,7 +1260,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         }
     }
 
-    // ── Group D3: Concurrent Request Tests (test plan 6.3) ────────────
+    // ── Group D3: Concurrent Request Tests ────────────────────────────
 
     [Fact]
     [Trait("Axis", "API-GET")]
@@ -1387,13 +1387,13 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         values!.Should().Contain("true");
     }
 
-    // ── Group H: Test Plan Gap Coverage (§1-3, §7) ───────────────
+    // ── Group H: Health, System, Cache and Input Validation ──────
 
     [Fact]
     [Trait("Axis", "API-GET")]
     public async Task GET_Health_ReturnsExpectedShape()
     {
-        // Test plan 1.1.1: health endpoint returns status + timestamp
+        // health endpoint returns status + timestamp
         var response = await _client.GetAsync("/health", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -1406,7 +1406,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_SystemStatus_ReturnsExpectedFields()
     {
-        // Test plan 1.3.1: system status has engine, GPU, CPU/RAM fields
+        // system status has engine, GPU, CPU/RAM fields
         var response = await _client.GetAsync("/api/system/status", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -1422,7 +1422,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_CacheStats_HasTypeBreakdown()
     {
-        // Test plan 2.3.3: cache stats include type-level breakdown
+        // cache stats include type-level breakdown
         var response = await _client.GetAsync("/api/cache/stats", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -1437,7 +1437,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task POST_CacheLoad_MissingType_Returns400()
     {
-        // Test plan 2.4.1: preload without required 'type' field
+        // preload without required 'type' field
         var content = JsonContent.Create(new { modelId = "default" });
         var response = await _client.PostAsync("/api/cache/load", content, TestContext.Current.CancellationToken);
 
@@ -1448,7 +1448,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task DELETE_LoadedModel_NonExistentKey_Returns404()
     {
-        // Test plan 2.4.3: unload nonexistent model
+        // unload nonexistent model
         var response = await _client.DeleteAsync("/api/cache/loaded/nonexistent%3Anonexistent", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -1458,7 +1458,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task POST_Translate_MissingModel_Returns400()
     {
-        // Test plan 3.4.5: translate with empty text
+        // translate with empty text
         var content = JsonContent.Create(new { text = "Hello" });
         var response = await _client.PostAsync("/v1/translate", content, TestContext.Current.CancellationToken);
 
@@ -1471,7 +1471,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task POST_ChatCompletions_InvalidJson_Returns400()
     {
-        // Test plan 7.2: malformed JSON body
+        // malformed JSON body
         var content = new StringContent("{ invalid json }", Encoding.UTF8, "application/json");
         var response = await _client.PostAsync("/v1/chat/completions", content, TestContext.Current.CancellationToken);
 
@@ -1482,20 +1482,20 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task POST_Embeddings_InvalidJson_Returns400()
     {
-        // Test plan 7.2: malformed JSON for embeddings
+        // malformed JSON for embeddings
         var content = new StringContent("not json at all", Encoding.UTF8, "application/json");
         var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
-    // ── Group I: Error Handling Audit (§7) ──────────────────────────
+    // ── Group I: Error Handling Audit ───────────────────────────────
 
     [Fact]
     [Trait("Axis", "API-Error")]
     public async Task POST_Translate_InvalidJson_Returns400()
     {
-        // Test plan 7.2: malformed JSON for translate
+        // malformed JSON for translate
         var content = new StringContent("{ broken }", Encoding.UTF8, "application/json");
         var response = await _client.PostAsync("/v1/translate", content, TestContext.Current.CancellationToken);
 
@@ -1506,7 +1506,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task POST_Rerank_InvalidJson_Returns400()
     {
-        // Test plan 7.2: malformed JSON for rerank
+        // malformed JSON for rerank
         var content = new StringContent("not valid json", Encoding.UTF8, "application/json");
         var response = await _client.PostAsync("/v1/rerank", content, TestContext.Current.CancellationToken);
 
@@ -1517,7 +1517,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task POST_Embeddings_ErrorResponse_HasStructuredFormat()
     {
-        // Test plan 7.1: error responses follow OpenAI error format
+        // error responses follow OpenAI error format
         var content = JsonContent.Create(new { input = "", model = "nonexistent-model-xyz" });
         var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
@@ -1532,7 +1532,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task POST_Speech_InvalidJson_Returns400()
     {
-        // Test plan 7.2: malformed JSON for speech
+        // malformed JSON for speech
         var content = new StringContent("{ broken json", Encoding.UTF8, "application/json");
         var response = await _client.PostAsync("/v1/audio/speech", content, TestContext.Current.CancellationToken);
 
@@ -1543,7 +1543,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task POST_Transcribe_FormData_EmptyFile_Returns400()
     {
-        // Test plan 7.3: empty file content should be rejected
+        // empty file content should be rejected
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new ByteArrayContent([]), "file", "empty.wav");
         var response = await _client.PostAsync("/v1/audio/transcriptions", formContent, TestContext.Current.CancellationToken);
@@ -1555,7 +1555,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task DELETE_CacheModel_NonExistentRepo_Returns404()
     {
-        // Test plan 7.1: deleting non-existent cached model
+        // deleting non-existent cached model
         var response = await _client.DeleteAsync("/api/cache/models/nonexistent-org%2Fnonexistent-model", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -1643,13 +1643,13 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         taggedCount.Should().BeGreaterThan(0, "at least some endpoints should have tags for Swagger UI grouping");
     }
 
-    // ── Group K: Model Management Coverage (§2) ──────────────────
+    // ── Group K: Model Management Coverage ───────────────────────
 
     [Fact]
     [Trait("Axis", "API-GET")]
     public async Task GET_Models_OpenAI_HasObjectField()
     {
-        // §2.1.3: OpenAI-compatible list includes "object" field
+        // OpenAI-compatible list includes "object" field
         var response = await _client.GetAsync("/v1/models", TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
@@ -1660,7 +1660,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Models_OpenAI_ItemsHaveRequiredFields()
     {
-        // §2.1.3/2.1.4: Each model item has required OpenAI fields
+        // Each model item has required OpenAI fields
         var response = await _client.GetAsync("/v1/models", TestContext.Current.CancellationToken);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var first = json.GetProperty("data")[0];
@@ -1674,7 +1674,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_ModelById_AnyId_Returns200()
     {
-        // §2.1.4: OpenAI-compatible — returns model info for any ID
+        // OpenAI-compatible — returns model info for any ID
         var response = await _client.GetAsync("/v1/models/nonexistent:unknown", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -1686,7 +1686,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_Registry_TypeHasAliasKindInfo()
     {
-        // §2.1.2: Each model alias has kind (system/user) information
+        // Each model alias has kind (system/user) information
         var response = await _client.GetAsync("/api/registry/models/embedder", TestContext.Current.CancellationToken);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
         var first = json.GetProperty("models")[0];
@@ -1699,7 +1699,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_CacheModelsByType_ReturnsArrayShape()
     {
-        // §2.3.2: Cache models filtered by valid type returns array
+        // Cache models filtered by valid type returns array
         var response = await _client.GetAsync("/api/cache/models/type/embedder", TestContext.Current.CancellationToken);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
@@ -1710,7 +1710,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task POST_DownloadCheck_ValidFormatNonExistent_ReturnsError()
     {
-        // §2.2.2: Checking nonexistent model returns error, not crash
+        // Checking nonexistent model returns error, not crash
         var content = JsonContent.Create(new { repoId = "nonexistent-org/fake-model-xyz" });
         var response = await _client.PostAsync("/api/download/check", content, TestContext.Current.CancellationToken);
 

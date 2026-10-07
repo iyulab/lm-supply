@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png');
 
 // ================================================================
-// Caption page — VQA interaction tests (test plan 8.1, 8.2)
+// Caption page — VQA interaction tests
 // ================================================================
 
 test.describe('Caption — mode switching', () => {
@@ -17,7 +17,7 @@ test.describe('Caption — mode switching', () => {
     await expect(page.locator('main').getByRole('heading', { name: /Image Captioning/ })).toBeVisible();
   });
 
-  // Test plan: 8.2.1 — question input appears in VQA mode
+  // question input appears in VQA mode
   test('VQA mode shows question input after image upload', async ({ page }) => {
     // Switch to VQA mode
     await page.getByRole('button', { name: /Visual QA/i }).click();
@@ -38,7 +38,7 @@ test.describe('Caption — mode switching', () => {
     await expect(askButton).toBeVisible();
   });
 
-  // Test plan: 8.2.1 — question input NOT visible without image in VQA mode
+  // question input NOT visible without image in VQA mode
   test('VQA mode does not show question input before image upload', async ({ page }) => {
     // Switch to VQA mode
     await page.getByRole('button', { name: /Visual QA/i }).click();
@@ -48,7 +48,7 @@ test.describe('Caption — mode switching', () => {
     await expect(questionInput).not.toBeVisible();
   });
 
-  // Test plan: 8.2.4 — VQA mode does not auto-trigger inference
+  // VQA mode does not auto-trigger inference
   test('VQA mode does not auto-caption on image upload', async ({ page }) => {
     // Switch to VQA mode first
     await page.getByRole('button', { name: /Visual QA/i }).click();
