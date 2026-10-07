@@ -142,7 +142,14 @@ internal static class DefaultModels
     };
 
     /// <summary>
-    /// bge-base-en-v1.5, 110M params, excellent quality, English.
+    /// The query instruction the BGE English v1.5 model card recommends for retrieval. Passages and text with no
+    /// retrieval role take none ("In all cases, no instruction needs to be added to passages").
+    /// </summary>
+    private const string BgeEnRetrievalQueryInstruction = "Represent this sentence for searching relevant passages: ";
+
+    /// <summary>
+    /// bge-base-en-v1.5, 110M params, excellent quality, English. Retrieval queries take the card's instruction
+    /// (<see cref="ModelInfo.QueryPrefix"/>).
     /// </summary>
     public static ModelInfo BgeBaseEnV15 { get; } = new()
     {
@@ -156,11 +163,13 @@ internal static class DefaultModels
         PoolingMode = PoolingMode.Cls,
         DoLowerCase = true,
         Description = "110M params, excellent quality, English",
-        Subfolder = "onnx"
+        Subfolder = "onnx",
+        QueryPrefix = BgeEnRetrievalQueryInstruction
     };
 
     /// <summary>
-    /// bge-large-en-v1.5, 335M params, highest accuracy BGE, English.
+    /// bge-large-en-v1.5, 335M params, highest accuracy BGE, English. Retrieval queries take the card's instruction
+    /// (<see cref="ModelInfo.QueryPrefix"/>).
     /// </summary>
     public static ModelInfo BgeLargeEnV15 { get; } = new()
     {
@@ -174,7 +183,8 @@ internal static class DefaultModels
         PoolingMode = PoolingMode.Cls,
         DoLowerCase = true,
         Description = "335M params, highest accuracy BGE, English",
-        Subfolder = "onnx"
+        Subfolder = "onnx",
+        QueryPrefix = BgeEnRetrievalQueryInstruction
     };
 
     /// <summary>

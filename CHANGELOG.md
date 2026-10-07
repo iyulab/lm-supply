@@ -46,6 +46,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   earlier versions wrote.
 
 ### Fixed
+- **`EmbedQueryAsync` on bge-base-en-v1.5 and bge-large-en-v1.5 applies the retrieval instruction their model card
+  recommends** (`Represent this sentence for searching relevant passages: `); passages and other text stay bare, as the
+  card says. Queries were embedded without it. A GGUF repository of either model (`…-GGUF`) takes it too. Their
+  `VectorSpaceRevision` changes.
 - **The runtime step of a first load reaches the load's progress in every domain.** Captioner, Detector, Embedder,
   ImageGenerator, OCR, Reranker, Segmenter (both loads), Synthesizer, Transcriber (including speaker diarization) and
   Translator created their ONNX sessions without the caller's progress, so a first-run runtime download (tens of

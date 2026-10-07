@@ -67,8 +67,8 @@ loadable by their explicit short name (`LocalEmbedder.LoadAsync("multilingual-e5
 |-------|------------|--------|-------------|
 | `nomic-embed-text-v1.5` | 768 (Matryoshka 64–768) | search_query/search_document | 137M params, English-first, 8K context |
 | `all-mpnet-base-v2` | 768 | — | 110M params, legacy quality model, English |
-| `bge-base-en-v1.5` | 768 | — | 110M params, excellent quality, English |
-| `bge-large-en-v1.5` | 1024 | — | 335M params, highest accuracy BGE, English |
+| `bge-base-en-v1.5` | 768 | query instruction | 110M params, excellent quality, English |
+| `bge-large-en-v1.5` | 1024 | query instruction | 335M params, highest accuracy BGE, English |
 | `e5-small-v2` | 384 | query/passage | 33M params, English |
 | `e5-base-v2` | 768 | query/passage | 110M params, excellent retrieval, English |
 | `multilingual-e5-small` | 384 | query/passage | 118M params, 100+ languages, compact |
@@ -76,9 +76,11 @@ loadable by their explicit short name (`LocalEmbedder.LoadAsync("multilingual-e5
 | `multilingual-e5-large` | 1024 | query/passage | 560M params, 100+ languages, highest quality |
 | `gte-large-en-v1.5` | 1024 | — | 434M params, 8K context, highest accuracy GTE |
 
-"Prefix" marks models fine-tuned with the query/passage convention (see
-[Query/Passage Embeddings](#querypassage-embeddings) above) — `—` means the model needs no prefix
-and `EmbedAsync`/`EmbedQueryAsync`/`EmbedPassageAsync` embed its text as given.
+"Prefix" marks models fine-tuned with a prefix convention (see
+[Query/Passage Embeddings](#querypassage-embeddings) above): "query instruction" means only the
+retrieval query takes one (BGE English v1.5: `Represent this sentence for searching relevant passages: `,
+applied by `EmbedQueryAsync`); `—` means the model needs no prefix and
+`EmbedAsync`/`EmbedQueryAsync`/`EmbedPassageAsync` embed its text as given.
 
 ## GPU Acceleration
 

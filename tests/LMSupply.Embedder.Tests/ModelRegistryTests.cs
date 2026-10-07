@@ -192,11 +192,23 @@ public class ModelRegistryTests
     }
 
     [Theory]
+    [InlineData("bge-base-en-v1.5")]
+    [InlineData("bge-large-en-v1.5")]
+    public void BgeEnglishV15_TakesTheCardsRetrievalInstruction_OnTheQuerySideOnly(string modelId)
+    {
+        // BGE's card: add the instruction to retrieval queries; never to passages; none for other tasks.
+        _registry.TryResolve(modelId, out var info);
+
+        info.Should().NotBeNull();
+        info!.QueryPrefix.Should().Be("Represent this sentence for searching relevant passages: ");
+        info.PassagePrefix.Should().BeNull();
+        info.DefaultPrefix.Should().BeNull();
+    }
+
+    [Theory]
     [InlineData("default")] // BGE-M3
     [InlineData("quality")] // BGE-M3
     [InlineData("all-mpnet-base-v2")]
-    [InlineData("bge-base-en-v1.5")]
-    [InlineData("bge-large-en-v1.5")]
     [InlineData("gte-large-en-v1.5")]
     public void NonPrefixModels_HaveNoPromptPrefixes(string modelId)
     {

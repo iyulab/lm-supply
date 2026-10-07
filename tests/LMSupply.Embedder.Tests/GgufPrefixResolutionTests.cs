@@ -21,6 +21,11 @@ public class GgufPrefixResolutionTests
             new PromptPrefixes("search_query: ", "search_document: ", "clustering: "));
     }
 
+    [Fact]
+    public void The_BGE_English_GGUF_repository_takes_the_query_instruction_only() =>
+        LocalEmbedder.ResolveGgufPrefixes("BAAI/bge-base-en-v1.5-GGUF").Should().Be(
+            new PromptPrefixes("Represent this sentence for searching relevant passages: ", null, null));
+
     [Theory]
     [InlineData("someone/unknown-embedder-GGUF")]   // not in the catalog
     [InlineData("nomic-ai/nomic-embed-text-v1.5")]  // not a GGUF repository name
