@@ -60,7 +60,8 @@ public sealed class LocalEmbedderDownloadSizeTests : IDisposable
 
         (await LocalEmbedder.GetRemainingDownloadBytesAsync("default", Options(), Ct)).Should().Be(9_700, "nothing is cached");
 
-        Place(snapshot, "tokenizer.json", 700);
+        // The repository has tokenizer.json only at its root; the load stores it beside the subfolder's model and reads it there.
+        Place(snapshot, string.IsNullOrEmpty(info.Subfolder) ? "tokenizer.json" : $"{info.Subfolder}/tokenizer.json", 700);
         (await LocalEmbedder.GetRemainingDownloadBytesAsync("default", Options(), Ct)).Should().Be(9_000);
 
         Place(snapshot, model, 10);
@@ -70,6 +71,27 @@ public sealed class LocalEmbedderDownloadSizeTests : IDisposable
         Place(snapshot, model, 9_000);
         (await LocalEmbedder.GetRemainingDownloadBytesAsync("default", Options(), Ct)).Should().Be(0);
         (await LocalEmbedder.GetDownloadSizeBytesAsync("default", Options(), Ct)).Should().Be(9_700, "the total is unchanged");
+    }
+
+    [Fact]
+    public async Task RemainingBytes_ARootConfigFileCachedBesideTheSubfolderModel_IsNotRemaining()
+    {
+        // A subfolder load fetches a config file the repository has only at its root and stores it beside the model
+        // (onnx/sentence_bert_config.json), where it reads it. A fully cached model has nothing remaining.
+        EmbedderModelRegistry.Default.TryResolveCatalog("fast", out var info, out _).Should().BeTrue();
+        info!.Subfolder.Should().NotBeNullOrEmpty("the case needs a subfolder load");
+        var sub = info.Subfolder!;
+        SeedListing(info.RepoId, ($"{sub}/model.onnx", 9_000), ($"{sub}/tokenizer.json", 700), ("sentence_bert_config.json", 57));
+        var snapshot = CacheManager.GetModelDirectory(_cacheDir, info.RepoId);
+        Place(snapshot, $"{sub}/model.onnx", 9_000);
+        Place(snapshot, $"{sub}/tokenizer.json", 700);
+
+        (await LocalEmbedder.GetRemainingDownloadBytesAsync("fast", Options(), Ct)).Should().Be(57);
+
+        Place(snapshot, $"{sub}/sentence_bert_config.json", 57);
+
+        (await LocalEmbedder.GetRemainingDownloadBytesAsync("fast", Options(), Ct)).Should().Be(0,
+            "the file is where the load reads it");
     }
 
     [Fact]

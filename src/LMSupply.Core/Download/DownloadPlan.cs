@@ -3,7 +3,16 @@ namespace LMSupply.Download;
 /// <summary>One repository file a download fetches, at the length the repository lists for it.</summary>
 /// <param name="Path">The file's path in the repository (e.g. <c>onnx/encoder_model_int8.onnx</c>).</param>
 /// <param name="SizeBytes">The length the repository listing gives for the file.</param>
-public sealed record PlannedFile(string Path, long SizeBytes);
+public sealed record PlannedFile(string Path, long SizeBytes)
+{
+    /// <summary>
+    /// Where the download stores the file, relative to the snapshot directory — <see cref="Path"/> unless the download
+    /// puts it elsewhere: a load of a subfolder stores a tokenizer or config file the repository has only at its root
+    /// beside the subfolder's model (<c>onnx/tokenizer.json</c> for the repository's <c>tokenizer.json</c>), where the
+    /// load reads it.
+    /// </summary>
+    public string CachePath { get; init; } = Path;
+}
 
 /// <summary>
 /// The files a download would fetch into an empty cache, chosen by the same rules the download itself uses —
@@ -31,7 +40,8 @@ public sealed class DownloadPlan
 
     /// <summary>
     /// Bytes a download of this plan into <paramref name="cacheDir"/> would still fetch: the files the cache does not
-    /// hold (judged as <see cref="CacheManager.GetMissingFiles"/> judges them, or found in <see cref="AlsoCachedIn"/>)
+    /// hold where the download stores them (<see cref="PlannedFile.CachePath"/>; judged as
+    /// <see cref="CacheManager.GetMissingFiles"/> judges them, or found at the repository path in <see cref="AlsoCachedIn"/>)
     /// and those it holds at a length other than the listing's, which the download discards and fetches again. A partly
     /// downloaded file counts in full. Reads the cache only; makes no request.
     /// </summary>
@@ -40,16 +50,16 @@ public sealed class DownloadPlan
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cacheDir);
 
-        var missing = CacheManager.GetMissingFiles(cacheDir, RepoId, Files.Select(f => f.Path), revision: Revision)
+        var missing = CacheManager.GetMissingFiles(cacheDir, RepoId, Files.Select(f => f.CachePath), revision: Revision)
             .ToHashSet(StringComparer.Ordinal);
         return Files
-            .Where(f => !IsCachedAtListedLength(f, missing.Contains(f.Path) ? [] : CacheManager.GetSnapshotDirectories(cacheDir, RepoId, Revision)))
+            .Where(f => !IsCachedAtListedLength(f, missing.Contains(f.CachePath) ? [] : CacheManager.GetSnapshotDirectories(cacheDir, RepoId, Revision)))
             .Sum(f => f.SizeBytes);
     }
 
     private bool IsCachedAtListedLength(PlannedFile file, IEnumerable<string> snapshots) =>
-        snapshots.Concat(AlsoCachedIn)
-            .Select(directory => HubCache.GetPathInSnapshot(directory, file.Path))
+        snapshots.Select(directory => HubCache.GetPathInSnapshot(directory, file.CachePath))
+            .Concat(AlsoCachedIn.Select(directory => HubCache.GetPathInSnapshot(directory, file.Path)))
             .Any(path => CacheManager.TryGetContentLength(path, out var length) && length == file.SizeBytes
                          && !CacheManager.IsLfsPointerFile(path));
 }

@@ -6,6 +6,15 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.112.1] - 2026-10-08
+
+### Fixed
+- **`GetRemainingDownloadBytesAsync` answers 0 for a fully cached model loaded from a subfolder.** A tokenizer or config
+  file the repository has only at its root (e.g. `sentence_bert_config.json` beside `onnx/model.onnx` in the E5 family)
+  is stored beside the subfolder's model, where the load reads it; the remaining-size check looked for it at the
+  repository root and counted it as still to download. `PlannedFile.CachePath` says where the download stores each
+  file, and the check reads it there.
+
 ## [0.112.0] - 2026-10-08
 
 ### Breaking

@@ -231,7 +231,8 @@ public sealed class HuggingFaceDownloader : IDisposable
     /// <summary>
     /// The files <see cref="DownloadModelAsync"/> would fetch for the same arguments, with their listed lengths: each
     /// file where the download would take it from (the subfolder, or the repository root for a tokenizer or config
-    /// file the subfolder lacks). A file the repository does not have is left out, as the download skips it; a
+    /// file the subfolder lacks) and where it would store it (<see cref="PlannedFile.CachePath"/>: always the subfolder, where
+    /// the load reads it). A file the repository does not have is left out, as the download skips it; a
     /// missing ONNX graph throws, as the download does. Downloads nothing; the listing it reads is cached.
     /// </summary>
     /// <exception cref="ModelDownloadException">A required file is not in the repository.</exception>
@@ -259,7 +260,7 @@ public sealed class HuggingFaceDownloader : IDisposable
             if (listing.TryGetValue(inLocation, out var size))
                 planned.Add(new PlannedFile(inLocation, size));
             else if (!string.IsNullOrEmpty(subfolder) && IsTokenizerOrConfigFile(file) && listing.TryGetValue(file, out var rootSize))
-                planned.Add(new PlannedFile(file, rootSize));
+                planned.Add(new PlannedFile(file, rootSize) { CachePath = inLocation }); // fetched from the root, stored beside the model
             else if (IsCriticalFile(file))
             {
                 var location = string.IsNullOrEmpty(subfolder) ? "root" : $"'{subfolder}/' and root";
