@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using LMSupply.Hardware;
 
 namespace LMSupply.Synthesizer.Models;
 
@@ -46,26 +45,7 @@ public sealed class SynthesizerModelRegistry : ModelRegistryBase<SynthesizerMode
     /// </summary>
     protected override SynthesizerModelInfo GetAutoModel()
     {
-        var gpu = HardwareProfile.Current.GpuInfo;
-        var availableVram = VramBudget.GetAvailableBytes(gpu);
-        Trace.TraceInformation($"[SynthesizerModelRegistry] Auto-selecting model for VRAM: {availableVram / (1024 * 1024)} MB");
-
-        foreach (var candidate in AutoCandidates)
-        {
-            var memInfo = (IModelMemoryInfo)candidate;
-            var size = ModelMemoryEstimator.EstimateModelSizeBytes(
-                memInfo.ParameterCount, memInfo.QuantizationType, memInfo.EstimatedSizeBytes);
-            if (size <= availableVram)
-            {
-                Trace.TraceInformation($"[SynthesizerModelRegistry] Selected: {candidate.Id} ({size / (1024 * 1024)} MB)");
-                return candidate with { AliasName = "auto" };
-            }
-        }
-
-        // Fallback to smallest model
-        var fallback = AutoCandidates[^1];
-        Trace.TraceInformation($"[SynthesizerModelRegistry] Fallback to smallest: {fallback.Id}");
-        return fallback with { AliasName = "auto" };
+        return SelectLargestFitting(AutoCandidates) with { AliasName = "auto" };
     }
 
     /// <summary>

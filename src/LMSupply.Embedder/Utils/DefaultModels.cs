@@ -4,6 +4,11 @@ namespace LMSupply.Embedder.Utils;
 /// Provides definitions for built-in supported embedding models.
 /// Updated: 2026-05 — BGE-M3 promoted to 'default' for multilingual coverage.
 /// </summary>
+/// <remarks>
+/// <c>SizeBytes</c> is the ONNX file the embedder loads (with its external data file, where the repository splits the
+/// weights out): what <c>auto</c> weighs against the memory budget. A catalog entry without it estimates to zero and
+/// would fit any budget.
+/// </remarks>
 internal static class DefaultModels
 {
     // ===== Alias models =====
@@ -19,6 +24,8 @@ internal static class DefaultModels
     public static ModelInfo BgeM3DefaultAlias { get; } = new()
     {
         RepoId = "BAAI/bge-m3",
+        SizeBytes = 2_267_545_531,
+        Parameters = 568_000_000,
         License = "MIT",
         AliasName = "default",
         Dimensions = 1024,
@@ -35,6 +42,8 @@ internal static class DefaultModels
     public static ModelInfo MultilingualE5SmallAlias { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-small",
+        SizeBytes = 470_268_510,
+        Parameters = 118_000_000,
         License = "MIT",
         AliasName = "fast",
         Dimensions = 384,
@@ -54,6 +63,8 @@ internal static class DefaultModels
     public static ModelInfo BgeM3QualityAlias { get; } = new()
     {
         RepoId = "BAAI/bge-m3",
+        SizeBytes = 2_267_545_531,
+        Parameters = 568_000_000,
         License = "MIT",
         AliasName = "quality",
         Dimensions = 1024,
@@ -71,6 +82,8 @@ internal static class DefaultModels
     public static ModelInfo MultilingualE5LargeAlias { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-large",
+        SizeBytes = 2_235_909_178,
+        Parameters = 560_000_000,
         License = "MIT",
         AliasName = "large",
         Dimensions = 1024,
@@ -93,6 +106,8 @@ internal static class DefaultModels
     public static ModelInfo NomicEmbedTextV15 { get; } = new()
     {
         RepoId = "nomic-ai/nomic-embed-text-v1.5",
+        SizeBytes = 547_310_275,
+        Parameters = 137_000_000,
         License = "Apache-2.0",
         AliasName = "nomic-embed-text-v1.5",
         Dimensions = 768,
@@ -111,6 +126,8 @@ internal static class DefaultModels
     public static ModelInfo AllMpnetBaseV2 { get; } = new()
     {
         RepoId = "sentence-transformers/all-mpnet-base-v2",
+        SizeBytes = 435_826_548,
+        Parameters = 110_000_000,
         License = "Apache-2.0",
         AliasName = "all-mpnet-base-v2",
         Dimensions = 768,
@@ -127,6 +144,8 @@ internal static class DefaultModels
     public static ModelInfo BgeBaseEnV15 { get; } = new()
     {
         RepoId = "BAAI/bge-base-en-v1.5",
+        SizeBytes = 435_811_539,
+        Parameters = 110_000_000,
         License = "MIT",
         AliasName = "bge-base-en-v1.5",
         Dimensions = 768,
@@ -143,6 +162,8 @@ internal static class DefaultModels
     public static ModelInfo BgeLargeEnV15 { get; } = new()
     {
         RepoId = "BAAI/bge-large-en-v1.5",
+        SizeBytes = 1_336_854_281,
+        Parameters = 335_000_000,
         License = "MIT",
         AliasName = "bge-large-en-v1.5",
         Dimensions = 1024,
@@ -161,6 +182,8 @@ internal static class DefaultModels
     public static ModelInfo E5SmallV2 { get; } = new()
     {
         RepoId = "intfloat/e5-small-v2",
+        SizeBytes = 133_093_468,
+        Parameters = 33_000_000,
         License = "MIT",
         AliasName = "e5-small-v2",
         Dimensions = 384,
@@ -179,6 +202,8 @@ internal static class DefaultModels
     public static ModelInfo E5BaseV2 { get; } = new()
     {
         RepoId = "intfloat/e5-base-v2",
+        SizeBytes = 435_811_516,
+        Parameters = 110_000_000,
         License = "MIT",
         AliasName = "e5-base-v2",
         Dimensions = 768,
@@ -197,6 +222,8 @@ internal static class DefaultModels
     public static ModelInfo MultilingualE5Small { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-small",
+        SizeBytes = 470_268_510,
+        Parameters = 118_000_000,
         License = "MIT",
         AliasName = "multilingual-e5-small",
         Dimensions = 384,
@@ -215,6 +242,8 @@ internal static class DefaultModels
     public static ModelInfo MultilingualE5Base { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-base",
+        SizeBytes = 1_110_059_084,
+        Parameters = 278_000_000,
         License = "MIT",
         AliasName = "multilingual-e5-base",
         Dimensions = 768,
@@ -233,6 +262,8 @@ internal static class DefaultModels
     public static ModelInfo MultilingualE5Large { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-large",
+        SizeBytes = 2_235_909_178,
+        Parameters = 560_000_000,
         License = "MIT",
         AliasName = "multilingual-e5-large",
         Dimensions = 1024,
@@ -251,6 +282,8 @@ internal static class DefaultModels
     public static ModelInfo GteLargeEnV15 { get; } = new()
     {
         RepoId = "Alibaba-NLP/gte-large-en-v1.5",
+        SizeBytes = 1_745_599_590,
+        Parameters = 434_000_000,
         License = "Apache-2.0",
         AliasName = "gte-large-en-v1.5",
         Dimensions = 1024,

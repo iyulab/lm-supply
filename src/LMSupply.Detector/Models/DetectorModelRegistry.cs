@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using LMSupply.Hardware;
 
 namespace LMSupply.Detector.Models;
 
@@ -45,24 +44,7 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
     /// </summary>
     protected override DetectorModelInfo GetAutoModel()
     {
-        var gpu = HardwareProfile.Current.GpuInfo;
-        var availableVram = VramBudget.GetAvailableBytes(gpu);
-        Trace.TraceInformation($"[DetectorModelRegistry] Auto-selecting model for VRAM: {availableVram / (1024 * 1024)} MB");
-
-        DetectorModelInfo selected = AutoCandidates[^1]; // default to smallest
-
-        foreach (var candidate in AutoCandidates)
-        {
-            var memInfo = (IModelMemoryInfo)candidate;
-            var size = ModelMemoryEstimator.EstimateModelSizeBytes(
-                memInfo.ParameterCount, memInfo.QuantizationType, memInfo.EstimatedSizeBytes);
-            if (size <= availableVram)
-            {
-                selected = candidate;
-                Trace.TraceInformation($"[DetectorModelRegistry] Selected: {candidate.Id} ({size / (1024 * 1024)} MB)");
-                break;
-            }
-        }
+        var selected = SelectLargestFitting(AutoCandidates);
 
         // Copied wholesale: listing the properties by hand silently dropped whichever one was added next.
         return selected with { AliasName = "auto" };

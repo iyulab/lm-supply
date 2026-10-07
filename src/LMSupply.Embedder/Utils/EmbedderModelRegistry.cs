@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using LMSupply.Hardware;
 
 namespace LMSupply.Embedder.Utils;
 
@@ -11,7 +10,7 @@ public sealed class EmbedderModelRegistry : ModelRegistryBase<ModelInfo>
     /// <summary>
     /// Auto-selection candidates sorted by size descending (largest first).
     /// </summary>
-    private static readonly ModelInfo[] AutoCandidates =
+    internal static readonly ModelInfo[] AutoCandidates =
     [
         DefaultModels.BgeM3DefaultAlias,         // 568M params, 1024 dims, 8K context, 100+ langs
         DefaultModels.MultilingualE5LargeAlias,  // 560M params, 1024 dims
@@ -45,26 +44,7 @@ public sealed class EmbedderModelRegistry : ModelRegistryBase<ModelInfo>
     /// </summary>
     protected override ModelInfo GetAutoModel()
     {
-        var gpu = HardwareProfile.Current.GpuInfo;
-        var availableVram = VramBudget.GetAvailableBytes(gpu);
-        Trace.TraceInformation($"[EmbedderModelRegistry] Auto-selecting model for VRAM: {availableVram / (1024 * 1024)} MB");
-
-        foreach (var candidate in AutoCandidates)
-        {
-            var memInfo = (IModelMemoryInfo)candidate;
-            var size = ModelMemoryEstimator.EstimateModelSizeBytes(
-                memInfo.ParameterCount, memInfo.QuantizationType, memInfo.EstimatedSizeBytes);
-            if (size <= availableVram)
-            {
-                Trace.TraceInformation($"[EmbedderModelRegistry] Selected: {candidate.RepoId} ({size / (1024 * 1024)} MB)");
-                return candidate with { AliasName = "auto" };
-            }
-        }
-
-        // Fallback to smallest model
-        var fallback = AutoCandidates[^1];
-        Trace.TraceInformation($"[EmbedderModelRegistry] Fallback to smallest: {fallback.RepoId}");
-        return fallback with { AliasName = "auto" };
+        return SelectLargestFitting(AutoCandidates) with { AliasName = "auto" };
     }
 
     /// <summary>

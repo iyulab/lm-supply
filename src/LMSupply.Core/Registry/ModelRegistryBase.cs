@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using LMSupply.Exceptions;
+using LMSupply.Hardware;
 
 namespace LMSupply;
 
@@ -130,6 +131,61 @@ public abstract class ModelRegistryBase<TModelInfo> : IModelRegistry<TModelInfo>
 
         return TryResolveCataloged(baseId, out modelInfo);
     }
+
+    /// <summary>
+    /// The candidate <c>auto</c> resolves to when a domain chooses by memory: the largest of
+    /// <paramref name="largestFirst"/> that fits this host's VRAM budget, otherwise the smallest.
+    /// </summary>
+    protected TCandidate SelectLargestFitting<TCandidate>(IReadOnlyList<TCandidate> largestFirst)
+        where TCandidate : IModelInfoBase, IModelMemoryInfo
+    {
+        var availableBytes = VramBudget.GetAvailableBytes(HardwareProfile.Current.GpuInfo);
+        var selected = SelectLargestFitting(largestFirst, availableBytes, out var fits);
+        Trace.TraceInformation(fits
+            ? $"[{GetType().Name}] Auto-selected {selected.Id} for a VRAM budget of {availableBytes / (1024 * 1024)} MB"
+            : $"[{GetType().Name}] Nothing fits a VRAM budget of {availableBytes / (1024 * 1024)} MB; auto-selected the smallest, {selected.Id}");
+        return selected;
+    }
+
+    /// <summary>
+    /// The first of <paramref name="largestFirst"/> whose estimated size fits <paramref name="availableBytes"/>,
+    /// otherwise the last. Every candidate must carry size metadata: an unknown size estimates to zero, which fits
+    /// any budget and would make the first candidate win on every host, so a candidate without it is reported as a
+    /// catalog defect instead of being selected.
+    /// </summary>
+    internal static TCandidate SelectLargestFitting<TCandidate>(IReadOnlyList<TCandidate> largestFirst, long availableBytes, out bool fits)
+        where TCandidate : IModelInfoBase, IModelMemoryInfo
+    {
+        ArgumentNullException.ThrowIfNull(largestFirst);
+        if (largestFirst.Count == 0)
+        {
+            throw new ArgumentException("No auto-selection candidates.", nameof(largestFirst));
+        }
+
+        var sizes = largestFirst.Select(EstimatedSize).ToList();
+        var unknown = largestFirst.Where((_, i) => sizes[i] <= 0).Select(c => c.Id).ToList();
+        if (unknown.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Auto-selection candidates without size metadata: {string.Join(", ", unknown)}. Set their size or parameter count in the catalog.");
+        }
+
+        for (var i = 0; i < largestFirst.Count; i++)
+        {
+            if (sizes[i] <= availableBytes)
+            {
+                fits = true;
+                return largestFirst[i];
+            }
+        }
+
+        fits = false;
+        return largestFirst[^1];
+    }
+
+    private static long EstimatedSize<TCandidate>(TCandidate candidate)
+        where TCandidate : IModelMemoryInfo =>
+        ModelMemoryEstimator.EstimateModelSizeBytes(candidate.ParameterCount, candidate.QuantizationType, candidate.EstimatedSizeBytes);
 
     /// <summary>Steps 3–5 of resolution: what is in the catalog, and nothing made up.</summary>
     private bool TryResolveCataloged(string modelIdOrAlias, out TModelInfo? modelInfo) =>

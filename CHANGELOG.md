@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Fixed
+- **`LocalEmbedder.LoadAsync("auto")` follows the hardware.** The embedder catalog carried no model sizes, every
+  candidate estimated to 0 bytes and fit any budget, so `auto` took BAAI/bge-m3 (about 2.2 GB) everywhere, including a
+  CPU-only host. Every built-in embedder now carries its ONNX size and parameter count; on a host where nothing fits
+  the VRAM budget `auto` takes the smallest candidate (multilingual-e5-small).
+- **A loaded embedder's `EstimatedMemoryBytes` counts the external weight file** (`model.onnx_data`) that large ONNX
+  models keep beside a graph file of a few hundred kilobytes.
+
+### Changed
+- Memory-based `auto` selection is one implementation for every domain that uses it (embedder, generator, detector,
+  segmenter, synthesizer, transcriber): `ModelRegistryBase.SelectLargestFitting`. A candidate without size metadata is
+  now an error naming it, instead of an estimate of zero that wins on every host.
+
 ## [0.110.1] - 2026-10-07
 
 ### Dependencies

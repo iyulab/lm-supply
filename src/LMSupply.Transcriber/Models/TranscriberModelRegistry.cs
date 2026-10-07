@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using LMSupply.Hardware;
 
 namespace LMSupply.Transcriber.Models;
 
@@ -45,24 +44,7 @@ public sealed class TranscriberModelRegistry : ModelRegistryBase<TranscriberMode
     /// </summary>
     protected override TranscriberModelInfo GetAutoModel()
     {
-        var gpu = HardwareProfile.Current.GpuInfo;
-        var availableVram = VramBudget.GetAvailableBytes(gpu);
-        Trace.TraceInformation($"[TranscriberModelRegistry] Auto-selecting model for VRAM: {availableVram / (1024 * 1024)} MB");
-
-        TranscriberModelInfo selected = AutoCandidates[^1]; // default to smallest
-
-        foreach (var candidate in AutoCandidates)
-        {
-            var memInfo = (IModelMemoryInfo)candidate;
-            var size = ModelMemoryEstimator.EstimateModelSizeBytes(
-                memInfo.ParameterCount, memInfo.QuantizationType, memInfo.EstimatedSizeBytes);
-            if (size <= availableVram)
-            {
-                selected = candidate;
-                Trace.TraceInformation($"[TranscriberModelRegistry] Selected: {candidate.Id} ({size / (1024 * 1024)} MB)");
-                break;
-            }
-        }
+        var selected = SelectLargestFitting(AutoCandidates);
 
         return new TranscriberModelInfo
         {

@@ -28,8 +28,15 @@ internal sealed class EmbeddingModel : IEmbeddingModel
 
     /// <inheritdoc />
     public long? EstimatedMemoryBytes => _modelPath is not null && File.Exists(_modelPath)
-        ? new FileInfo(_modelPath).Length * 2
+        ? WeightBytes(_modelPath) * 2
         : null;
+
+    // A large ONNX model keeps its weights in an external data file beside the graph (model.onnx_data or
+    // model.onnx.data); the graph file alone is a few hundred kilobytes.
+    private static long WeightBytes(string modelPath) =>
+        new[] { modelPath, modelPath + "_data", modelPath + ".data" }
+            .Where(File.Exists)
+            .Sum(path => new FileInfo(path).Length);
 
     /// <inheritdoc />
     public bool IsGpuActive => _engine.IsGpuActive;

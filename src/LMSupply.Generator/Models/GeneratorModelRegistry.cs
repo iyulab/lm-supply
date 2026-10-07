@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using LMSupply.Hardware;
 
 namespace LMSupply.Generator;
 
@@ -55,26 +54,7 @@ public sealed class GeneratorModelRegistry : ModelRegistryBase<ModelInfo>
     /// </summary>
     protected override ModelInfo GetAutoModel()
     {
-        var gpu = HardwareProfile.Current.GpuInfo;
-        var availableVram = VramBudget.GetAvailableBytes(gpu);
-        Trace.TraceInformation($"[GeneratorModelRegistry] Auto-selecting ONNX model for VRAM: {availableVram / (1024 * 1024)} MB");
-
-        foreach (var candidate in AutoCandidates)
-        {
-            var memInfo = (IModelMemoryInfo)candidate;
-            var size = ModelMemoryEstimator.EstimateModelSizeBytes(
-                memInfo.ParameterCount, memInfo.QuantizationType, memInfo.EstimatedSizeBytes);
-            if (size <= availableVram)
-            {
-                Trace.TraceInformation($"[GeneratorModelRegistry] Selected: {candidate.ModelId} ({size / (1024 * 1024)} MB)");
-                return candidate with { AliasName = "auto" };
-            }
-        }
-
-        // Fallback to smallest model
-        var fallback = AutoCandidates[^1];
-        Trace.TraceInformation($"[GeneratorModelRegistry] Fallback to smallest: {fallback.ModelId}");
-        return fallback with { AliasName = "auto" };
+        return SelectLargestFitting(AutoCandidates) with { AliasName = "auto" };
     }
 
     /// <summary>
