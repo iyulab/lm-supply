@@ -14,6 +14,17 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 - **A loaded embedder's `EstimatedMemoryBytes` counts the external weight file** (`model.onnx_data`) that large ONNX
   models keep beside a graph file of a few hundred kilobytes.
 
+### Documentation
+- **The package READMEs no longer tell readers to install ONNX Runtime packages.** Eight package pages on nuget.org
+  said to add `Microsoft.ML.OnnxRuntime.DirectML` (removed in 0.67.0), five guides said to add
+  `Microsoft.ML.OnnxRuntime.CoreML` (no such package), and all of them said to add `Microsoft.ML.OnnxRuntime.Gpu`,
+  while LMSupply provisions the runtime itself and a second copy conflicts with it. They now say so and point to the
+  GPU acceleration section. A test fails when a document tells a reader to add a package that is not one of
+  LMSupply's own.
+- The model lifecycle and troubleshooting guides name the cache LMSupply actually uses (the Hugging Face cache), and
+  the troubleshooting fix deletes one model's entry instead of the whole folder, which other tools share. The
+  `CacheManager` snippet in the README has its `using`.
+
 ### Changed
 - **Packages ship debug symbols.** The build produced symbol packages but the publish workflow discarded them, and the
   libraries do not embed their PDBs, so a consumer could not step into LMSupply or get line numbers in its stack

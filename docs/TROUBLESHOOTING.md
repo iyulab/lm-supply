@@ -81,7 +81,7 @@ await LocalEmbedder.LoadAsync("default", progress: progress);
 // (Advanced: Configure in custom cache directory)
 
 // 3. Pre-download models
-// Models are cached at: ~/.cache/lm-supply/
+// Models are cached in the Hugging Face cache: HF_HUB_CACHE, else ~/.cache/huggingface/hub
 ```
 
 **Interrupted downloads resume.** A download that stops part-way (network drop, process exit, sleep)
@@ -107,8 +107,9 @@ ModelLoadException: Failed to load model
 
 **Solutions:**
 ```bash
-# 1. Clear cache and re-download
-rm -rf ~/.cache/lm-supply/
+# 1. Delete that model's cache entry and load it again (the cache is shared with other Hugging Face tools,
+#    so delete one model, not the whole folder; CacheManager.DeleteModel(cacheDir, "<org>/<name>") does the same)
+rm -rf ~/.cache/huggingface/hub/models--<org>--<name>/
 
 # 2. Check disk space
 df -h ~/.cache/

@@ -44,10 +44,8 @@ await synthesizer.SynthesizeToFileAsync("Hello world!", "output.wav");
 
 ## GPU Acceleration
 
-```bash
-# NVIDIA GPU
-dotnet add package Microsoft.ML.OnnxRuntime.Gpu
-
-# Windows (AMD/Intel/NVIDIA)
-dotnet add package Microsoft.ML.OnnxRuntime.DirectML
-```
+Do not add ONNX Runtime packages (`Microsoft.ML.OnnxRuntime*`): LMSupply provisions the runtime itself, and a
+second copy conflicts with it. `ExecutionProvider.Auto` uses CUDA when the CUDA 12 runtime and cuDNN 9 are
+installed on the machine, CoreML on macOS, and the CPU otherwise. On Windows with an AMD or Intel GPU, ONNX
+sessions run on the CPU (DirectML was removed in 0.67.0). See
+[GPU acceleration](https://github.com/iyulab/lm-supply#gpu-acceleration).

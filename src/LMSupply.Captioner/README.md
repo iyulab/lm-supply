@@ -68,12 +68,8 @@ Console.WriteLine($"Confidence: {result.Confidence:P1}");
 
 ## GPU Acceleration
 
-Install the appropriate GPU package for your hardware:
-
-```bash
-# NVIDIA GPU
-dotnet add package Microsoft.ML.OnnxRuntime.Gpu
-```
-
-AMD / Intel GPUs on Windows have no ONNX provider on ONNX Runtime 1.25+ (DirectML was removed in 0.67.0); captioning
-runs on CPU there.
+Do not add ONNX Runtime packages (`Microsoft.ML.OnnxRuntime*`): LMSupply provisions the runtime itself, and a
+second copy conflicts with it. `ExecutionProvider.Auto` uses CUDA when the CUDA 12 runtime and cuDNN 9 are
+installed on the machine, CoreML on macOS, and the CPU otherwise. On Windows with an AMD or Intel GPU, ONNX
+sessions run on the CPU (DirectML was removed in 0.67.0). See
+[GPU acceleration](https://github.com/iyulab/lm-supply#gpu-acceleration).

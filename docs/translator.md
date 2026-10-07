@@ -8,15 +8,11 @@ A lightweight, zero-configuration neural machine translation library for .NET wi
 dotnet add package LMSupply.Translator
 ```
 
-For GPU acceleration:
-
-```bash
-# NVIDIA CUDA
-dotnet add package Microsoft.ML.OnnxRuntime.Gpu
-
-# macOS CoreML
-dotnet add package Microsoft.ML.OnnxRuntime.CoreML
-```
+Do not add ONNX Runtime packages (`Microsoft.ML.OnnxRuntime*`): LMSupply provisions the runtime itself, and a
+second copy conflicts with it. `ExecutionProvider.Auto` uses CUDA when the CUDA 12 runtime and cuDNN 9 are
+installed on the machine, CoreML on macOS, and the CPU otherwise. On Windows with an AMD or Intel GPU, ONNX
+sessions run on the CPU (DirectML was removed in 0.67.0). See
+[GPU acceleration](https://github.com/iyulab/lm-supply#gpu-acceleration).
 
 ## Basic Usage
 

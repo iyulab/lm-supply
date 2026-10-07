@@ -878,6 +878,8 @@ listed — never a link, and never a file in another tool's snapshot. `CacheMana
 them and returns the bytes freed:
 
 ```csharp
+using LMSupply.Download;
+
 var cacheDir = CacheManager.GetDefaultCacheDirectory();
 var duplicates = CacheManager.FindReclaimable(cacheDir);          // dry run: RepoId, Path, Size, TwinPath, Reason
 long freed = CacheManager.Reclaim(cacheDir, duplicates);           // re-checks each entry before deleting

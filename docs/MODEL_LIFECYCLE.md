@@ -32,7 +32,8 @@ await using var model = await LocalEmbedder.LoadFromPathAsync("/path/to/model");
 ### 1.2 What Happens During Load
 
 1. **Model Resolution**: Alias → HuggingFace model ID
-2. **Cache Check**: Look for cached model in `~/.cache/lm-supply/` — a cached file counts only when its
+2. **Cache Check**: Look for the cached model in the Hugging Face cache (`HF_HUB_CACHE`, else `HF_HOME/hub`, else
+   `XDG_CACHE_HOME/huggingface/hub`, else `~/.cache/huggingface/hub` — `CacheManager.GetDefaultCacheDirectory()`) — a cached file counts only when its
    length matches what the repository lists (recorded in the download manifest); a file of any other
    length is discarded and fetched again
 3. **Download** (if not cached): Fetch from HuggingFace Hub — an interrupted download leaves a `.part`
