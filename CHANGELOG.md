@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.110.0] - Unreleased
+
+### Fixed
+- **A model already in the cache loads without a network, with downloads enabled.** A load that names a file list
+  (every catalog alias, which uses the default list) asked the hub for the optional files the repository does not
+  have (`model.onnx_data`, `vocab.txt`, `merges.txt`, ...) on every load, and with no network that request failed the
+  load with `HttpRequestException` although every file the model needs was cached. The download manifest now records
+  the files the repository lacks (`DownloadManifest.AbsentFiles`), so a warm load makes no request at all; a manifest
+  written by an earlier version gets the record on the next online load.
+- **An unreachable hub falls back to the cache.** When a request fails without an HTTP status (connection refused,
+  name resolution, proxy) or times out, an optional file is skipped while the model's required files are cached, and
+  `ModelDiscoveryService.ListRepositoryFilesAsync` (so a load by repository id) uses the file list the cache already
+  holds, at any age. A required file that is not cached still fails, now as `ModelDownloadException` naming the file
+  and the next step (load once online, or load from the cache with downloads disabled), with the network error as
+  `InnerException`; it was the bare `HttpRequestException`. Status answers (404, 403, 5xx) are handled as before.
+  **Breaking** — the exception type of that case changed. Migration: catch `ModelDownloadException` (the network error
+  is its `InnerException`) where `HttpRequestException` was caught around a load.
+- **A load whose repository listing failed no longer marks the manifest as verified** against lengths it never
+  received.
+
 ## [0.109.1] - 2026-10-07
 
 ### Fixed

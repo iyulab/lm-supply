@@ -46,6 +46,14 @@ public sealed class DownloadManifest
     public List<ManifestFileEntry> Files { get; set; } = [];
 
     /// <summary>
+    /// Requested files the repository does not have, as the repository listing (or a 404) showed when the manifest
+    /// was written — the optional files of a default file list that most repositories lack. A load whose other files
+    /// are all cached makes no request for these. Null in manifests written before the record existed; such a load
+    /// lists the repository once more and records them. Only honored at <see cref="VerifiedVersion"/> or later.
+    /// </summary>
+    public List<string>? AbsentFiles { get; set; }
+
+    /// <summary>
     /// Writes the manifest inside <paramref name="directoryPath"/> (<c>.lmsupply-manifest.json</c>) — the layout of
     /// a snapshot named after its revision. A download into the hub layout writes it with
     /// <see cref="WriteForSnapshotAsync"/> instead.

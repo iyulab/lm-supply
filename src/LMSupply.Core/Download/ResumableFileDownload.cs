@@ -90,6 +90,16 @@ internal static class ResumableFileDownload
     }
 
     /// <summary>
+    /// Whether <paramref name="exception"/> says the server could not be reached, rather than that it answered: a
+    /// request that failed without an HTTP status (connection refused, name resolution, proxy, TLS), a body the
+    /// connection dropped, or a timeout that is not the caller's own cancellation. A status answer (404, 403, 5xx)
+    /// is not a network failure — the server is there and said something about the file.
+    /// </summary>
+    internal static bool IsNetworkFailure(Exception exception, CancellationToken cancellationToken) =>
+        exception is HttpRequestException { StatusCode: null } or HttpIOException
+        || (exception is OperationCanceledException && !cancellationToken.IsCancellationRequested);
+
+    /// <summary>
     /// Downloads the file, retrying transient HTTP failures and resuming a body that ended early.
     /// Callers in the same process that want the same file wait here for one another; the one that
     /// arrives second finds the file complete and returns.

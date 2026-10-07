@@ -163,9 +163,16 @@ public sealed class HuggingFaceDownloader : IDisposable
                 var wrappedProgress = WrapProgress(progress, fileIndex, totalFileCount, bytes);
 
                 // Download using the full file path (includes subfolder)
-                await DownloadFileWithRetryAsync(
-                    repoId, file, localPath, revision, subfolder: null, expectedSize,
-                    wrappedProgress, target, discovery.BlobIds, cancellationToken);
+                try
+                {
+                    await DownloadFileWithRetryAsync(
+                        repoId, file, localPath, revision, subfolder: null, expectedSize,
+                        wrappedProgress, target, discovery.BlobIds, cancellationToken);
+                }
+                catch (Exception ex) when (ResumableFileDownload.IsNetworkFailure(ex, cancellationToken))
+                {
+                    throw Unreachable(repoId, file, modelDir, ex);
+                }
             }
 
             if (CacheManager.ContentExists(localPath))
@@ -315,10 +322,13 @@ public sealed class HuggingFaceDownloader : IDisposable
         // for cached files without a request; when a file is missing, or the manifest is absent or
         // predates verification, the listing is fetched once — it is cached by the discovery service, so
         // a warm load still makes no request. Unknown lengths only mean the byte-count check in
-        // DownloadFileCoreAsync stands alone.
-        var manifestSizes = await ReadManifestSizesAsync(modelDir);
+        // DownloadFileCoreAsync stands alone. A file the manifest records as absent from the repository (an
+        // optional file of the default list) needs neither: a warm load whose other files are cached makes no
+        // request at all, so it works without a network.
+        var manifest = await ReadManifestAsync(modelDir);
         var needsListing = !_localFilesOnly && fileList.Any(f =>
-            !manifestSizes.ContainsKey(f) || !CacheManager.IsCachedFile(Path.Combine(modelDir, f)));
+            !manifest.Absent.Contains(f)
+            && (!manifest.Sizes.ContainsKey(f) || !CacheManager.IsCachedFile(Path.Combine(modelDir, f))));
         var listing = needsListing
             ? await TryListRepositoryAsync(repoId, revision, cancellationToken)
             : null;
@@ -330,12 +340,23 @@ public sealed class HuggingFaceDownloader : IDisposable
 
         // A cached file came from the subfolder when the repository has it there, else from the root.
         long? ExpectedOnDisk(string file) =>
-            manifestSizes.TryGetValue(file, out var recorded) ? recorded : ListedAt(subfolder, file) ?? ListedAt(null, file);
+            manifest.Sizes.TryGetValue(file, out var recorded) ? recorded : ListedAt(subfolder, file) ?? ListedAt(null, file);
+
+        // An optional file the repository does not have — by the listing just fetched, or, without one, by the
+        // manifest's record — is not requested. Where the download would look: the subfolder, and the root for a
+        // tokenizer or config file. A required file always goes the download's way (and fails there when absent).
+        bool InRepository(string file, RepositoryListing fetched) =>
+            fetched.Paths.Contains(string.IsNullOrEmpty(subfolder) ? file : $"{subfolder}/{file}")
+            || (!string.IsNullOrEmpty(subfolder) && IsTokenizerOrConfigFile(file) && fetched.Paths.Contains(file));
+        bool KnownAbsent(string file) =>
+            !IsCriticalFile(file)
+            && (listing is { Paths.Count: > 0 } fetched ? !InRepository(file, fetched) : manifest.Absent.Contains(file));
 
         // A file the repository does not list is not fetched (it is skipped, or fails as before), so it does not
         // call for a commit lookup.
         bool MayFetch(string file) =>
-            listing is not { Sizes.Count: > 0 } || ListedAt(subfolder, file) is not null || ListedAt(null, file) is not null;
+            !KnownAbsent(file)
+            && (listing is not { Sizes.Count: > 0 } || ListedAt(subfolder, file) is not null || ListedAt(null, file) is not null);
 
         // The commit is looked up only when a file must be fetched; the download may then move to its snapshot.
         if (!_localFilesOnly && fileList.Any(f => MayFetch(f) && NeedsFetch(target, modelDir, f, ExpectedOnDisk(f))))
@@ -344,11 +365,18 @@ public sealed class HuggingFaceDownloader : IDisposable
             if (!SamePath(resolved.SnapshotDir, target.SnapshotDir))
             {
                 modelDir = CacheManager.GetSubfolderDirectory(resolved.SnapshotDir, subfolder);
-                manifestSizes = await ReadManifestSizesAsync(modelDir);
+                manifest = await ReadManifestAsync(modelDir);
             }
 
             target = resolved;
         }
+
+        // Whether a file is in the cache at its expected length (read-only: nothing is deleted here).
+        bool IsCached(string file) =>
+            ResumableFileDownload.IsUsableCachedFile(Path.Combine(modelDir, file), ExpectedOnDisk(file), readOnly: true);
+
+        // The requested files the repository does not have, recorded in the manifest so the next load skips them.
+        var absent = new List<string>();
 
         // With local files only the cache is read, never written (see DownloadWithDiscoveryAsync).
         if (!_localFilesOnly)
@@ -379,12 +407,39 @@ public sealed class HuggingFaceDownloader : IDisposable
                     continue;
                 }
 
+                if (KnownAbsent(file))
+                {
+                    absent.Add(file);
+                    Trace.TraceInformation(
+                        $"[HuggingFaceDownloader] Optional file '{file}' is not in repository '{repoId}'; not requesting it.");
+                    continue;
+                }
+
                 var wrappedProgress = WrapProgress(progress, fileIndex, totalFileCount, bytes);
 
-                var downloaded = await TryDownloadFileWithFallbackAsync(
-                    repoId, file, localPath, revision, subfolder,
-                    expectedInSubfolder: ListedAt(subfolder, file), expectedInRoot: ListedAt(null, file),
-                    wrappedProgress, target, blobIds, cancellationToken);
+                bool downloaded;
+                try
+                {
+                    downloaded = await TryDownloadFileWithFallbackAsync(
+                        repoId, file, localPath, revision, subfolder,
+                        expectedInSubfolder: ListedAt(subfolder, file), expectedInRoot: ListedAt(null, file),
+                        wrappedProgress, target, blobIds, cancellationToken);
+                }
+                catch (Exception ex) when (ResumableFileDownload.IsNetworkFailure(ex, cancellationToken))
+                {
+                    // The hub cannot be reached. A required file the cache lacks cannot be had; an optional one is
+                    // skipped when the model's required files are all cached — the cached model is used, as
+                    // huggingface_hub does. Not recorded as absent: the repository may well have it.
+                    if (IsCriticalFile(file))
+                        throw Unreachable(repoId, file, modelDir, ex);
+                    if (fileList.Where(IsCriticalFile).FirstOrDefault(f => !IsCached(f)) is { } missing)
+                        throw Unreachable(repoId, missing, modelDir, ex);
+
+                    Trace.TraceWarning(
+                        $"[HuggingFaceDownloader] Could not fetch optional file '{file}' of '{repoId}' ({ex.GetType().Name}: {ex.Message}); " +
+                        "the model's required files are cached, so it is used without it.");
+                    continue;
+                }
 
                 if (!downloaded)
                 {
@@ -402,6 +457,7 @@ public sealed class HuggingFaceDownloader : IDisposable
                     // actually required is the tokenizer factory's call, and it throws when one is.
                     Trace.TraceInformation(
                         $"[HuggingFaceDownloader] Optional file '{file}' not present for '{repoId}' (searched in {location}).");
+                    absent.Add(file);
                 }
             }
         }
@@ -411,8 +467,9 @@ public sealed class HuggingFaceDownloader : IDisposable
 
         // Write manifest from the requested files that exist, at the length the repository listed
         // (or the manifest already held). When neither was available the entry records the disk and the
-        // manifest stays version 1, so the next load verifies against the listing.
-        var verified = listing is not null || manifestSizes.Count > 0;
+        // manifest stays version 1, so the next load verifies against the listing. A listing that could not be
+        // fetched verifies nothing.
+        var verified = listing is { Sizes.Count: > 0 } || manifest.Sizes.Count > 0;
         var downloadedFiles = fileList
             .Select(file =>
             {
@@ -431,7 +488,8 @@ public sealed class HuggingFaceDownloader : IDisposable
             Version = verified ? DownloadManifest.VerifiedVersion : 1,
             RepoId = repoId,
             Revision = revision,
-            Files = downloadedFiles
+            Files = downloadedFiles,
+            AbsentFiles = absent
         };
         await WriteManifestAsync(target, revision, modelDir, subfolder, downloadedManifest);
 
@@ -494,12 +552,17 @@ public sealed class HuggingFaceDownloader : IDisposable
         return target.Commit is not null || FindSiblingCopy(path, expectedSize, target.SnapshotDir) is null;
     }
 
-    private static async Task<Dictionary<string, long>> ReadManifestSizesAsync(string modelDir)
+    /// <summary>What a verified manifest says: the listed length of each file, and the requested files the repository lacks.</summary>
+    private sealed record ManifestRecord(Dictionary<string, long> Sizes, HashSet<string> Absent);
+
+    private static async Task<ManifestRecord> ReadManifestAsync(string modelDir)
     {
         var manifest = await DownloadManifest.ReadAsync(modelDir);
         return manifest is { Version: >= DownloadManifest.VerifiedVersion }
-            ? manifest.Files.Where(f => f.Size > 0).ToDictionary(f => f.Path, f => f.Size, StringComparer.Ordinal)
-            : new Dictionary<string, long>(StringComparer.Ordinal);
+            ? new ManifestRecord(
+                manifest.Files.Where(f => f.Size > 0).ToDictionary(f => f.Path, f => f.Size, StringComparer.Ordinal),
+                new HashSet<string>(manifest.AbsentFiles ?? [], StringComparer.Ordinal))
+            : new ManifestRecord(new Dictionary<string, long>(StringComparer.Ordinal), new HashSet<string>(StringComparer.Ordinal));
     }
 
     /// <summary>
@@ -649,12 +712,15 @@ public sealed class HuggingFaceDownloader : IDisposable
     /// <summary>What the repository listing says about its files, keyed by repository path.</summary>
     /// <param name="Sizes">The byte length of every file with a known length.</param>
     /// <param name="BlobIds">The hub-cache blob id of every file (see <see cref="HubCache.BlobIdsOf"/>).</param>
-    private sealed record RepositoryListing(IReadOnlyDictionary<string, long> Sizes, IReadOnlyDictionary<string, string> BlobIds);
+    /// <param name="Paths">Every file the repository has, empty files included; empty when the listing could not be fetched.</param>
+    private sealed record RepositoryListing(
+        IReadOnlyDictionary<string, long> Sizes, IReadOnlyDictionary<string, string> BlobIds, IReadOnlySet<string> Paths);
 
     /// <summary>
     /// The byte length and blob id of every file the repository lists. Empty when the listing cannot be
     /// fetched — the download then proceeds as before, checked against the server's own content length only,
-    /// and writes no blobs.
+    /// and writes no blobs. Never an older cached list standing in for an unreachable hub: what this listing
+    /// lacks is recorded as absent from the repository.
     /// </summary>
     private async Task<RepositoryListing> TryListRepositoryAsync(
         string repoId, string revision, CancellationToken cancellationToken)
@@ -662,23 +728,37 @@ public sealed class HuggingFaceDownloader : IDisposable
         try
         {
             using var discoveryService = CreateDiscoveryService();
-            var files = await discoveryService.ListRepositoryFilesAsync(repoId, revision, cancellationToken);
+            var files = await discoveryService.ListRepositoryFilesCoreAsync(repoId, revision, cancellationToken);
             var sizes = files
                 .Where(f => f.IsFile && f.Size > 0)
                 .GroupBy(f => f.Path, StringComparer.Ordinal)
                 .ToDictionary(g => g.Key, g => g.First().Size, StringComparer.Ordinal);
-            return new RepositoryListing(sizes, HubCache.BlobIdsOf(files));
+            var paths = files.Where(f => f.IsFile).Select(f => f.Path).ToHashSet(StringComparer.Ordinal);
+            return new RepositoryListing(sizes, HubCache.BlobIdsOf(files), paths);
         }
         catch (Exception ex) when (ex is HttpRequestException or ModelNotFoundException or IOException
-                                      or InvalidOperationException or UnauthorizedAccessException)
+                                      or InvalidOperationException or UnauthorizedAccessException
+                                   || ResumableFileDownload.IsNetworkFailure(ex, cancellationToken))
         {
             Trace.TraceWarning(
                 $"[HuggingFaceDownloader] Could not list '{repoId}' ({ex.GetType().Name}: {ex.Message}); " +
                 "file lengths are unknown for this download.");
             return new RepositoryListing(
-                new Dictionary<string, long>(StringComparer.Ordinal), new Dictionary<string, string>(StringComparer.Ordinal));
+                new Dictionary<string, long>(StringComparer.Ordinal), new Dictionary<string, string>(StringComparer.Ordinal),
+                new HashSet<string>(StringComparer.Ordinal));
         }
     }
+
+    /// <summary>
+    /// The failure of a download the network could not serve: the file is not in the cache and the hub cannot be
+    /// reached. Says what to do next.
+    /// </summary>
+    private static ModelDownloadException Unreachable(string repoId, string file, string directory, Exception inner) =>
+        new($"Could not download '{file}' of model '{repoId}': the network is unavailable ({inner.Message}) and the file " +
+            $"is not in the local cache ({directory}). Load the model once with network access to cache it; if it is " +
+            "already cached in another directory, point the cache directory there and load with downloads disabled " +
+            "(DisableAutoDownload, or a downloader created with localFilesOnly).",
+            repoId, inner);
 
     /// <summary>
     /// Attempts to download a file, with fallback to root directory for tokenizer files.

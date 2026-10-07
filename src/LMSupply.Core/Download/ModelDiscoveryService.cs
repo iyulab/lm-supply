@@ -148,6 +148,44 @@ public sealed class ModelDiscoveryService : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repoId);
 
+        try
+        {
+            return await ListRepositoryFilesCoreAsync(repoId, revision, cancellationToken);
+        }
+        catch (Exception ex) when (!LocalFilesOnly && ResumableFileDownload.IsNetworkFailure(ex, cancellationToken))
+        {
+            // The hub cannot be reached: the list this cache already holds (at any age, or the download manifest)
+            // is what the cached files were downloaded against, so a cached model still loads — the convention of
+            // huggingface_hub. With nothing cached the network failure stands.
+            IReadOnlyList<RepoFile>? cached = null;
+            try
+            {
+                cached = await ListCachedFilesAsync(repoId, revision, cancellationToken);
+            }
+            catch (ModelNotFoundException)
+            {
+                // Nothing cached for this repository: the network failure below is the answer.
+            }
+
+            if (cached is null)
+                throw;
+
+            Trace.TraceWarning(
+                $"[ModelDiscoveryService] Could not list '{repoId}' ({ex.GetType().Name}: {ex.Message}); " +
+                "using the file list from the local cache.");
+            return cached;
+        }
+    }
+
+    /// <summary>
+    /// The repository's file list from the network (or the file list cached within the last day), without falling back
+    /// to an older cached list when the hub cannot be reached — for a caller that must know the list is current.
+    /// </summary>
+    internal async Task<IReadOnlyList<RepoFile>> ListRepositoryFilesCoreAsync(
+        string repoId,
+        string revision,
+        CancellationToken cancellationToken)
+    {
         if (LocalFilesOnly)
             return await ListCachedFilesAsync(repoId, revision, cancellationToken);
 
