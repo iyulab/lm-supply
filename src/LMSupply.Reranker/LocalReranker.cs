@@ -142,7 +142,7 @@ public static class LocalReranker
             return await LoadGgufAsync(modelIdOrPath, options, progress, cancellationToken);
         }
 
-        var reranker = new Reranker(options);
+        var reranker = new Reranker(options, progress);
 
         // Eagerly initialize and warm up the model
         await reranker.WarmupAsync(cancellationToken);

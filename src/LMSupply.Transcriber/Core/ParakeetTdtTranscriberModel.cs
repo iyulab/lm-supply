@@ -324,13 +324,13 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarizati
             _vocab = await SentencePieceVocabulary.LoadAsync(Require(Path.Combine(modelDir, VocabFile)), cancellationToken);
 
             // The preprocessor is CPU-only because of its STFT operator (onnx-asr also runs it on CPU under CUDA/TensorRT).
-            var pre = await OnnxSessionFactory.CreateWithInfoAsync(preprocessorPath, ExecutionProvider.Cpu, ConfigureSessionOptions, cancellationToken: cancellationToken);
+            var pre = await OnnxSessionFactory.CreateWithInfoAsync(preprocessorPath, ExecutionProvider.Cpu, ConfigureSessionOptions, _downloadProgress, cancellationToken);
             _preprocessor = RecoverableOnnxSession.FromResult(pre, preprocessorPath, ConfigureSessionOptions, logPrefix: "[ParakeetTdt:preprocessor]");
 
-            var enc = await OnnxSessionFactory.CreateWithInfoAsync(encoderPath, _options.Provider, ConfigureSessionOptions, cancellationToken: cancellationToken);
+            var enc = await OnnxSessionFactory.CreateWithInfoAsync(encoderPath, _options.Provider, ConfigureSessionOptions, _downloadProgress, cancellationToken);
             _encoder = RecoverableOnnxSession.FromResult(enc, encoderPath, ConfigureSessionOptions, logPrefix: "[ParakeetTdt:encoder]", blacklist: _providerBlacklist);
 
-            var dec = await OnnxSessionFactory.CreateWithInfoAsync(decoderPath, _options.Provider, ConfigureSessionOptions, cancellationToken: cancellationToken);
+            var dec = await OnnxSessionFactory.CreateWithInfoAsync(decoderPath, _options.Provider, ConfigureSessionOptions, _downloadProgress, cancellationToken);
             _decoderJoint = RecoverableOnnxSession.FromResult(dec, decoderPath, ConfigureSessionOptions, logPrefix: "[ParakeetTdt:decoder_joint]", blacklist: _providerBlacklist);
 
             Trace.TraceInformation($"[ParakeetTdt] Loaded {_modelInfo.Id} — encoder providers: {string.Join(",", _encoder.ActiveProviders)}, vocab {_vocab.Size}, frame {_frameSeconds:F3}s");

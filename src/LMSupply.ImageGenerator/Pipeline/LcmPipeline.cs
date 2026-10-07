@@ -46,12 +46,14 @@ internal sealed class LcmPipeline : IAsyncDisposable
     /// <param name="provider">Execution provider for the three sessions (text encoder, UNet, VAE).</param>
     /// <param name="deviceId">GPU device index for CUDA.</param>
     /// <param name="configureOptions">Session options to apply to every session (log level, threads).</param>
+    /// <param name="progress">Receives the runtime download session creation may make; <see langword="null"/> when nobody is listening.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<LcmPipeline> LoadAsync(
         string modelDir,
         ExecutionProvider provider,
-        int deviceId = 0,
-        Action<SessionOptions>? configureOptions = null,
+        int deviceId,
+        Action<SessionOptions>? configureOptions,
+        IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken = default)
     {
         // The three sessions belong to one model: a provider that fails on any of them is left by all
@@ -59,9 +61,9 @@ internal sealed class LcmPipeline : IAsyncDisposable
         var blacklist = new ProviderBlacklist();
 
         // Load all components in parallel
-        var textEncoderTask = ClipTextEncoder.LoadAsync(modelDir, provider, deviceId, configureOptions, blacklist, cancellationToken);
-        var unetTask = UNetModel.LoadAsync(modelDir, provider, deviceId, configureOptions, blacklist, cancellationToken);
-        var vaeTask = VaeDecoder.LoadAsync(modelDir, provider, deviceId, configureOptions, blacklist, cancellationToken: cancellationToken);
+        var textEncoderTask = ClipTextEncoder.LoadAsync(modelDir, provider, deviceId, configureOptions, blacklist, progress, cancellationToken);
+        var unetTask = UNetModel.LoadAsync(modelDir, provider, deviceId, configureOptions, blacklist, progress, cancellationToken);
+        var vaeTask = VaeDecoder.LoadAsync(modelDir, provider, deviceId, configureOptions, blacklist, progress, cancellationToken: cancellationToken);
 
         await Task.WhenAll(textEncoderTask, unetTask, vaeTask);
 

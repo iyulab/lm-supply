@@ -91,32 +91,18 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
     /// <inheritdoc />
     public async Task DownloadModelAsync(
         string modelId,
-        IProgress<ModelDownloadProgress>? progress = null,
+        IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (IsModelAvailable(modelId))
         {
-            progress?.Report(new ModelDownloadProgress(100, 100, null));
             return;
         }
 
         // Determine the best variant subfolder based on provider
         var subfolder = GetVariantSubfolder(modelId);
-
-        // Create progress adapter
-        IProgress<DownloadProgress>? downloadProgress = null;
-        if (progress != null)
-        {
-            downloadProgress = new Progress<DownloadProgress>(p =>
-            {
-                progress.Report(new ModelDownloadProgress(
-                    p.BytesDownloaded,
-                    p.TotalBytes,
-                    p.FileName));
-            });
-        }
 
         // Download using HuggingFace downloader
         await _downloader.DownloadModelAsync(
@@ -124,7 +110,7 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
             files: GenAiModelFiles,
             revision: "main",
             subfolder: subfolder,
-            progress: downloadProgress,
+            progress: progress,
             cancellationToken: cancellationToken);
     }
 

@@ -6,7 +6,22 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Breaking
+- **`OnnxSessionFactory.CreateAsync`/`CreateWithInfoAsync` take `configureOptions` and `progress` as required
+  parameters** (pass `null` for either). Session creation can download the native runtime on first use; a reporter the
+  caller holds was easy to drop by omission, and most domains did. `provider` is required too.
+- **`LocalImageGenerator.LoadAsync` takes `IProgress<DownloadProgress>`** instead of `IProgress<float>`, like every
+  other load: file names, phases, byte counts and the runtime step instead of one fraction that restarted per file.
+- **`IGeneratorModelFactory.DownloadModelAsync` takes `IProgress<DownloadProgress>`; `ModelDownloadProgress` is
+  removed.** Its adapter in the ONNX generator factory swapped the total and downloaded byte counts.
+- **`LocalGenerator.LoadFromPathAsync(path, options, progress, cancellationToken)`** — `progress` comes before the
+  token, as in `LoadAsync`. **`LocalSegmenter.LoadInteractiveAsync(id, options, progress, cancellationToken)`** — the
+  same.
+
 ### Added
+- **`TextGeneratorBuilder.WithDownloadProgress`**: the builder reports the model and runtime downloads `BuildAsync`
+  makes, as `LocalGenerator.LoadAsync` does. Its ONNX path now fetches the model before the runtime, the order the
+  load by id keeps.
 - **`DownloadProgress.Kind`** (`DownloadKind.Model` / `DownloadKind.Runtime`): a load reports the model download and
   a first-run runtime download (the native ONNX Runtime, llama-server) through one callback, and a caller can now tell
   them apart.
@@ -18,6 +33,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   earlier versions wrote.
 
 ### Fixed
+- **The runtime step of a first load reaches the load's progress in every domain.** Captioner, Detector, Embedder,
+  ImageGenerator, OCR, Reranker, Segmenter (both loads), Synthesizer, Transcriber (including speaker diarization) and
+  Translator created their ONNX sessions without the caller's progress, so a first-run runtime download (tens of
+  seconds) showed nothing. `LocalReranker.LoadAsync` did not report its model download either.
+- **Generator loads from a local path pass progress and cancellation on.** `LoadFromPathAsync` and `LoadAsync` with a
+  file or directory path provisioned llama-server or the GenAI runtime with no progress and `CancellationToken.None`.
+  The opening llama-server report is now a `Runtime` report in the `Preparing` phase.
 - **Runtime download progress names what it fetches and the phase it is in.** The ONNX Runtime package download put
   status text in `FileName` ("Extracting native libraries...", "Using cached runtime (already downloaded)") and left
   every report in the `Downloading` phase. Reports now name the package, carry `Preparing`, `Extracting` and

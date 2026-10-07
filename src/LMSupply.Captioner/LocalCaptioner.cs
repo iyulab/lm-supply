@@ -141,7 +141,7 @@ public static class LocalCaptioner
 
         // Create the appropriate captioner based on model type
         // modelInfo is guaranteed non-null here due to control flow above
-        return await CreateCaptionerAsync(modelDir, modelInfo!, variantSuffix, options, tokenizerDir).ConfigureAwait(false);
+        return await CreateCaptionerAsync(modelDir, modelInfo!, variantSuffix, options, tokenizerDir, progress, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -254,13 +254,15 @@ public static class LocalCaptioner
         ModelInfo modelInfo,
         string variantSuffix,
         CaptionerOptions options,
-        string? tokenizerDir = null)
+        string? tokenizerDir,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
         return modelInfo.Architecture switch
         {
             CaptionerArchitecture.Florence2 => await Florence2Captioner.CreateAsync(
-                modelDir, OnnxFiles(modelInfo, variantSuffix), modelInfo, options, tokenizerDir).ConfigureAwait(false),
-            _ => await VitGpt2Captioner.CreateAsync(modelDir, modelInfo, options, tokenizerDir).ConfigureAwait(false)
+                modelDir, OnnxFiles(modelInfo, variantSuffix), modelInfo, options, tokenizerDir, progress, cancellationToken).ConfigureAwait(false),
+            _ => await VitGpt2Captioner.CreateAsync(modelDir, modelInfo, options, tokenizerDir, progress, cancellationToken).ConfigureAwait(false)
         };
     }
 

@@ -68,12 +68,14 @@ public static class LocalSegmenter
     /// </summary>
     /// <param name="modelIdOrAlias">An interactive model alias; <c>"interactive"</c> (MobileSAM) is the one registered.</param>
     /// <param name="options">Optional configuration options (provider, cache directory, downloads).</param>
+    /// <param name="progress">Optional progress reporting for the model and runtime downloads a first load makes.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A segmenter whose <see cref="IInteractiveSegmenter.CreateSessionAsync(string, CancellationToken)"/> encodes an image once for many prompts.</returns>
     /// <exception cref="ArgumentException">The id does not name an interactive model.</exception>
     public static async Task<IInteractiveSegmenter> LoadInteractiveAsync(
         string modelIdOrAlias = "interactive",
         SegmenterOptions? options = null,
+        IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         options = options?.Clone() ?? new SegmenterOptions();
@@ -87,7 +89,7 @@ public static class LocalSegmenter
         }
 
         options.ModelId = modelInfo.Id;
-        var segmenter = new MobileSamModel(options, modelInfo);
+        var segmenter = new MobileSamModel(options, modelInfo, progress);
         try
         {
             await segmenter.WarmupAsync(cancellationToken);

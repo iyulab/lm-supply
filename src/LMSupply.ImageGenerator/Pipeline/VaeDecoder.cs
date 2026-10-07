@@ -40,6 +40,7 @@ internal sealed class VaeDecoder : IAsyncDisposable
     /// <param name="deviceId">GPU device index for CUDA.</param>
     /// <param name="configureOptions">Session options to apply (log level, threads).</param>
     /// <param name="blacklist">Provider blacklist shared with the pipeline's other sessions.</param>
+    /// <param name="progress">Receives the runtime download session creation may make; <see langword="null"/> when nobody is listening.</param>
     /// <param name="scalingFactor">VAE latent scaling factor.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<VaeDecoder> LoadAsync(
@@ -48,14 +49,15 @@ internal sealed class VaeDecoder : IAsyncDisposable
         int deviceId,
         Action<SessionOptions>? configureOptions,
         ProviderBlacklist blacklist,
+        IProgress<DownloadProgress>? progress,
         float scalingFactor = 0.18215f,
         CancellationToken cancellationToken = default)
     {
         var modelPath = FindVaePath(modelDir);
 
         var result = await OnnxSessionFactory.CreateWithInfoAsync(
-            modelPath, provider, skipProviders: null, configureOptions,
-            cancellationToken: cancellationToken, deviceId: deviceId);
+            modelPath, provider, skipProviders: null, configureOptions, progress,
+            deviceId: deviceId, cancellationToken: cancellationToken);
 
         // Input/output names are identical on every provider
         var inputName = result.Session.InputNames[0];

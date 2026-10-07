@@ -46,11 +46,13 @@ internal sealed class CrnnRecognizer : IDisposable
         string modelPath,
         string dictPath,
         RecognitionModelInfo modelInfo,
-        OcrOptions options)
+        OcrOptions options,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
         Action<SessionOptions> configure = so => so.ApplyCommonOptions(options);
 
-        var result = await OnnxSessionFactory.CreateWithInfoAsync(modelPath, options.Provider, configure)
+        var result = await OnnxSessionFactory.CreateWithInfoAsync(modelPath, options.Provider, configure, progress, cancellationToken)
             .ConfigureAwait(false);
 
         var dictionary = new CharacterDictionary(dictPath, modelInfo.UseSpace);

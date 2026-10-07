@@ -99,13 +99,13 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        // 1. Get llama-server via update service (handles caching, updates, rollback)
+        // 1. Get llama-server via update service (handles caching, updates, rollback). The opening report is the
+        // runtime step's, like every report the update service makes.
         progress?.Report(new DownloadProgress
         {
             FileName = "llama-server",
-            BytesDownloaded = 0,
-            TotalBytes = 0,
-            Phase = DownloadPhase.Downloading
+            Kind = DownloadKind.Runtime,
+            Phase = DownloadPhase.Preparing
         });
 
         var preferredBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(

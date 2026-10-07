@@ -79,10 +79,10 @@ public static class LocalOcr
             recognitionModel, options, progress, cancellationToken).ConfigureAwait(false);
 
         // Create detector and recognizer
-        var detector = await DbNetDetector.CreateAsync(detModelPath, detModelInfo, options)
+        var detector = await DbNetDetector.CreateAsync(detModelPath, detModelInfo, options, progress, cancellationToken)
             .ConfigureAwait(false);
 
-        var recognizer = await CrnnRecognizer.CreateAsync(recModelPath, dictPath, recModelInfo, options)
+        var recognizer = await CrnnRecognizer.CreateAsync(recModelPath, dictPath, recModelInfo, options, progress, cancellationToken)
             .ConfigureAwait(false);
 
         // Create and return pipeline

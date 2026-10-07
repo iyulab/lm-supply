@@ -45,6 +45,7 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
         ModelDefinition modelDefinition,
         string modelPath,
         ImageGeneratorOptions options,
+        IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken = default)
     {
         // Provider selection (Auto chain, runtime provisioning) is the shared
@@ -54,6 +55,7 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
             options.Provider,
             options.DeviceId,
             sessionOptions => sessionOptions.ApplyCommonOptions(options.LogLevel, options.ThreadCount),
+            progress,
             cancellationToken);
 
         return new OnnxImageGeneratorModel(pipeline, modelDefinition, options, modelPath);

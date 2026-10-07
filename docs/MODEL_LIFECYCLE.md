@@ -71,7 +71,10 @@ await using var model = await LocalEmbedder.LoadAsync("default", progress: progr
 
 Runtime reports carry `DownloadKind.Runtime`, the package or archive being fetched as `FileName`, and a phase
 (`Preparing`, `Downloading` with byte counts, `Extracting`, `Complete`); a runtime already on disk is one `Complete`
-report. Which loads forward runtime progress today: the embedder and reranker ONNX paths and every llama-server path.
+report. Every load that takes a progress reporter forwards it to the runtime step: each `Local*.LoadAsync` (and
+`LocalSegmenter.LoadInteractiveAsync`), `LocalGenerator.LoadAsync` and `LoadFromPathAsync` (a model already on disk can
+still need its runtime), and `TextGeneratorBuilder.WithDownloadProgress`. `LocalImageGenerator.LoadAsync` takes the
+same `IProgress<DownloadProgress>` as the others.
 
 ---
 

@@ -98,13 +98,13 @@ public static class LocalGenerator
         // Check if it's a local file path (e.g., C:\models\model.gguf or /path/to/model.gguf)
         if (File.Exists(modelId))
         {
-            return Internal.GeneratorModelLoader.LoadFromPathAsync(modelId, options, modelId);
+            return Internal.GeneratorModelLoader.LoadFromPathAsync(modelId, options, modelId, configBasePath: null, progress, cancellationToken);
         }
 
         // Check if it's a local directory path
         if (Directory.Exists(modelId))
         {
-            return Internal.GeneratorModelLoader.LoadFromPathAsync(modelId, options, modelId);
+            return Internal.GeneratorModelLoader.LoadFromPathAsync(modelId, options, modelId, configBasePath: null, progress, cancellationToken);
         }
 
         return Internal.GeneratorModelLoader.LoadAsync(modelId, options, progress, cancellationToken);
@@ -364,11 +364,13 @@ public static class LocalGenerator
     /// </summary>
     /// <param name="modelPath">The path to the local model directory or GGUF file.</param>
     /// <param name="options">Model loading options.</param>
+    /// <param name="progress">Optional progress reporting for the runtime a first load downloads (GenAI binaries or llama-server).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A text generator instance.</returns>
     public static Task<IGeneratorModel> LoadFromPathAsync(
         string modelPath,
         GeneratorOptions? options = null,
+        IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelPath);
@@ -381,7 +383,7 @@ public static class LocalGenerator
 
         options = options?.Clone() ?? new GeneratorOptions();
 
-        return Internal.GeneratorModelLoader.LoadFromPathAsync(modelPath, options);
+        return Internal.GeneratorModelLoader.LoadFromPathAsync(modelPath, options, modelId: null, configBasePath: null, progress, cancellationToken);
     }
 
     /// <summary>

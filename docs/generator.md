@@ -18,6 +18,8 @@ using LMSupply.Generator;
 // Using the builder pattern
 var generator = await TextGeneratorBuilder.Create()
     .WithDefaultModel()        // Hardware-aware: a GGUF model sized to the host (CUDA / Metal / Vulkan / CPU)
+    // Optional: the model and runtime downloads, reported as LocalGenerator.LoadAsync reports them
+    .WithDownloadProgress(new Progress<DownloadProgress>(p => Console.WriteLine($"{p.Kind} {p.FileName}: {p.Phase}")))
     .BuildAsync();
 
 // Generate text

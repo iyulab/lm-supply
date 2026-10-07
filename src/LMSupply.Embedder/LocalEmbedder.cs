@@ -83,7 +83,7 @@ public static class LocalEmbedder
         var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(sources.TokenizerDir, sources.MaxSequenceLength, cancellationToken);
 
         // Load inference engine (use async to ensure RuntimeManager initializes native binaries)
-        var engine = await OnnxInferenceEngine.CreateAsync(sources.ModelPath, options.Provider, options, cancellationToken: cancellationToken);
+        var engine = await OnnxInferenceEngine.CreateAsync(sources.ModelPath, options.Provider, options, progress, cancellationToken);
 
         LogProviderSelection(sources.ModelId, options.Provider, engine);
 

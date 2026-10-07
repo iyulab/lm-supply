@@ -123,7 +123,9 @@ internal sealed class Florence2Captioner : ICaptionerModel
         IReadOnlyList<string> files,
         ModelInfo modelInfo,
         CaptionerOptions options,
-        string? tokenizerDir = null)
+        string? tokenizerDir,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
         if (files.Count != 4)
             throw new ArgumentException("Florence-2 needs its vision encoder, token embedding, text encoder and decoder files.", nameof(files));
@@ -145,7 +147,7 @@ internal sealed class Florence2Captioner : ICaptionerModel
         {
             for (var i = 0; i < paths.Length; i++)
             {
-                var result = await OnnxSessionFactory.CreateWithInfoAsync(paths[i], options.Provider, configure).ConfigureAwait(false);
+                var result = await OnnxSessionFactory.CreateWithInfoAsync(paths[i], options.Provider, configure, progress, cancellationToken).ConfigureAwait(false);
                 sessions.Add(RecoverableOnnxSession.FromResult(
                     result, paths[i], configure, logPrefix: $"[Florence2Captioner:{roles[i]}]", blacklist: blacklist));
             }

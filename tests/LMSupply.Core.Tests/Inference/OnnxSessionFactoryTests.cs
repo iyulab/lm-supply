@@ -71,7 +71,7 @@ public class OnnxSessionFactoryTests
         // The refusal happens before provisioning or any file access: the model path here does not
         // exist, and a session on a different provider would fail on that instead.
         var act = async () => await OnnxSessionFactory.CreateWithInfoAsync(
-            "/nonexistent/directml-refusal.onnx", (ExecutionProvider)2,
+            "/nonexistent/directml-refusal.onnx", (ExecutionProvider)2, configureOptions: null, progress: null,
             cancellationToken: TestContext.Current.CancellationToken);
 
         (await act.Should().ThrowAsync<NotSupportedException>())
@@ -192,7 +192,9 @@ public class OnnxSessionFactoryTests
         Func<Task> action = async () => await OnnxSessionFactory.CreateWithInfoAsync(
             modelPath: "/nonexistent/model.onnx",
             provider: ExecutionProvider.Auto,
-            skipProviders: skip);
+            skipProviders: skip,
+            configureOptions: null,
+            progress: null);
 
         // Should fail at the precheck or session creation, not at signature resolution.
         var ex = await action.Should().ThrowAsync<Exception>();
@@ -212,7 +214,9 @@ public class OnnxSessionFactoryTests
         Func<Task> action = async () => await OnnxSessionFactory.CreateWithInfoAsync(
             modelPath: "/nonexistent/model.onnx",
             provider: ExecutionProvider.Auto,
-            skipProviders: null);
+            skipProviders: null,
+            configureOptions: null,
+            progress: null);
 
         await action.Should().ThrowAsync<Exception>();
     }
@@ -288,7 +292,8 @@ public class OnnxSessionFactoryTests
         Func<Task> action = async () => await OnnxSessionFactory.CreateWithInfoAsync(
             "nonexistent_model_for_fallback_test.onnx",
             ExecutionProvider.Cuda,
-            failOnFirstAttempt);
+            failOnFirstAttempt,
+            progress: null);
 
         // Before the fix: InvalidOperationException propagates directly (no CPU fallback).
         // After the fix: InvalidOperationException is caught; CPU fallback is attempted;

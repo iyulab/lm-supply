@@ -761,7 +761,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
                 modelPath,
                 _options.Provider,
                 ConfigureSessionOptions,
-                cancellationToken: cancellationToken);
+                _downloadProgress,
+                cancellationToken);
 
             _session = RecoverableOnnxSession.FromResult(
                 result, modelPath, ConfigureSessionOptions, logPrefix: "[OnnxDetectorModel]");

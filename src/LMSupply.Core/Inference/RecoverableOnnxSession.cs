@@ -387,6 +387,7 @@ public sealed class RecoverableOnnxSession : IDisposable
                 ExecutionProvider.Auto,
                 skip,
                 _configureOptions,
+                progress: null,   // recovery runs inside an inference call — no load is reporting
                 deviceId: _deviceId).GetAwaiter().GetResult();
 
             var newProvider = MapActiveToProvider(result.ActiveProviders);

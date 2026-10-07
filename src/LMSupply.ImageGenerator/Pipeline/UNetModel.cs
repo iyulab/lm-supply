@@ -55,6 +55,7 @@ internal sealed class UNetModel : IAsyncDisposable
     /// <param name="deviceId">GPU device index for CUDA.</param>
     /// <param name="configureOptions">Session options to apply (log level, threads).</param>
     /// <param name="blacklist">Provider blacklist shared with the pipeline's other sessions.</param>
+    /// <param name="progress">Receives the runtime download session creation may make; <see langword="null"/> when nobody is listening.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<UNetModel> LoadAsync(
         string modelDir,
@@ -62,13 +63,14 @@ internal sealed class UNetModel : IAsyncDisposable
         int deviceId,
         Action<SessionOptions>? configureOptions,
         ProviderBlacklist blacklist,
+        IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken = default)
     {
         var modelPath = FindUNetPath(modelDir);
 
         var result = await OnnxSessionFactory.CreateWithInfoAsync(
-            modelPath, provider, skipProviders: null, configureOptions,
-            cancellationToken: cancellationToken, deviceId: deviceId);
+            modelPath, provider, skipProviders: null, configureOptions, progress,
+            deviceId: deviceId, cancellationToken: cancellationToken);
 
         // Detect input/output names (identical on every provider)
         var inputs = result.Session.InputMetadata;

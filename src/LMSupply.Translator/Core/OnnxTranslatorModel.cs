@@ -321,7 +321,8 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
                 encoderPath,
                 _options.Provider,
                 ConfigureSessionOptions,
-                cancellationToken: cancellationToken);
+                _downloadProgress,
+                cancellationToken);
 
             _encoderSession = RecoverableOnnxSession.FromResult(
                 encoderResult, encoderPath, ConfigureSessionOptions,
@@ -333,7 +334,8 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
                 decoderPath,
                 _options.Provider,
                 ConfigureSessionOptions,
-                cancellationToken: cancellationToken);
+                _downloadProgress,
+                cancellationToken);
             _decoderSession = RecoverableOnnxSession.FromResult(
                 decoderResult, decoderPath, ConfigureSessionOptions,
                 logPrefix: "[OnnxTranslatorModel:decoder]", blacklist: _providerBlacklist);

@@ -54,15 +54,15 @@ internal sealed class CrossEncoderInference : IDisposable
     /// <param name="modelInfo">Model information.</param>
     /// <param name="provider">Execution provider for inference.</param>
     /// <param name="options">Log level and thread count for the session (see <see cref="SessionOptionsExtensions.ApplyCommonOptions(SessionOptions, LMSupplyOptionsBase)"/>).</param>
-    /// <param name="progress">Optional progress reporter for binary downloads.</param>
+    /// <param name="progress">Receives the runtime download session creation may make; <see langword="null"/> when nobody is listening.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Configured inference engine.</returns>
     public static async Task<CrossEncoderInference> CreateAsync(
         string modelPath,
         ModelInfo modelInfo,
-        ExecutionProvider provider = ExecutionProvider.Auto,
-        LMSupplyOptionsBase? options = null,
-        IProgress<DownloadProgress>? progress = null,
+        ExecutionProvider provider,
+        LMSupplyOptionsBase? options,
+        IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelPath);

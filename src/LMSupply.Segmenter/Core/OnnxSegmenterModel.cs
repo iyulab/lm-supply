@@ -305,7 +305,8 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
                 modelPath,
                 _options.Provider,
                 ConfigureSessionOptions,
-                cancellationToken: cancellationToken);
+                _downloadProgress,
+                cancellationToken);
 
             _session = RecoverableOnnxSession.FromResult(
                 result, modelPath, ConfigureSessionOptions, logPrefix: "[OnnxSegmenterModel]");

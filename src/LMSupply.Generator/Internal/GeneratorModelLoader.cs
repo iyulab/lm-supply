@@ -99,12 +99,12 @@ internal static class GeneratorModelLoader
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
-        // The backend check is cheap and comes first; the runtime binaries come after the model files,
-        // so a load that DisableAutoDownload refuses has not pulled the GenAI runtime on its way to the refusal.
-        var backend = OnnxGeneratorBackendRegistry.Require();
+        // The backend check is cheap and comes first; the runtime binaries come after the model files
+        // (LoadFromPathAsync provisions them), so a load that DisableAutoDownload refuses has not pulled the
+        // GenAI runtime on its way to the refusal.
+        OnnxGeneratorBackendRegistry.Require();
         var (modelPath, configBasePath) = await DownloadOnnxAsync(modelId, options, progress, cancellationToken);
-        await backend.EnsureRuntimeAsync(options.Provider, progress, cancellationToken);
-        return await LoadFromPathAsync(modelPath, options, modelId, configBasePath);
+        return await LoadFromPathAsync(modelPath, options, modelId, configBasePath, progress, cancellationToken);
     }
 
     /// <summary>
@@ -262,11 +262,17 @@ internal static class GeneratorModelLoader
             nameof(modelId));
     }
 
+    /// <summary>
+    /// Loads a model already on disk. The runtime it needs (the GenAI binaries, or llama-server for GGUF) may still
+    /// be downloaded on first use, and <paramref name="progress"/> reports that download.
+    /// </summary>
     public static async Task<IGeneratorModel> LoadFromPathAsync(
         string modelPath,
         GeneratorOptions options,
-        string? modelId = null,
-        string? configBasePath = null)
+        string? modelId,
+        string? configBasePath,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
         // Detect model format from path
         var format = ModelFormatDetector.Detect(modelPath);
@@ -274,9 +280,9 @@ internal static class GeneratorModelLoader
         // Route to appropriate loader based on format
         return format switch
         {
-            ModelFormat.Gguf => await LoadGgufFromPathAsync(modelPath, options, modelId),
-            ModelFormat.Onnx => await LoadOnnxFromPathAsync(modelPath, options, modelId, configBasePath),
-            ModelFormat.Unknown => await LoadGgufFromPathAsync(modelPath, options, modelId), // GGUF fallback (GGUF-first strategy)
+            ModelFormat.Gguf => await LoadGgufFromPathAsync(modelPath, options, modelId, progress, cancellationToken),
+            ModelFormat.Onnx => await LoadOnnxFromPathAsync(modelPath, options, modelId, configBasePath, progress, cancellationToken),
+            ModelFormat.Unknown => await LoadGgufFromPathAsync(modelPath, options, modelId, progress, cancellationToken), // GGUF fallback (GGUF-first strategy)
             _ => throw new NotSupportedException($"Unsupported model format: {format}")
         };
     }
@@ -287,11 +293,13 @@ internal static class GeneratorModelLoader
     private static async Task<IGeneratorModel> LoadOnnxFromPathAsync(
         string modelPath,
         GeneratorOptions options,
-        string? modelId = null,
-        string? configBasePath = null)
+        string? modelId,
+        string? configBasePath,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
         // Ensure GenAI runtime binaries are available before loading the model
-        await OnnxGeneratorBackendRegistry.Require().EnsureRuntimeAsync(options.Provider, progress: null, CancellationToken.None);
+        await OnnxGeneratorBackendRegistry.Require().EnsureRuntimeAsync(options.Provider, progress, cancellationToken);
 
         modelId ??= Path.GetFileName(modelPath);
 
@@ -315,7 +323,9 @@ internal static class GeneratorModelLoader
     private static async Task<IGeneratorModel> LoadGgufFromPathAsync(
         string modelPath,
         GeneratorOptions options,
-        string? modelId = null)
+        string? modelId,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
         modelId ??= Path.GetFileNameWithoutExtension(modelPath);
 
@@ -328,7 +338,7 @@ internal static class GeneratorModelLoader
             modelPath,
             chatFormatter,
             options,
-            progress: null,
-            CancellationToken.None);
+            progress,
+            cancellationToken);
     }
 }

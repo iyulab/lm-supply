@@ -58,11 +58,13 @@ internal sealed class DbNetDetector : IDisposable
     public static async Task<DbNetDetector> CreateAsync(
         string modelPath,
         DetectionModelInfo modelInfo,
-        OcrOptions options)
+        OcrOptions options,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
         Action<SessionOptions> configure = so => so.ApplyCommonOptions(options);
 
-        var result = await OnnxSessionFactory.CreateWithInfoAsync(modelPath, options.Provider, configure)
+        var result = await OnnxSessionFactory.CreateWithInfoAsync(modelPath, options.Provider, configure, progress, cancellationToken)
             .ConfigureAwait(false);
 
         return new DbNetDetector(

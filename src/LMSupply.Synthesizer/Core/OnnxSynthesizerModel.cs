@@ -283,7 +283,8 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
                 modelFilePath,
                 _options.Provider,
                 ConfigureSessionOptions,
-                cancellationToken: cancellationToken);
+                _downloadProgress,
+                cancellationToken);
 
             _session = RecoverableOnnxSession.FromResult(
                 result, modelFilePath, ConfigureSessionOptions, logPrefix: "[OnnxSynthesizerModel]");

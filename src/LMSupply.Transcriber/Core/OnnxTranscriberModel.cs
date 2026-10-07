@@ -470,7 +470,8 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel, Diarization.IDia
                 encoderPath,
                 _options.Provider,
                 ConfigureSessionOptions,
-                cancellationToken: cancellationToken);
+                _downloadProgress,
+                cancellationToken);
             _encoderSession = RecoverableOnnxSession.FromResult(
                 encoderSessionInfo, encoderPath, ConfigureSessionOptions,
                 logPrefix: "[OnnxTranscriberModel:encoder]", blacklist: _providerBlacklist);
@@ -492,7 +493,8 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel, Diarization.IDia
                     decoderPath,
                     _options.Provider,
                     ConfigureSessionOptions,
-                    cancellationToken: cancellationToken);
+                    _downloadProgress,
+                    cancellationToken);
                 _decoderSession = RecoverableOnnxSession.FromResult(
                     decoderSessionInfo, decoderPath, ConfigureSessionOptions,
                     logPrefix: "[OnnxTranscriberModel:decoder]", blacklist: _providerBlacklist);

@@ -26,8 +26,11 @@ namespace LMSupply.Reranker;
 public sealed class Reranker : IRerankerModel
 {
     private readonly RerankerOptions _options;
+    private readonly IProgress<DownloadProgress>? _loadProgress;
     private readonly RerankerModelRegistry _registry;
-    private readonly Lazy<Task<RerankerState>> _stateLazy;
+    // Set once by the first initialization that completes. A failed or cancelled one leaves it null, so the next call
+    // tries again instead of rethrowing a cached failure.
+    private volatile RerankerState? _state;
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private bool _disposed;
 
@@ -63,11 +66,20 @@ public sealed class Reranker : IRerankerModel
     /// </summary>
     /// <param name="options">Configuration options.</param>
     /// <exception cref="ArgumentNullException">Options is null.</exception>
-    public Reranker(RerankerOptions options)
+    public Reranker(RerankerOptions options) : this(options, loadProgress: null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new Reranker whose first initialization reports its downloads.
+    /// </summary>
+    /// <param name="options">Configuration options.</param>
+    /// <param name="loadProgress">Receives the model and runtime downloads the first initialization makes.</param>
+    internal Reranker(RerankerOptions options, IProgress<DownloadProgress>? loadProgress)
     {
         _options = options?.Clone() ?? throw new ArgumentNullException(nameof(options));
+        _loadProgress = loadProgress;
         _registry = RerankerModelRegistry.Default;
-        _stateLazy = new Lazy<Task<RerankerState>>(InitializeAsync);
     }
 
     /// <inheritdoc />
@@ -150,18 +162,13 @@ public sealed class Reranker : IRerankerModel
     /// <inheritdoc />
     public async Task WarmupAsync(CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        _ = await _stateLazy.Value;
+        _ = await GetStateAsync(cancellationToken);
     }
 
     /// <inheritdoc />
     public ModelInfo? GetModelInfo()
     {
-        if (_stateLazy.IsValueCreated && _stateLazy.Value.IsCompletedSuccessfully)
-        {
-            return _stateLazy.Value.Result.ModelInfo;
-        }
-        return null;
+        return _state?.ModelInfo;
     }
 
     private async Task<float[]> ScoreInternalAsync(
@@ -169,7 +176,7 @@ public sealed class Reranker : IRerankerModel
         List<string> documents,
         CancellationToken cancellationToken)
     {
-        var state = await _stateLazy.Value;
+        var state = await GetStateAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
         var allScores = new float[documents.Count];
@@ -196,35 +203,53 @@ public sealed class Reranker : IRerankerModel
         return allScores;
     }
 
-    private async Task<RerankerState> InitializeAsync()
+    private async Task<RerankerState> GetStateAsync(CancellationToken cancellationToken)
     {
-        await _initLock.WaitAsync();
+        if (_state is { } state)
+            return state;
+
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _initLock.WaitAsync(cancellationToken);
         try
         {
-            // Resolve model
-            var modelInfo = _registry.Resolve(_options.ModelId);
+            return _state ??= await InitializeAsync(cancellationToken);
+        }
+        finally
+        {
+            _initLock.Release();
+        }
+    }
 
-            // Ensure model files are available
-            using var modelManager = new ModelManager(
-                _options.CacheDirectory,
-                !_options.DisableAutoDownload);
+    private async Task<RerankerState> InitializeAsync(CancellationToken cancellationToken)
+    {
+        // Resolve model
+        var modelInfo = _registry.Resolve(_options.ModelId);
 
-            var modelPaths = await modelManager.EnsureModelAsync(modelInfo);
+        // Ensure model files are available
+        using var modelManager = new ModelManager(
+            _options.CacheDirectory,
+            !_options.DisableAutoDownload);
 
-            // Determine max sequence length
-            var maxLength = _options.MaxSequenceLength ?? modelInfo.MaxSequenceLength;
+        var modelPaths = await modelManager.EnsureModelAsync(modelInfo, _loadProgress, cancellationToken);
 
-            // Initialize tokenizer using Text.Core with auto-detection
-            // This supports WordPiece, Unigram, and BPE tokenizers
-            var modelDir = Path.GetDirectoryName(modelPaths.TokenizerPath)!;
-            var tokenizer = await TokenizerFactory.CreateAutoPairAsync(modelDir, maxLength);
+        // Determine max sequence length
+        var maxLength = _options.MaxSequenceLength ?? modelInfo.MaxSequenceLength;
 
+        // Initialize tokenizer using Text.Core with auto-detection
+        // This supports WordPiece, Unigram, and BPE tokenizers
+        var modelDir = Path.GetDirectoryName(modelPaths.TokenizerPath)!;
+        var tokenizer = await TokenizerFactory.CreateAutoPairAsync(modelDir, maxLength, cancellationToken);
+
+        try
+        {
             // Initialize inference engine (use async to ensure RuntimeManager initializes native binaries)
             var inference = await CrossEncoderInference.CreateAsync(
                 modelPaths.ModelPath,
                 modelInfo,
                 _options.Provider,
-                _options);
+                _options,
+                _loadProgress,
+                cancellationToken);
 
             // Store runtime diagnostics
             _isGpuActive = inference.IsGpuActive;
@@ -232,9 +257,10 @@ public sealed class Reranker : IRerankerModel
 
             return new RerankerState(modelInfo, tokenizer, inference);
         }
-        finally
+        catch
         {
-            _initLock.Release();
+            tokenizer.Dispose();
+            throw;
         }
     }
 
@@ -261,22 +287,25 @@ public sealed class Reranker : IRerankerModel
     {
         if (_disposed) return;
 
-        if (_stateLazy.IsValueCreated)
+        _disposed = true;
+
+        // An initialization still running finishes first, so the state it sets is disposed here, not leaked.
+        await _initLock.WaitAsync();
+        try
         {
-            try
+            if (_state is { } state)
             {
-                var state = await _stateLazy.Value;
                 state.Tokenizer.Dispose();
                 state.Inference.Dispose();
+                _state = null;
             }
-            catch
-            {
-                // Ignore initialization errors during disposal
-            }
+        }
+        finally
+        {
+            _initLock.Release();
         }
 
         _initLock.Dispose();
-        _disposed = true;
     }
 
     /// <summary>

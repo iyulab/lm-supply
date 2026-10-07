@@ -62,14 +62,14 @@ internal sealed class OnnxInferenceEngine : IDisposable
     /// <param name="modelPath">Path to the ONNX model file.</param>
     /// <param name="provider">The execution provider to use.</param>
     /// <param name="options">Log level and thread count for the session; null keeps the ONNX Runtime defaults.</param>
-    /// <param name="progress">Optional progress reporter for binary downloads.</param>
+    /// <param name="progress">Receives the runtime download session creation may make; <see langword="null"/> when nobody is listening.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A configured inference engine.</returns>
     public static async Task<OnnxInferenceEngine> CreateAsync(
         string modelPath,
         ExecutionProvider provider,
-        LMSupplyOptionsBase? options = null,
-        IProgress<DownloadProgress>? progress = null,
+        LMSupplyOptionsBase? options,
+        IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken = default)
     {
         if (!File.Exists(modelPath))

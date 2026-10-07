@@ -31,7 +31,10 @@ public static class LocalImageGenerator
     /// - A local directory path containing ONNX model files
     /// </param>
     /// <param name="options">Optional model loading options.</param>
-    /// <param name="progress">Optional progress reporter for model download.</param>
+    /// <param name="progress">
+    /// Optional progress reporting for the model and runtime downloads a first load makes — the same
+    /// <see cref="DownloadProgress"/> reports every other domain's load gives.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Loaded image generator model.</returns>
     /// <example>
@@ -47,7 +50,7 @@ public static class LocalImageGenerator
     public static async Task<IImageGeneratorModel> LoadAsync(
         string modelIdOrPath,
         ImageGeneratorOptions? options = null,
-        IProgress<float>? progress = null,
+        IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
@@ -94,6 +97,7 @@ public static class LocalImageGenerator
             modelDefinition,
             modelPath,
             options,
+            progress,
             cancellationToken);
     }
 
@@ -134,21 +138,10 @@ public static class LocalImageGenerator
     private static async Task<string> DownloadModelAsync(
         string repoId,
         ImageGeneratorOptions options,
-        IProgress<float>? progress,
+        IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
         using var downloader = new HuggingFaceDownloader(options.CacheDirectory, localFilesOnly: options.DisableAutoDownload);
-
-        // Track download progress
-        var progressAdapter = progress != null
-            ? new Progress<DownloadProgress>(p =>
-            {
-                if (p.TotalBytes > 0)
-                {
-                    progress.Report((float)p.BytesDownloaded / p.TotalBytes);
-                }
-            })
-            : null;
 
         // Use discovery-based download to automatically find all model files
         // including ONNX models, external data files, and config/tokenizer files
@@ -160,7 +153,7 @@ public static class LocalImageGenerator
                 PreferredProvider = ExecutionProvider.Cpu
             },
             revision: "main",
-            progress: progressAdapter,
+            progress: progress,
             cancellationToken: cancellationToken);
 
         return modelPath;

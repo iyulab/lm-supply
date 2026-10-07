@@ -52,6 +52,7 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
     /// <param name="deviceId">GPU device index for CUDA.</param>
     /// <param name="configureOptions">Session options to apply (log level, threads).</param>
     /// <param name="blacklist">Provider blacklist shared with the pipeline's other sessions.</param>
+    /// <param name="progress">Receives the runtime download session creation may make; <see langword="null"/> when nobody is listening.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Loaded text encoder.</returns>
     public static async Task<ClipTextEncoder> LoadAsync(
@@ -60,6 +61,7 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
         int deviceId,
         Action<SessionOptions>? configureOptions,
         ProviderBlacklist blacklist,
+        IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken = default)
     {
         // Find text encoder ONNX file
@@ -70,8 +72,8 @@ internal sealed class ClipTextEncoder : IAsyncDisposable
 
         // Create session through the shared factory (provider chain, runtime provisioning)
         var result = await OnnxSessionFactory.CreateWithInfoAsync(
-            encoderPath, provider, skipProviders: null, configureOptions,
-            cancellationToken: cancellationToken, deviceId: deviceId);
+            encoderPath, provider, skipProviders: null, configureOptions, progress,
+            deviceId: deviceId, cancellationToken: cancellationToken);
 
         // Get input/output names (identical on every provider)
         var inputName = result.Session.InputNames[0];

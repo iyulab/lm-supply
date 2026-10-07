@@ -88,10 +88,10 @@ internal sealed class SpeakerDiarizer : IAsyncDisposable
     {
         var (segDir, embDir) = await FetchAsync(cacheDirectory, localFilesOnly, progress, cancellationToken);
 
-        var segmentation = await OnnxSessionFactory.CreateAsync(Path.Combine(segDir, SegmentationFile), provider, cancellationToken: cancellationToken);
+        var segmentation = await OnnxSessionFactory.CreateAsync(Path.Combine(segDir, SegmentationFile), provider, configureOptions: null, progress, cancellationToken);
         try
         {
-            var embedding = await OnnxSessionFactory.CreateAsync(Path.Combine(embDir, EmbeddingFile), provider, cancellationToken: cancellationToken);
+            var embedding = await OnnxSessionFactory.CreateAsync(Path.Combine(embDir, EmbeddingFile), provider, configureOptions: null, progress, cancellationToken);
             return new SpeakerDiarizer(segmentation, embedding);
         }
         catch

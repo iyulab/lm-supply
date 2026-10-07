@@ -84,11 +84,15 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
     /// <param name="modelInfo">Model configuration info.</param>
     /// <param name="options">Captioner options.</param>
     /// <param name="tokenizerDir">Optional directory containing tokenizer files. If null, uses modelDir.</param>
+    /// <param name="progress">Receives the runtime download session creation may make; <see langword="null"/> when nobody is listening.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<VitGpt2Captioner> CreateAsync(
         string modelDir,
         ModelInfo modelInfo,
         CaptionerOptions options,
-        string? tokenizerDir = null)
+        string? tokenizerDir,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
         var encoderPath = Path.Combine(modelDir, modelInfo.EncoderFile);
         var decoderPath = Path.Combine(modelDir, modelInfo.DecoderFile);
@@ -102,14 +106,14 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
         Action<SessionOptions> configureLog = so => so.ApplyCommonOptions(options);
         var blacklist = new ProviderBlacklist();
 
-        var encoderResult = await OnnxSessionFactory.CreateWithInfoAsync(encoderPath, options.Provider, configureLog).ConfigureAwait(false);
+        var encoderResult = await OnnxSessionFactory.CreateWithInfoAsync(encoderPath, options.Provider, configureLog, progress, cancellationToken).ConfigureAwait(false);
         var encoder = RecoverableOnnxSession.FromResult(
             encoderResult, encoderPath, configureLog, logPrefix: "[VitGpt2Captioner:encoder]", blacklist: blacklist);
 
         RecoverableOnnxSession decoder;
         try
         {
-            var decoderResult = await OnnxSessionFactory.CreateWithInfoAsync(decoderPath, options.Provider, configureLog).ConfigureAwait(false);
+            var decoderResult = await OnnxSessionFactory.CreateWithInfoAsync(decoderPath, options.Provider, configureLog, progress, cancellationToken).ConfigureAwait(false);
             decoder = RecoverableOnnxSession.FromResult(
                 decoderResult, decoderPath, configureLog, logPrefix: "[VitGpt2Captioner:decoder]", blacklist: blacklist);
         }

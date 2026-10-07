@@ -16,6 +16,7 @@ public sealed class TextGeneratorBuilder
     private Models.GenerationOptions? _defaultGenerationOptions;
     private GeneratorPoolOptions? _poolOptions;
     private MemoryAwareOptions? _memoryOptions;
+    private IProgress<DownloadProgress>? _downloadProgress;
 
     /// <summary>
     /// Creates a new TextGeneratorBuilder.
@@ -221,6 +222,18 @@ public sealed class TextGeneratorBuilder
     }
 
     /// <summary>
+    /// Reports the downloads <see cref="BuildAsync"/> makes — the model, and the runtime it needs on first use —
+    /// with the same <see cref="DownloadProgress"/> reports
+    /// <see cref="LocalGenerator.LoadAsync(string, GeneratorOptions?, IProgress{DownloadProgress}?, CancellationToken)"/> gives.
+    /// </summary>
+    /// <param name="progress">The progress reporter.</param>
+    public TextGeneratorBuilder WithDownloadProgress(IProgress<DownloadProgress> progress)
+    {
+        _downloadProgress = progress ?? throw new ArgumentNullException(nameof(progress));
+        return this;
+    }
+
+    /// <summary>
     /// Builds the text generator asynchronously.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -243,7 +256,7 @@ public sealed class TextGeneratorBuilder
         {
             var localOptions = BuildLocalGeneratorOptions();
             IGeneratorModel localGenerator = await LocalGenerator.LoadAsync(
-                _modelId, localOptions, progress: null, cancellationToken).ConfigureAwait(false);
+                _modelId, localOptions, _downloadProgress, cancellationToken).ConfigureAwait(false);
 
             // Layer memory management on top in the same way as the ONNX path.
             if (_memoryOptions != null)
@@ -254,14 +267,14 @@ public sealed class TextGeneratorBuilder
             return localGenerator;
         }
 
-        // Ensure GenAI runtime binaries are available before loading the model
-        // This downloads onnxruntime and onnxruntime-genai native binaries on first use
+        // The model files first, then the runtime binaries (onnxruntime and onnxruntime-genai, downloaded on first
+        // use) — the order LocalGenerator.LoadAsync keeps, so a refused model download has not pulled the runtime.
+        var modelPath = await ResolveModelPathAsync(cancellationToken);
         await OnnxGeneratorBackendRegistry.Require().EnsureRuntimeAsync(
             _modelOptions.Provider,
-            progress: null,
+            _downloadProgress,
             cancellationToken);
 
-        var modelPath = await ResolveModelPathAsync(cancellationToken);
         var modelId = _modelId ?? Path.GetFileName(modelPath);
         var chatFormatter = ResolveChatFormatter(modelId);
 
@@ -319,7 +332,7 @@ public sealed class TextGeneratorBuilder
             // Download if not available
             if (!factory.IsModelAvailable(_modelId))
             {
-                await factory.DownloadModelAsync(_modelId, cancellationToken: cancellationToken);
+                await factory.DownloadModelAsync(_modelId, _downloadProgress, cancellationToken);
             }
 
             // Return cache path after download

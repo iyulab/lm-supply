@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using LMSupply.Detector;
+using LMSupply.Reranker;
 using LMSupply.Segmenter;
 using LMSupply.Synthesizer;
 using LMSupply.Transcriber;
@@ -30,7 +31,7 @@ public sealed class LoadProgressReachesDownloadTests : IDisposable
         }
     }
 
-    public static TheoryData<string> Domains => ["Detector", "Segmenter", "Synthesizer", "Translator", "Transcriber"];
+    public static TheoryData<string> Domains => ["Detector", "Reranker", "Segmenter", "InteractiveSegmenter", "Synthesizer", "Translator", "Transcriber"];
 
     [Theory]
     [MemberData(nameof(Domains))]
@@ -66,7 +67,9 @@ public sealed class LoadProgressReachesDownloadTests : IDisposable
         domain switch
         {
             "Detector" => Box(LocalDetector.LoadAsync("default", new DetectorOptions { CacheDirectory = _cache }, progress, ct)),
+            "Reranker" => Box(LocalReranker.LoadAsync("default", new RerankerOptions { CacheDirectory = _cache }, progress, ct)),
             "Segmenter" => Box(LocalSegmenter.LoadAsync("default", new SegmenterOptions { CacheDirectory = _cache }, progress, ct)),
+            "InteractiveSegmenter" => Box(LocalSegmenter.LoadInteractiveAsync("interactive", new SegmenterOptions { CacheDirectory = _cache }, progress, ct)),
             "Synthesizer" => Box(LocalSynthesizer.LoadAsync("default", new SynthesizerOptions { CacheDirectory = _cache }, progress, ct)),
             "Translator" => Box(LocalTranslator.LoadAsync("default", new TranslatorOptions { CacheDirectory = _cache }, progress, ct)),
             "Transcriber" => Box(LocalTranscriber.LoadAsync("fast", new TranscriberOptions { CacheDirectory = _cache }, progress, ct)),

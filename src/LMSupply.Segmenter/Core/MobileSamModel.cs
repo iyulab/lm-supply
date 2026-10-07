@@ -20,6 +20,8 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
 {
     private readonly SegmenterOptions _options;
     private readonly SegmenterModelInfo _modelInfo;
+    // Reported by the downloads the first initialization makes (LoadInteractiveAsync warms up at once).
+    private readonly IProgress<DownloadProgress>? _downloadProgress;
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
 
     // Encoder and decoder each own a RecoverableOnnxSession and share one provider blacklist, so a
@@ -35,10 +37,11 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
     private const int ImageEncoderSize = 1024;
     private const int EmbeddingSize = 256;
 
-    public MobileSamModel(SegmenterOptions options, SegmenterModelInfo modelInfo)
+    public MobileSamModel(SegmenterOptions options, SegmenterModelInfo modelInfo, IProgress<DownloadProgress>? downloadProgress = null)
     {
         _options = options.Clone();
         _modelInfo = modelInfo;
+        _downloadProgress = downloadProgress;
 
         if (!modelInfo.IsInteractive)
         {
@@ -221,7 +224,8 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
                 encoderPath,
                 _options.Provider,
                 ConfigureSessionOptions,
-                cancellationToken: cancellationToken);
+                _downloadProgress,
+                cancellationToken);
             _encoderSession = RecoverableOnnxSession.FromResult(
                 encoderResult, encoderPath, ConfigureSessionOptions,
                 logPrefix: "[MobileSamModel:encoder]", blacklist: _providerBlacklist);
@@ -232,7 +236,8 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
                 decoderPath,
                 _options.Provider,
                 ConfigureSessionOptions,
-                cancellationToken: cancellationToken);
+                _downloadProgress,
+                cancellationToken);
             _decoderSession = RecoverableOnnxSession.FromResult(
                 decoderResult, decoderPath, ConfigureSessionOptions,
                 logPrefix: "[MobileSamModel:decoder]", blacklist: _providerBlacklist);
@@ -268,6 +273,7 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
                 _modelInfo.DecoderFile!,
                 "config.json"
             ],
+            progress: _downloadProgress,
             cancellationToken: cancellationToken);
 
         return modelDir;

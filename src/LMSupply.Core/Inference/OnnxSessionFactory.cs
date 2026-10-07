@@ -66,14 +66,18 @@ public static class OnnxSessionFactory
     /// <param name="modelPath">Path to the ONNX model file.</param>
     /// <param name="provider">The execution provider to use.</param>
     /// <param name="configureOptions">Optional callback to configure additional session options.</param>
-    /// <param name="progress">Optional progress reporter for binary downloads.</param>
+    /// <param name="progress">
+    /// Receives the runtime download this call may make on first use (<see cref="DownloadKind.Runtime"/>
+    /// reports). Required so that a caller holding a load's reporter cannot drop it by omission; pass
+    /// <see langword="null"/> when nobody is listening.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A configured inference session.</returns>
     public static async Task<InferenceSession> CreateAsync(
         string modelPath,
-        ExecutionProvider provider = ExecutionProvider.Auto,
-        Action<SessionOptions>? configureOptions = null,
-        IProgress<DownloadProgress>? progress = null,
+        ExecutionProvider provider,
+        Action<SessionOptions>? configureOptions,
+        IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken = default)
     {
         // Use CreateWithInfoAsync which handles the fallback chain and return just the session
@@ -89,14 +93,18 @@ public static class OnnxSessionFactory
     /// <param name="modelPath">Path to the ONNX model file.</param>
     /// <param name="provider">The execution provider to use.</param>
     /// <param name="configureOptions">Optional callback to configure additional session options.</param>
-    /// <param name="progress">Optional progress reporter for binary downloads.</param>
+    /// <param name="progress">
+    /// Receives the runtime download this call may make on first use (<see cref="DownloadKind.Runtime"/>
+    /// reports). Required so that a caller holding a load's reporter cannot drop it by omission; pass
+    /// <see langword="null"/> when nobody is listening.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A session creation result with provider information.</returns>
     public static async Task<SessionCreationResult> CreateWithInfoAsync(
         string modelPath,
-        ExecutionProvider provider = ExecutionProvider.Auto,
-        Action<SessionOptions>? configureOptions = null,
-        IProgress<DownloadProgress>? progress = null,
+        ExecutionProvider provider,
+        Action<SessionOptions>? configureOptions,
+        IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken = default)
     {
         return await CreateWithInfoAsync(modelPath, provider, skipProviders: null,
@@ -112,15 +120,15 @@ public static class OnnxSessionFactory
     /// <param name="provider">The execution provider to use.</param>
     /// <param name="skipProviders">Providers to exclude from the Auto fallback chain (already known to fail for this model).</param>
     /// <param name="configureOptions">Optional callback to configure additional session options.</param>
-    /// <param name="progress">Optional progress reporter for binary downloads.</param>
+    /// <param name="progress">Receives the runtime download this call may make (see the other overload); <see langword="null"/> when nobody is listening.</param>
     /// <param name="deviceId">GPU device index for CUDA (ignored by CPU and CoreML).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<SessionCreationResult> CreateWithInfoAsync(
         string modelPath,
         ExecutionProvider provider,
         IReadOnlyCollection<ExecutionProvider>? skipProviders,
-        Action<SessionOptions>? configureOptions = null,
-        IProgress<DownloadProgress>? progress = null,
+        Action<SessionOptions>? configureOptions,
+        IProgress<DownloadProgress>? progress,
         int deviceId = 0,
         CancellationToken cancellationToken = default)
     {

@@ -123,7 +123,7 @@ MobileSAM segments what a point or a box points at (0.88.0+; before, the alias p
 and no public method returned an interactive segmenter):
 
 ```csharp
-await using var sam = await LocalSegmenter.LoadInteractiveAsync();          // "interactive" (MobileSAM, MIT)
+await using var sam = await LocalSegmenter.LoadInteractiveAsync();          // "interactive" (MobileSAM, MIT); takes options and progress like LoadAsync
 
 // One session encodes the image once; each prompt then runs only the small decoder.
 await using var session = await sam.CreateSessionAsync("photo.jpg");

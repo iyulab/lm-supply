@@ -19,7 +19,7 @@ internal sealed class DefaultGeneratorFactory : IGeneratorModelFactory
 
     public Task DownloadModelAsync(
         string modelId,
-        IProgress<ModelDownloadProgress>? progress = null,
+        IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 }
