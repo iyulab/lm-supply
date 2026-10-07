@@ -14,8 +14,11 @@ public sealed class GeneratorOptions : LMSupplyOptionsBase
     public string? ChatFormat { get; set; }
 
     /// <summary>
-    /// Gets or sets the maximum context length to use.
-    /// If null, uses the model's default context length.
+    /// Gets or sets the context length to load the model with. If null, a GGUF model (llama-server) is loaded with its
+    /// trained length (GGUF <c>context_length</c>; 4,096 when the file does not say) up to 32,768, bounded by the memory
+    /// that holds the KV cache — VRAM on a GPU backend, half of system RAM on the CPU backend, never below 4,096. The
+    /// length actually loaded is <see cref="Abstractions.IGeneratorModel.MaxContextLength"/>. Model auto-selection and
+    /// quantization choice before download still size for 4,096 when this is null.
     /// </summary>
     public int? MaxContextLength { get; set; }
 

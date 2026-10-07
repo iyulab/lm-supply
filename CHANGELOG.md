@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.109.0] - Unreleased
+
+### Changed
+- **A GGUF model loaded without `MaxContextLength` gets a context it can use.** llama-server is started with the model's
+  trained length (GGUF `context_length`) up to 32,768, bounded by the memory that holds the KV cache: VRAM on a GPU
+  backend (as before for explicit lengths), half of system RAM after the weights on the CPU backend, never below 4,096.
+  Before, every such load ran at 4,096 tokens whatever the model and the machine, so a tool loop reading a few web pages
+  hit the server's limit after two to four rounds. An explicit `MaxContextLength` is unchanged. Model auto-selection and
+  the quantization choice still size for 4,096 when the length is unset.
+- **Breaking: `IGeneratorModel.MaxContextLength` is the context the loaded model accepts.** For a GGUF model it is the
+  context llama-server was started with (it was the GGUF trained length, or the explicit option even when memory cut the
+  server below it). Request fit checks, generation's own turn trimming and hosts that size their context from this value
+  now work against what the server holds. Migration: read the trained length from
+  `GetModelInfo().GgufMetadata?.ContextLength`. `AdjustedContextLength` is set when memory reduced the context below the
+  requested length (explicit or default).
+
+### Fixed
+- **A request the server refuses as too long says by how much.** `ContextLengthExceededException.TokenCount` and
+  `MaxContextLength` come from llama-server's refusal (`n_prompt_tokens`, `n_ctx`) when it states them; before, the token
+  count was always null.
+
 ## [0.108.0] - 2026-10-06
 
 ### Added

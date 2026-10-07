@@ -54,15 +54,4 @@ public class ContextLengthDiagnosticsTests
 
         result.Should().Be(3530);
     }
-
-    [Fact]
-    public void SelectReportedContextLength_PrefersExplicitUserSetting()
-    {
-        // SelectReportedContextLength returns user's explicit cap even after VRAM adjustment
-        var options = new GeneratorOptions { MaxContextLength = 16384 };
-
-        var reported = LlamaServerGeneratorModel.SelectReportedContextLength(options, ggufMetadata: null, vramCappedBudget: 3530);
-
-        reported.Should().Be(16384);
-    }
 }

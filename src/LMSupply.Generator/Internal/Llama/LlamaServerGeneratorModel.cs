@@ -27,6 +27,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     private readonly GgufMetadata? _ggufMetadata;
     private readonly string _serverVersion;
     private SelectionDiagnostics? _diagnostics;
+    private readonly int _requestedContextLength;
     private readonly int _effectiveContextLength;
     private readonly int? _gpuLayers;
     private readonly int? _totalLayers;
@@ -47,7 +48,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         Func<CancellationToken, Task<ServerLease>> leaseServer,
         IChatFormatter chatFormatter,
         GeneratorOptions options,
-        int maxContextLength,
+        int requestedContextLength,
         int effectiveContextLength,
         GgufMetadata? ggufMetadata,
         string serverVersion,
@@ -66,7 +67,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         _lease = RestartingServerLease.Create(serverLease, leaseServer, $"LlamaServerGeneratorModel '{identity.ModelId}'");
         _chatFormatter = chatFormatter;
         _options = options;
-        MaxContextLength = maxContextLength;
+        MaxContextLength = effectiveContextLength;
+        _requestedContextLength = requestedContextLength;
         _effectiveContextLength = effectiveContextLength;
         _ggufMetadata = ggufMetadata;
         _serverVersion = serverVersion;
@@ -177,7 +179,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         });
 
         var llamaOpts = ChooseLlamaOptions(options, modelPath, ggufMetadata);
-        var contextLength = options.MaxContextLength ?? 4096;
+        var contextLength = ResolveRequestedContextLength(options.MaxContextLength, ggufMetadata?.ContextLength);
+        var requestedContextLength = contextLength;
 
         // 3a. A running server of this model that already holds this context is shared as it is — sizing exists
         // to start a new server, and measuring free memory while this model's own server holds it would count
@@ -345,6 +348,27 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             }
         }
 
+        // A context the caller did not choose is also bounded by RAM when the KV cache lives there (the CPU backend,
+        // chosen or fallen back to) — the GPU path above already bounds it by VRAM. An explicit length is the caller's.
+        if (backend == LlamaServerBackend.Cpu && options.MaxContextLength is null)
+        {
+            var ramContext = EstimateRamBoundContextLength(
+                new FileInfo(modelPath).Length,
+                contextLength,
+                ggufMetadata,
+                ResolveKvCacheType(llamaOpts.TypeK, backend, serverVersion),
+                ResolveKvCacheType(llamaOpts.TypeV, backend, serverVersion),
+                Math.Max(1, options.MaxConcurrentRequests),
+                (int)(llamaOpts.UBatchSize ?? KvCacheGeometry.DefaultUBatch),
+                Hardware.HardwareProfile.Current.SystemMemoryBytes);
+            if (ramContext < contextLength)
+            {
+                Trace.TraceInformation(
+                    $"[LlamaServerGeneratorModel] ctx-size bounded by RAM: requested={contextLength}, actual={ramContext}");
+                contextLength = ramContext;
+            }
+        }
+
         // Build additional arguments
         var additionalArgs = BuildAdditionalArgs(llamaOpts, ggufMetadata?.Architecture);
 
@@ -462,7 +486,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             ct => LlamaServerPool.Instance.LeaseAsync(serverPath, restartConfig, backend, progress: null, ct),
             chatFormatter,
             options,
-            SelectReportedContextLength(options, ggufMetadata, contextLength),
+            requestedContextLength,
             contextLength,
             ggufMetadata,
             serverVersion ?? "unknown",
@@ -842,7 +866,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         BackendLog = _lease.Current.Server.Info?.StartupLog,
         RuntimeVersion = _serverVersion,
         Diagnostics = _diagnostics,
-        AdjustedContextLength = ResolveAdjustedContextLength(MaxContextLength, _effectiveContextLength),
+        AdjustedContextLength = ResolveAdjustedContextLength(_requestedContextLength, _effectiveContextLength),
         KnownIssues = _identity.KnownIssues,
         RequestedModelId = _identity.RequestedModelId,
         LoadedFile = Path.GetFileName(_modelPath),
@@ -857,8 +881,59 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         ContextFlooredByVram = _contextFlooredByVram,
     };
 
-    internal static int? ResolveAdjustedContextLength(int maxContextLength, int effectiveContextLength)
-        => effectiveContextLength != maxContextLength ? effectiveContextLength : null;
+    internal static int? ResolveAdjustedContextLength(int requestedContextLength, int effectiveContextLength)
+        => effectiveContextLength != requestedContextLength ? effectiveContextLength : null;
+
+    /// <summary>The most a context the caller did not choose asks for, whatever the model was trained to.</summary>
+    internal const int DefaultContextCeiling = 32768;
+
+    /// <summary>
+    /// The context to ask llama-server for: the caller's <see cref="GeneratorOptions.MaxContextLength"/> when set;
+    /// otherwise the model's trained length (GGUF <c>context_length</c>, 4096 when the file does not say) up to
+    /// <see cref="DefaultContextCeiling"/>. Memory then bounds it on the backend used (VRAM on GPU, RAM on CPU).
+    /// </summary>
+    internal static int ResolveRequestedContextLength(int? explicitLength, int? trainedLength)
+        => explicitLength ?? Math.Min(trainedLength is > 0 ? trainedLength.Value : 4096, DefaultContextCeiling);
+
+    /// <summary>
+    /// The largest context whose KV cache fits in half the machine's RAM after the weights, up to
+    /// <paramref name="requestedContext"/> and never below 4096 (or the request, when smaller). Half, because RAM is
+    /// shared with the host process and everything else on the machine; the KV cache is sized as llama.cpp sizes it
+    /// when the file has attention metadata (<see cref="KvCacheGeometry"/>), else by a file-size heuristic.
+    /// </summary>
+    internal static int EstimateRamBoundContextLength(
+        long modelFileSize,
+        int requestedContext,
+        GgufMetadata? ggufMetadata,
+        string? cacheTypeK,
+        string? cacheTypeV,
+        int sequences,
+        int ubatch,
+        long systemMemoryBytes)
+    {
+        var floor = Math.Min(4096, requestedContext);
+        if (systemMemoryBytes <= 0)
+            return requestedContext;
+
+        var budget = systemMemoryBytes / 2 - (long)(modelFileSize * 1.1);
+        long kvBytesPerToken;
+        var geometry = KvCacheGeometry.FromMetadata(ggufMetadata);
+        if (geometry is not null)
+        {
+            budget -= geometry.SlidingWindowBytes(requestedContext, cacheTypeK, cacheTypeV, sequences, ubatch);
+            kvBytesPerToken = geometry.BytesPerToken(cacheTypeK, cacheTypeV);
+        }
+        else
+        {
+            kvBytesPerToken = Core.Download.AvailableMemory.EstimateKvCacheBytes(modelFileSize, 1);
+        }
+
+        if (kvBytesPerToken <= 0)
+            return requestedContext;
+
+        var fits = budget <= 0 ? 0 : budget / kvBytesPerToken;
+        return (int)Math.Clamp(fits, floor, requestedContext);
+    }
 
     /// <inheritdoc />
     public async Task<int> CountTokensAsync(string text, CancellationToken cancellationToken = default)
@@ -1846,16 +1921,6 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             yield return msg;
         }
     }
-
-    /// <summary>
-    /// Selects the context length to report as the model's capability.
-    /// Priority: explicit user cap &gt; GGUF metadata capability &gt; VRAM-capped session budget.
-    /// </summary>
-    internal static int SelectReportedContextLength(
-        GeneratorOptions options,
-        GgufMetadata? ggufMetadata,
-        int vramCappedBudget)
-        => options.MaxContextLength ?? ggufMetadata?.ContextLength ?? vramCappedBudget;
 
     /// <summary>
     /// Removes the oldest non-system conversation turn in-place.

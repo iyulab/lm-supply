@@ -75,6 +75,25 @@ public class LlamaServerClientContextOverflowTests
     }
 
     [Fact]
+    public async Task GenerateChatWithToolsAsync_OverflowThatStatesCounts_ExceptionCarriesThem()
+    {
+        // llama-server's exceed_context_size_error names the prompt's size and the context the server holds; the
+        // server's n_ctx wins over the client's configured length, since it is what refused the request.
+        const string body = """
+            {"error":{"code":400,"message":"the request exceeds the available context size, try increasing it","type":"exceed_context_size_error","n_prompt_tokens":5321,"n_ctx":4096}}
+            """;
+        using var httpClient = MakeFakeClient(HttpStatusCode.BadRequest, body);
+        var client = new LlamaServerClient("http://localhost:9999", httpClient, 8192);
+
+        var act = async () => await client.GenerateChatWithToolsAsync(
+            [new ChatCompletionMessage { Role = "user", Content = "hello" }]);
+
+        var ex = await act.Should().ThrowAsync<ContextLengthExceededException>();
+        ex.Which.TokenCount.Should().Be(5321);
+        ex.Which.MaxContextLength.Should().Be(4096);
+    }
+
+    [Fact]
     public async Task GenerateChatWithToolsAsync_ContextOverflow_MaxContextLength_IsNeverZero()
     {
         using var httpClient = MakeFakeClient(HttpStatusCode.BadRequest, "{\"error\":\"the prompt is too long\"}");

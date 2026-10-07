@@ -670,12 +670,44 @@ public sealed class LlamaServerClient : IDisposable
         if (response.StatusCode == System.Net.HttpStatusCode.BadRequest &&
             IsContextOverflowError(errorBody))
         {
-            throw new ContextLengthExceededException(null, maxContextLength);
+            var (promptTokens, serverContext) = ReadOverflowCounts(errorBody);
+            throw new ContextLengthExceededException(promptTokens, serverContext ?? maxContextLength);
         }
 
         // Not a recognized context-overflow shape — surface the body we already read instead
         // of discarding it and falling through to EnsureSuccessStatusCode()'s generic message.
         throw new InferenceBackendException(response.StatusCode, errorBody);
+    }
+
+    /// <summary>
+    /// The prompt's token count and the server's context from an overflow refusal, when the server states them —
+    /// llama-server's <c>exceed_context_size_error</c> carries <c>n_prompt_tokens</c> and <c>n_ctx</c> in its
+    /// <c>error</c> object. Either is null when absent or the body is not JSON.
+    /// </summary>
+    internal static (int? PromptTokens, int? Context) ReadOverflowCounts(string errorBody)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(errorBody);
+            var root = doc.RootElement;
+            var error = root.ValueKind == JsonValueKind.Object && root.TryGetProperty("error", out var e) && e.ValueKind == JsonValueKind.Object
+                ? e
+                : root;
+            return (PositiveInt(error, "n_prompt_tokens"), PositiveInt(error, "n_ctx"));
+        }
+        catch (JsonException)
+        {
+            return (null, null);
+        }
+
+        static int? PositiveInt(JsonElement element, string name) =>
+            element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetInt32(out var number)
+            && number > 0
+                ? number
+                : null;
     }
 
     private static bool IsContextOverflowError(string errorBody)

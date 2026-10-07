@@ -9,7 +9,9 @@ namespace LMSupply.Generator.Abstractions;
 public interface IGeneratorModel : ITextGenerator
 {
     /// <summary>
-    /// Gets the maximum context length supported by the model.
+    /// Gets the context length the loaded model accepts — the length a request (prompt plus output) must fit and that
+    /// generation trims old turns to. For a GGUF model this is the context llama-server was started with; the length the
+    /// model was trained to is <see cref="GeneratorModelInfo.GgufMetadata"/>'s <c>ContextLength</c>.
     /// </summary>
     int MaxContextLength { get; }
 
@@ -117,9 +119,9 @@ public readonly record struct GeneratorModelInfo(
     public SelectionDiagnostics? Diagnostics { get; init; }
 
     /// <summary>
-    /// Gets the VRAM-capped context length actually sent to llama-server.
-    /// Non-null only when VRAM constraints reduced the context below <see cref="MaxContextLength"/>.
-    /// Null when the requested context was fully honoured or no adjustment occurred.
+    /// Gets the context llama-server was started with when memory reduced it below the requested length (an explicit
+    /// <see cref="GeneratorOptions.MaxContextLength"/>, or the default the model resolved to); equal to
+    /// <see cref="MaxContextLength"/> then. Null when the requested context was fully honoured.
     /// </summary>
     public int? AdjustedContextLength { get; init; }
 

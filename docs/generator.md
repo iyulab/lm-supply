@@ -485,8 +485,9 @@ The registry has two primary tiers: **Gemma 4** (multimodal, Apache 2.0) for exp
 | Windows + NVIDIA + total VRAM ≤ 6GB | 25% | Compositor + driver overhead is proportionally larger on small dedicated cards (e.g., RTX 4060 Laptop 4GB) |
 | Everything else | 15% | Default for desktop / server / Apple Silicon / Linux |
 
-The KV cache is sized for the context the load asks for (`GeneratorOptions.MaxContextLength`; unset = 4,096,
-`GgufModelRegistry.DefaultBudgetContextLength`, FP16) — on an 8 GB GPU `gguf:auto` picks Qwen3 8B at 4,096 tokens and Qwen 3.5 4B at
+The KV cache is sized for the context the load asks for (`GeneratorOptions.MaxContextLength`; unset = 4,096 for
+selection, `GgufModelRegistry.DefaultBudgetContextLength`, FP16 — the loaded server then grows into the model's trained
+length up to 32,768 as memory allows, see the README's «How the context is sized») — on an 8 GB GPU `gguf:auto` picks Qwen3 8B at 4,096 tokens and Qwen 3.5 4B at
 16,384, where the 8B's cache would not fit. The quantization choice before download is sized the same way.
 
 Auto-selection pool: `qwen3-fast`, `qwen3-default`, `qwen3-balanced`, `qwen3-quality` (`qwen3-large` is excluded — exceeds 24 GB × 85% budget). Models with `ThinkingEnabledByDefault` generate reasoning before answering. To stop the model from thinking at all, set `Thinking = ThinkingMode.Off` (forwards `enable_thinking=false` to the chat template — no reasoning tokens generated). To let it think but hide the `<think>...</think>` block from the returned text, set `FilterReasoningTokens = true` (reasoning is still generated). `ThinkingMode.Auto` (default) preserves each model's built-in behavior.
