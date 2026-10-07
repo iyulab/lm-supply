@@ -138,7 +138,7 @@ public sealed class HubCacheWriteTests : IDisposable
         File.Exists(Path.Combine(dir, ".lmsupply-manifest.json")).Should().BeTrue("a snapshot named after the revision keeps its manifest inside, as before");
         Directory.Exists(Path.Combine(RepoDir, "blobs")).Should().BeFalse();
         Directory.Exists(Path.Combine(RepoDir, "refs")).Should().BeFalse();
-        Directory.Exists(Path.Combine(RepoDir, ".lmsupply")).Should().BeFalse();
+        Directory.Exists(Path.Combine(RepoDir, ".lmsupply", "manifests")).Should().BeFalse("the manifest is inside the snapshot");
         hub.FileRequests.Should().OnlyContain(path => path.Contains("/resolve/main/", StringComparison.Ordinal));
     }
 

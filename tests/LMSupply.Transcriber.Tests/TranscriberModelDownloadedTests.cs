@@ -36,12 +36,15 @@ public sealed class TranscriberModelDownloadedTests : IDisposable
 
     private string SnapshotDir => CacheManager.GetModelDirectory(_cache, DefaultModels.WhisperBase.Id);
 
+    // The listing cache: models--{org}--{name}/.lmsupply/listings/{revision}.json
+    private string ListingPath => Path.Combine(
+        _cache, "models--" + DefaultModels.WhisperBase.Id.Replace("/", "--"), ".lmsupply", "listings", "main.json");
+
     private void SeedListing()
     {
-        var dir = Path.Combine(_cache, ".discovery-cache");
-        Directory.CreateDirectory(dir);
+        Directory.CreateDirectory(Path.GetDirectoryName(ListingPath)!);
         File.WriteAllText(
-            Path.Combine(dir, DefaultModels.WhisperBase.Id.Replace('/', '_') + "_main.json"),
+            ListingPath,
             JsonSerializer.Serialize(Listing.Select(f => new { path = f.Path, type = "file", size = f.Size })));
     }
 
@@ -67,7 +70,7 @@ public sealed class TranscriberModelDownloadedTests : IDisposable
     {
         (await LocalTranscriber.IsModelDownloadedAsync("default", Options("int8"), Ct)).Should().BeFalse();
 
-        Directory.Exists(Path.Combine(_cache, ".discovery-cache")).Should().BeFalse(
+        File.Exists(ListingPath).Should().BeFalse(
             "a listing request would have cached its answer; the check reads the cache only");
     }
 
@@ -77,8 +80,7 @@ public sealed class TranscriberModelDownloadedTests : IDisposable
     {
         SeedListing();
         WriteAllListedFiles();
-        foreach (var listing in Directory.GetFiles(Path.Combine(_cache, ".discovery-cache")))
-            File.SetLastWriteTimeUtc(listing, DateTime.UtcNow.AddDays(-30));
+        File.SetLastWriteTimeUtc(ListingPath, DateTime.UtcNow.AddDays(-30));
 
         (await LocalTranscriber.IsModelDownloadedAsync("default", Options("int8"), Ct)).Should().BeTrue();
     }
@@ -180,7 +182,7 @@ public sealed class TranscriberModelDownloadedTests : IDisposable
         SeedHubSnapshot();
 
         (await LocalTranscriber.IsModelDownloadedAsync("default", Options(), Ct)).Should().BeTrue();
-        Directory.Exists(Path.Combine(_cache, ".discovery-cache")).Should().BeFalse();
+        File.Exists(ListingPath).Should().BeFalse();
     }
 
     [Fact]

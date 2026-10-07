@@ -974,13 +974,50 @@ public sealed class ModelDiscoveryService : IDisposable
 
     #region Caching
 
-    private string GetCachePath(string repoId, string revision)
-    {
-        if (_cacheDir is null)
-            return string.Empty;
+    private const string ListingsDirectoryName = "listings";
 
-        var sanitizedRepo = repoId.Replace('/', '_').Replace('\\', '_');
-        return Path.Combine(_cacheDir, ".discovery-cache", $"{sanitizedRepo}_{revision}.json");
+    /// <summary>The hub-root directory earlier versions kept listings in (see <see cref="RemoveLegacyListingCache"/>).</summary>
+    internal const string LegacyListingDirectoryName = ".discovery-cache";
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> s_legacyChecked =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private string GetCachePath(string repoId, string revision)
+        => _cacheDir is null ? string.Empty : GetListingPath(_cacheDir, repoId, revision);
+
+    /// <summary>
+    /// Where the file listing of <paramref name="repoId"/> at <paramref name="revision"/> is cached:
+    /// <c>models--{org}--{name}/.lmsupply/listings/{revision}.json</c>, beside the download manifests. The hub root
+    /// holds only the Hugging Face layout; this library's records about a repository live in that repository's
+    /// private directory, which Hugging Face tools do not read and delete together with the repository.
+    /// </summary>
+    internal static string GetListingPath(string cacheDir, string repoId, string revision)
+        => Path.Combine(
+            CacheManager.GetRepositoryDirectory(cacheDir, repoId),
+            DownloadManifest.PrivateDirectoryName,
+            ListingsDirectoryName,
+            revision.Replace('/', '_').Replace('\\', '_') + ".json");
+
+    /// <summary>
+    /// Removes the <c>.discovery-cache</c> directory earlier versions kept at the hub root, where Hugging Face's cache
+    /// scan reports it as an invalid cache directory. It is this library's own and only a cache. Once per hub
+    /// directory per process; best-effort.
+    /// </summary>
+    internal static void RemoveLegacyListingCache(string cacheDir)
+    {
+        if (!s_legacyChecked.TryAdd(Path.GetFullPath(cacheDir), true))
+            return;
+
+        var legacy = Path.Combine(cacheDir, LegacyListingDirectoryName);
+        try
+        {
+            if (Directory.Exists(legacy))
+                Directory.Delete(legacy, recursive: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceInformation($"[ModelDiscoveryService] Could not remove the old listing cache '{legacy}': {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -1106,6 +1143,8 @@ public sealed class ModelDiscoveryService : IDisposable
         var cachePath = GetCachePath(repoId, revision);
         if (string.IsNullOrEmpty(cachePath))
             return;
+
+        RemoveLegacyListingCache(_cacheDir!);
 
         try
         {

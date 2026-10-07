@@ -38,10 +38,11 @@ public sealed class TranscriberDownloadSizeTests : IDisposable
             ("tokenizer.json", 2_000_000),
             ("preprocessor_config.json", 300),
         };
-        var dir = Path.Combine(_cache, ".discovery-cache");
-        Directory.CreateDirectory(dir);
+        // The listing cache: models--{org}--{name}/.lmsupply/listings/{revision}.json
+        var path = Path.Combine(_cache, "models--" + DefaultModels.WhisperBase.Id.Replace("/", "--"), ".lmsupply", "listings", "main.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(
-            Path.Combine(dir, DefaultModels.WhisperBase.Id.Replace('/', '_') + "_main.json"),
+            path,
             JsonSerializer.Serialize(files.Select(f => new { path = f.Path, type = "file", size = f.Size })));
     }
 

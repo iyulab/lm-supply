@@ -863,7 +863,14 @@ Models are cached following HuggingFace Hub conventions:
     refs/main                   the commit "main" resolved to (no trailing newline)
     snapshots/{commit}/{path}   relative link to ../../blobs/{id}
     .lmsupply/manifests/        LMSupply's own download records ({commit}.json, {commit}__{subfolder}.json)
+    .lmsupply/listings/         LMSupply's cached repository file listing ({revision}.json, refreshed after a day)
   ```
+
+  The hub root holds only this layout: LMSupply's records about a repository live in that repository's `.lmsupply/`,
+  which Hugging Face tools do not read and delete together with the repository. (Versions before 0.112.0 kept listings
+  in `.discovery-cache/` at the hub root, which `hf cache scan` reports as an invalid cache directory; it is removed
+  when found.) A repository that was only listed — a download-size check that was not followed by a download — has a
+  `.lmsupply/` and no `snapshots/`.
 
   A download resolves the revision to a commit (`/api/models/{repo}/revision/{revision}`; skipped when the revision
   already is a commit id) and fetches each file at that commit into `blobs/`, then links it into `snapshots/{commit}/`.

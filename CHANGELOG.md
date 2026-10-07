@@ -46,6 +46,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   earlier versions wrote.
 
 ### Fixed
+- **The Hugging Face hub root holds only the hub layout.** The repository file listing LMSupply caches moved from
+  `.discovery-cache/` at the hub root — which `hf cache scan` reported as an invalid cache directory — to the
+  repository's own `models--{org}--{name}/.lmsupply/listings/`, beside the download manifests, where Hugging Face tools
+  do not look and which they delete with the repository. The old directory is removed when found.
 - **Loads that start together on a cold cache download the native ONNX Runtime once** — an image generator creating its
   sessions in parallel, or two models loaded with `Task.WhenAll`. Each used to fetch its own copy, and the last to
   finish deleted the runtime directory the first had already loaded to put its copy in place (the load failed on

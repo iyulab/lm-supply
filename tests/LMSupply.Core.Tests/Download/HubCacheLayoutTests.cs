@@ -1,3 +1,4 @@
+using LMSupply.Core.Download;
 using AwesomeAssertions;
 using LMSupply.Download;
 using LMSupply.Exceptions;
@@ -124,9 +125,9 @@ public sealed class HubCacheLayoutTests : IDisposable
              {"path":"tokenizer.json","type":"file","size":2},
              {"path":"config.json","type":"file","size":2}]
             """;
-        var discoveryCache = Path.Combine(_cacheDir, ".discovery-cache");
-        Directory.CreateDirectory(discoveryCache);
-        await File.WriteAllTextAsync(Path.Combine(discoveryCache, "acme_hub-model_main.json"), listing, Ct);
+        var listingPath = ModelDiscoveryService.GetListingPath(_cacheDir, Repo, "main");
+        Directory.CreateDirectory(Path.GetDirectoryName(listingPath)!);
+        await File.WriteAllTextAsync(listingPath, listing, Ct);
         using var downloader = new HuggingFaceDownloader(_cacheDir, localFilesOnly: true);
 
         var load = () => downloader.DownloadWithDiscoveryAsync(Repo, cancellationToken: Ct);

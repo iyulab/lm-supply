@@ -73,7 +73,8 @@ public sealed class GgufDownloaderIntegrityTests : IDisposable
             Assert.Equal(LegacyPath, await offline.DownloadAsync(Repo, cancellationToken: Ct));
 
         Assert.Equal(0, hub.ResolveRequests);
-        Assert.False(Directory.Exists(Path.Combine(_cacheDir, "models--acme--gguf-embedder")), "the old file is not moved or copied");
+        // The repository directory may hold this library's listing record (.lmsupply/listings); no snapshot holds the file.
+        Assert.False(Directory.Exists(Path.Combine(_cacheDir, "models--acme--gguf-embedder", "snapshots")), "the old file is not moved or copied");
     }
 
     [Fact]

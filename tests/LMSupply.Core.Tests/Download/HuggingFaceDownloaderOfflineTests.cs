@@ -1,3 +1,4 @@
+using LMSupply.Core.Download;
 using System.Net;
 using System.Text;
 using LMSupply.Download;
@@ -93,8 +94,7 @@ public sealed class HuggingFaceDownloaderOfflineTests : IDisposable
     public async Task Discovery_AfterAnOnlineRun_WorksOffline_OnceTheFileListIsOlderThanADay()
     {
         await DownloadOnlineAsync();
-        foreach (var file in Directory.GetFiles(Path.Combine(_cacheDir, ".discovery-cache")))
-            File.SetLastWriteTimeUtc(file, DateTime.UtcNow.AddDays(-2));
+        File.SetLastWriteTimeUtc(ModelDiscoveryService.GetListingPath(_cacheDir, Repo, "main"), DateTime.UtcNow.AddDays(-2));
         // Only the stale list is left to go on — the manifest would otherwise answer instead.
         File.Delete(Path.Combine(CacheManager.GetModelDirectory(_cacheDir, Repo), ".lmsupply-manifest.json"));
 
@@ -111,7 +111,7 @@ public sealed class HuggingFaceDownloaderOfflineTests : IDisposable
     public async Task Discovery_WithOnlyTheDownloadManifest_WorksOffline()
     {
         await DownloadOnlineAsync();
-        Directory.Delete(Path.Combine(_cacheDir, ".discovery-cache"), recursive: true);
+        File.Delete(ModelDiscoveryService.GetListingPath(_cacheDir, Repo, "main"));
 
         var hub = new CountingHub();
         using var downloader = new HuggingFaceDownloader(_cacheDir, hub, localFilesOnly: true);

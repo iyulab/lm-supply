@@ -1,3 +1,4 @@
+using LMSupply.Core.Download;
 using System.Net;
 using System.Text;
 using LMSupply.Download;
@@ -77,7 +78,7 @@ public sealed class HuggingFaceDownloaderNetworkFailureTests : IDisposable
         Assert.NotEmpty(manifest.AbsentFiles ?? []);
         manifest.AbsentFiles = null;
         await DownloadManifest.WriteForSnapshotAsync(RepoDir, Path.GetDirectoryName(onlineDir)!, Subfolder, manifest);
-        Directory.Delete(Path.Combine(_cacheDir, ".discovery-cache"), recursive: true);
+        File.Delete(ModelDiscoveryService.GetListingPath(_cacheDir, Repo, "main"));
 
         var hub = new Hub { Offline = true };
         using var downloader = new HuggingFaceDownloader(_cacheDir, hub);
@@ -148,8 +149,7 @@ public sealed class HuggingFaceDownloaderNetworkFailureTests : IDisposable
 
     private void AgeFileList()
     {
-        foreach (var file in Directory.GetFiles(Path.Combine(_cacheDir, ".discovery-cache")))
-            File.SetLastWriteTimeUtc(file, DateTime.UtcNow.AddDays(-2));
+        File.SetLastWriteTimeUtc(ModelDiscoveryService.GetListingPath(_cacheDir, Repo, "main"), DateTime.UtcNow.AddDays(-2));
     }
 
     /// <summary>

@@ -26,10 +26,11 @@ public sealed class LocalEmbedderDownloadSizeTests : IDisposable
 
     private void SeedListing(string repoId, params (string Path, long Size)[] files)
     {
-        var dir = Path.Combine(_cacheDir, ".discovery-cache");
-        Directory.CreateDirectory(dir);
+        // The listing cache: models--{org}--{name}/.lmsupply/listings/{revision}.json
+        var path = Path.Combine(_cacheDir, "models--" + repoId.Replace("/", "--"), ".lmsupply", "listings", "main.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(
-            Path.Combine(dir, repoId.Replace('/', '_') + "_main.json"),
+            path,
             "[" + string.Join(",", files.Select(f => $$"""{"path":"{{f.Path}}","type":"file","size":{{f.Size}}}""")) + "]");
     }
 
