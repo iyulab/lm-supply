@@ -15,6 +15,11 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   models keep beside a graph file of a few hundred kilobytes.
 
 ### Changed
+- **CI runs for every change that can affect a build or a package.** The workflow listed the folders it watched, so a
+  change only to `samples/`, `benchmark/`, `tools/`, `global.json` or `nuget.config` started no CI run, and the
+  publish workflow, which follows a successful CI run, could ship code nothing had built. It now lists what cannot
+  affect a build (Markdown, `docs/`, `images/`, licence and git files) instead. `tools/verify-auto` and
+  `samples/RuntimeDownloadTest` are in the solution, so CI builds them.
 - Memory-based `auto` selection is one implementation for every domain that uses it (embedder, generator, detector,
   segmenter, synthesizer, transcriber): `ModelRegistryBase.SelectLargestFitting`. A candidate without size metadata is
   now an error naming it, instead of an estimate of zero that wins on every host.

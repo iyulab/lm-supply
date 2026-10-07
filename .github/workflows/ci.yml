@@ -1,28 +1,29 @@
 name: CI
 
 on:
+  # publish.yml runs after a successful CI run, so every change that can affect a build or a package must start one.
+  # This lists what cannot; an allow-list of build inputs missed each new folder or root file (samples/, benchmark/,
+  # tools/, global.json, nuget.config) until someone remembered it.
   push:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'console/**'
-      - 'scripts/**'
-      - '.github/workflows/ci.yml'
-      - 'Directory.Build.props'
-      - 'Directory.Packages.props'
-      - '*.slnx'
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'images/**'
+      - 'LICENSE*'
+      - '.gitignore'
+      - '.gitattributes'
+      - '.public-text-allow'
   pull_request:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'console/**'
-      - 'scripts/**'
-      - '.github/workflows/ci.yml'
-      - 'Directory.Build.props'
-      - 'Directory.Packages.props'
-      - '*.slnx'
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'images/**'
+      - 'LICENSE*'
+      - '.gitignore'
+      - '.gitattributes'
+      - '.public-text-allow'
   workflow_dispatch:
 
 concurrency:

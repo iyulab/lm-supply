@@ -15,6 +15,7 @@
     <Project Path="samples/EmbedderGgufSample/EmbedderGgufSample.csproj" />
     <Project Path="samples/EmbedderSample/EmbedderSample.csproj" />
     <Project Path="samples/GeneratorGgufSample/GeneratorGgufSample.csproj" />
+    <Project Path="samples/RuntimeDownloadTest/RuntimeDownloadTest.csproj" />
     <Project Path="samples/TextGeneratorBuilderSample/TextGeneratorBuilderSample.csproj" />
     <Project Path="samples/TranscriberSample/TranscriberSample.csproj" />
   </Folder>
@@ -54,5 +55,8 @@
     <Project Path="tests/LMSupply.Transcriber.Tests/LMSupply.Transcriber.Tests.csproj" />
     <Project Path="tests/LMSupply.Translator.Tests/LMSupply.Translator.Tests.csproj" />
     <Project Path="tests/LMSupply.Vision.Core.Tests/LMSupply.Vision.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/verify-auto/verify-auto.csproj" />
   </Folder>
 </Solution>
