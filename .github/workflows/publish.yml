@@ -19,6 +19,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+# The job tags the release and creates the GitHub release; nothing else needs the token.
+permissions:
+  contents: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -86,18 +90,14 @@ jobs:
       - name: Push to NuGet
         if: steps.check.outputs.SKIP != 'true'
         run: |
+          # Each push also sends the .snupkg beside the .nupkg to the nuget.org symbol server, so a consumer can
+          # step into LMSupply and read stack traces with line numbers (SourceLink resolves the sources).
           for package in ./artifacts/*.nupkg; do
-            # Skip symbol packages (snupkg) - symbols are embedded in DLLs
-            if [[ "$package" == *.snupkg ]]; then
-              echo "Skipping symbol package: $package"
-              continue
-            fi
             echo "Publishing $package"
             dotnet nuget push "$package" \
               --api-key ${{ secrets.NUGET_API_KEY }} \
               --source https://api.nuget.org/v3/index.json \
-              --skip-duplicate \
-              --no-symbols
+              --skip-duplicate
           done
 
       - name: Create Git Tag

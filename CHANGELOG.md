@@ -15,6 +15,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   models keep beside a graph file of a few hundred kilobytes.
 
 ### Changed
+- **Packages ship debug symbols.** The build produced symbol packages but the publish workflow discarded them, and the
+  libraries do not embed their PDBs, so a consumer could not step into LMSupply or get line numbers in its stack
+  traces. The `.snupkg` files now go to the nuget.org symbol server with each package; SourceLink resolves the sources.
 - **CI runs for every change that can affect a build or a package.** The workflow listed the folders it watched, so a
   change only to `samples/`, `benchmark/`, `tools/`, `global.json` or `nuget.config` started no CI run, and the
   publish workflow, which follows a successful CI run, could ship code nothing had built. It now lists what cannot
