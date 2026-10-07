@@ -13,8 +13,8 @@ test.describe('Chat — multi-turn and cancel', () => {
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
   });
 
-  // [4-10] Multi-turn conversation history maintained
-  test('[4-10] multiple messages create conversation history', async ({ page }) => {
+  // Multi-turn conversation history maintained
+  test('multiple messages create conversation history', async ({ page }) => {
     // First exchange
     await mockChatStream(page, '**/v1/chat/completions', ['First', ' response']);
     await page.getByPlaceholder('Type your message...').fill('Hello');
@@ -88,8 +88,8 @@ test.describe('Chat — multi-turn and cancel', () => {
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 5_000 });
   });
 
-  // [4-11] Auto-scroll to latest message
-  test('[4-11] messages container has auto-scroll behavior', async ({ page }) => {
+  // Auto-scroll to latest message
+  test('messages container has auto-scroll behavior', async ({ page }) => {
     // Send a message and verify the messages area exists and is scrollable
     await mockChatStream(page, '**/v1/chat/completions', ['Response']);
 

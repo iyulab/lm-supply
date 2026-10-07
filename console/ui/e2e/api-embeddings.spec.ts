@@ -3,10 +3,10 @@ import { test, expect } from '@playwright/test';
 const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 // ================================================================
-// Section 4-1: POST /v1/embeddings
+// POST /v1/embeddings
 // ================================================================
-test.describe('Section 4-1: Embeddings', () => {
-  test('[4-1-01] response structure: object list, data[0].embedding, usage', async ({ request }) => {
+test.describe('Embeddings', () => {
+  test('response structure: object list, data[0].embedding, usage', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'Hello world' },
     });
@@ -22,7 +22,7 @@ test.describe('Section 4-1: Embeddings', () => {
     }
   });
 
-  test('[4-1-02] array input returns data array of same length', async ({ request }) => {
+  test('array input returns data array of same length', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: ['text1', 'text2'] },
     });
@@ -36,14 +36,14 @@ test.describe('Section 4-1: Embeddings', () => {
     }
   });
 
-  test('[4-1-03] empty input returns 400', async ({ request }) => {
+  test('empty input returns 400', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: '' },
     });
     expect(resp.status()).toBe(400);
   });
 
-  test('[4-1-04] encoding_format float returns float array', async ({ request }) => {
+  test('encoding_format float returns float array', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'hello', encoding_format: 'float' },
     });
@@ -56,7 +56,7 @@ test.describe('Section 4-1: Embeddings', () => {
     }
   });
 
-  test('[4-1-05] encoding_format base64 returns string', async ({ request }) => {
+  test('encoding_format base64 returns string', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'hello', encoding_format: 'base64' },
     });
@@ -68,7 +68,7 @@ test.describe('Section 4-1: Embeddings', () => {
     }
   });
 
-  test('[4-1-06] dimensions parameter accepted (not 422)', async ({ request }) => {
+  test('dimensions parameter accepted (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'hello', dimensions: 64 },
     });
@@ -79,7 +79,7 @@ test.describe('Section 4-1: Embeddings', () => {
     }
   });
 
-  test('[4-1-07] dimensions > actual returns full vector without error', async ({ request }) => {
+  test('dimensions > actual returns full vector without error', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'hello', dimensions: 99999 },
     });
@@ -87,7 +87,7 @@ test.describe('Section 4-1: Embeddings', () => {
     expect(resp.status()).not.toBe(400);
   });
 
-  test('[4-1-08] usage.total_tokens is non-negative integer', async ({ request }) => {
+  test('usage.total_tokens is non-negative integer', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'hello' },
     });

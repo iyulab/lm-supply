@@ -3,10 +3,10 @@ import { test, expect } from '@playwright/test';
 const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 // ================================================================
-// Section 7-1: POST /v1/audio/speech
+// POST /v1/audio/speech
 // ================================================================
-test.describe('Section 7-1: TTS Speech Synthesis', () => {
-  test('[7-1-01] default WAV response has correct Content-Type', async ({ request }) => {
+test.describe('TTS Speech Synthesis', () => {
+  test('default WAV response has correct Content-Type', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', input: 'Hello, this is a test.', voice: 'alloy' },
     });
@@ -18,7 +18,7 @@ test.describe('Section 7-1: TTS Speech Synthesis', () => {
     }
   });
 
-  test('[7-1-02] all OpenAI voice names accepted (not 422)', async ({ request }) => {
+  test('all OpenAI voice names accepted (not 422)', async ({ request }) => {
     const voices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
     for (const voice of voices) {
       const resp = await request.post(`${BASE}/v1/audio/speech`, {
@@ -28,7 +28,7 @@ test.describe('Section 7-1: TTS Speech Synthesis', () => {
     }
   });
 
-  test('[7-1-03] format pcm returns audio/pcm Content-Type', async ({ request }) => {
+  test('format pcm returns audio/pcm Content-Type', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', input: 'test', response_format: 'pcm' },
     });
@@ -40,14 +40,14 @@ test.describe('Section 7-1: TTS Speech Synthesis', () => {
     }
   });
 
-  test('[7-1-04] format mp3 accepted (not 422)', async ({ request }) => {
+  test('format mp3 accepted (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', input: 'test', response_format: 'mp3' },
     });
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[7-1-05] formats opus/flac/aac accepted (not 422)', async ({ request }) => {
+  test('formats opus/flac/aac accepted (not 422)', async ({ request }) => {
     for (const fmt of ['opus', 'flac', 'aac']) {
       const resp = await request.post(`${BASE}/v1/audio/speech`, {
         data: { model: 'default', input: 'test', response_format: fmt },
@@ -56,7 +56,7 @@ test.describe('Section 7-1: TTS Speech Synthesis', () => {
     }
   });
 
-  test('[7-1-06] speed parameter 0.25–4.0 accepted (not 422)', async ({ request }) => {
+  test('speed parameter 0.25–4.0 accepted (not 422)', async ({ request }) => {
     for (const speed of [0.25, 1.0, 2.0, 4.0]) {
       const resp = await request.post(`${BASE}/v1/audio/speech`, {
         data: { model: 'default', input: 'test', speed },
@@ -65,14 +65,14 @@ test.describe('Section 7-1: TTS Speech Synthesis', () => {
     }
   });
 
-  test('[7-1-07] missing input field returns 400', async ({ request }) => {
+  test('missing input field returns 400', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', voice: 'alloy' },
     });
     expect(resp.status()).toBe(400);
   });
 
-  test('[7-1-08] Content-Disposition includes filename', async ({ request }) => {
+  test('Content-Disposition includes filename', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', input: 'test', response_format: 'wav' },
     });
@@ -85,7 +85,7 @@ test.describe('Section 7-1: TTS Speech Synthesis', () => {
     }
   });
 
-  test('[7-1-09] response delivers chunked/streaming data', async ({ request }) => {
+  test('response delivers chunked/streaming data', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', input: 'Hello world.', voice: 'alloy' },
     });

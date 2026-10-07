@@ -17,10 +17,10 @@ function minimalWav(): Buffer {
 }
 
 // ================================================================
-// Section 6-1: POST /v1/audio/transcriptions
+// POST /v1/audio/transcriptions
 // ================================================================
-test.describe('Section 6-1: Audio Transcriptions', () => {
-  test('[6-1-01] default response is JSON with text field', async ({ request }) => {
+test.describe('Audio Transcriptions', () => {
+  test('default response is JSON with text field', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: {
         file: { name: 'test.wav', mimeType: 'audio/wav', buffer: minimalWav() },
@@ -35,7 +35,7 @@ test.describe('Section 6-1: Audio Transcriptions', () => {
     }
   });
 
-  test('[6-1-02] verbose_json includes segments with start/end/text', async ({ request }) => {
+  test('verbose_json includes segments with start/end/text', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: {
         file: { name: 'test.wav', mimeType: 'audio/wav', buffer: minimalWav() },
@@ -56,7 +56,7 @@ test.describe('Section 6-1: Audio Transcriptions', () => {
     }
   });
 
-  test('[6-1-03] text format returns plain text (not JSON)', async ({ request }) => {
+  test('text format returns plain text (not JSON)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: {
         file: { name: 'test.wav', mimeType: 'audio/wav', buffer: minimalWav() },
@@ -72,7 +72,7 @@ test.describe('Section 6-1: Audio Transcriptions', () => {
     }
   });
 
-  test('[6-1-04] srt format returns SRT string (not 422)', async ({ request }) => {
+  test('srt format returns SRT string (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: {
         file: { name: 'test.wav', mimeType: 'audio/wav', buffer: minimalWav() },
@@ -88,7 +88,7 @@ test.describe('Section 6-1: Audio Transcriptions', () => {
     }
   });
 
-  test('[6-1-05] vtt format returns VTT string (not 422)', async ({ request }) => {
+  test('vtt format returns VTT string (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: {
         file: { name: 'test.wav', mimeType: 'audio/wav', buffer: minimalWav() },
@@ -103,7 +103,7 @@ test.describe('Section 6-1: Audio Transcriptions', () => {
     }
   });
 
-  test('[6-1-07] prompt parameter accepted (not 422)', async ({ request }) => {
+  test('prompt parameter accepted (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: {
         file: { name: 'test.wav', mimeType: 'audio/wav', buffer: minimalWav() },
@@ -114,7 +114,7 @@ test.describe('Section 6-1: Audio Transcriptions', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[6-1-08] temperature parameter accepted (not 422)', async ({ request }) => {
+  test('temperature parameter accepted (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: {
         file: { name: 'test.wav', mimeType: 'audio/wav', buffer: minimalWav() },
@@ -125,7 +125,7 @@ test.describe('Section 6-1: Audio Transcriptions', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[6-1-09] missing file returns 400 with error message', async ({ request }) => {
+  test('missing file returns 400 with error message', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: { model: 'default' },
     });
@@ -134,10 +134,10 @@ test.describe('Section 6-1: Audio Transcriptions', () => {
 });
 
 // ================================================================
-// Section 6-2: POST /v1/audio/translations
+// POST /v1/audio/translations
 // ================================================================
-test.describe('Section 6-2: Audio Translations', () => {
-  test('[6-2-01] translation endpoint exists and returns response (not 404)', async ({ request }) => {
+test.describe('Audio Translations', () => {
+  test('translation endpoint exists and returns response (not 404)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/translations`, {
       multipart: {
         file: { name: 'test.wav', mimeType: 'audio/wav', buffer: minimalWav() },
@@ -148,7 +148,7 @@ test.describe('Section 6-2: Audio Translations', () => {
     expect(resp.status()).not.toBe(405);
   });
 
-  test('[6-2-02] verbose_json for translations accepted (not 422)', async ({ request }) => {
+  test('verbose_json for translations accepted (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/translations`, {
       multipart: {
         file: { name: 'test.wav', mimeType: 'audio/wav', buffer: minimalWav() },
@@ -159,7 +159,7 @@ test.describe('Section 6-2: Audio Translations', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[6-2-03] srt/vtt/text formats all accepted by translations endpoint', async ({ request }) => {
+  test('srt/vtt/text formats all accepted by translations endpoint', async ({ request }) => {
     for (const format of ['json', 'text', 'srt', 'vtt']) {
       const resp = await request.post(`${BASE}/v1/audio/translations`, {
         multipart: {

@@ -5,21 +5,21 @@ import { test, expect } from './fixtures/base.fixture';
 // ================================================================
 
 const domainPages = [
-  { path: '/chat', heading: 'Chat', planId: '4-12', expectedCommands: 2, keywords: ['chat/completions'] },
-  { path: '/embed', heading: 'Text Embedding', planId: '4-21', expectedCommands: 1, keywords: ['embeddings'] },
-  { path: '/rerank', heading: 'Document Reranking', planId: '4-31', expectedCommands: 1, keywords: ['rerank'] },
-  { path: '/transcribe', heading: 'Speech to Text', planId: '4-39', expectedCommands: 2, keywords: ['transcriptions'] },
-  { path: '/synthesize', heading: 'Text to Speech', planId: '4-49', expectedCommands: 1, keywords: ['audio/speech'] },
-  { path: '/translate', heading: 'Machine Translation', planId: '4-57', expectedCommands: 2, keywords: ['translate'] },
-  { path: '/ocr', heading: 'Optical Character Recognition', planId: '4-74', expectedCommands: 2, keywords: ['ocr'] },
-  { path: '/detect', heading: 'Object Detection', planId: '4-83', expectedCommands: 2, keywords: ['detect'] },
-  { path: '/segment', heading: 'Image Segmentation', planId: '4-89', expectedCommands: 2, keywords: ['segment'] },
-  { path: '/image-generate', heading: 'Image Generation', planId: '4-101', expectedCommands: 2, keywords: ['images/generate'] },
+  { path: '/chat', heading: 'Chat', expectedCommands: 2, keywords: ['chat/completions'] },
+  { path: '/embed', heading: 'Text Embedding', expectedCommands: 1, keywords: ['embeddings'] },
+  { path: '/rerank', heading: 'Document Reranking', expectedCommands: 1, keywords: ['rerank'] },
+  { path: '/transcribe', heading: 'Speech to Text', expectedCommands: 2, keywords: ['transcriptions'] },
+  { path: '/synthesize', heading: 'Text to Speech', expectedCommands: 1, keywords: ['audio/speech'] },
+  { path: '/translate', heading: 'Machine Translation', expectedCommands: 2, keywords: ['translate'] },
+  { path: '/ocr', heading: 'Optical Character Recognition', expectedCommands: 2, keywords: ['ocr'] },
+  { path: '/detect', heading: 'Object Detection', expectedCommands: 2, keywords: ['detect'] },
+  { path: '/segment', heading: 'Image Segmentation', expectedCommands: 2, keywords: ['segment'] },
+  { path: '/image-generate', heading: 'Image Generation', expectedCommands: 2, keywords: ['images/generate'] },
 ];
 
 test.describe('cURL Examples — all domain pages', () => {
   for (const domain of domainPages) {
-    test(`[${domain.planId}] ${domain.path} has cURL Examples section with ${domain.expectedCommands} command(s)`, async ({ page }) => {
+    test(`${domain.path} has cURL Examples section with ${domain.expectedCommands} command(s)`, async ({ page }) => {
       await page.goto(domain.path);
       await expect(page.locator('main').getByRole('heading', { name: domain.heading }).first()).toBeVisible();
 

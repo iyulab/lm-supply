@@ -39,8 +39,8 @@ test.describe('Translate — deeper UI', () => {
     }
   });
 
-  // [4-54] Translation output is read-only
-  test('[4-54] translation output is read-only div', async ({ page }) => {
+  // Translation output is read-only
+  test('translation output is read-only div', async ({ page }) => {
     // The translation area is a div, not a textarea
     const outputDivs = page.locator('.grid .bg-muted.border.border-border.rounded.overflow-auto');
     await expect(outputDivs.first()).toBeVisible();
@@ -71,8 +71,8 @@ test.describe('ImageGenerate — deeper UI', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Image Generation' })).toBeVisible();
   });
 
-  // [4-100] Negative prompt textarea in advanced settings
-  test('[4-100] negative prompt textarea in advanced settings', async ({ page }) => {
+  // Negative prompt textarea in advanced settings
+  test('negative prompt textarea in advanced settings', async ({ page }) => {
     // Open advanced settings
     await page.getByRole('button', { name: /Advanced Settings/i }).click();
 

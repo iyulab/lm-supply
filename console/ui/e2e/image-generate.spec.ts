@@ -6,8 +6,8 @@ test.describe('Image Generate page', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Image Generation' })).toBeVisible();
   });
 
-  // [4-90] ImageGen model selector has default option
-  test('[4-90] model selector has default option', async ({ page }) => {
+  // ImageGen model selector has default option
+  test('model selector has default option', async ({ page }) => {
     const selects = page.locator('select');
     const modelSelect = selects.first();
     await expect(modelSelect).toBeVisible();
@@ -16,8 +16,8 @@ test.describe('Image Generate page', () => {
     expect(value).toBe('default');
   });
 
-  // [4-93] Size dropdown has 6 preset options
-  test('[4-93] size dropdown has 6 preset options', async ({ page }) => {
+  // Size dropdown has 6 preset options
+  test('size dropdown has 6 preset options', async ({ page }) => {
     const selects = page.locator('select');
     // Model is first, Size is second
     const sizeSelect = selects.nth(1);
@@ -33,14 +33,14 @@ test.describe('Image Generate page', () => {
     expect(optionValues).toContain('1024x1024');
   });
 
-  // [4-91] Prompt textarea with placeholder
-  test('[4-91] has prompt textarea with placeholder', async ({ page }) => {
+  // Prompt textarea with placeholder
+  test('has prompt textarea with placeholder', async ({ page }) => {
     const textarea = page.getByPlaceholder(/serene lake|sunset|mountains/i);
     await expect(textarea).toBeVisible();
   });
 
-  // [4-92] Generate button disabled when prompt empty
-  test('[4-92] generate button is disabled when prompt is empty', async ({ page }) => {
+  // Generate button disabled when prompt empty
+  test('generate button is disabled when prompt is empty', async ({ page }) => {
     const generateButton = page.getByRole('button', { name: /Generate Image/i });
     await expect(generateButton).toBeDisabled();
   });
@@ -54,8 +54,8 @@ test.describe('Image Generate page', () => {
     await expect(generateButton).toBeEnabled();
   });
 
-  // [4-94] Advanced settings toggle shows additional fields
-  test('[4-94] advanced settings toggle shows/hides settings panel', async ({ page }) => {
+  // Advanced settings toggle shows additional fields
+  test('advanced settings toggle shows/hides settings panel', async ({ page }) => {
     // Advanced settings should be hidden initially
     await expect(page.getByText(/Negative Prompt/)).toBeHidden();
 
@@ -69,8 +69,8 @@ test.describe('Image Generate page', () => {
     await expect(page.getByText(/Seed/)).toBeVisible();
   });
 
-  // [4-95] Steps slider range 1-8
-  test('[4-95] steps slider has correct range (1-8)', async ({ page }) => {
+  // Steps slider range 1-8
+  test('steps slider has correct range (1-8)', async ({ page }) => {
     // Open advanced settings
     const advancedToggle = page.getByRole('button', { name: /Advanced Settings/i });
     await advancedToggle.click();
@@ -97,8 +97,8 @@ test.describe('Image Generate page', () => {
     await expect(guidanceSlider).toHaveAttribute('step', '0.1');
   });
 
-  // [4-96] Randomize seed button generates new seed value
-  test('[4-96] randomize seed button fills seed input', async ({ page }) => {
+  // Randomize seed button generates new seed value
+  test('randomize seed button fills seed input', async ({ page }) => {
     // Open advanced settings
     const advancedToggle = page.getByRole('button', { name: /Advanced Settings/i });
     await advancedToggle.click();

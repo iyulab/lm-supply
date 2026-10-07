@@ -19,8 +19,8 @@ test.describe('Chat — empty input', () => {
     await expect(sendBtn).toBeDisabled();
   });
 
-  // [4-04] Whitespace-only input keeps send disabled
-  test('[4-04] [7-01] send button is disabled with whitespace-only input', async ({ page }) => {
+  // Whitespace-only input keeps send disabled
+  test('send button is disabled with whitespace-only input', async ({ page }) => {
     const input = page.locator('input[type="text"]').first();
     await input.fill('   ');
     const sendBtn = page.locator('button[type="submit"]');
@@ -39,7 +39,7 @@ test.describe('Embed — empty input', () => {
     await expect(submitBtn).toBeDisabled();
   });
 
-  test('[7-02] embed button is disabled with whitespace-only text', async ({ page }) => {
+  test('embed button is disabled with whitespace-only text', async ({ page }) => {
     const textarea = page.locator('textarea');
     await textarea.fill('   \n   \n   ');
     const submitBtn = page.locator('button[type="submit"]');
@@ -58,7 +58,7 @@ test.describe('Translate — empty input', () => {
     await expect(submitBtn).toBeDisabled();
   });
 
-  test('[7-03] translate button is disabled with whitespace-only text', async ({ page }) => {
+  test('translate button is disabled with whitespace-only text', async ({ page }) => {
     const textarea = page.locator('textarea');
     await textarea.fill('   ');
     const submitBtn = page.locator('button[type="submit"]');
@@ -77,7 +77,7 @@ test.describe('Synthesize — empty input', () => {
     await expect(submitBtn).toBeDisabled();
   });
 
-  test('[7-04] generate button is disabled with whitespace-only text', async ({ page }) => {
+  test('generate button is disabled with whitespace-only text', async ({ page }) => {
     const textarea = page.locator('textarea');
     await textarea.fill('   \n  ');
     const submitBtn = page.locator('button[type="submit"]');
@@ -206,7 +206,7 @@ test.describe('ImageGenerate — slider boundaries', () => {
 // ================================================================
 
 test.describe('Chat — special characters', () => {
-  test('[7-06] [7-07] [7-08] unicode input is accepted in chat', async ({ page }) => {
+  test('unicode input is accepted in chat', async ({ page }) => {
     await page.goto('/chat');
     await expect(page.locator('main').getByRole('heading', { name: 'Chat' })).toBeVisible();
 
@@ -221,7 +221,7 @@ test.describe('Chat — special characters', () => {
 });
 
 test.describe('Embed — special characters', () => {
-  test('[7-06] [7-07] [7-08] unicode and newlines accepted in embed textarea', async ({ page }) => {
+  test('unicode and newlines accepted in embed textarea', async ({ page }) => {
     await page.goto('/embed');
     await expect(page.locator('main').getByRole('heading', { name: 'Embed' })).toBeVisible();
 
@@ -235,7 +235,7 @@ test.describe('Embed — special characters', () => {
 });
 
 test.describe('Translate — special characters', () => {
-  test('[7-06] [7-07] unicode text accepted for translation', async ({ page }) => {
+  test('unicode text accepted for translation', async ({ page }) => {
     await page.goto('/translate');
     await expect(page.locator('main').getByRole('heading', { name: 'Machine Translation' })).toBeVisible();
 

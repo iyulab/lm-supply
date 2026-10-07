@@ -19,8 +19,8 @@ test.describe('Transcribe — Korean audio', () => {
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
   });
 
-  // [4-38] Korean audio transcription shows Korean text and language "ko"
-  test('[4-38] Korean transcription shows Korean text and ko language', async ({ page }) => {
+  // Korean audio transcription shows Korean text and language "ko"
+  test('Korean transcription shows Korean text and ko language', async ({ page }) => {
     const koreanResponse = {
       text: '안녕하세요, 오늘 날씨가 좋습니다.',
       task: 'transcribe',

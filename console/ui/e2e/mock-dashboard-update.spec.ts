@@ -11,7 +11,7 @@ import { mockDashboardApis } from './fixtures/api-mocks';
 // ================================================================
 
 test.describe('Dashboard — empty cached models', () => {
-  test('[2-09] shows empty message when no models cached', async ({ page }) => {
+  test('shows empty message when no models cached', async ({ page }) => {
     await mockDashboardApis(page, { cachedModels: [], loadedModels: [] });
 
     await page.goto('/');
@@ -31,7 +31,7 @@ test.describe('Dashboard — empty cached models', () => {
 // ================================================================
 
 test.describe('Models — registry download', () => {
-  test('[3-12] clicking download button on uncached registry model triggers download', async ({ page }) => {
+  test('clicking download button on uncached registry model triggers download', async ({ page }) => {
     // Mock all models page APIs
     await page.route('**/api/cache/models', async (route) => {
       await route.fulfill({

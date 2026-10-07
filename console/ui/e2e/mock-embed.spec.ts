@@ -14,8 +14,8 @@ test.describe('Embed — mock inference results', () => {
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
   });
 
-  // [4-17] Single text embedding shows count and dimensions
-  test('[4-17] embedding results show count and dimensions', async ({ page }) => {
+  // Single text embedding shows count and dimensions
+  test('embedding results show count and dimensions', async ({ page }) => {
     const texts = ['Hello world', 'Test sentence'];
     const mockResponse = mockEmbedResponse(texts, 384);
 
@@ -33,8 +33,8 @@ test.describe('Embed — mock inference results', () => {
     await expect(page.getByText(/Results.*2 embeddings.*384 dimensions/)).toBeVisible({ timeout: 10_000 });
   });
 
-  // [4-19] Vector preview shows first values and dimension count
-  test('[4-19] vector preview shows first values and dims', async ({ page }) => {
+  // Vector preview shows first values and dimension count
+  test('vector preview shows first values and dims', async ({ page }) => {
     const texts = ['Single text'];
     const mockResponse = mockEmbedResponse(texts, 384);
 
@@ -51,8 +51,8 @@ test.describe('Embed — mock inference results', () => {
     await expect(page.getByText(/\[.*\.\d{4}.*\].*384 dims/)).toBeVisible();
   });
 
-  // [4-20] Elapsed time shown after embedding
-  test('[4-20] elapsed time is shown after generation', async ({ page }) => {
+  // Elapsed time shown after embedding
+  test('elapsed time is shown after generation', async ({ page }) => {
     const mockResponse = mockEmbedResponse(['Test'], 384);
     await mockJsonEndpoint(page, '**/v1/embeddings', mockResponse);
 
@@ -63,8 +63,8 @@ test.describe('Embed — mock inference results', () => {
     await expect(page.getByText(/\d+ ms/)).toBeVisible({ timeout: 10_000 });
   });
 
-  // [4-18] Multiple texts generate multiple embeddings
-  test('[4-18] multiple texts generate multiple embedding results', async ({ page }) => {
+  // Multiple texts generate multiple embeddings
+  test('multiple texts generate multiple embedding results', async ({ page }) => {
     const texts = ['First text', 'Second text', 'Third text'];
     const mockResponse = mockEmbedResponse(texts, 256);
 

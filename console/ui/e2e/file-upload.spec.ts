@@ -29,7 +29,7 @@ test.describe('File upload — Caption page', () => {
   });
 
   // image preview on upload
-  test('[4-61] uploading an image shows preview', async ({ page }) => {
+  test('uploading an image shows preview', async ({ page }) => {
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(TEST_IMAGE);
 

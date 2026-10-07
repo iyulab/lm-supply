@@ -58,10 +58,10 @@ function mockRerankApi(page: Page) {
 }
 
 // ================================================================
-// Section 15-3: Chat Page
+// Chat Page
 // ================================================================
-test.describe('Section 15-3: Chat Page', () => {
-  test('[15-3-01] message input and send button present', async ({ page }) => {
+test.describe('Chat Page', () => {
+  test('message input and send button present', async ({ page }) => {
     await mockChatStream(page);
     await page.goto('/chat');
     await page.waitForLoadState('domcontentloaded');
@@ -70,7 +70,7 @@ test.describe('Section 15-3: Chat Page', () => {
     await expect(input).toBeVisible({ timeout: 10000 });
   });
 
-  test('[15-3-02] streaming output visible after sending message', async ({ page }) => {
+  test('streaming output visible after sending message', async ({ page }) => {
     await mockChatStream(page);
     await page.goto('/chat');
     await page.waitForLoadState('domcontentloaded');
@@ -86,7 +86,7 @@ test.describe('Section 15-3: Chat Page', () => {
     }
   });
 
-  test('[15-3-03] curl example component is rendered', async ({ page }) => {
+  test('curl example component is rendered', async ({ page }) => {
     await mockChatStream(page);
     await page.goto('/chat');
     await page.waitForLoadState('domcontentloaded');
@@ -97,10 +97,10 @@ test.describe('Section 15-3: Chat Page', () => {
 });
 
 // ================================================================
-// Section 15-4: Embed Page
+// Embed Page
 // ================================================================
-test.describe('Section 15-4: Embed Page', () => {
-  test('[15-4-01] text input field present on embed page', async ({ page }) => {
+test.describe('Embed Page', () => {
+  test('text input field present on embed page', async ({ page }) => {
     await mockEmbedApi(page);
     await page.goto('/embed');
     await page.waitForLoadState('domcontentloaded');
@@ -108,7 +108,7 @@ test.describe('Section 15-4: Embed Page', () => {
     await expect(input).toBeVisible({ timeout: 10000 });
   });
 
-  test('[15-4-02] embedding result shows dimension count after submit', async ({ page }) => {
+  test('embedding result shows dimension count after submit', async ({ page }) => {
     await mockEmbedApi(page);
     await page.goto('/embed');
     await page.waitForLoadState('domcontentloaded');
@@ -126,7 +126,7 @@ test.describe('Section 15-4: Embed Page', () => {
     expect(content).toBeTruthy();
   });
 
-  test('[15-4-03] curl example shown on embed page', async ({ page }) => {
+  test('curl example shown on embed page', async ({ page }) => {
     await mockEmbedApi(page);
     await page.goto('/embed');
     await page.waitForLoadState('domcontentloaded');
@@ -136,10 +136,10 @@ test.describe('Section 15-4: Embed Page', () => {
 });
 
 // ================================================================
-// Section 15-5: Rerank Page
+// Rerank Page
 // ================================================================
-test.describe('Section 15-5: Rerank Page', () => {
-  test('[15-5-01] query and documents input fields present', async ({ page }) => {
+test.describe('Rerank Page', () => {
+  test('query and documents input fields present', async ({ page }) => {
     await mockRerankApi(page);
     await page.goto('/rerank');
     await page.waitForLoadState('domcontentloaded');
@@ -147,7 +147,7 @@ test.describe('Section 15-5: Rerank Page', () => {
     expect(content).toMatch(/query|document|rerank/i);
   });
 
-  test('[15-5-02] rerank results show index, score, text', async ({ page }) => {
+  test('rerank results show index, score, text', async ({ page }) => {
     await mockRerankApi(page);
     await page.goto('/rerank');
     await page.waitForLoadState('domcontentloaded');
@@ -171,17 +171,17 @@ test.describe('Section 15-5: Rerank Page', () => {
 });
 
 // ================================================================
-// Section 15-6: Transcribe Page
+// Transcribe Page
 // ================================================================
-test.describe('Section 15-6: Transcribe Page', () => {
-  test('[15-6-01] file upload input present on transcribe page', async ({ page }) => {
+test.describe('Transcribe Page', () => {
+  test('file upload input present on transcribe page', async ({ page }) => {
     await page.goto('/transcribe');
     await page.waitForLoadState('domcontentloaded');
     const fileInput = page.locator('input[type="file"]');
     await expect(fileInput).toBeAttached({ timeout: 10000 });
   });
 
-  test('[15-6-02] model/language selection visible', async ({ page }) => {
+  test('model/language selection visible', async ({ page }) => {
     await page.goto('/transcribe');
     await page.waitForLoadState('domcontentloaded');
     const content = await page.content();
@@ -190,17 +190,17 @@ test.describe('Section 15-6: Transcribe Page', () => {
 });
 
 // ================================================================
-// Section 15-7: Synthesize Page
+// Synthesize Page
 // ================================================================
-test.describe('Section 15-7: Synthesize Page', () => {
-  test('[15-7-01] text input present on synthesize page', async ({ page }) => {
+test.describe('Synthesize Page', () => {
+  test('text input present on synthesize page', async ({ page }) => {
     await page.goto('/synthesize');
     await page.waitForLoadState('domcontentloaded');
     const input = page.locator('textarea, input[type="text"]').first();
     await expect(input).toBeVisible({ timeout: 10000 });
   });
 
-  test('[15-7-04] voice/speed options visible', async ({ page }) => {
+  test('voice/speed options visible', async ({ page }) => {
     await page.goto('/synthesize');
     await page.waitForLoadState('domcontentloaded');
     const content = await page.content();

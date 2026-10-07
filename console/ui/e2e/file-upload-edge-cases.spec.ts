@@ -13,8 +13,8 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 // ================================================================
 
 test.describe('Empty file upload', () => {
-  // [7-11] Empty (0-byte) file upload — app should not crash
-  test('[7-11] uploading empty audio file does not crash the app', async ({ page }) => {
+  // Empty (0-byte) file upload — app should not crash
+  test('uploading empty audio file does not crash the app', async ({ page }) => {
     // Mock transcriber models to enable file input
     await page.route('**/api/registry/models/transcriber', async (route) => {
       await route.fulfill({
@@ -61,8 +61,8 @@ test.describe('Empty file upload', () => {
     // No unhandled JS errors (Playwright would fail the test on uncaught exceptions)
   });
 
-  // [7-11] Empty file upload to Caption — app should not crash
-  test('[7-11] uploading empty image file does not crash the app', async ({ page }) => {
+  // Empty file upload to Caption — app should not crash
+  test('uploading empty image file does not crash the app', async ({ page }) => {
     await page.route('**/v1/images/caption', async (route) => {
       await route.fulfill({
         status: 400,
@@ -87,8 +87,8 @@ test.describe('Empty file upload', () => {
 });
 
 test.describe('Wrong file format — image upload', () => {
-  // [7-13] Text file uploaded as image to Caption
-  test('[7-13] uploading text file as image shows error', async ({ page }) => {
+  // Text file uploaded as image to Caption
+  test('uploading text file as image shows error', async ({ page }) => {
     await page.route('**/v1/images/caption', async (route) => {
       await route.fulfill({
         status: 400,
@@ -111,8 +111,8 @@ test.describe('Wrong file format — image upload', () => {
     await expect(page.getByText(/invalid|error|format/i)).toBeVisible({ timeout: 10_000 });
   });
 
-  // [7-13] Text file uploaded as image to OCR
-  test('[7-13] uploading text file as image to OCR shows error', async ({ page }) => {
+  // Text file uploaded as image to OCR
+  test('uploading text file as image to OCR shows error', async ({ page }) => {
     await page.route('**/v1/images/ocr', async (route) => {
       await route.fulfill({
         status: 400,
@@ -137,8 +137,8 @@ test.describe('Wrong file format — image upload', () => {
 });
 
 test.describe('Image format acceptance', () => {
-  // [7-15] Image file input accepts image/*
-  test('[7-15] Caption file input accepts image/* (PNG, JPG, WebP, BMP)', async ({ page }) => {
+  // Image file input accepts image/*
+  test('Caption file input accepts image/* (PNG, JPG, WebP, BMP)', async ({ page }) => {
     await page.goto('/caption');
     await expect(page.locator('main').getByRole('heading', { name: /Image Captioning/ })).toBeVisible();
 
@@ -146,7 +146,7 @@ test.describe('Image format acceptance', () => {
     await expect(fileInput).toHaveAttribute('accept', 'image/*');
   });
 
-  test('[7-15] OCR file input accepts image/*', async ({ page }) => {
+  test('OCR file input accepts image/*', async ({ page }) => {
     await page.goto('/ocr');
     await expect(page.locator('main').getByRole('heading', { name: 'Optical Character Recognition' })).toBeVisible();
 
@@ -154,7 +154,7 @@ test.describe('Image format acceptance', () => {
     await expect(fileInput).toHaveAttribute('accept', 'image/*');
   });
 
-  test('[7-15] Detect file input accepts image/*', async ({ page }) => {
+  test('Detect file input accepts image/*', async ({ page }) => {
     await page.goto('/detect');
     await expect(page.locator('main').getByRole('heading', { name: 'Object Detection' })).toBeVisible();
 
@@ -164,8 +164,8 @@ test.describe('Image format acceptance', () => {
 });
 
 test.describe('Audio format acceptance', () => {
-  // [7-16] Audio file input accepts audio/*
-  test('[7-16] Transcribe file input accepts audio/*', async ({ page }) => {
+  // Audio file input accepts audio/*
+  test('Transcribe file input accepts audio/*', async ({ page }) => {
     await page.goto('/transcribe');
     await expect(page.locator('main').getByRole('heading', { name: 'Speech to Text' })).toBeVisible();
 

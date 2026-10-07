@@ -14,8 +14,8 @@ test.describe('Chat — mock streaming', () => {
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
   });
 
-  // [4-05] Message sending shows streaming response [4-06] User message displayed [4-07] Assistant response displayed
-  test('[4-05] sending message shows user and assistant messages', async ({ page }) => {
+  // Message sending shows streaming response; User message displayed; Assistant response displayed
+  test('sending message shows user and assistant messages', async ({ page }) => {
     const tokens = ['Hello', ', ', 'I am', ' an', ' AI', ' assistant', '.'];
 
     // Mock the chat streaming endpoint (goes directly to localhost:5000 in dev mode)
@@ -33,8 +33,8 @@ test.describe('Chat — mock streaming', () => {
     await expect(page.locator('.bg-muted').filter({ hasText: /Hello.*I am.*AI assistant/ }).first()).toBeVisible({ timeout: 10_000 });
   });
 
-  // [4-08] Elapsed time shown after response
-  test('[4-08] elapsed time is shown after response completes', async ({ page }) => {
+  // Elapsed time shown after response
+  test('elapsed time is shown after response completes', async ({ page }) => {
     await mockChatStream(page, '**/v1/chat/completions', ['Response', ' text']);
 
     const input = page.getByPlaceholder('Type your message...');
@@ -67,8 +67,8 @@ test.describe('Chat — mock streaming', () => {
     await expect(page.getByText(/Error:.*Model failed to load/)).toBeVisible({ timeout: 10_000 });
   });
 
-  // [4-06] User message right-aligned with user icon
-  test('[4-06] user message has user icon', async ({ page }) => {
+  // User message right-aligned with user icon
+  test('user message has user icon', async ({ page }) => {
     await mockChatStream(page, '**/v1/chat/completions', ['OK']);
 
     const input = page.getByPlaceholder('Type your message...');
@@ -80,8 +80,8 @@ test.describe('Chat — mock streaming', () => {
     await expect(userMsg).toBeVisible({ timeout: 10_000 });
   });
 
-  // [4-07] Assistant message with bot icon
-  test('[4-07] assistant message has bot icon', async ({ page }) => {
+  // Assistant message with bot icon
+  test('assistant message has bot icon', async ({ page }) => {
     await mockChatStream(page, '**/v1/chat/completions', ['I', ' can', ' help']);
 
     const input = page.getByPlaceholder('Type your message...');

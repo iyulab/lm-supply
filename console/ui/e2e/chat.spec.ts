@@ -10,8 +10,8 @@ test.describe('Chat page', () => {
   // 3.1 Model Selection
   // ================================================================
 
-  // [4-01] Model selector loads generator models
-  test('[4-01] model selector loads and shows generator models', async ({ page }) => {
+  // Model selector loads generator models
+  test('model selector loads and shows generator models', async ({ page }) => {
     // Wait for loading to finish
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
 
@@ -21,8 +21,8 @@ test.describe('Chat page', () => {
     expect(optionCount).toBeGreaterThan(0);
   });
 
-  // [4-02] No undefined in model selector options
-  test('[4-02] model selector does not show "undefined" in options', async ({ page }) => {
+  // No undefined in model selector options
+  test('model selector does not show "undefined" in options', async ({ page }) => {
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
 
     const select = page.locator('select');
@@ -46,8 +46,8 @@ test.describe('Chat page', () => {
   // 3.2 Chat Interaction
   // ================================================================
 
-  // [4-03] Send disabled when input is empty
-  test('[4-03] send button is disabled when input is empty', async ({ page }) => {
+  // Send disabled when input is empty
+  test('send button is disabled when input is empty', async ({ page }) => {
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
 
     // Submit button should be disabled

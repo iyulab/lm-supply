@@ -3,10 +3,10 @@ import { test, expect } from '@playwright/test';
 const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 // ================================================================
-// Section 3-1: Basic Chat Completions
+// Basic Chat Completions
 // ================================================================
-test.describe('Section 3-1: Basic Chat Completions', () => {
-  test('[3-1-01] response has required OpenAI fields', async ({ request }) => {
+test.describe('Basic Chat Completions', () => {
+  test('response has required OpenAI fields', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -27,7 +27,7 @@ test.describe('Section 3-1: Basic Chat Completions', () => {
     }
   });
 
-  test('[3-1-02] finish_reason is "stop"', async ({ request }) => {
+  test('finish_reason is "stop"', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -43,7 +43,7 @@ test.describe('Section 3-1: Basic Chat Completions', () => {
     }
   });
 
-  test('[3-1-03] empty messages returns 400', async ({ request }) => {
+  test('empty messages returns 400', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: { model: 'default', messages: [] },
     });
@@ -52,7 +52,7 @@ test.describe('Section 3-1: Basic Chat Completions', () => {
     expect(body.error.type).toBe('invalid_request_error');
   });
 
-  test('[3-1-04] system + user messages accepted', async ({ request }) => {
+  test('system + user messages accepted', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -68,7 +68,7 @@ test.describe('Section 3-1: Basic Chat Completions', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[3-1-05] max_completion_tokens parameter accepted', async ({ request }) => {
+  test('max_completion_tokens parameter accepted', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -79,7 +79,7 @@ test.describe('Section 3-1: Basic Chat Completions', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[3-1-06] max_tokens (legacy) parameter accepted', async ({ request }) => {
+  test('max_tokens (legacy) parameter accepted', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -90,7 +90,7 @@ test.describe('Section 3-1: Basic Chat Completions', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[3-1-07] temperature and top_p parameters accepted', async ({ request }) => {
+  test('temperature and top_p parameters accepted', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -103,7 +103,7 @@ test.describe('Section 3-1: Basic Chat Completions', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[3-1-08] stop sequences parameter accepted', async ({ request }) => {
+  test('stop sequences parameter accepted', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -117,10 +117,10 @@ test.describe('Section 3-1: Basic Chat Completions', () => {
 });
 
 // ================================================================
-// Section 3-2: Streaming
+// Streaming
 // ================================================================
-test.describe('Section 3-2: Chat Streaming', () => {
-  test('[3-2-01] streaming response uses text/event-stream', async ({ request }) => {
+test.describe('Chat Streaming', () => {
+  test('streaming response uses text/event-stream', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -137,7 +137,7 @@ test.describe('Section 3-2: Chat Streaming', () => {
     }
   });
 
-  test('[3-2-03] streaming response ends with [DONE]', async ({ request }) => {
+  test('streaming response ends with [DONE]', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -156,10 +156,10 @@ test.describe('Section 3-2: Chat Streaming', () => {
 });
 
 // ================================================================
-// Section 3-3: Multiple Choices (n > 1)
+// Multiple Choices (n > 1)
 // ================================================================
-test.describe('Section 3-3: Multiple Choices', () => {
-  test('[3-3-01] n=3 returns 3 choices', async ({ request }) => {
+test.describe('Multiple Choices', () => {
+  test('n=3 returns 3 choices', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -176,7 +176,7 @@ test.describe('Section 3-3: Multiple Choices', () => {
     }
   });
 
-  test('[3-3-02] n=3 choices have indices 0, 1, 2', async ({ request }) => {
+  test('n=3 choices have indices 0, 1, 2', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -196,9 +196,9 @@ test.describe('Section 3-3: Multiple Choices', () => {
 });
 
 // ================================================================
-// Section 3-4: Tool Calls
+// Tool Calls
 // ================================================================
-test.describe('Section 3-4: Tool Calls', () => {
+test.describe('Tool Calls', () => {
   const TOOLS = [{
     type: 'function',
     function: {
@@ -212,7 +212,7 @@ test.describe('Section 3-4: Tool Calls', () => {
     },
   }];
 
-  test('[3-4-01] tools parameter accepted (not 422)', async ({ request }) => {
+  test('tools parameter accepted (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -225,7 +225,7 @@ test.describe('Section 3-4: Tool Calls', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[3-4-06] tool_choice: none returns text response without tool_calls', async ({ request }) => {
+  test('tool_choice: none returns text response without tool_calls', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -246,10 +246,10 @@ test.describe('Section 3-4: Tool Calls', () => {
 });
 
 // ================================================================
-// Section 3-5: Response Format
+// Response Format
 // ================================================================
-test.describe('Section 3-5: Response Format', () => {
-  test('[3-5-01] response_format json_object accepted', async ({ request }) => {
+test.describe('Response Format', () => {
+  test('response_format json_object accepted', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -261,7 +261,7 @@ test.describe('Section 3-5: Response Format', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[3-5-03] invalid response_format type returns 400 or is ignored', async ({ request }) => {
+  test('invalid response_format type returns 400 or is ignored', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -276,13 +276,13 @@ test.describe('Section 3-5: Response Format', () => {
 });
 
 // ================================================================
-// Section 3-6: Multimodal (image_url)
+// Multimodal (image_url)
 // ================================================================
-test.describe('Section 3-6: Multimodal Vision', () => {
+test.describe('Multimodal Vision', () => {
   // 1x1 red pixel PNG as base64
   const PNG_B64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==';
 
-  test('[3-6-01] base64 image_url accepted in messages (not 422)', async ({ request }) => {
+  test('base64 image_url accepted in messages (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -299,7 +299,7 @@ test.describe('Section 3-6: Multimodal Vision', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[3-6-02] localhost URL in image_url accepted (not 422)', async ({ request }) => {
+  test('localhost URL in image_url accepted (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',

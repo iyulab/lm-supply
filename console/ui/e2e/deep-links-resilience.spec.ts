@@ -52,7 +52,7 @@ test.describe('Error resilience', () => {
   });
 
   // 404 page handling (non-existent route)
-  test('[8-14] non-existent route does not crash browser', async ({ page }) => {
+  test('non-existent route does not crash browser', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (err) => errors.push(err.message));
 

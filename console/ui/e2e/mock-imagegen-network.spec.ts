@@ -12,8 +12,8 @@ test.describe('ImageGen — download flow', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Image Generation' })).toBeVisible();
   });
 
-  // [4-99] Download PNG button creates download link
-  test('[4-99] download button creates a PNG download link', async ({ page }) => {
+  // Download PNG button creates download link
+  test('download button creates a PNG download link', async ({ page }) => {
     const mockResponse = mockImageGenerationResponse();
     await mockJsonEndpoint(page, '**/v1/images/generate', mockResponse);
 

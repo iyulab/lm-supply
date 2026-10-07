@@ -6,8 +6,8 @@ import { test, expect } from './fixtures/base.fixture';
 // ================================================================
 
 test.describe('Performance — load timing', () => {
-  // [8-19] Initial dashboard load within 5 seconds
-  test('[8-19] dashboard loads within 5 seconds', async ({ page }) => {
+  // Initial dashboard load within 5 seconds
+  test('dashboard loads within 5 seconds', async ({ page }) => {
     const start = Date.now();
     await page.goto('/');
     await expect(page.getByRole('heading', { name: /Dashboard/ })).toBeVisible();
@@ -17,8 +17,8 @@ test.describe('Performance — load timing', () => {
     expect(elapsed).toBeLessThan(5000);
   });
 
-  // [8-20] Page switch within 1 second
-  test('[8-20] page switch from dashboard to embed is instant', async ({ page }) => {
+  // Page switch within 1 second
+  test('page switch from dashboard to embed is instant', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: /Dashboard/ })).toBeVisible();
 
@@ -31,8 +31,8 @@ test.describe('Performance — load timing', () => {
     expect(elapsed).toBeLessThan(1000);
   });
 
-  // [8-20] Page switch between multiple pages
-  test('[8-20] rapid page switches all under 1 second', async ({ page }) => {
+  // Page switch between multiple pages
+  test('rapid page switches all under 1 second', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: /Dashboard/ })).toBeVisible();
 

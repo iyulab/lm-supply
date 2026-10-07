@@ -3,10 +3,10 @@ import { test, expect } from '@playwright/test';
 const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 // ================================================================
-// Section 2-1: GET /v1/models — OpenAI-compatible list
+// GET /v1/models — OpenAI-compatible list
 // ================================================================
-test.describe('Section 2-1: GET /v1/models', () => {
-  test('[2-1-01] response format is OpenAI list object', async ({ request }) => {
+test.describe('GET /v1/models', () => {
+  test('response format is OpenAI list object', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -14,7 +14,7 @@ test.describe('Section 2-1: GET /v1/models', () => {
     expect(Array.isArray(body.data)).toBe(true);
   });
 
-  test('[2-1-02] all 11 domains present in model list', async ({ request }) => {
+  test('all 11 domains present in model list', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -26,7 +26,7 @@ test.describe('Section 2-1: GET /v1/models', () => {
     )).toBe(true);
   });
 
-  test('[2-1-03] each model has capabilities array', async ({ request }) => {
+  test('each model has capabilities array', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models`);
     const body = await resp.json();
     expect(body.data.length).toBeGreaterThan(0);
@@ -38,7 +38,7 @@ test.describe('Section 2-1: GET /v1/models', () => {
     }
   });
 
-  test('[2-1-04] standard aliases (default, fast, quality) are present', async ({ request }) => {
+  test('standard aliases (default, fast, quality) are present', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models`);
     const body = await resp.json();
     const ids: string[] = body.data.map((m: { id: string }) => m.id);
@@ -48,10 +48,10 @@ test.describe('Section 2-1: GET /v1/models', () => {
 });
 
 // ================================================================
-// Section 2-2: GET /v1/models/{model}
+// GET /v1/models/{model}
 // ================================================================
-test.describe('Section 2-2: GET /v1/models/{model}', () => {
-  test('[2-2-01] existing alias returns 200 with ModelInfo', async ({ request }) => {
+test.describe('GET /v1/models/{model}', () => {
+  test('existing alias returns 200 with ModelInfo', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models/default`);
     // May be 404 if no models registered, or 200 with model info
     expect([200, 404]).toContain(resp.status());
@@ -62,7 +62,7 @@ test.describe('Section 2-2: GET /v1/models/{model}', () => {
     }
   });
 
-  test('[2-2-02] nonexistent model returns 404 with error envelope', async ({ request }) => {
+  test('nonexistent model returns 404 with error envelope', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models/nonexistent-model-xyz`);
     expect(resp.status()).toBe(404);
     const body = await resp.json();
@@ -70,7 +70,7 @@ test.describe('Section 2-2: GET /v1/models/{model}', () => {
     expect(body.error.code).toBeTruthy();
   });
 
-  test('[2-2-03] URL-encoded slash in model ID is handled', async ({ request }) => {
+  test('URL-encoded slash in model ID is handled', async ({ request }) => {
     // Should return 200 or 404, not 400/422/500
     const resp = await request.get(`${BASE}/v1/models/microsoft%2FFlorence-2-base`);
     expect([200, 404]).toContain(resp.status());
@@ -78,10 +78,10 @@ test.describe('Section 2-2: GET /v1/models/{model}', () => {
 });
 
 // ================================================================
-// Section 2-3: Cache Management API
+// Cache Management API
 // ================================================================
-test.describe('Section 2-3: Cache Management API', () => {
-  test('[2-3-01] GET /api/cache/models returns list with sizeBytes', async ({ request }) => {
+test.describe('Cache Management API', () => {
+  test('GET /api/cache/models returns list with sizeBytes', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/cache/models`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -92,7 +92,7 @@ test.describe('Section 2-3: Cache Management API', () => {
     }
   });
 
-  test('[2-3-02] GET /api/cache/stats returns required fields', async ({ request }) => {
+  test('GET /api/cache/stats returns required fields', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/cache/stats`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -102,7 +102,7 @@ test.describe('Section 2-3: Cache Management API', () => {
     expect(body).toHaveProperty('cacheDirectory');
   });
 
-  test('[2-3-03] GET /api/cache/loaded returns modelType, modelId, lastUsedAt', async ({ request }) => {
+  test('GET /api/cache/loaded returns modelType, modelId, lastUsedAt', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/cache/loaded`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -114,7 +114,7 @@ test.describe('Section 2-3: Cache Management API', () => {
     }
   });
 
-  test('[2-3-04] GET /api/cache/models/type/embedder returns embedder only', async ({ request }) => {
+  test('GET /api/cache/models/type/embedder returns embedder only', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/cache/models/type/embedder`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -126,27 +126,27 @@ test.describe('Section 2-3: Cache Management API', () => {
     }
   });
 
-  test('[2-3-05] GET /api/cache/models/type/invalid returns 400', async ({ request }) => {
+  test('GET /api/cache/models/type/invalid returns 400', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/cache/models/type/invalid`);
     expect(resp.status()).toBe(400);
   });
 
-  test('[2-3-07] DELETE /api/cache/loaded/{id} for nonexistent model returns 404', async ({ request }) => {
+  test('DELETE /api/cache/loaded/{id} for nonexistent model returns 404', async ({ request }) => {
     const resp = await request.delete(`${BASE}/api/cache/loaded/generator:nonexistent-val-plan`);
     expect(resp.status()).toBe(404);
   });
 
-  test('[2-3-09] DELETE /api/cache/models/{repoId} for nonexistent returns 404', async ({ request }) => {
+  test('DELETE /api/cache/models/{repoId} for nonexistent returns 404', async ({ request }) => {
     const resp = await request.delete(`${BASE}/api/cache/models/nonexistent%2Frepo-val-plan`);
     expect(resp.status()).toBe(404);
   });
 });
 
 // ================================================================
-// Section 2-4: Download API
+// Download API
 // ================================================================
-test.describe('Section 2-4: Download API', () => {
-  test('[2-4-01] POST /api/download/check with known repoId returns metadata', async ({ request }) => {
+test.describe('Download API', () => {
+  test('POST /api/download/check with known repoId returns metadata', async ({ request }) => {
     const resp = await request.post(`${BASE}/api/download/check`, {
       data: { repoId: 'BAAI/bge-small-en-v1.5' },
     });
@@ -157,14 +157,14 @@ test.describe('Section 2-4: Download API', () => {
     }
   });
 
-  test('[2-4-03] POST /api/download/check with missing repoId returns 400', async ({ request }) => {
+  test('POST /api/download/check with missing repoId returns 400', async ({ request }) => {
     const resp = await request.post(`${BASE}/api/download/check`, {
       data: {},
     });
     expect(resp.status()).toBe(400);
   });
 
-  test('[2-4-04] SSE download stream uses text/event-stream', async ({ request }) => {
+  test('SSE download stream uses text/event-stream', async ({ request }) => {
     // Just verify the endpoint exists and uses SSE format
     const resp = await request.post(`${BASE}/api/download/start`, {
       data: { repoId: 'BAAI/bge-small-en-v1.5' },
@@ -176,10 +176,10 @@ test.describe('Section 2-4: Download API', () => {
 });
 
 // ================================================================
-// Section 2-5: Registry API
+// Registry API
 // ================================================================
-test.describe('Section 2-5: Registry API', () => {
-  test('[2-5-01] GET /api/registry/models returns 11 model types', async ({ request }) => {
+test.describe('Registry API', () => {
+  test('GET /api/registry/models returns 11 model types', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/registry/models`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -192,7 +192,7 @@ test.describe('Section 2-5: Registry API', () => {
     }
   });
 
-  test('[2-5-02] GET /api/registry/models/embedder returns embedder type', async ({ request }) => {
+  test('GET /api/registry/models/embedder returns embedder type', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/registry/models/embedder`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -200,7 +200,7 @@ test.describe('Section 2-5: Registry API', () => {
     expect(Array.isArray(body.models)).toBe(true);
   });
 
-  test('[2-5-03] isCached field present in registry response', async ({ request }) => {
+  test('isCached field present in registry response', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/registry/models/embedder`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -209,7 +209,7 @@ test.describe('Section 2-5: Registry API', () => {
     }
   });
 
-  test('[2-5-04] GET /api/registry/models/invalidtype returns 404', async ({ request }) => {
+  test('GET /api/registry/models/invalidtype returns 404', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/registry/models/invaliddomaintype`);
     expect(resp.status()).toBe(404);
   });

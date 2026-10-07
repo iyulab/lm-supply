@@ -10,7 +10,7 @@ import { mockJsonEndpoint, mockJsonError, mockCaptionResponse, mockModelsPageApi
 // ================================================================
 
 test.describe('Transcribe — invalid file', () => {
-  test('[7-12] uploading a non-audio file shows error message', async ({ page }) => {
+  test('uploading a non-audio file shows error message', async ({ page }) => {
     // Mock ModelSelector APIs so a model gets auto-selected (file input is disabled without modelId)
     await page.route('**/api/registry/models/transcriber', async (route) => {
       await route.fulfill({
@@ -67,7 +67,7 @@ test.describe('Transcribe — invalid file', () => {
 // ================================================================
 
 test.describe('Models — unload model', () => {
-  test('[3-27] clicking power icon on loaded model unloads it', async ({ page }) => {
+  test('clicking power icon on loaded model unloads it', async ({ page }) => {
     let unloadCalled = false;
     let unloadKey = '';
 

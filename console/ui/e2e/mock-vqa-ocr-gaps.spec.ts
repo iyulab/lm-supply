@@ -39,8 +39,8 @@ test.describe('VQA — keyboard and auto-trigger behavior', () => {
     await expect(page.getByText('A: The image shows a red pixel.')).toBeVisible({ timeout: 15_000 });
   });
 
-  // [4-64] VQA question input field [4-66] Image preserved on mode switch — VQA waits for user question
-  test('[4-64] image upload in VQA mode does not auto-trigger inference', async ({ page }) => {
+  // VQA question input field; Image preserved on mode switch — VQA waits for user question
+  test('image upload in VQA mode does not auto-trigger inference', async ({ page }) => {
     // Switch to VQA mode BEFORE uploading
     await page.getByRole('button', { name: 'Visual QA' }).click();
 

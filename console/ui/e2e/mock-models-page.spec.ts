@@ -12,7 +12,7 @@ import { mockModelsPageApis } from './fixtures/api-mocks';
 // ================================================================
 
 test.describe('Models — empty cached state', () => {
-  test('[3-14] shows empty state message when no models cached', async ({ page }) => {
+  test('shows empty state message when no models cached', async ({ page }) => {
     await mockModelsPageApis(page, { cachedModels: [] });
 
     await page.goto('/models');
@@ -31,7 +31,7 @@ test.describe('Models — empty cached state', () => {
 // ================================================================
 
 test.describe('Models — GGUF selection', () => {
-  test('[3-11] GGUF file dropdown appears after checking a GGUF repo', async ({ page }) => {
+  test('GGUF file dropdown appears after checking a GGUF repo', async ({ page }) => {
     await mockModelsPageApis(page);
 
     // Mock check endpoint to return GGUF files
@@ -83,7 +83,7 @@ test.describe('Models — GGUF selection', () => {
 // ================================================================
 
 test.describe('Models — status badges', () => {
-  test('[3-18] cached model shows Loaded badge when loaded', async ({ page }) => {
+  test('cached model shows Loaded badge when loaded', async ({ page }) => {
     await mockModelsPageApis(page, {
       cachedModels: [
         {
@@ -111,7 +111,7 @@ test.describe('Models — status badges', () => {
     await expect(page.getByText('Loaded').first()).toBeVisible();
   });
 
-  test('[3-18] cached model shows Ready badge when not loaded', async ({ page }) => {
+  test('cached model shows Ready badge when not loaded', async ({ page }) => {
     await mockModelsPageApis(page, {
       cachedModels: [
         {
@@ -147,7 +147,7 @@ test.describe('Models — delete behavior', () => {
   };
 
   // Delete model (click trash, confirm, model removed)
-  test('[3-15] delete button removes model after confirmation', async ({ page }) => {
+  test('delete button removes model after confirmation', async ({ page }) => {
     let deleteWasCalled = false;
     await mockModelsPageApis(page, {
       cachedModels: [mockModel],
@@ -190,7 +190,7 @@ test.describe('Models — delete behavior', () => {
   });
 
   // Delete disabled when model is loaded
-  test('[3-16] delete button is disabled when model is loaded', async ({ page }) => {
+  test('delete button is disabled when model is loaded', async ({ page }) => {
     await mockModelsPageApis(page, {
       cachedModels: [mockModel],
       loadedModels: [
@@ -221,7 +221,7 @@ test.describe('Models — download progress', () => {
   // Download button shows progress bar via SSE
   // Download complete shows green message
   // Active downloads section appears
-  test('[3-08] [3-09] [3-10] download shows progress bar and completion via SSE', async ({ page }) => {
+  test('download shows progress bar and completion via SSE', async ({ page }) => {
     await mockModelsPageApis(page);
 
     // Mock the download/model endpoint to return SSE progress events
@@ -255,7 +255,7 @@ test.describe('Models — download progress', () => {
 // ================================================================
 
 test.describe('Models — duplicate download prevention', () => {
-  test('[3-13] already-cached model shows cached status in registry', async ({ page }) => {
+  test('already-cached model shows cached status in registry', async ({ page }) => {
     const cachedModel = {
       repoId: 'BAAI/bge-small-en-v1.5',
       detectedType: 'Embedder',
@@ -305,7 +305,7 @@ test.describe('Models — duplicate download prevention', () => {
 // ================================================================
 
 test.describe('Models — DELETE cache API', () => {
-  test('[5-16] delete cached model via API returns success', async ({ page }) => {
+  test('delete cached model via API returns success', async ({ page }) => {
     let deletedRepoId = '';
 
     await mockModelsPageApis(page, {

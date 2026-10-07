@@ -6,8 +6,8 @@ test.describe('Translate page', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Machine Translation' })).toBeVisible();
   });
 
-  // [4-50] Language pair selector loads translation models
-  test('[4-50] model selector is populated with language pairs', async ({ page }) => {
+  // Language pair selector loads translation models
+  test('model selector is populated with language pairs', async ({ page }) => {
     const select = page.locator('select');
     await expect(select).toBeVisible();
 
@@ -23,8 +23,8 @@ test.describe('Translate page', () => {
     }
   });
 
-  // [4-51] Source/target language direction labels shown
-  test('[4-51] shows source and target language labels', async ({ page }) => {
+  // Source/target language direction labels shown
+  test('shows source and target language labels', async ({ page }) => {
     // Source Text label should exist
     await expect(page.getByText('Source Text')).toBeVisible();
     // Translation label should exist (use exact label locator to avoid strict mode)
@@ -32,8 +32,8 @@ test.describe('Translate page', () => {
     await expect(translationLabel).toBeVisible();
   });
 
-  // [4-52] Translate button disabled when source empty
-  test('[4-52] translate button is disabled when source text is empty', async ({ page }) => {
+  // Translate button disabled when source empty
+  test('translate button is disabled when source text is empty', async ({ page }) => {
     const submitButton = page.getByRole('button', { name: /Translate/i });
     await expect(submitButton).toBeDisabled();
   });

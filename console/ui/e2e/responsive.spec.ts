@@ -13,19 +13,19 @@ test.describe('Desktop viewport (1280px)', () => {
     await page.setViewportSize({ width: 1280, height: 720 });
   });
 
-  test('[8-01] sidebar is visible at desktop width', async ({ page }) => {
+  test('sidebar is visible at desktop width', async ({ page }) => {
     await page.goto('/');
     const sidebar = page.locator('aside');
     await expect(sidebar).toBeVisible();
   });
 
-  test('[8-01] main content area is visible alongside sidebar', async ({ page }) => {
+  test('main content area is visible alongside sidebar', async ({ page }) => {
     await page.goto('/chat');
     await expect(page.locator('main')).toBeVisible();
     await expect(page.locator('aside')).toBeVisible();
   });
 
-  test('[8-01] dashboard uses multi-column grid at desktop', async ({ page }) => {
+  test('dashboard uses multi-column grid at desktop', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('main')).toBeVisible();
     // Dashboard grid should render (cards exist)
@@ -43,13 +43,13 @@ test.describe('Tablet viewport (1024px)', () => {
     await page.setViewportSize({ width: 1024, height: 768 });
   });
 
-  test('[8-02] sidebar remains visible at tablet width', async ({ page }) => {
+  test('sidebar remains visible at tablet width', async ({ page }) => {
     await page.goto('/');
     const sidebar = page.locator('aside');
     await expect(sidebar).toBeVisible();
   });
 
-  test('[8-02] main content is accessible at tablet width', async ({ page }) => {
+  test('main content is accessible at tablet width', async ({ page }) => {
     await page.goto('/embed');
     await expect(page.locator('main').getByRole('heading', { name: /Embed|Text Embedding/ })).toBeVisible();
     // Textarea should be usable
@@ -59,7 +59,7 @@ test.describe('Tablet viewport (1024px)', () => {
     await expect(textarea).toHaveValue('test');
   });
 
-  test('[8-05] ImageGenerate layout at tablet width', async ({ page }) => {
+  test('ImageGenerate layout at tablet width', async ({ page }) => {
     await page.goto('/image-generate');
     await expect(page.locator('main').getByRole('heading', { name: 'Image Generation' })).toBeVisible();
     // Form and preview should both be visible
@@ -77,13 +77,13 @@ test.describe('Mobile viewport (768px)', () => {
     await page.setViewportSize({ width: 768, height: 1024 });
   });
 
-  test('[8-03] sidebar is visible at mobile width', async ({ page }) => {
+  test('sidebar is visible at mobile width', async ({ page }) => {
     await page.goto('/');
     const sidebar = page.locator('aside');
     await expect(sidebar).toBeVisible();
   });
 
-  test('[8-03] [8-04] chat page is functional at mobile width', async ({ page }) => {
+  test('chat page is functional at mobile width', async ({ page }) => {
     await page.goto('/chat');
     await expect(page.locator('main').getByRole('heading', { name: 'Chat' })).toBeVisible();
 

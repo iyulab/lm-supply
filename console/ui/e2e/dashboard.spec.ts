@@ -7,7 +7,7 @@ test.describe('Dashboard', () => {
   });
 
   // Status loads
-  test('[2-01] system status card shows engine and GPU indicators', async ({ page }) => {
+  test('system status card shows engine and GPU indicators', async ({ page }) => {
     const statusCard = page.getByText('System Status').locator('..');
 
     // ONNX Runtime indicator should be present
@@ -29,7 +29,7 @@ test.describe('Dashboard', () => {
   });
 
   // Resource stats
-  test('[2-04] [2-05] [2-07] resource stats cards are displayed', async ({ page }) => {
+  test('resource stats cards are displayed', async ({ page }) => {
     // CPU Usage card
     await expect(page.getByText('CPU Usage')).toBeVisible({ timeout: 10_000 });
     // Check CPU value is a percentage
@@ -46,7 +46,7 @@ test.describe('Dashboard', () => {
   });
 
   // Auto-refresh
-  test('[2-11] stats update automatically within 10 seconds', async ({ page }) => {
+  test('stats update automatically within 10 seconds', async ({ page }) => {
     // Intercept system status API calls
     const apiCalls: number[] = [];
     page.on('request', (req) => {
@@ -60,7 +60,7 @@ test.describe('Dashboard', () => {
   });
 
   // Cached models
-  test('[2-08] cached models section shows count and list', async ({ page }) => {
+  test('cached models section shows count and list', async ({ page }) => {
     const heading = page.getByRole('heading', { name: /Cached Models/ });
     await expect(heading).toBeVisible();
 
@@ -70,7 +70,7 @@ test.describe('Dashboard', () => {
   });
 
   // Loaded models section
-  test('[2-10] loaded models section renders', async ({ page }) => {
+  test('loaded models section renders', async ({ page }) => {
     const heading = page.getByRole('heading', { name: /Loaded Models/ });
     await expect(heading).toBeVisible();
 

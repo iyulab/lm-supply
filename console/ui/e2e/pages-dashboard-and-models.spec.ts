@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import type { Page, Route } from '@playwright/test';
 
 // ================================================================
-// Section 15-1: Dashboard Page
+// Dashboard Page
 // ================================================================
 
 async function mockSystemApis(page: Page) {
@@ -87,8 +87,8 @@ async function mockModelsPageApis(page: Page) {
   });
 }
 
-test.describe('Section 15-1: Dashboard Page', () => {
-  test('[15-1-01] system status cards visible', async ({ page }) => {
+test.describe('Dashboard Page', () => {
+  test('system status cards visible', async ({ page }) => {
     await mockSystemApis(page);
     await page.goto('/');
     // Look for ONNX or engine-ready indicator
@@ -101,7 +101,7 @@ test.describe('Section 15-1: Dashboard Page', () => {
     expect(true).toBe(true);
   });
 
-  test('[15-1-07] empty cache shows empty state message', async ({ page }) => {
+  test('empty cache shows empty state message', async ({ page }) => {
     await mockSystemApis(page);
     await page.goto('/');
     // With empty cache, should show "no models" type message
@@ -110,7 +110,7 @@ test.describe('Section 15-1: Dashboard Page', () => {
     expect(content.length).toBeGreaterThan(100);
   });
 
-  test('[15-1-08] layout is responsive on narrow viewport', async ({ page }) => {
+  test('layout is responsive on narrow viewport', async ({ page }) => {
     await mockSystemApis(page);
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/');
@@ -123,10 +123,10 @@ test.describe('Section 15-1: Dashboard Page', () => {
 });
 
 // ================================================================
-// Section 15-2: Models Page
+// Models Page
 // ================================================================
-test.describe('Section 15-2: Models Page', () => {
-  test('[15-2-01] registry list is expandable (domain type click)', async ({ page }) => {
+test.describe('Models Page', () => {
+  test('registry list is expandable (domain type click)', async ({ page }) => {
     await mockModelsPageApis(page);
     await page.goto('/models');
     await page.waitForLoadState('domcontentloaded');
@@ -135,7 +135,7 @@ test.describe('Section 15-2: Models Page', () => {
     expect(content).toContain('embedder');
   });
 
-  test('[15-2-02] cached models show cache indicator', async ({ page }) => {
+  test('cached models show cache indicator', async ({ page }) => {
     await mockModelsPageApis(page);
     await page.goto('/models');
     await page.waitForLoadState('domcontentloaded');
@@ -144,7 +144,7 @@ test.describe('Section 15-2: Models Page', () => {
     expect(content).toMatch(/bge-small|cached|BAAI/i);
   });
 
-  test('[15-2-09] loaded models section shows on Models page', async ({ page }) => {
+  test('loaded models section shows on Models page', async ({ page }) => {
     await mockModelsPageApis(page);
     await page.goto('/models');
     await page.waitForLoadState('domcontentloaded');
@@ -153,7 +153,7 @@ test.describe('Section 15-2: Models Page', () => {
     expect(content.length).toBeGreaterThan(100);
   });
 
-  test('[15-2-11] error state shows when load fails', async ({ page }) => {
+  test('error state shows when load fails', async ({ page }) => {
     // Mock failed model load response
     await page.route('**/api/cache/models', async (route: Route) => {
       await route.fulfill({ status: 500, contentType: 'application/json',

@@ -16,8 +16,8 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 test.describe('Language Variants', () => {
   test.setTimeout(120_000);
 
-  // [4-48] Korean text to speech via UI (mocked)
-  test('[4-48] synthesize page handles Korean text input', async ({ page }) => {
+  // Korean text to speech via UI (mocked)
+  test('synthesize page handles Korean text input', async ({ page }) => {
     // Mock the speech endpoint to return audio for Korean
     await page.route('**/v1/audio/speech', async (route) => {
       // Return a minimal WAV header as binary response
@@ -57,8 +57,8 @@ test.describe('Language Variants', () => {
     await expect(page.locator('audio')).toBeVisible({ timeout: 10_000 });
   });
 
-  // [4-73] Korean OCR via UI (mocked)
-  test('[4-73] OCR page accepts Korean language selection', async ({ page }) => {
+  // Korean OCR via UI (mocked)
+  test('OCR page accepts Korean language selection', async ({ page }) => {
     // Mock OCR endpoint with Korean result
     await page.route('**/v1/images/ocr', async (route) => {
       await route.fulfill({
@@ -101,8 +101,8 @@ test.describe('Language Variants', () => {
     await expect(page.getByText('안녕하세요 세계')).toBeVisible();
   });
 
-  // [4-48] Korean TTS via API
-  test('[4-48] POST /v1/audio/speech with Korean text returns audio', async ({ request }) => {
+  // Korean TTS via API
+  test('POST /v1/audio/speech with Korean text returns audio', async ({ request }) => {
     const response = await request.post('/v1/audio/speech', {
       data: {
         model: 'default',
@@ -122,8 +122,8 @@ test.describe('Language Variants', () => {
     }
   });
 
-  // [4-73] Korean OCR via API
-  test('[4-73] POST /v1/images/ocr with language=ko returns text', async ({ request }) => {
+  // Korean OCR via API
+  test('POST /v1/images/ocr with language=ko returns text', async ({ request }) => {
     const imageBuffer = fs.readFileSync(TEST_IMAGE);
     const response = await request.post('/v1/images/ocr', {
       multipart: {

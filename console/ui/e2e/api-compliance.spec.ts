@@ -3,12 +3,12 @@ import { test, expect } from '@playwright/test';
 const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 test.describe('API Compliance — Infrastructure', () => {
-  test('[C-01] all responses include X-Request-Id header', async ({ request }) => {
+  test('all responses include X-Request-Id header', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models`);
     expect(resp.headers()['x-request-id']).toBeTruthy();
   });
 
-  test('[C-02] X-Request-Id echoes client-provided value', async ({ request }) => {
+  test('X-Request-Id echoes client-provided value', async ({ request }) => {
     const myId = 'test-id-12345';
     const resp = await request.get(`${BASE}/v1/models`, {
       headers: { 'X-Request-Id': myId }
@@ -16,7 +16,7 @@ test.describe('API Compliance — Infrastructure', () => {
     expect(resp.headers()['x-request-id']).toBe(myId);
   });
 
-  test('[C-03] model not found returns 404 with error envelope', async ({ request }) => {
+  test('model not found returns 404 with error envelope', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'nonexistent-xyz-12345', input: 'test' }
     });
@@ -27,7 +27,7 @@ test.describe('API Compliance — Infrastructure', () => {
     expect(body.error.message).toContain('nonexistent-xyz-12345');
   });
 
-  test('[C-04] missing required field returns 400 with error envelope', async ({ request }) => {
+  test('missing required field returns 400 with error envelope', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default' }  // missing 'input'
     });
@@ -39,7 +39,7 @@ test.describe('API Compliance — Infrastructure', () => {
 });
 
 test.describe('API Compliance — Models', () => {
-  test('[C-05] GET /v1/models returns OpenAI-compatible list', async ({ request }) => {
+  test('GET /v1/models returns OpenAI-compatible list', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -47,7 +47,7 @@ test.describe('API Compliance — Models', () => {
     expect(Array.isArray(body.data)).toBe(true);
   });
 
-  test('[C-06] model entries have capabilities array', async ({ request }) => {
+  test('model entries have capabilities array', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models`);
     const body = await resp.json();
     if (body.data.length > 0) {
@@ -60,7 +60,7 @@ test.describe('API Compliance — Models', () => {
 });
 
 test.describe('API Compliance — Embeddings', () => {
-  test('[C-07] base64 encoding_format returns string embedding', async ({ request }) => {
+  test('base64 encoding_format returns string embedding', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'hello', encoding_format: 'base64' }
     });
@@ -73,7 +73,7 @@ test.describe('API Compliance — Embeddings', () => {
     }
   });
 
-  test('[C-08] dimensions parameter in request is accepted', async ({ request }) => {
+  test('dimensions parameter in request is accepted', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'hello', dimensions: 64 }
     });
@@ -83,7 +83,7 @@ test.describe('API Compliance — Embeddings', () => {
 });
 
 test.describe('API Compliance — Chat', () => {
-  test('[C-09] chat request with tools field is accepted', async ({ request }) => {
+  test('chat request with tools field is accepted', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -96,7 +96,7 @@ test.describe('API Compliance — Chat', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[C-10] response_format json_object is accepted', async ({ request }) => {
+  test('response_format json_object is accepted', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -108,7 +108,7 @@ test.describe('API Compliance — Chat', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[C-11] n parameter is accepted', async ({ request }) => {
+  test('n parameter is accepted', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -120,7 +120,7 @@ test.describe('API Compliance — Chat', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[C-12] max_completion_tokens alias is accepted', async ({ request }) => {
+  test('max_completion_tokens alias is accepted', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -133,7 +133,7 @@ test.describe('API Compliance — Chat', () => {
 });
 
 test.describe('API Compliance — Audio', () => {
-  test('[C-13] POST /v1/audio/translations is registered (not 404)', async ({ request }) => {
+  test('POST /v1/audio/translations is registered (not 404)', async ({ request }) => {
     // Send minimal request — will fail without a model, but endpoint must exist
     const resp = await request.post(`${BASE}/v1/audio/translations`, {
       multipart: {
@@ -148,7 +148,7 @@ test.describe('API Compliance — Audio', () => {
     expect(resp.status()).not.toBe(404);
   });
 
-  test('[C-14] transcription accepts srt response_format', async ({ request }) => {
+  test('transcription accepts srt response_format', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: {
         file: { name: 'test.wav', mimeType: 'audio/wav', buffer: Buffer.alloc(44, 0) },
@@ -160,7 +160,7 @@ test.describe('API Compliance — Audio', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[C-15] TTS accepts pcm response_format', async ({ request }) => {
+  test('TTS accepts pcm response_format', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', input: 'hello', response_format: 'pcm' }
     });
@@ -169,7 +169,7 @@ test.describe('API Compliance — Audio', () => {
 });
 
 test.describe('API Compliance — Images', () => {
-  test('[C-16] POST /v1/images/edits is registered (not 404)', async ({ request }) => {
+  test('POST /v1/images/edits is registered (not 404)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/edits`, {
       multipart: {
         image: { name: 'test.png', mimeType: 'image/png', buffer: Buffer.from([137, 80, 78, 71]) },
@@ -179,7 +179,7 @@ test.describe('API Compliance — Images', () => {
     expect(resp.status()).not.toBe(404);
   });
 
-  test('[C-17] POST /v1/images/variations is registered (not 404)', async ({ request }) => {
+  test('POST /v1/images/variations is registered (not 404)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/variations`, {
       multipart: {
         image: { name: 'test.png', mimeType: 'image/png', buffer: Buffer.from([137, 80, 78, 71]) }
@@ -188,14 +188,14 @@ test.describe('API Compliance — Images', () => {
     expect(resp.status()).not.toBe(404);
   });
 
-  test('[C-18] image generation accepts n parameter', async ({ request }) => {
+  test('image generation accepts n parameter', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/generations`, {
       data: { prompt: 'test', model: 'default', n: 2, size: '256x256' }
     });
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[C-19] image generation accepts quality parameter', async ({ request }) => {
+  test('image generation accepts quality parameter', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/generations`, {
       data: { prompt: 'test', model: 'default', quality: 'hd', size: '256x256' }
     });
@@ -204,7 +204,7 @@ test.describe('API Compliance — Images', () => {
 });
 
 test.describe('API Compliance — Translation', () => {
-  test('[C-20] POST /v2/translate is registered (not 404)', async ({ request }) => {
+  test('POST /v2/translate is registered (not 404)', async ({ request }) => {
     const resp = await request.post(`http://localhost:5000/v2/translate`, {
       data: { text: ['hello'], target_lang: 'KO' }
     });
@@ -212,7 +212,7 @@ test.describe('API Compliance — Translation', () => {
     expect(resp.status()).not.toBe(405);
   });
 
-  test('[C-21] DeepL format response has translations array', async ({ request }) => {
+  test('DeepL format response has translations array', async ({ request }) => {
     const resp = await request.post(`http://localhost:5000/v2/translate`, {
       data: { text: ['hello'], target_lang: 'KO' }
     });
@@ -224,7 +224,7 @@ test.describe('API Compliance — Translation', () => {
 });
 
 test.describe('API Compliance — Rerank', () => {
-  test('[C-22] rerank accepts object[] documents with rank_fields', async ({ request }) => {
+  test('rerank accepts object[] documents with rank_fields', async ({ request }) => {
     const resp = await request.post(`${BASE}/rerank`, {
       data: {
         model: 'default',
@@ -240,7 +240,7 @@ test.describe('API Compliance — Rerank', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[C-23] rerank response includes meta when successful', async ({ request }) => {
+  test('rerank response includes meta when successful', async ({ request }) => {
     const resp = await request.post(`${BASE}/rerank`, {
       data: {
         model: 'default',

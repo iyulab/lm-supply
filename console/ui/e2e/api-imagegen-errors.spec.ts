@@ -7,8 +7,8 @@ import { test, expect } from './fixtures/base.fixture';
 test.describe('API Image Generation', () => {
   test.setTimeout(120_000);
 
-  // [5-36] POST /v1/images/generations (OpenAI-compatible)
-  test('[5-36] POST /v1/images/generations returns b64_json', async ({ request }) => {
+  // POST /v1/images/generations (OpenAI-compatible)
+  test('POST /v1/images/generations returns b64_json', async ({ request }) => {
     const response = await request.post('/v1/images/generations', {
       data: {
         model: 'default',
@@ -32,8 +32,8 @@ test.describe('API Image Generation', () => {
     }
   });
 
-  // [5-37] POST /v1/images/generate (extended format)
-  test('[5-37] POST /v1/images/generate returns extended response', async ({ request }) => {
+  // POST /v1/images/generate (extended format)
+  test('POST /v1/images/generate returns extended response', async ({ request }) => {
     const response = await request.post('/v1/images/generate', {
       data: {
         model: 'default',
@@ -57,8 +57,8 @@ test.describe('API Image Generation', () => {
     }
   });
 
-  // [5-38] GET /v1/images/models returns available models
-  test('[5-38] GET /v1/images/models returns model list', async ({ request }) => {
+  // GET /v1/images/models returns available models
+  test('GET /v1/images/models returns model list', async ({ request }) => {
     const response = await request.get('/v1/images/models');
     expect(response.status()).toBe(200);
 
@@ -74,8 +74,8 @@ test.describe('API Image Generation', () => {
     expect(model).toHaveProperty('recommended_guidance_scale');
   });
 
-  // [5-39] GET /v1/translate/languages returns language pairs
-  test('[5-39] GET /v1/translate/languages returns language pairs', async ({ request }) => {
+  // GET /v1/translate/languages returns language pairs
+  test('GET /v1/translate/languages returns language pairs', async ({ request }) => {
     const response = await request.get('/v1/translate/languages');
     expect(response.status()).toBe(200);
 
@@ -92,8 +92,8 @@ test.describe('API Image Generation', () => {
 });
 
 test.describe('API Error Responses', () => {
-  // [5-40] POST /v1/chat/completions with empty messages returns 400
-  test('[5-40] POST /v1/chat/completions with empty messages returns error', async ({ request }) => {
+  // POST /v1/chat/completions with empty messages returns 400
+  test('POST /v1/chat/completions with empty messages returns error', async ({ request }) => {
     const response = await request.post('/v1/chat/completions', {
       data: {
         model: 'default',
@@ -104,8 +104,8 @@ test.describe('API Error Responses', () => {
     expect(response.status()).toBeGreaterThanOrEqual(400);
   });
 
-  // [5-41] POST /v1/rerank with empty query returns 400
-  test('[5-41] POST /v1/rerank with missing query returns error', async ({ request }) => {
+  // POST /v1/rerank with empty query returns 400
+  test('POST /v1/rerank with missing query returns error', async ({ request }) => {
     const response = await request.post('/v1/rerank', {
       data: {
         model: 'default',
@@ -115,8 +115,8 @@ test.describe('API Error Responses', () => {
     expect(response.status()).toBeGreaterThanOrEqual(400);
   });
 
-  // [5-42] POST /v1/embeddings with empty input returns 400
-  test('[5-42] POST /v1/embeddings with missing input returns error', async ({ request }) => {
+  // POST /v1/embeddings with empty input returns 400
+  test('POST /v1/embeddings with missing input returns error', async ({ request }) => {
     const response = await request.post('/v1/embeddings', {
       data: {
         model: 'default',
@@ -125,16 +125,16 @@ test.describe('API Error Responses', () => {
     expect(response.status()).toBeGreaterThanOrEqual(400);
   });
 
-  // [5-43] POST to nonexistent path returns 404
-  test('[5-43] POST to nonexistent path returns 404', async ({ request }) => {
+  // POST to nonexistent path returns 404
+  test('POST to nonexistent path returns 404', async ({ request }) => {
     const response = await request.post('/v1/nonexistent', {
       data: { test: true },
     });
     expect(response.status()).toBe(404);
   });
 
-  // [5-44] DELETE nonexistent cached model returns 404
-  test('[5-44] DELETE nonexistent cached model returns 404', async ({ request }) => {
+  // DELETE nonexistent cached model returns 404
+  test('DELETE nonexistent cached model returns 404', async ({ request }) => {
     const response = await request.delete('/api/cache/models/nonexistent%2Ffake-model');
     expect(response.status()).toBeGreaterThanOrEqual(400);
   });

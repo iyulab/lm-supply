@@ -4,17 +4,17 @@ import type { Page, Route } from '@playwright/test';
 const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 // ================================================================
-// Section 15-8: Translate Page
+// Translate Page
 // ================================================================
-test.describe('Section 15-8: Translate Page', () => {
-  test('[15-8-01] source/target language selection present', async ({ page }) => {
+test.describe('Translate Page', () => {
+  test('source/target language selection present', async ({ page }) => {
     await page.goto('/translate');
     await page.waitForLoadState('domcontentloaded');
     const content = await page.content();
     expect(content).toMatch(/language|source|target|translate/i);
   });
 
-  test('[15-8-02] translation input field visible', async ({ page }) => {
+  test('translation input field visible', async ({ page }) => {
     await page.goto('/translate');
     await page.waitForLoadState('domcontentloaded');
     const input = page.locator('textarea, input[type="text"]').first();
@@ -23,7 +23,7 @@ test.describe('Section 15-8: Translate Page', () => {
 });
 
 // ================================================================
-// Section 15-9: Vision Pages (Caption, Detect, OCR, Segment)
+// Vision Pages (Caption, Detect, OCR, Segment)
 // ================================================================
 const VISION_PAGES = [
   { path: '/caption', name: 'Caption' },
@@ -32,9 +32,9 @@ const VISION_PAGES = [
   { path: '/segment', name: 'Segment' },
 ];
 
-test.describe('Section 15-9: Vision Pages', () => {
+test.describe('Vision Pages', () => {
   for (const { path, name } of VISION_PAGES) {
-    test(`[15-9-01] ${name} page has image upload UI`, async ({ page }) => {
+    test(`${name} page has image upload UI`, async ({ page }) => {
       await page.goto(path);
       await page.waitForLoadState('domcontentloaded');
       // File input or drop zone should exist
@@ -45,7 +45,7 @@ test.describe('Section 15-9: Vision Pages', () => {
       expect(hasFileInput || !!hasDropzone).toBe(true);
     });
 
-    test(`[15-9-04] ${name} page shows loading state during inference`, async ({ page }) => {
+    test(`${name} page shows loading state during inference`, async ({ page }) => {
       // Mock a slow response to test loading state
       await page.route(`**${path === '/caption' ? '/v1/images/caption' :
         path === '/detect' ? '/v1/images/detect' :
@@ -66,17 +66,17 @@ test.describe('Section 15-9: Vision Pages', () => {
 });
 
 // ================================================================
-// Section 15-10: ImageGenerate Page
+// ImageGenerate Page
 // ================================================================
-test.describe('Section 15-10: ImageGenerate Page', () => {
-  test('[15-10-01] prompt input field present', async ({ page }) => {
+test.describe('ImageGenerate Page', () => {
+  test('prompt input field present', async ({ page }) => {
     await page.goto('/generate');
     await page.waitForLoadState('domcontentloaded');
     const input = page.locator('textarea, input[type="text"], input[placeholder]').first();
     await expect(input).toBeVisible({ timeout: 10000 });
   });
 
-  test('[15-10-03] size/steps options visible', async ({ page }) => {
+  test('size/steps options visible', async ({ page }) => {
     await page.goto('/generate');
     await page.waitForLoadState('domcontentloaded');
     const content = await page.content();
@@ -85,10 +85,10 @@ test.describe('Section 15-10: ImageGenerate Page', () => {
 });
 
 // ================================================================
-// Section 16: Boundary and Stress Tests
+// Boundary and Stress Tests
 // ================================================================
-test.describe('Section 16: Boundary and Stress Tests', () => {
-  test('[16-01] empty body POST returns 400 with error message', async ({ request }) => {
+test.describe('Boundary and Stress Tests', () => {
+  test('empty body POST returns 400 with error message', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       headers: { 'Content-Type': 'application/json' },
       data: '{}',
@@ -96,7 +96,7 @@ test.describe('Section 16: Boundary and Stress Tests', () => {
     expect([400, 422]).toContain(resp.status());
   });
 
-  test('[16-02] malformed JSON returns 400 or 422', async ({ request }) => {
+  test('malformed JSON returns 400 or 422', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       headers: { 'Content-Type': 'application/json' },
       data: 'not-valid-json',
@@ -104,14 +104,14 @@ test.describe('Section 16: Boundary and Stress Tests', () => {
     expect([400, 422]).toContain(resp.status());
   });
 
-  test('[16-07] unsupported HTTP method returns 405', async ({ request }) => {
+  test('unsupported HTTP method returns 405', async ({ request }) => {
     const resp = await request.put(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'test' },
     });
     expect(resp.status()).toBe(405);
   });
 
-  test('[16-08] wrong Content-Type returns 415 or 400', async ({ request }) => {
+  test('wrong Content-Type returns 415 or 400', async ({ request }) => {
     // Send JSON body but claim form data
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -120,7 +120,7 @@ test.describe('Section 16: Boundary and Stress Tests', () => {
     expect([400, 415, 422]).toContain(resp.status());
   });
 
-  test('[16-06] large content body request handled (not crash)', async ({ request }) => {
+  test('large content body request handled (not crash)', async ({ request }) => {
     // Send oversized input text to test graceful handling
     const largeInput = 'A'.repeat(50000); // 50K chars
     const resp = await request.post(`${BASE}/v1/embeddings`, {

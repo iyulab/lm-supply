@@ -5,10 +5,10 @@ const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 const DOCS = ['Deep learning is a subset of machine learning', 'Cats are domesticated animals', 'Neural networks learn patterns from data'];
 
 // ================================================================
-// Section 5-1: POST /v1/rerank
+// POST /v1/rerank
 // ================================================================
-test.describe('Section 5-1: Rerank', () => {
-  test('[5-1-01] response structure: id, results[].index/relevance_score/document.text, meta', async ({ request }) => {
+test.describe('Rerank', () => {
+  test('response structure: id, results[].index/relevance_score/document.text, meta', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/rerank`, {
       data: { model: 'default', query: 'machine learning', documents: DOCS },
     });
@@ -25,7 +25,7 @@ test.describe('Section 5-1: Rerank', () => {
     }
   });
 
-  test('[5-1-02] results sorted by relevance_score descending', async ({ request }) => {
+  test('results sorted by relevance_score descending', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/rerank`, {
       data: { model: 'default', query: 'machine learning', documents: DOCS },
     });
@@ -37,7 +37,7 @@ test.describe('Section 5-1: Rerank', () => {
     }
   });
 
-  test('[5-1-03] top_n limits number of results', async ({ request }) => {
+  test('top_n limits number of results', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/rerank`, {
       data: { model: 'default', query: 'machine learning', documents: DOCS, top_n: 2 },
     });
@@ -47,7 +47,7 @@ test.describe('Section 5-1: Rerank', () => {
     }
   });
 
-  test('[5-1-04] return_documents false omits document field', async ({ request }) => {
+  test('return_documents false omits document field', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/rerank`, {
       data: { model: 'default', query: 'machine learning', documents: DOCS, return_documents: false },
     });
@@ -59,7 +59,7 @@ test.describe('Section 5-1: Rerank', () => {
     }
   });
 
-  test('[5-1-05] JSON object documents accepted (not 422)', async ({ request }) => {
+  test('JSON object documents accepted (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/rerank`, {
       data: {
         model: 'default',
@@ -73,7 +73,7 @@ test.describe('Section 5-1: Rerank', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[5-1-06] rank_fields parameter accepted (not 422)', async ({ request }) => {
+  test('rank_fields parameter accepted (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/rerank`, {
       data: {
         model: 'default',
@@ -88,7 +88,7 @@ test.describe('Section 5-1: Rerank', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[5-1-07] meta field has billed_units.search_units', async ({ request }) => {
+  test('meta field has billed_units.search_units', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/rerank`, {
       data: { model: 'default', query: 'ML', documents: DOCS },
     });
@@ -99,14 +99,14 @@ test.describe('Section 5-1: Rerank', () => {
     }
   });
 
-  test('[5-1-08] missing query returns 400', async ({ request }) => {
+  test('missing query returns 400', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/rerank`, {
       data: { model: 'default', documents: DOCS },
     });
     expect(resp.status()).toBe(400);
   });
 
-  test('[5-1-09] empty documents array returns 400 or empty results', async ({ request }) => {
+  test('empty documents array returns 400 or empty results', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/rerank`, {
       data: { model: 'default', query: 'test', documents: [] },
     });

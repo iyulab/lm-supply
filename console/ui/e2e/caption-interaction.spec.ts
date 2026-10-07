@@ -65,7 +65,7 @@ test.describe('Caption — mode switching', () => {
   });
 
   // Caption mode: switching modes preserves preview
-  test('[6-02] switching from Caption to VQA preserves image preview', async ({ page }) => {
+  test('switching from Caption to VQA preserves image preview', async ({ page }) => {
     // Upload image in Caption mode
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(TEST_IMAGE);

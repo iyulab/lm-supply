@@ -8,10 +8,10 @@ const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
  */
 
 // ================================================================
-// Section 2-3: Cache management success cases
+// Cache management success cases
 // ================================================================
-test.describe('Section 2-3 Gaps: Cache Success Paths', () => {
-  test('[2-3-02b] GET /api/cache/stats byType is object/map', async ({ request }) => {
+test.describe('Cache Success Paths', () => {
+  test('GET /api/cache/stats byType is object/map', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/cache/stats`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -19,7 +19,7 @@ test.describe('Section 2-3 Gaps: Cache Success Paths', () => {
     expect(body.byType).not.toBeNull();
   });
 
-  test('[2-3-03b] loaded model lastUsedAt is ISO date string', async ({ request }) => {
+  test('loaded model lastUsedAt is ISO date string', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/cache/loaded`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -32,10 +32,10 @@ test.describe('Section 2-3 Gaps: Cache Success Paths', () => {
 });
 
 // ================================================================
-// Section 3-2 Gaps: Streaming chunk validation
+// Streaming chunk validation
 // ================================================================
-test.describe('Section 3-2 Gaps: Streaming Detail', () => {
-  test('[3-2-04] last streaming chunk has finish_reason=stop', async ({ request }) => {
+test.describe('Streaming Detail', () => {
+  test('last streaming chunk has finish_reason=stop', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -58,7 +58,7 @@ test.describe('Section 3-2 Gaps: Streaming Detail', () => {
     }
   });
 
-  test('[3-2-02] streaming chunk format: data: {id, choices[{delta:{content}}]}', async ({ request }) => {
+  test('streaming chunk format: data: {id, choices[{delta:{content}}]}', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -81,10 +81,10 @@ test.describe('Section 3-2 Gaps: Streaming Detail', () => {
 });
 
 // ================================================================
-// Section 4-1 Gaps: Token count validation
+// Token count validation
 // ================================================================
-test.describe('Section 4-1 Gaps: Token Counts', () => {
-  test('[4-1-08b] usage.prompt_tokens matches total_tokens for single input', async ({ request }) => {
+test.describe('Token Counts', () => {
+  test('usage.prompt_tokens matches total_tokens for single input', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'hello world' },
     });
@@ -98,10 +98,10 @@ test.describe('Section 4-1 Gaps: Token Counts', () => {
 });
 
 // ================================================================
-// Section 8-2 Gaps: DeepL endpoint robustness
+// DeepL endpoint robustness
 // ================================================================
-test.describe('Section 8-2 Gaps: DeepL Edge Cases', () => {
-  test('[8-2-02b] lowercase target_lang also handled (ko → KO internally)', async ({ request }) => {
+test.describe('DeepL Edge Cases', () => {
+  test('lowercase target_lang also handled (ko → KO internally)', async ({ request }) => {
     // Some clients might send lowercase
     const resp = await request.post(`${BASE}/v2/translate`, {
       data: { text: ['Hello'], target_lang: 'ko' },
@@ -112,10 +112,10 @@ test.describe('Section 8-2 Gaps: DeepL Edge Cases', () => {
 });
 
 // ================================================================
-// Section 9-1 Gaps: Image size variants
+// Image size variants
 // ================================================================
-test.describe('Section 9-1 Gaps: Size Variants', () => {
-  test('[9-1-06] size 256x256 accepted (not 400)', async ({ request }) => {
+test.describe('Size Variants', () => {
+  test('size 256x256 accepted (not 400)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/generations`, {
       data: { prompt: 'test', model: 'default', size: '256x256' },
     });
@@ -123,7 +123,7 @@ test.describe('Section 9-1 Gaps: Size Variants', () => {
     expect(resp.status()).not.toBe(400);
   });
 
-  test('[9-1-07] size 1024x1024 accepted (not 400)', async ({ request }) => {
+  test('size 1024x1024 accepted (not 400)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/generations`, {
       data: { prompt: 'test', model: 'default', size: '1024x1024' },
     });
@@ -132,10 +132,10 @@ test.describe('Section 9-1 Gaps: Size Variants', () => {
 });
 
 // ================================================================
-// Section 14-1 Gaps: Version fields
+// Version fields
 // ================================================================
-test.describe('Section 14-1 Gaps: Version Detail', () => {
-  test('[14-1-04b] version field follows semver pattern', async ({ request }) => {
+test.describe('Version Detail', () => {
+  test('version field follows semver pattern', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/system/version`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -144,10 +144,10 @@ test.describe('Section 14-1 Gaps: Version Detail', () => {
 });
 
 // ================================================================
-// Section 1-1 Gaps: Swagger endpoint list
+// Swagger endpoint list
 // ================================================================
-test.describe('Section 1-1 Gaps: Swagger Content', () => {
-  test('[1-1-02b] Swagger JSON spec contains key endpoints', async ({ request }) => {
+test.describe('Swagger Content', () => {
+  test('Swagger JSON spec contains key endpoints', async ({ request }) => {
     const resp = await request.get(`${BASE}/swagger/v1/swagger.json`);
     if (resp.status() === 200) {
       const body = await resp.json();
@@ -161,10 +161,10 @@ test.describe('Section 1-1 Gaps: Swagger Content', () => {
 });
 
 // ================================================================
-// Section 2-1 Gaps: Model list field detail
+// Model list field detail
 // ================================================================
-test.describe('Section 2-1 Gaps: Model List Detail', () => {
-  test('[2-1-03b] model created field is Unix timestamp', async ({ request }) => {
+test.describe('Model List Detail', () => {
+  test('model created field is Unix timestamp', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -176,7 +176,7 @@ test.describe('Section 2-1 Gaps: Model List Detail', () => {
     }
   });
 
-  test('[2-1-04b] multilingual alias present in model list', async ({ request }) => {
+  test('multilingual alias present in model list', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -191,10 +191,10 @@ test.describe('Section 2-1 Gaps: Model List Detail', () => {
 });
 
 // ================================================================
-// Section 16 Gaps: Concurrent requests
+// Concurrent requests
 // ================================================================
-test.describe('Section 16 Gaps: Concurrent Requests', () => {
-  test('[16-04] concurrent GET /v1/models requests all succeed', async ({ request }) => {
+test.describe('Concurrent Requests', () => {
+  test('concurrent GET /v1/models requests all succeed', async ({ request }) => {
     // Send 5 concurrent requests
     const promises = Array.from({ length: 5 }, () =>
       request.get(`${BASE}/v1/models`)

@@ -7,8 +7,8 @@ import { test, expect } from './fixtures/base.fixture';
 test.describe('Cross-domain API workflows', () => {
   test.setTimeout(120_000);
 
-  // [6-01] Embed → Rerank pipeline via API
-  test('[6-01] embed then rerank same texts via API', async ({ request }) => {
+  // Embed → Rerank pipeline via API
+  test('embed then rerank same texts via API', async ({ request }) => {
     const texts = ['Machine learning is AI', 'The weather is nice', 'Deep learning uses neural nets'];
 
     // Step 1: Embed all texts
@@ -37,8 +37,8 @@ test.describe('Cross-domain API workflows', () => {
     expect(mlIndex).toBeLessThan(weatherIndex);
   });
 
-  // [6-05] Model switch: embed with default then fast model
-  test('[6-05] embed with default and fast models produce different results', async ({ request }) => {
+  // Model switch: embed with default then fast model
+  test('embed with default and fast models produce different results', async ({ request }) => {
     const text = 'Testing model switch';
 
     // Embed with default model
@@ -62,8 +62,8 @@ test.describe('Cross-domain API workflows', () => {
     expect(dim2).toBeGreaterThan(0);
   });
 
-  // [6-07] Infer → load/unload cycle: embed, check loaded, embed again
-  test('[6-07] embed succeeds, model can be loaded on demand', async ({ request }) => {
+  // Infer → load/unload cycle: embed, check loaded, embed again
+  test('embed succeeds, model can be loaded on demand', async ({ request }) => {
     // Step 1: First inference (triggers on-demand loading)
     const res1 = await request.post('/v1/embeddings', {
       data: { model: 'default', input: ['test'] },

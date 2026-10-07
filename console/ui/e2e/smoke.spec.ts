@@ -1,14 +1,14 @@
 import { test, expect } from './fixtures/base.fixture';
 
 test.describe('Smoke tests', () => {
-  test('[1-05] health endpoint returns healthy', async ({ request }) => {
+  test('health endpoint returns healthy', async ({ request }) => {
     const response = await request.get('/health');
     expect(response.ok()).toBe(true);
     const body = await response.json();
     expect(body.status).toBe('healthy');
   });
 
-  test('[1-04] home page loads and renders sidebar', async ({ page }) => {
+  test('home page loads and renders sidebar', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('nav')).toBeVisible();
     // Dashboard heading should render

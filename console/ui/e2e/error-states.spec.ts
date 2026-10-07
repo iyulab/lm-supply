@@ -332,7 +332,7 @@ test.describe('Error recovery — Embed', () => {
 // ================================================================
 
 test.describe('Uncached model inference error', () => {
-  test('[5-45] inference with uncached model shows error', async ({ page }) => {
+  test('inference with uncached model shows error', async ({ page }) => {
     // Mock embed endpoint to return model-not-found error
     await page.route('**/v1/embeddings', async (route) => {
       await route.fulfill({

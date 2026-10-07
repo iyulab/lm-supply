@@ -11,7 +11,7 @@ test.describe('Models page — Load/Unload & Download', () => {
   // ================================================================
 
   // Empty state
-  test('[3-28] loaded models section renders with count', async ({ page }) => {
+  test('loaded models section renders with count', async ({ page }) => {
     const heading = page.getByRole('heading', { name: /Loaded Models/ });
     await expect(heading).toBeVisible();
 
@@ -25,7 +25,7 @@ test.describe('Models page — Load/Unload & Download', () => {
   });
 
   // Pre-load form elements
-  test('[3-19] pre-load form has type selector, model ID input, and load button', async ({ page }) => {
+  test('pre-load form has type selector, model ID input, and load button', async ({ page }) => {
     // Type select
     const typeSelect = page.locator('select').filter({ hasText: 'Generator' });
     await expect(typeSelect).toBeVisible();
@@ -54,7 +54,7 @@ test.describe('Models page — Load/Unload & Download', () => {
   });
 
   // Advanced options toggle
-  test('[3-23] advanced options toggle shows/hides provider and thread inputs', async ({ page }) => {
+  test('advanced options toggle shows/hides provider and thread inputs', async ({ page }) => {
     const settingsButton = page.getByTitle('Advanced options');
     await expect(settingsButton).toBeVisible();
 
@@ -80,7 +80,7 @@ test.describe('Models page — Load/Unload & Download', () => {
   });
 
   // Generator-specific advanced options
-  test('[3-24] generator type shows context and concurrency options', async ({ page }) => {
+  test('generator type shows context and concurrency options', async ({ page }) => {
     // Open advanced options
     await page.getByTitle('Advanced options').click();
 
@@ -90,7 +90,7 @@ test.describe('Models page — Load/Unload & Download', () => {
   });
 
   // Embedder-specific advanced options
-  test('[3-25] embedder type shows max sequence length option', async ({ page }) => {
+  test('embedder type shows max sequence length option', async ({ page }) => {
     // Change type to embedder
     const typeSelect = page.locator('select').filter({ hasText: 'Generator' });
     await typeSelect.selectOption('embedder');
@@ -107,7 +107,7 @@ test.describe('Models page — Load/Unload & Download', () => {
   });
 
   // Load error for non-existent model
-  test('[3-26] loading non-existent model shows error', async ({ page }) => {
+  test('loading non-existent model shows error', async ({ page }) => {
     // Enter a non-existent model ID
     const modelInput = page.getByPlaceholder('default');
     await modelInput.fill('nonexistent-model-that-does-not-exist-12345');
@@ -125,7 +125,7 @@ test.describe('Models page — Load/Unload & Download', () => {
 
   // Check model (valid repo)
   // Network-dependent: calls backend → HuggingFace API
-  test('[3-06] check model shows info for valid repository', async ({ page }) => {
+  test('check model shows info for valid repository', async ({ page }) => {
     test.slow(); // triple the default timeout
 
     const repoInput = page.getByPlaceholder(/e\.g\..*BAAI/);
@@ -147,7 +147,7 @@ test.describe('Models page — Load/Unload & Download', () => {
   });
 
   // Check invalid repo
-  test('[3-07] check model shows error for invalid repository', async ({ page }) => {
+  test('check model shows error for invalid repository', async ({ page }) => {
     const repoInput = page.getByPlaceholder(/e\.g\..*BAAI/);
     await repoInput.fill('totally-invalid-repo-does-not-exist/xyz');
 
@@ -159,7 +159,7 @@ test.describe('Models page — Load/Unload & Download', () => {
   });
 
   // Download button exists
-  test('[3-08] download button exists in HuggingFace section', async ({ page }) => {
+  test('download button exists in HuggingFace section', async ({ page }) => {
     const downloadButton = page.getByRole('button', { name: 'Download' }).first();
     await expect(downloadButton).toBeVisible();
   });

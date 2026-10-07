@@ -6,8 +6,8 @@ import { test, expect } from './fixtures/base.fixture';
 // ================================================================
 
 test.describe('Dashboard — tab visibility polling', () => {
-  // [2-12] Polling pauses when tab is hidden, resumes when tab is visible
-  test('[2-12] dashboard polling pauses on tab hidden and resumes on visible', async ({ page }) => {
+  // Polling pauses when tab is hidden, resumes when tab is visible
+  test('dashboard polling pauses on tab hidden and resumes on visible', async ({ page }) => {
     // Track API calls to /api/system/status
     const statusCalls: number[] = [];
     await page.route('**/api/system/status', async (route) => {

@@ -9,8 +9,8 @@ test.describe('API Inference — Text', () => {
   // Increase timeout for inference tests (model loading may be needed)
   test.setTimeout(120_000);
 
-  // [5-18] POST /v1/chat/completions (non-streaming)
-  test('[5-18] POST /v1/chat/completions non-streaming returns completion', async ({ request }) => {
+  // POST /v1/chat/completions (non-streaming)
+  test('POST /v1/chat/completions non-streaming returns completion', async ({ request }) => {
     const response = await request.post('/v1/chat/completions', {
       data: {
         model: 'default',
@@ -30,8 +30,8 @@ test.describe('API Inference — Text', () => {
     expect(body).toHaveProperty('usage');
   });
 
-  // [5-19] POST /v1/chat/completions (streaming)
-  test('[5-19] POST /v1/chat/completions streaming returns SSE tokens', async ({ page }) => {
+  // POST /v1/chat/completions (streaming)
+  test('POST /v1/chat/completions streaming returns SSE tokens', async ({ page }) => {
     await page.goto('/');
 
     const result = await page.evaluate(async () => {
@@ -72,8 +72,8 @@ test.describe('API Inference — Text', () => {
     expect(result.hasDone).toBe(true);
   });
 
-  // [5-20] POST /v1/embeddings (single input)
-  test('[5-20] POST /v1/embeddings returns embedding vector', async ({ request }) => {
+  // POST /v1/embeddings (single input)
+  test('POST /v1/embeddings returns embedding vector', async ({ request }) => {
     const response = await request.post('/v1/embeddings', {
       data: {
         model: 'default',
@@ -92,8 +92,8 @@ test.describe('API Inference — Text', () => {
     expect(body).toHaveProperty('usage');
   });
 
-  // [5-21] POST /v1/embeddings (batch)
-  test('[5-21] POST /v1/embeddings batch returns multiple embeddings', async ({ request }) => {
+  // POST /v1/embeddings (batch)
+  test('POST /v1/embeddings batch returns multiple embeddings', async ({ request }) => {
     const response = await request.post('/v1/embeddings', {
       data: {
         model: 'default',
@@ -113,8 +113,8 @@ test.describe('API Inference — Text', () => {
     }
   });
 
-  // [5-22] POST /v1/rerank returns ranked results
-  test('[5-22] POST /v1/rerank returns ranked documents', async ({ request }) => {
+  // POST /v1/rerank returns ranked results
+  test('POST /v1/rerank returns ranked documents', async ({ request }) => {
     const response = await request.post('/v1/rerank', {
       data: {
         model: 'default',

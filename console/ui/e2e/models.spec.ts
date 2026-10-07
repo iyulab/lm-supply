@@ -10,8 +10,8 @@ test.describe('Models page', () => {
   // 14.1 Cached Models
   // ================================================================
 
-  // [3-14] Cached models table with columns
-  test('[3-14] cached models section shows table with columns', async ({ page }) => {
+  // Cached models table with columns
+  test('cached models section shows table with columns', async ({ page }) => {
     const heading = page.getByRole('heading', { name: /Cached Models/ });
     await expect(heading).toBeVisible();
 
@@ -29,8 +29,8 @@ test.describe('Models page', () => {
     }
   });
 
-  // [3-18] Status badges (Ready/Loaded/Downloading)
-  test('[3-18] cached models show status badges', async ({ page }) => {
+  // Status badges (Ready/Loaded/Downloading)
+  test('cached models show status badges', async ({ page }) => {
     // Check if there are cached models
     const heading = page.getByRole('heading', { name: /Cached Models/ });
     const headingText = await heading.textContent();
@@ -69,8 +69,8 @@ test.describe('Models page', () => {
   // 14.4 Model Registry
   // ================================================================
 
-  // [3-01] Registry shows all domain types
-  test('[3-01] model registry shows type list with counts', async ({ page }) => {
+  // Registry shows all domain types
+  test('model registry shows type list with counts', async ({ page }) => {
     const registryHeading = page.getByRole('heading', { name: /Model Registry/ });
     await expect(registryHeading).toBeVisible();
 
@@ -83,8 +83,8 @@ test.describe('Models page', () => {
     expect(count).toBeGreaterThan(0);
   });
 
-  // [3-02] Clicking type expands alias table [3-03] Alias info displayed
-  test('[3-02] clicking a type expands its model table', async ({ page }) => {
+  // Clicking type expands alias table; Alias info displayed
+  test('clicking a type expands its model table', async ({ page }) => {
     // Find and click the first type button (e.g., Embedder)
     const typeButton = page.locator('button').filter({ hasText: /models$/ }).first();
     await typeButton.click();
@@ -96,8 +96,8 @@ test.describe('Models page', () => {
     await expect(page.getByRole('columnheader', { name: 'Actions' }).last()).toBeVisible();
   });
 
-  // [3-03] Alias names shown (not empty/undefined)
-  test('[3-03] registry alias column shows actual alias names', async ({ page }) => {
+  // Alias names shown (not empty/undefined)
+  test('registry alias column shows actual alias names', async ({ page }) => {
     // Expand first type
     const typeButton = page.locator('button').filter({ hasText: /models$/ }).first();
     await typeButton.click();
@@ -119,8 +119,8 @@ test.describe('Models page', () => {
     }
   });
 
-  // [3-04] Cache status display (Cached/Not downloaded)
-  test('[3-04] registry shows cached/not-downloaded status', async ({ page }) => {
+  // Cache status display (Cached/Not downloaded)
+  test('registry shows cached/not-downloaded status', async ({ page }) => {
     // Expand first type
     const typeButton = page.locator('button').filter({ hasText: /models$/ }).first();
     await typeButton.click();

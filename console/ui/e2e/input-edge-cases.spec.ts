@@ -7,8 +7,8 @@ import { mockChatStream, mockJsonEndpoint, mockEmbedResponse } from './fixtures/
 // ================================================================
 
 test.describe('XSS / HTML injection', () => {
-  // [7-05] HTML injection attempt — should render as plain text, not execute
-  test('[7-05] script tag renders as escaped text in Chat', async ({ page }) => {
+  // HTML injection attempt — should render as plain text, not execute
+  test('script tag renders as escaped text in Chat', async ({ page }) => {
     const xssPayload = '<script>alert("xss")</script>';
     const xssResponse = ['Received: ', xssPayload];
 
@@ -34,7 +34,7 @@ test.describe('XSS / HTML injection', () => {
     expect(scriptCount).toBe(0);
   });
 
-  test('[7-05] HTML tags rendered as text in Embed', async ({ page }) => {
+  test('HTML tags rendered as text in Embed', async ({ page }) => {
     await page.goto('/embed');
     await expect(page.locator('main').getByRole('heading', { name: 'Text Embedding' })).toBeVisible();
 
@@ -51,8 +51,8 @@ test.describe('XSS / HTML injection', () => {
 });
 
 test.describe('RTL text (Arabic)', () => {
-  // [7-09] Arabic/RTL text input accepted
-  test('[7-09] Arabic text is accepted in Chat input', async ({ page }) => {
+  // Arabic/RTL text input accepted
+  test('Arabic text is accepted in Chat input', async ({ page }) => {
     await page.goto('/chat');
     await expect(page.locator('main').getByRole('heading', { name: /Chat/ }).first()).toBeVisible();
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
@@ -72,7 +72,7 @@ test.describe('RTL text (Arabic)', () => {
     await expect(page.locator('.bg-primary').filter({ hasText: 'مرحبا' }).first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test('[7-09] Arabic text is accepted in Embed textarea', async ({ page }) => {
+  test('Arabic text is accepted in Embed textarea', async ({ page }) => {
     await page.goto('/embed');
     await expect(page.locator('main').getByRole('heading', { name: 'Text Embedding' })).toBeVisible();
 
@@ -85,8 +85,8 @@ test.describe('RTL text (Arabic)', () => {
 });
 
 test.describe('Very long text (10k+ characters)', () => {
-  // [7-10] 10,000+ character input
-  test('[7-10] 10000 character input accepted in Chat', async ({ page }) => {
+  // 10,000+ character input
+  test('10000 character input accepted in Chat', async ({ page }) => {
     await page.goto('/chat');
     await expect(page.locator('main').getByRole('heading', { name: /Chat/ }).first()).toBeVisible();
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
@@ -98,7 +98,7 @@ test.describe('Very long text (10k+ characters)', () => {
     await expect(page.locator('button[type="submit"]')).toBeEnabled();
   });
 
-  test('[7-10] 10000 character input accepted in Embed textarea', async ({ page }) => {
+  test('10000 character input accepted in Embed textarea', async ({ page }) => {
     await page.goto('/embed');
     await expect(page.locator('main').getByRole('heading', { name: 'Text Embedding' })).toBeVisible();
 
@@ -109,8 +109,8 @@ test.describe('Very long text (10k+ characters)', () => {
     await expect(page.locator('button[type="submit"]')).toBeEnabled();
   });
 
-  // [4-56] Long text translation (500+ chars)
-  test('[4-56] 500+ character text accepted in Translate', async ({ page }) => {
+  // Long text translation (500+ chars)
+  test('500+ character text accepted in Translate', async ({ page }) => {
     await page.goto('/translate');
     await expect(page.locator('main').getByRole('heading', { name: 'Machine Translation' })).toBeVisible();
 

@@ -7,8 +7,8 @@ import { mockDashboardApis } from './fixtures/api-mocks';
 // ================================================================
 
 test.describe('Swagger UI', () => {
-  // [1-06] Swagger page accessible
-  test('[1-06] /swagger page loads Swagger UI', async ({ page }) => {
+  // Swagger page accessible
+  test('/swagger page loads Swagger UI', async ({ page }) => {
     await page.goto('/swagger');
 
     // API docs page should render with API heading
@@ -17,8 +17,8 @@ test.describe('Swagger UI', () => {
 });
 
 test.describe('Dashboard — CPU-only state', () => {
-  // [2-03] GPU unavailable shows appropriate state
-  test('[2-03] dashboard shows CPU-only state when GPU unavailable', async ({ page }) => {
+  // GPU unavailable shows appropriate state
+  test('dashboard shows CPU-only state when GPU unavailable', async ({ page }) => {
     // Mock with CPU-only system status
     await mockDashboardApis(page, {
       status: {

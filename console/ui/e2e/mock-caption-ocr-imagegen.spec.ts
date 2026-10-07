@@ -18,8 +18,8 @@ test.describe('Caption — mock inference results', () => {
     await expect(page.locator('main').getByRole('heading', { name: /Image Captioning/ })).toBeVisible();
   });
 
-  // [4-62] Caption auto-triggers on upload [4-63] Caption result shows text and confidence
-  test('[4-62] caption result shows text and confidence', async ({ page }) => {
+  // Caption auto-triggers on upload; Caption result shows text and confidence
+  test('caption result shows text and confidence', async ({ page }) => {
     const mockResponse = mockCaptionResponse();
     await mockJsonEndpoint(page, '**/v1/images/caption', mockResponse);
 
@@ -46,8 +46,8 @@ test.describe('Caption — mock inference results', () => {
     await expect(page.getByText('A minimal test image')).toBeVisible();
   });
 
-  // [4-65] VQA execution shows answer with confidence
-  test('[4-65] VQA mode shows question and answer', async ({ page }) => {
+  // VQA execution shows answer with confidence
+  test('VQA mode shows question and answer', async ({ page }) => {
     const mockResponse = mockVqaResponse('What color is the pixel?');
     await mockJsonEndpoint(page, '**/v1/images/vqa', mockResponse);
 
@@ -92,8 +92,8 @@ test.describe('OCR — mock inference results', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Optical Character Recognition' })).toBeVisible();
   });
 
-  // [4-69] OCR image upload triggers recognized text [4-70] Result shows monospace text
-  test('[4-69] recognized text appears in monospace box', async ({ page }) => {
+  // OCR image upload triggers recognized text; Result shows monospace text
+  test('recognized text appears in monospace box', async ({ page }) => {
     const mockResponse = mockOcrResponse();
     await mockJsonEndpoint(page, '**/v1/images/ocr', mockResponse);
 
@@ -107,8 +107,8 @@ test.describe('OCR — mock inference results', () => {
     await expect(textArea).toBeVisible();
   });
 
-  // [4-71] Text blocks show confidence percentage
-  test('[4-71] text blocks show confidence percentage', async ({ page }) => {
+  // Text blocks show confidence percentage
+  test('text blocks show confidence percentage', async ({ page }) => {
     const mockResponse = mockOcrResponse();
     await mockJsonEndpoint(page, '**/v1/images/ocr', mockResponse);
 
@@ -157,8 +157,8 @@ test.describe('ImageGenerate — mock inference results', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Image Generation' })).toBeVisible();
   });
 
-  // [4-97] Generated image displayed in result panel
-  test('[4-97] generated image displays in result panel', async ({ page }) => {
+  // Generated image displayed in result panel
+  test('generated image displays in result panel', async ({ page }) => {
     const mockResponse = mockImageGenerationResponse();
     await mockJsonEndpoint(page, '**/v1/images/generate', mockResponse);
 
@@ -169,8 +169,8 @@ test.describe('ImageGenerate — mock inference results', () => {
     await expect(page.locator('img[alt="Generated"]').or(page.locator('img[alt*="generated"]')).or(page.locator('.bg-card img'))).toBeVisible({ timeout: 15_000 });
   });
 
-  // [4-98] Generation metadata shows model, time, steps
-  test('[4-98] details card shows generation metadata', async ({ page }) => {
+  // Generation metadata shows model, time, steps
+  test('details card shows generation metadata', async ({ page }) => {
     const mockResponse = mockImageGenerationResponse();
     await mockJsonEndpoint(page, '**/v1/images/generate', mockResponse);
 

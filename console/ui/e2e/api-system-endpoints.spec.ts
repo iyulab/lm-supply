@@ -5,8 +5,8 @@ import { test, expect } from './fixtures/base.fixture';
 // ================================================================
 
 test.describe('API System Endpoints', () => {
-  // [5-01] GET /health returns healthy status
-  test('[5-01] GET /health returns healthy status', async ({ request }) => {
+  // GET /health returns healthy status
+  test('GET /health returns healthy status', async ({ request }) => {
     const response = await request.get('/health');
     expect(response.status()).toBe(200);
 
@@ -14,8 +14,8 @@ test.describe('API System Endpoints', () => {
     expect(body.status).toBe('healthy');
   });
 
-  // [5-02] GET /api/system/status returns system info
-  test('[5-02] GET /api/system/status returns system metrics', async ({ request }) => {
+  // GET /api/system/status returns system info
+  test('GET /api/system/status returns system metrics', async ({ request }) => {
     const response = await request.get('/api/system/status');
     expect(response.status()).toBe(200);
 
@@ -33,8 +33,8 @@ test.describe('API System Endpoints', () => {
     expect(status.ramUsageMB).toBeGreaterThan(0);
   });
 
-  // [5-03] GET /api/system/gpu returns GPU info
-  test('[5-03] GET /api/system/gpu returns GPU information', async ({ request }) => {
+  // GET /api/system/gpu returns GPU info
+  test('GET /api/system/gpu returns GPU information', async ({ request }) => {
     const response = await request.get('/api/system/gpu');
     expect(response.status()).toBe(200);
 
@@ -43,8 +43,8 @@ test.describe('API System Endpoints', () => {
     expect(typeof body.provider).toBe('string');
   });
 
-  // [5-04] GET /api/system/version returns version
-  test('[5-04] GET /api/system/version returns version and rid', async ({ request }) => {
+  // GET /api/system/version returns version
+  test('GET /api/system/version returns version and rid', async ({ request }) => {
     const response = await request.get('/api/system/version');
     expect(response.status()).toBe(200);
 
@@ -54,8 +54,8 @@ test.describe('API System Endpoints', () => {
     expect(body.version).toMatch(/^\d+\.\d+\.\d+/);
   });
 
-  // [5-05] GET /api/system/update returns update info
-  test('[5-05] GET /api/system/update returns update availability', async ({ request }) => {
+  // GET /api/system/update returns update info
+  test('GET /api/system/update returns update availability', async ({ request }) => {
     const response = await request.get('/api/system/update');
     expect(response.status()).toBe(200);
 
@@ -66,8 +66,8 @@ test.describe('API System Endpoints', () => {
     expect(body).toHaveProperty('currentVersion');
   });
 
-  // [5-06] GET /api/system/metrics/stream returns SSE stream
-  test('[5-06] GET /api/system/metrics/stream returns SSE events', async ({ page }) => {
+  // GET /api/system/metrics/stream returns SSE stream
+  test('GET /api/system/metrics/stream returns SSE events', async ({ page }) => {
     // Navigate first so page has a valid origin for relative URLs
     await page.goto('/');
 

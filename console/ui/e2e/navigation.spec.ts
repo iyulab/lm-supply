@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/base.fixture';
 
 test.describe('Navigation & Layout', () => {
   // All nav links render
-  test('[8-06] sidebar renders all navigation links', async ({ page }) => {
+  test('sidebar renders all navigation links', async ({ page }) => {
     await page.goto('/');
 
     const nav = page.locator('nav');
@@ -24,7 +24,7 @@ test.describe('Navigation & Layout', () => {
   });
 
   // Navigation works
-  test('[8-06] clicking nav items navigates to correct pages', async ({ page }) => {
+  test('clicking nav items navigates to correct pages', async ({ page }) => {
     await page.goto('/');
 
     // Main content area (excludes sidebar)
@@ -53,7 +53,7 @@ test.describe('Navigation & Layout', () => {
   });
 
   // API Docs link opens in new tab
-  test('[8-08] API Docs link has target=_blank', async ({ page }) => {
+  test('API Docs link has target=_blank', async ({ page }) => {
     await page.goto('/');
     const apiDocsLink = page.getByRole('link', { name: /API Docs/ });
     await expect(apiDocsLink).toHaveAttribute('target', '_blank');
@@ -61,7 +61,7 @@ test.describe('Navigation & Layout', () => {
   });
 
   // SPA routing (refresh preserves page)
-  test('[8-10] SPA fallback works on page refresh', async ({ page }) => {
+  test('SPA fallback works on page refresh', async ({ page }) => {
     await page.goto('/chat');
     await expect(page).toHaveURL('/chat');
 
@@ -73,27 +73,27 @@ test.describe('Navigation & Layout', () => {
   });
 
   // Deep link
-  test('[8-09] deep link to /models renders correctly', async ({ page }) => {
+  test('deep link to /models renders correctly', async ({ page }) => {
     await page.goto('/models');
     await expect(page).toHaveURL('/models');
     await expect(page.getByRole('heading', { name: /Model Management/ })).toBeVisible();
   });
 
-  test('[8-09] deep link to /embed renders correctly', async ({ page }) => {
+  test('deep link to /embed renders correctly', async ({ page }) => {
     await page.goto('/embed');
     await expect(page).toHaveURL('/embed');
     await expect(page.getByRole('heading', { name: /Embedding/ })).toBeVisible();
   });
 
   // Version display
-  test('[8-13] version is displayed in sidebar footer', async ({ page }) => {
+  test('version is displayed in sidebar footer', async ({ page }) => {
     await page.goto('/');
     // Version format: v{major}.{minor}.{patch}
     await expect(page.getByText(/^v\d+\.\d+\.\d+$/)).toBeVisible({ timeout: 10_000 });
   });
 
   // Active link highlighting
-  test('[8-07] active nav link is visually highlighted', async ({ page }) => {
+  test('active nav link is visually highlighted', async ({ page }) => {
     await page.goto('/embed');
     const embedLink = page.getByRole('link', { name: 'Embed' });
     // Active link should have the primary background class

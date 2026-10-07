@@ -5,7 +5,7 @@ import { test, expect } from './fixtures/base.fixture';
 // ================================================================
 
 test.describe('Accessibility — icon button labels', () => {
-  test('[8-17] Chat send button has aria-label', async ({ page }) => {
+  test('Chat send button has aria-label', async ({ page }) => {
     await page.goto('/chat');
     await expect(page.locator('main').getByRole('heading', { name: /Chat/ }).first()).toBeVisible();
 
@@ -13,7 +13,7 @@ test.describe('Accessibility — icon button labels', () => {
     await expect(sendButton).toHaveAttribute('aria-label', 'Send message');
   });
 
-  test('[8-17] Image Generate randomize seed button has aria-label', async ({ page }) => {
+  test('Image Generate randomize seed button has aria-label', async ({ page }) => {
     await page.goto('/image-generate');
     await expect(page.locator('main').getByRole('heading', { name: 'Image Generation' })).toBeVisible();
 
@@ -31,7 +31,7 @@ test.describe('Accessibility — icon button labels', () => {
 // ================================================================
 
 test.describe('Accessibility — form labels', () => {
-  test('[8-18] Translate page has labeled form elements', async ({ page }) => {
+  test('Translate page has labeled form elements', async ({ page }) => {
     await page.goto('/translate');
     await expect(page.locator('main').getByRole('heading', { name: 'Machine Translation' })).toBeVisible();
 
@@ -41,7 +41,7 @@ test.describe('Accessibility — form labels', () => {
     await expect(page.locator('label', { hasText: 'Source Text' })).toBeVisible();
   });
 
-  test('[8-18] Embed page has labeled form elements', async ({ page }) => {
+  test('Embed page has labeled form elements', async ({ page }) => {
     await page.goto('/embed');
     await expect(page.locator('main').getByRole('heading', { name: 'Text Embedding' })).toBeVisible();
 
@@ -49,7 +49,7 @@ test.describe('Accessibility — form labels', () => {
     await expect(page.locator('label', { hasText: /Texts/ })).toBeVisible();
   });
 
-  test('[8-18] Rerank page has labeled form elements', async ({ page }) => {
+  test('Rerank page has labeled form elements', async ({ page }) => {
     await page.goto('/rerank');
     await expect(page.locator('main').getByRole('heading', { name: 'Document Reranking' })).toBeVisible();
 
@@ -59,7 +59,7 @@ test.describe('Accessibility — form labels', () => {
     await expect(page.locator('label', { hasText: 'Top K' })).toBeVisible();
   });
 
-  test('[8-18] Detect page has labeled form elements', async ({ page }) => {
+  test('Detect page has labeled form elements', async ({ page }) => {
     await page.goto('/detect');
     await expect(page.locator('main').getByRole('heading', { name: 'Object Detection' })).toBeVisible();
 
@@ -67,7 +67,7 @@ test.describe('Accessibility — form labels', () => {
     await expect(page.locator('label', { hasText: /Confidence Threshold/ })).toBeVisible();
   });
 
-  test('[8-18] Image Generate page has labeled form elements', async ({ page }) => {
+  test('Image Generate page has labeled form elements', async ({ page }) => {
     await page.goto('/image-generate');
     await expect(page.locator('main').getByRole('heading', { name: 'Image Generation' })).toBeVisible();
 

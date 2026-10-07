@@ -9,7 +9,7 @@ import { test, expect } from './fixtures/base.fixture';
 // ================================================================
 
 test.describe('Chat — Enter key', () => {
-  test('[8-15] pressing Enter in input submits message', async ({ page }) => {
+  test('pressing Enter in input submits message', async ({ page }) => {
     // Mock the chat endpoint to return a streaming response
     await page.route('**/v1/chat/completions', async (route) => {
       const body = 'data: {"choices":[{"delta":{"content":"Hello!"}}]}\n\ndata: [DONE]\n\n';
@@ -54,7 +54,7 @@ test.describe('Rerank — Enter key', () => {
 // ================================================================
 
 test.describe('Embed — tab navigation', () => {
-  test('[8-16] Tab moves focus from textarea to submit button', async ({ page }) => {
+  test('Tab moves focus from textarea to submit button', async ({ page }) => {
     await page.goto('/embed');
     await expect(page.locator('main').getByRole('heading', { name: 'Embed' })).toBeVisible();
 
@@ -72,7 +72,7 @@ test.describe('Embed — tab navigation', () => {
 });
 
 test.describe('Translate — tab navigation', () => {
-  test('[8-16] textarea is focusable and accepts input', async ({ page }) => {
+  test('textarea is focusable and accepts input', async ({ page }) => {
     await page.goto('/translate');
     await expect(page.locator('main').getByRole('heading', { name: 'Machine Translation' })).toBeVisible();
 

@@ -18,8 +18,8 @@ test.describe('Detect — threshold effect', () => {
     await expect(page.locator('main').getByRole('heading', { name: /Object Detection/ })).toBeVisible();
   });
 
-  // [4-80] High threshold produces fewer detection results
-  test('[4-80] high threshold produces fewer results than low threshold', async ({ page }) => {
+  // High threshold produces fewer detection results
+  test('high threshold produces fewer results than low threshold', async ({ page }) => {
     // Mock detect endpoint with conditional response based on request
     let requestCount = 0;
     await page.route('**/v1/images/detect', async (route) => {
@@ -109,8 +109,8 @@ test.describe('Synthesize — regenerate', () => {
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
   });
 
-  // [4-47] Regenerate replaces previous audio
-  test('[4-47] second generation replaces first audio', async ({ page }) => {
+  // Regenerate replaces previous audio
+  test('second generation replaces first audio', async ({ page }) => {
     const wavBuffer = mockWavBuffer();
     await mockBlobEndpoint(page, '**/v1/audio/speech', 'audio/wav', wavBuffer);
 

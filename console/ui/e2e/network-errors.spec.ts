@@ -7,8 +7,8 @@ import { mockChatStream, mockJsonEndpoint } from './fixtures/api-mocks';
 // ================================================================
 
 test.describe('Network Error Scenarios', () => {
-  // [7-17] API server down — shows error message
-  test('[7-17] embed page shows error when server returns 500', async ({ page }) => {
+  // API server down — shows error message
+  test('embed page shows error when server returns 500', async ({ page }) => {
     // Mock embed endpoint to return server error
     await page.route('**/v1/embeddings', async (route) => {
       await route.fulfill({
@@ -29,8 +29,8 @@ test.describe('Network Error Scenarios', () => {
     await expect(page.getByText(/error|failed|500/i)).toBeVisible({ timeout: 10_000 });
   });
 
-  // [7-17] Server connection refused — shows error in Chat
-  test('[7-17] chat page shows error on network failure', async ({ page }) => {
+  // Server connection refused — shows error in Chat
+  test('chat page shows error on network failure', async ({ page }) => {
     // Mock chat endpoint to abort (simulate connection refused)
     await page.route('**/v1/chat/completions', async (route) => {
       await route.abort('connectionrefused');
@@ -48,8 +48,8 @@ test.describe('Network Error Scenarios', () => {
     await expect(page.getByText(/error|failed|network/i)).toBeVisible({ timeout: 10_000 });
   });
 
-  // [7-19] Streaming error mid-response — partial response preserved
-  test('[7-19] streaming error mid-response preserves partial text', async ({ page }) => {
+  // Streaming error mid-response — partial response preserved
+  test('streaming error mid-response preserves partial text', async ({ page }) => {
     // Build SSE body: a few tokens, then error, then DONE
     const tokens = ['Hello', ' there'];
     const chunks = tokens.map((token) => {
@@ -89,8 +89,8 @@ test.describe('Network Error Scenarios', () => {
     await expect(page.getByText('Hello there')).toBeVisible({ timeout: 10_000 });
   });
 
-  // [7-21] Error recovery — after error, normal request succeeds
-  test('[7-21] chat recovers after error on retry', async ({ page }) => {
+  // Error recovery — after error, normal request succeeds
+  test('chat recovers after error on retry', async ({ page }) => {
     let requestCount = 0;
 
     await page.route('**/v1/chat/completions', async (route) => {

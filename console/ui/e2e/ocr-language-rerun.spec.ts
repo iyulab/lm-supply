@@ -12,8 +12,8 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 // ================================================================
 
 test.describe('OCR — language change re-run', () => {
-  // [4-72] Change language and re-run OCR
-  test('[4-72] changing OCR language and re-uploading produces new result', async ({ page }) => {
+  // Change language and re-run OCR
+  test('changing OCR language and re-uploading produces new result', async ({ page }) => {
     let ocrCallCount = 0;
     const ocrResults = [
       { text: 'Hello World', blocks: [{ text: 'Hello World', confidence: 0.98 }], language: 'en' },

@@ -14,8 +14,8 @@ const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png')
 test.describe('API Load/Unload cycle', () => {
   test.setTimeout(120_000);
 
-  // [5-14] POST /api/cache/load loads a model
-  test('[5-14] POST /api/cache/load returns key and model info', async ({ request }) => {
+  // POST /api/cache/load loads a model
+  test('POST /api/cache/load returns key and model info', async ({ request }) => {
     const response = await request.post('/api/cache/load', {
       data: { type: 'embedder', modelId: 'default' },
     });
@@ -29,8 +29,8 @@ test.describe('API Load/Unload cycle', () => {
     expect(body.model).toHaveProperty('modelType', 'embedder');
   });
 
-  // [5-15] DELETE /api/cache/loaded/{key} unloads a model
-  test('[5-15] load then unload model via API', async ({ request }) => {
+  // DELETE /api/cache/loaded/{key} unloads a model
+  test('load then unload model via API', async ({ request }) => {
     // First load a model
     const loadRes = await request.post('/api/cache/load', {
       data: { type: 'reranker', modelId: 'default' },
@@ -54,8 +54,8 @@ test.describe('API Load/Unload cycle', () => {
 test.describe('API Segment with mask', () => {
   test.setTimeout(120_000);
 
-  // [5-34] POST /v1/images/segment with include_mask=true
-  test('[5-34] segment with include_mask returns mask data', async ({ request }) => {
+  // POST /v1/images/segment with include_mask=true
+  test('segment with include_mask returns mask data', async ({ request }) => {
     const imageBuffer = fs.readFileSync(TEST_IMAGE);
     const response = await request.post('/v1/images/segment', {
       multipart: {

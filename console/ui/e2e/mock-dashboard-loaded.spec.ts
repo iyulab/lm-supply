@@ -11,7 +11,7 @@ import { mockDashboardApis } from './fixtures/api-mocks';
 // ================================================================
 
 test.describe('Dashboard — loaded models', () => {
-  test('[2-10] shows loaded model details (model ID, type, last used)', async ({ page }) => {
+  test('shows loaded model details (model ID, type, last used)', async ({ page }) => {
     await mockDashboardApis(page, {
       cachedModels: [],
       loadedModels: [

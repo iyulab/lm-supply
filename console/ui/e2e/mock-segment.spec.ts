@@ -18,8 +18,8 @@ test.describe('Segment — mock inference results', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Image Segmentation' })).toBeVisible();
   });
 
-  // [4-85] Image upload triggers segmentation [4-86] Class count shown
-  test('[4-85] uploading image shows segmentation results', async ({ page }) => {
+  // Image upload triggers segmentation; Class count shown
+  test('uploading image shows segmentation results', async ({ page }) => {
     const mockResponse = mockSegmentResponse();
     await mockJsonEndpoint(page, '**/v1/images/segment', mockResponse);
 
@@ -33,8 +33,8 @@ test.describe('Segment — mock inference results', () => {
     await expect(page.getByText('Classes: 5')).toBeVisible();
   });
 
-  // [4-87] Class labels with coverage info
-  test('[4-87] segment list shows class labels', async ({ page }) => {
+  // Class labels with coverage info
+  test('segment list shows class labels', async ({ page }) => {
     const mockResponse = mockSegmentResponse();
     await mockJsonEndpoint(page, '**/v1/images/segment', mockResponse);
 
@@ -79,8 +79,8 @@ test.describe('Segment — mock inference results', () => {
     await expect(page.getByText(/Shows top 10 classes by pixel coverage/)).toBeVisible();
   });
 
-  // [4-88] Elapsed time and model name shown
-  test('[4-88] result shows model name and elapsed time', async ({ page }) => {
+  // Elapsed time and model name shown
+  test('result shows model name and elapsed time', async ({ page }) => {
     const mockResponse = mockSegmentResponse();
     await mockJsonEndpoint(page, '**/v1/images/segment', mockResponse);
 

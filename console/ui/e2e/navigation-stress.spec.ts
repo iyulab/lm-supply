@@ -31,7 +31,7 @@ test.describe('Rapid page switching', () => {
     }
   });
 
-  test('[8-12] rapid sidebar clicks navigate correctly', async ({ page }) => {
+  test('rapid sidebar clicks navigate correctly', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('main')).toBeVisible();
 
@@ -52,7 +52,7 @@ test.describe('Rapid page switching', () => {
 // ================================================================
 
 test.describe('Browser back/forward', () => {
-  test('[8-11] back button returns to previous page', async ({ page }) => {
+  test('back button returns to previous page', async ({ page }) => {
     await page.goto('/chat');
     await expect(page.locator('main').getByRole('heading', { name: 'Chat' })).toBeVisible();
 
@@ -63,7 +63,7 @@ test.describe('Browser back/forward', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Chat' })).toBeVisible();
   });
 
-  test('[8-11] forward button after back works', async ({ page }) => {
+  test('forward button after back works', async ({ page }) => {
     await page.goto('/chat');
     await expect(page.locator('main').getByRole('heading', { name: 'Chat' })).toBeVisible();
 
@@ -77,7 +77,7 @@ test.describe('Browser back/forward', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Machine Translation' })).toBeVisible();
   });
 
-  test('[8-11] multiple back navigations work', async ({ page }) => {
+  test('multiple back navigations work', async ({ page }) => {
     await page.goto('/chat');
     await page.goto('/embed');
     await page.goto('/rerank');
@@ -117,7 +117,7 @@ test.describe('State isolation', () => {
   });
 
   // page model independence
-  test('[6-08] model selection is independent between pages', async ({ page }) => {
+  test('model selection is independent between pages', async ({ page }) => {
     // Go to Embed — should have its own model state
     await page.goto('/embed');
     await expect(page.locator('main').getByRole('heading', { name: /Embed|Text Embedding/ })).toBeVisible();

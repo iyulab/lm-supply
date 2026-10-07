@@ -52,7 +52,7 @@ test.describe('Long text inputs', () => {
 // ================================================================
 
 test.describe('Unicode text handling', () => {
-  test('[7-07] chat handles CJK characters', async ({ page }) => {
+  test('chat handles CJK characters', async ({ page }) => {
     await page.goto('/chat');
     await expect(page.locator('main').getByRole('heading', { name: 'Chat' })).toBeVisible();
 
@@ -62,7 +62,7 @@ test.describe('Unicode text handling', () => {
     await expect(page.locator('button[type="submit"]')).toBeEnabled();
   });
 
-  test('[4-22] [7-08] embed handles emoji and special unicode', async ({ page }) => {
+  test('embed handles emoji and special unicode', async ({ page }) => {
     await page.goto('/embed');
     await expect(page.locator('main').getByRole('heading', { name: /Embed|Text Embedding/ })).toBeVisible();
 
@@ -135,7 +135,7 @@ test.describe('HTML content in inputs', () => {
 // ================================================================
 
 test.describe('Special characters', () => {
-  test('[7-06] synthesize handles special punctuation', async ({ page }) => {
+  test('synthesize handles special punctuation', async ({ page }) => {
     await page.goto('/synthesize');
     await expect(page.locator('main').getByRole('heading', { name: 'Text to Speech' })).toBeVisible();
 
@@ -147,7 +147,7 @@ test.describe('Special characters', () => {
     expect(value).toContain("I'm");
   });
 
-  test('[7-06] image generate prompt handles quotes and special chars', async ({ page }) => {
+  test('image generate prompt handles quotes and special chars', async ({ page }) => {
     await page.goto('/image-generate');
     await expect(page.locator('main').getByRole('heading', { name: 'Image Generation' })).toBeVisible();
 

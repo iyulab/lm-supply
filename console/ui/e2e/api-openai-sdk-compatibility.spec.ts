@@ -3,15 +3,15 @@ import { test, expect } from '@playwright/test';
 const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
 /**
- * Section 17: OpenAI SDK Compatibility Tests
+ * OpenAI SDK compatibility
  *
  * These tests validate that the API responses are structurally compatible
  * with what the OpenAI Python/JS SDK expects. We test the raw API shapes
  * rather than running the SDK itself (no Python runtime available in tests).
  */
 
-test.describe('Section 17-1: OpenAI SDK Response Compatibility', () => {
-  test('[17-1-01] chat.completions response matches SDK schema', async ({ request }) => {
+test.describe('OpenAI SDK Response Compatibility', () => {
+  test('chat.completions response matches SDK schema', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -38,7 +38,7 @@ test.describe('Section 17-1: OpenAI SDK Response Compatibility', () => {
     }
   });
 
-  test('[17-1-02] embeddings response matches SDK schema', async ({ request }) => {
+  test('embeddings response matches SDK schema', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'test' },
     });
@@ -57,7 +57,7 @@ test.describe('Section 17-1: OpenAI SDK Response Compatibility', () => {
     }
   });
 
-  test('[17-1-03] audio transcriptions response matches SDK schema', async ({ request }) => {
+  test('audio transcriptions response matches SDK schema', async ({ request }) => {
     const wavBuf = Buffer.alloc(44, 0); // minimal header
     wavBuf.write('RIFF', 0); wavBuf.write('WAVE', 8); wavBuf.write('fmt ', 12); wavBuf.write('data', 36);
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
@@ -75,7 +75,7 @@ test.describe('Section 17-1: OpenAI SDK Response Compatibility', () => {
     }
   });
 
-  test('[17-1-04] audio speech response is binary audio data', async ({ request }) => {
+  test('audio speech response is binary audio data', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', input: 'Hello', voice: 'alloy' },
     });
@@ -90,7 +90,7 @@ test.describe('Section 17-1: OpenAI SDK Response Compatibility', () => {
     }
   });
 
-  test('[17-1-05] images generate response matches SDK ImagesResponse', async ({ request }) => {
+  test('images generate response matches SDK ImagesResponse', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/generations`, {
       data: { prompt: 'A red apple', model: 'default', size: '256x256' },
     });
@@ -107,7 +107,7 @@ test.describe('Section 17-1: OpenAI SDK Response Compatibility', () => {
     }
   });
 
-  test('[17-1-06] streaming chat response is valid SSE with correct chunk shape', async ({ request }) => {
+  test('streaming chat response is valid SSE with correct chunk shape', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -135,7 +135,7 @@ test.describe('Section 17-1: OpenAI SDK Response Compatibility', () => {
     }
   });
 
-  test('[17-1-07] model not found returns OpenAI-compatible 404 error', async ({ request }) => {
+  test('model not found returns OpenAI-compatible 404 error', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'nonexistent-sdk-compat-test', input: 'test' },
     });

@@ -9,10 +9,10 @@ const PNG_BUFFER = Buffer.from(
 );
 
 // ================================================================
-// Section 10-1: POST /v1/images/caption
+// POST /v1/images/caption
 // ================================================================
-test.describe('Section 10-1: Image Caption', () => {
-  test('[10-1-01] response: id, model, choices[0].caption, usage', async ({ request }) => {
+test.describe('Image Caption', () => {
+  test('response: id, model, choices[0].caption, usage', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/caption`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -33,14 +33,14 @@ test.describe('Section 10-1: Image Caption', () => {
     }
   });
 
-  test('[10-1-02] missing file returns 400', async ({ request }) => {
+  test('missing file returns 400', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/caption`, {
       multipart: { model: 'default' },
     });
     expect(resp.status()).toBe(400);
   });
 
-  test('[10-1-03] non-image file returns error or graceful handling (not 500)', async ({ request }) => {
+  test('non-image file returns error or graceful handling (not 500)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/caption`, {
       multipart: {
         file: { name: 'test.txt', mimeType: 'text/plain', buffer: Buffer.from('not an image') },
@@ -51,7 +51,7 @@ test.describe('Section 10-1: Image Caption', () => {
     expect(resp.status()).not.toBe(500);
   });
 
-  test('[10-1-04] usage includes image_tokens', async ({ request }) => {
+  test('usage includes image_tokens', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/caption`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -66,10 +66,10 @@ test.describe('Section 10-1: Image Caption', () => {
 });
 
 // ================================================================
-// Section 11-1: POST /v1/images/detect
+// POST /v1/images/detect
 // ================================================================
-test.describe('Section 11-1: Object Detection', () => {
-  test('[11-1-01] response: id, model, detections[].label/confidence/bounding_box', async ({ request }) => {
+test.describe('Object Detection', () => {
+  test('response: id, model, detections[].label/confidence/bounding_box', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/detect`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -96,7 +96,7 @@ test.describe('Section 11-1: Object Detection', () => {
     }
   });
 
-  test('[11-1-02] confidence_threshold parameter accepted (not 422)', async ({ request }) => {
+  test('confidence_threshold parameter accepted (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/detect`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -107,7 +107,7 @@ test.describe('Section 11-1: Object Detection', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[11-1-03] output_format coco returns COCO JSON structure', async ({ request }) => {
+  test('output_format coco returns COCO JSON structure', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/detect`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -126,14 +126,14 @@ test.describe('Section 11-1: Object Detection', () => {
     }
   });
 
-  test('[11-1-04] missing file returns 400', async ({ request }) => {
+  test('missing file returns 400', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/detect`, {
       multipart: { model: 'default' },
     });
     expect(resp.status()).toBe(400);
   });
 
-  test('[11-1-05] image with no objects returns empty detections array', async ({ request }) => {
+  test('image with no objects returns empty detections array', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/detect`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },

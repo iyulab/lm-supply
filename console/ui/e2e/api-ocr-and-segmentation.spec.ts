@@ -9,10 +9,10 @@ const PNG_BUFFER = Buffer.from(
 );
 
 // ================================================================
-// Section 12-1: POST /v1/images/ocr
+// POST /v1/images/ocr
 // ================================================================
-test.describe('Section 12-1: OCR', () => {
-  test('[12-1-01] response: id, model, full_text, pages[].blocks[].text/confidence/bounding_box/lines', async ({ request }) => {
+test.describe('OCR', () => {
+  test('response: id, model, full_text, pages[].blocks[].text/confidence/bounding_box/lines', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -36,7 +36,7 @@ test.describe('Section 12-1: OCR', () => {
     }
   });
 
-  test('[12-1-02] full_text is a single string', async ({ request }) => {
+  test('full_text is a single string', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -48,7 +48,7 @@ test.describe('Section 12-1: OCR', () => {
     }
   });
 
-  test('[12-1-04] bounding_box has x, y, width, height float fields', async ({ request }) => {
+  test('bounding_box has x, y, width, height float fields', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -66,7 +66,7 @@ test.describe('Section 12-1: OCR', () => {
     }
   });
 
-  test('[12-1-05] language parameter accepted (not 422)', async ({ request }) => {
+  test('language parameter accepted (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -76,7 +76,7 @@ test.describe('Section 12-1: OCR', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('[12-1-06] detected_languages array in response', async ({ request }) => {
+  test('detected_languages array in response', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -88,7 +88,7 @@ test.describe('Section 12-1: OCR', () => {
     }
   });
 
-  test('[12-1-07] missing file returns 400', async ({ request }) => {
+  test('missing file returns 400', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {},
     });
@@ -97,10 +97,10 @@ test.describe('Section 12-1: OCR', () => {
 });
 
 // ================================================================
-// Section 12-2: GET /v1/images/ocr/languages
+// GET /v1/images/ocr/languages
 // ================================================================
-test.describe('Section 12-2: OCR Languages', () => {
-  test('[12-2-01] GET /v1/images/ocr/languages returns languages array', async ({ request }) => {
+test.describe('OCR Languages', () => {
+  test('GET /v1/images/ocr/languages returns languages array', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/images/ocr/languages`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
@@ -110,10 +110,10 @@ test.describe('Section 12-2: OCR Languages', () => {
 });
 
 // ================================================================
-// Section 13-1: POST /v1/images/segment
+// POST /v1/images/segment
 // ================================================================
-test.describe('Section 13-1: Image Segmentation', () => {
-  test('[13-1-01] response: id, model, segments[].id/label/score/mask', async ({ request }) => {
+test.describe('Image Segmentation', () => {
+  test('response: id, model, segments[].id/label/score/mask', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/segment`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -135,7 +135,7 @@ test.describe('Section 13-1: Image Segmentation', () => {
     }
   });
 
-  test('[13-1-02] mask_format none returns null mask', async ({ request }) => {
+  test('mask_format none returns null mask', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/segment`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -151,7 +151,7 @@ test.describe('Section 13-1: Image Segmentation', () => {
     }
   });
 
-  test('[13-1-03] mask_format rle returns RLE mask with counts and size', async ({ request }) => {
+  test('mask_format rle returns RLE mask with counts and size', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/segment`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -169,7 +169,7 @@ test.describe('Section 13-1: Image Segmentation', () => {
     }
   });
 
-  test('[13-1-04] mask_format raw returns base64 mask', async ({ request }) => {
+  test('mask_format raw returns base64 mask', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/segment`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -186,7 +186,7 @@ test.describe('Section 13-1: Image Segmentation', () => {
     }
   });
 
-  test('[13-1-05] segment scores are between 0.0 and 1.0', async ({ request }) => {
+  test('segment scores are between 0.0 and 1.0', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/segment`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -202,7 +202,7 @@ test.describe('Section 13-1: Image Segmentation', () => {
     }
   });
 
-  test('[13-1-07] missing file returns 400', async ({ request }) => {
+  test('missing file returns 400', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/segment`, {
       multipart: { model: 'default' },
     });
@@ -211,10 +211,10 @@ test.describe('Section 13-1: Image Segmentation', () => {
 });
 
 // ================================================================
-// Section 13-2: GET /v1/images/segment/labels
+// GET /v1/images/segment/labels
 // ================================================================
-test.describe('Section 13-2: Segment Labels', () => {
-  test('[13-2-01] GET /v1/images/segment/labels returns ADE20K label list', async ({ request }) => {
+test.describe('Segment Labels', () => {
+  test('GET /v1/images/segment/labels returns ADE20K label list', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/images/segment/labels`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();

@@ -6,8 +6,8 @@ test.describe('Rerank page', () => {
     await expect(page.locator('main').getByRole('heading', { name: 'Document Reranking' })).toBeVisible();
   });
 
-  // [4-23] Reranker model selector loads models
-  test('[4-23] model selector loads reranker models', async ({ page }) => {
+  // Reranker model selector loads models
+  test('model selector loads reranker models', async ({ page }) => {
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
     const select = page.locator('select');
     const optionCount = await select.locator('option').count();
@@ -20,15 +20,15 @@ test.describe('Rerank page', () => {
     }
   });
 
-  // [4-26] Submit disabled when fields empty
-  test('[4-26] submit button is disabled when query or documents are empty', async ({ page }) => {
+  // Submit disabled when fields empty
+  test('submit button is disabled when query or documents are empty', async ({ page }) => {
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
     const submitButton = page.getByRole('button', { name: /Rerank/ });
     await expect(submitButton).toBeDisabled();
   });
 
-  // [4-24] Form elements present [4-25] Top K default value is 5
-  test('[4-24] has query input, documents textarea, and Top K input', async ({ page }) => {
+  // Form elements present; Top K default value is 5
+  test('has query input, documents textarea, and Top K input', async ({ page }) => {
     // Query input
     const queryInput = page.getByPlaceholder(/query|search/i);
     await expect(queryInput).toBeVisible();
@@ -46,8 +46,8 @@ test.describe('Rerank page', () => {
     expect(value).toBe('5');
   });
 
-  // [4-27] Submit disabled when only query is filled (no documents)
-  test('[4-27] submit button is disabled with query only and no documents', async ({ page }) => {
+  // Submit disabled when only query is filled (no documents)
+  test('submit button is disabled with query only and no documents', async ({ page }) => {
     await expect(page.getByText('Loading models...')).toBeHidden({ timeout: 15_000 });
     const queryInput = page.getByPlaceholder(/query|search/i);
     await queryInput.fill('What is machine learning?');

@@ -13,8 +13,8 @@ test.describe('Model Registry — alias integrity', () => {
     await expect(page.getByRole('heading', { name: /Model Management/ })).toBeVisible();
   });
 
-  // [3-05] All alias cells have values — no blank/undefined
-  test('[3-05] all registry alias cells are non-empty', async ({ page }) => {
+  // All alias cells have values — no blank/undefined
+  test('all registry alias cells are non-empty', async ({ page }) => {
     // Expand first registry type
     const typeButton = page.locator('button').filter({ hasText: /models$/ }).first();
     await typeButton.click();
@@ -35,8 +35,8 @@ test.describe('Model Registry — alias integrity', () => {
     }
   });
 
-  // [3-12] Registry shows Cached/Not downloaded status for each model
-  test('[3-12] registry models show cached status indicators', async ({ page }) => {
+  // Registry shows Cached/Not downloaded status for each model
+  test('registry models show cached status indicators', async ({ page }) => {
     // Expand first registry type
     const typeButton = page.locator('button').filter({ hasText: /models$/ }).first();
     await typeButton.click();
@@ -48,8 +48,8 @@ test.describe('Model Registry — alias integrity', () => {
 });
 
 test.describe('Models — delete during download (mocked)', () => {
-  // [3-17] Cached model table renders during download state
-  test('[3-17] model with downloading status renders correctly', async ({ page }) => {
+  // Cached model table renders during download state
+  test('model with downloading status renders correctly', async ({ page }) => {
     await mockModelsPageApis(page, {
       cachedModels: [
         {
@@ -78,8 +78,8 @@ test.describe('Models — pre-load form', () => {
     await expect(page.getByRole('heading', { name: /Model Management/ })).toBeVisible();
   });
 
-  // [3-20] Pre-load form has all required elements
-  test('[3-20] pre-load form has type selector and model ID input', async ({ page }) => {
+  // Pre-load form has all required elements
+  test('pre-load form has type selector and model ID input', async ({ page }) => {
     // Scroll to pre-load section
     const preloadHeading = page.getByRole('heading', { name: /Pre-load/ });
     await expect(preloadHeading).toBeVisible();
