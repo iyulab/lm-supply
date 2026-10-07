@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.112.0] - 2026-10-08
+
 ### Breaking
 - **`OnnxSessionFactory.CreateAsync`/`CreateWithInfoAsync` take `configureOptions` and `progress` as required
   parameters** (pass `null` for either). Session creation can download the native runtime on first use; a reporter the
