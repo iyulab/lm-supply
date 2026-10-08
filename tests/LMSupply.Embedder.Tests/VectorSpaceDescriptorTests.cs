@@ -84,6 +84,30 @@ public sealed class VectorSpaceDescriptorTests
         moved.Revision.Should().NotBe(baseline.Revision, $"a change to {what} produces different vectors");
     }
 
+    [Theory]
+    [MemberData(nameof(Moves))]
+    public void The_retrieval_revision_moves_with_every_decision_but_the_default_prefix(string what)
+    {
+        var baseline = Baseline();
+        var moved = Move(what, baseline);
+
+        if (what == "default prefix")
+            moved.RetrievalRevision.Should().Be(baseline.RetrievalRevision, "the default prefix shapes EmbedAsync only, not query or passage vectors");
+        else
+            moved.RetrievalRevision.Should().NotBe(baseline.RetrievalRevision, $"a change to {what} produces different retrieval vectors");
+    }
+
+    [Fact]
+    public void The_retrieval_revision_is_the_revision_a_model_had_before_default_prefixes()
+    {
+        // A store keyed on the retrieval revision is not asked to re-embed because EmbedAsync gained a prefix: for a
+        // model without one the two values are equal, and with one the retrieval value is still the pinned baseline.
+        Baseline().RetrievalRevision.Should().Be(Baseline().Revision);
+        var withDefault = Baseline() with { DefaultPrefix = "query: " };
+        withDefault.RetrievalRevision.Should().Be("a62056feeca5361b");
+        withDefault.Revision.Should().NotBe("a62056feeca5361b");
+    }
+
     [Fact]
     public void Prefixes_cannot_collide_with_the_separators()
     {
@@ -123,6 +147,7 @@ public sealed class VectorSpaceDescriptorTests
         IEmbeddingModel model = new NoRevisionModel();
 
         model.VectorSpaceRevision.Should().BeNull();
+        model.RetrievalVectorSpaceRevision.Should().BeNull();
     }
 
     private sealed class NoRevisionModel : IEmbeddingModel

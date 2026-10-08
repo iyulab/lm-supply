@@ -110,6 +110,9 @@ float similarity = LocalEmbedder.CosineSimilarity(embeddings[0], embeddings[1]);
 string revision = model.VectorSpaceRevision!;
 // ...or before loading, from the cached files alone (null when that is not enough to know)
 string? early = await LocalEmbedder.GetVectorSpaceRevisionAsync("default");
+// A search index that embeds through EmbedPassageAsync/EmbedQueryAsync only keys on the retrieval revision,
+// which a change to EmbedAsync's default prefix does not move
+string retrieval = model.RetrievalVectorSpaceRevision!;
 
 // GGUF models (via llama-server) - Auto-detected by repo name pattern
 await using var ggufModel = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF");

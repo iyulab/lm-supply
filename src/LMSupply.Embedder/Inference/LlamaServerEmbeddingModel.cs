@@ -31,6 +31,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         _prompts = prompts;
         ModelId = modelId;
         VectorSpaceRevision = vectorSpace.Revision;
+        RetrievalVectorSpaceRevision = vectorSpace.RetrievalRevision;
         _modelPath = modelPath;
         _lease = RestartingServerLease.Create(serverLease, relet, $"LlamaServerEmbeddingModel '{modelId}'");
         Dimensions = dimensions;
@@ -196,6 +197,9 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
 
     /// <inheritdoc />
     public string VectorSpaceRevision { get; }
+
+    /// <inheritdoc />
+    public string RetrievalVectorSpaceRevision { get; }
 
     /// <inheritdoc />
     public long? EstimatedMemoryBytes => File.Exists(_modelPath) ? new FileInfo(_modelPath).Length * 2 : null;

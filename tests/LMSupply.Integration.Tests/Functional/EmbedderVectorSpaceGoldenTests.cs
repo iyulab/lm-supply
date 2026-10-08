@@ -5,8 +5,8 @@ using LMSupply.Embedder;
 namespace LMSupply.Integration.Tests.Functional;
 
 /// <summary>
-/// The teeth behind <see cref="IEmbeddingModel.VectorSpaceRevision"/>: for each cached model family a
-/// golden vector is stored next to the revision that produced it, and a load today must either
+/// The teeth behind <see cref="IEmbeddingModel.RetrievalVectorSpaceRevision"/>: for each cached model family a
+/// golden passage vector is stored next to the retrieval revision that produced it, and a load today must either
 /// reproduce both or move both. A release that changes the vectors without raising an epoch, and an
 /// epoch raised without the vectors moving, are both red here — the revision is only worth storing if
 /// it moves exactly when the numbers do.
@@ -54,9 +54,11 @@ public sealed class EmbedderVectorSpaceGoldenTests
     {
         var options = new EmbedderOptions { Provider = ExecutionProvider.Cpu };
         var preload = await LocalEmbedder.GetVectorSpaceRevisionAsync(model, options, TestContext.Current.CancellationToken);
+        var retrievalPreload = await LocalEmbedder.GetRetrievalVectorSpaceRevisionAsync(model, options, TestContext.Current.CancellationToken);
         await using var embedder = await LocalEmbedder.LoadAsync(model, options, cancellationToken: TestContext.Current.CancellationToken);
 
         preload.Should().Be(embedder.VectorSpaceRevision, "the files alone must say what the loader will do");
+        retrievalPreload.Should().Be(embedder.RetrievalVectorSpaceRevision, "the same holds for the retrieval revision");
     }
 
     [Theory]
@@ -66,13 +68,16 @@ public sealed class EmbedderVectorSpaceGoldenTests
         var options = new EmbedderOptions { Provider = ExecutionProvider.Cpu };
         await using var embedder = await LocalEmbedder.LoadAsync(model, options, cancellationToken: TestContext.Current.CancellationToken);
 
-        embedder.VectorSpaceRevision.Should().NotBeNullOrEmpty("a model this library loaded reports the space it embeds into");
+        // The golden is a passage vector, so it is keyed on the retrieval revision: the default prefix (EmbedAsync) does not
+        // shape it, and an all-paths revision here would call a default-prefix change «moved for nothing» (0.112.0, multilingual-e5-small).
+        var revision = embedder.RetrievalVectorSpaceRevision;
+        revision.Should().NotBeNullOrEmpty("a model this library loaded reports the space it embeds into");
         var vector = await embedder.EmbedPassageAsync(Text, TestContext.Current.CancellationToken);
 
         var goldens = ReadGoldens();
         if (Environment.GetEnvironmentVariable("LMSUPPLY_UPDATE_GOLDENS") == "1")
         {
-            goldens[model] = new Golden(model, embedder.VectorSpaceRevision!, Text, vector);
+            goldens[model] = new Golden(model, revision!, Text, vector);
             WriteGoldens(goldens);
             return;
         }
@@ -84,7 +89,7 @@ public sealed class EmbedderVectorSpaceGoldenTests
         var distance = RelativeDistance(vector, golden.Vector);
         var cosine = Cosine(vector, golden.Vector);
         var sameVectors = distance <= SameSpaceThreshold;
-        var sameRevision = embedder.VectorSpaceRevision == golden.Revision;
+        var sameRevision = revision == golden.Revision;
 
         switch (sameVectors, sameRevision)
         {
@@ -92,20 +97,20 @@ public sealed class EmbedderVectorSpaceGoldenTests
                 return;
             case (false, true):
                 Assert.Fail(
-                    $"{model}: the vectors moved (relative L2 distance to golden {distance:E2}, cosine {cosine:F6}) but VectorSpaceRevision did not " +
+                    $"{model}: the vectors moved (relative L2 distance to golden {distance:E2}, cosine {cosine:F6}) but RetrievalVectorSpaceRevision did not " +
                     $"({golden.Revision}). A release changed what this model produces without raising the epoch " +
                     "of the component that changed (TokenizerEpochs / VectorSpaceDescriptor.EmbedderEpoch).");
                 break;
             case (true, false):
                 Assert.Fail(
-                    $"{model}: VectorSpaceRevision moved ({golden.Revision} -> {embedder.VectorSpaceRevision}) but the " +
+                    $"{model}: RetrievalVectorSpaceRevision moved ({golden.Revision} -> {revision}) but the " +
                     $"vectors did not (relative L2 distance {distance:E2}). An epoch was raised, or the descriptor now reads a value that " +
                     "does not affect the vectors — consumers would re-embed for nothing.");
                 break;
             case (false, false):
                 Assert.Fail(
                     $"{model}: both the vectors (relative L2 distance {distance:E2}, cosine {cosine:F6}) and the revision moved " +
-                    $"({golden.Revision} -> {embedder.VectorSpaceRevision}), as a deliberate change should. " +
+                    $"({golden.Revision} -> {revision}), as a deliberate change should. " +
                     "Regenerate the golden with LMSUPPLY_UPDATE_GOLDENS=1 and name the change in the CHANGELOG.");
                 break;
         }

@@ -302,7 +302,25 @@ public static class LocalEmbedder
     public static async Task<string?> GetVectorSpaceRevisionAsync(
         string modelIdOrPath,
         EmbedderOptions? options = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        (await ReadVectorSpaceAsync(modelIdOrPath, options, cancellationToken).ConfigureAwait(false))?.Revision;
+
+    /// <summary>
+    /// The <see cref="IEmbeddingModel.RetrievalVectorSpaceRevision"/> a load of <paramref name="modelIdOrPath"/> would report,
+    /// read from the cached files alone — the retrieval counterpart of
+    /// <see cref="GetVectorSpaceRevisionAsync(string, EmbedderOptions?, CancellationToken)"/>, with the same rules for when it
+    /// answers <c>null</c> and the same agreement with the load.
+    /// </summary>
+    public static async Task<string?> GetRetrievalVectorSpaceRevisionAsync(
+        string modelIdOrPath,
+        EmbedderOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        (await ReadVectorSpaceAsync(modelIdOrPath, options, cancellationToken).ConfigureAwait(false))?.RetrievalRevision;
+
+    private static async Task<VectorSpaceDescriptor?> ReadVectorSpaceAsync(
+        string modelIdOrPath,
+        EmbedderOptions? options,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
         var source = options ?? new EmbedderOptions();
@@ -341,7 +359,7 @@ public static class LocalEmbedder
             return null;
 
         var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(sources.TokenizerDir, sources.MaxSequenceLength, cancellationToken);
-        return BuildVectorSpace(sources, tokenizer.Signature, offline.NormalizeEmbeddings, dimensions.Value).Revision;
+        return BuildVectorSpace(sources, tokenizer.Signature, offline.NormalizeEmbeddings, dimensions.Value);
     }
 
     /// <summary>

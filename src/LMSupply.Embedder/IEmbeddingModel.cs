@@ -50,6 +50,16 @@ public interface IEmbeddingModel : IAsyncDisposable
     string? VectorSpaceRevision => null;
 
     /// <summary>
+    /// The revision of the retrieval paths only — <see cref="EmbedQueryAsync(string, CancellationToken)"/> and
+    /// <see cref="EmbedPassageAsync(string, CancellationToken)"/>: like <see cref="VectorSpaceRevision"/>, but the prefix
+    /// <see cref="EmbedAsync(string, CancellationToken)"/> applies is not part of it, so a change to that path alone does not
+    /// move it. A store that embeds documents as passages and searches with queries keys on this value; one that embeds
+    /// through <see cref="EmbedAsync(string, CancellationToken)"/> keys on <see cref="VectorSpaceRevision"/>. For a model
+    /// without a default prefix the two are equal. <see langword="null"/> when the implementation does not compute one.
+    /// </summary>
+    string? RetrievalVectorSpaceRevision => null;
+
+    /// <summary>
     /// Embeds the text exactly as given, with no prefix. For a model trained with prefixes (the E5 family, Nomic) this
     /// is not a vector the model was trained to produce: use it only when the text already carries the instruction the
     /// model expects (one the caller writes itself). <see cref="EmbedAsync(string, CancellationToken)"/>,

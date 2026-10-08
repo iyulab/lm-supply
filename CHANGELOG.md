@@ -6,6 +6,15 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **A retrieval index can key on a revision that only the retrieval paths move.** `IEmbeddingModel.RetrievalVectorSpaceRevision`
+  (and `LocalEmbedder.GetRetrievalVectorSpaceRevisionAsync` before the load) covers `EmbedQueryAsync` and `EmbedPassageAsync`
+  only — the prefix `EmbedAsync` applies is not part of it. `VectorSpaceRevision` still covers every path. After 0.112.0
+  gave E5 and Nomic models a default prefix, `VectorSpaceRevision` moved for them although their passage and query vectors
+  did not; their retrieval revision is the value `VectorSpaceRevision` had on 0.111.0, so an index built then and keyed on
+  it does not re-embed. For a model without a default prefix the two values are equal. `RetrievalVectorSpaceRevision` is a
+  default interface member returning `null`, so implementations outside this library keep compiling.
+
 ## [0.113.0] - 2026-10-08
 
 ### Security

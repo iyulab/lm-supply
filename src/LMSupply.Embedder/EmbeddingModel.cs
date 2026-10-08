@@ -50,6 +50,9 @@ internal sealed class EmbeddingModel : IEmbeddingModel
     /// <inheritdoc />
     public string? VectorSpaceRevision => _vectorSpace?.Revision;
 
+    /// <inheritdoc />
+    public string? RetrievalVectorSpaceRevision => _vectorSpace?.RetrievalRevision;
+
     internal EmbeddingModel(
         string modelId,
         OnnxInferenceEngine engine,

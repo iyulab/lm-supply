@@ -6,7 +6,7 @@ namespace LMSupply.Embedder;
 /// <summary>
 /// What the loader actually did on the way from text to a vector — every decision that changes the
 /// numbers a model id produces — and the opaque revision string derived from it
-/// (<see cref="IEmbeddingModel.VectorSpaceRevision"/>).
+/// (<see cref="IEmbeddingModel.VectorSpaceRevision"/>, <see cref="IEmbeddingModel.RetrievalVectorSpaceRevision"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -60,19 +60,28 @@ internal sealed record VectorSpaceDescriptor(
     /// The decisions as one ASCII line. Traced at load, so two revisions can be diffed by eye.
     /// </summary>
     public string Canonical =>
+        RetrievalCanonical + (DefaultPrefix is null ? "" : $";default={Escape(DefaultPrefix)}");
+
+    /// <summary>
+    /// The decisions that shape the retrieval paths only — query and passage vectors — so the default prefix is not part
+    /// of it. For a model without a default prefix this is <see cref="Canonical"/> itself, which is why the retrieval
+    /// revision of every model equals the revision it had before default prefixes existed.
+    /// </summary>
+    public string RetrievalCanonical =>
         $"vs/{Format};embedder/{EmbedderEpoch};backend={Backend};model={ModelFile};tokenizer={Tokenizer};" +
         $"pooling={Pooling};normalize={(Normalize ? '1' : '0')};maxseq={MaxSequenceLength};dims={Dimensions};" +
-        $"query={Escape(QueryPrefix)};passage={Escape(PassagePrefix)}" +
-        (DefaultPrefix is null ? "" : $";default={Escape(DefaultPrefix)}");
+        $"query={Escape(QueryPrefix)};passage={Escape(PassagePrefix)}";
 
     /// <summary>The opaque revision: the first 16 hex characters of SHA-256 over <see cref="Canonical"/>.</summary>
-    public string Revision
+    public string Revision => Hash(Canonical);
+
+    /// <summary>The opaque retrieval revision: the first 16 hex characters of SHA-256 over <see cref="RetrievalCanonical"/>.</summary>
+    public string RetrievalRevision => Hash(RetrievalCanonical);
+
+    private static string Hash(string canonical)
     {
-        get
-        {
-            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(Canonical));
-            return Convert.ToHexStringLower(hash.AsSpan(0, 8));
-        }
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(canonical));
+        return Convert.ToHexStringLower(hash.AsSpan(0, 8));
     }
 
     /// <summary>

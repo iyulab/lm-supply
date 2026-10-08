@@ -349,6 +349,18 @@ if (index.EmbeddingRevision != revision)
     await index.ReembedAsync(model);        // stale for this model id
 ```
 
+**Retrieval revision.** A store that embeds documents with `EmbedPassageAsync` and searches with `EmbedQueryAsync`
+never calls `EmbedAsync`, so the prefix `EmbedAsync` applies to a model with a default prefix (the E5 family, Nomic) does
+not shape its vectors. `IEmbeddingModel.RetrievalVectorSpaceRevision` (and `LocalEmbedder.GetRetrievalVectorSpaceRevisionAsync`
+before the load) is the same value without that prefix: key a retrieval index on it, and a change to the default prefix
+does not ask it to re-embed. For a model without a default prefix the two values are equal, and the retrieval value of
+every model equals the `VectorSpaceRevision` it had before default prefixes existed (0.111.0).
+
+```csharp
+var retrieval = model.RetrievalVectorSpaceRevision;
+string? earlyRetrieval = await LocalEmbedder.GetRetrievalVectorSpaceRevisionAsync("fast");
+```
+
 The execution provider and GPU are not part of the value (they change floating-point noise, not the
 space); for a GGUF model the llama-server binary version is not either. The value is a hash; the line
 it was computed from is traced at load as `[LocalEmbedder.vectorspace]` when two revisions need to be

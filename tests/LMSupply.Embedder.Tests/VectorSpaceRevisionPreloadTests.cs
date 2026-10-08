@@ -47,6 +47,18 @@ public sealed class VectorSpaceRevisionPreloadTests : IDisposable
     }
 
     [Fact]
+    public async Task The_retrieval_revision_answers_from_the_same_files()
+    {
+        var modelPath = WriteLocalModel();
+
+        var retrieval = await LocalEmbedder.GetRetrievalVectorSpaceRevisionAsync(modelPath, cancellationToken: Ct);
+
+        retrieval.Should().NotBeNull().And.MatchRegex("^[0-9a-f]{16}$");
+        retrieval.Should().Be(await LocalEmbedder.GetVectorSpaceRevisionAsync(modelPath, cancellationToken: Ct),
+            "a local model carries no default prefix, so the two values agree");
+    }
+
+    [Fact]
     public async Task The_declared_dimension_and_pooling_are_part_of_the_answer()
     {
         var modelPath = WriteLocalModel(hiddenSize: 384);
