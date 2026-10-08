@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.115.1] - Unreleased
+
+### Fixed
+- **An encoder-decoder model downloaded in a quantized form loads again with downloads disabled.** When the repository
+  listing was no longer cached, the download manifest (which lists only the files that were fetched, e.g.
+  `encoder_model_int8.onnx` and `decoder_model_merged_int8.onnx`) was not recognised as an encoder-decoder export, so a
+  Whisper load with `DisableAutoDownload = true` looked for the full-precision `encoder_model.onnx` and threw
+  `FileNotFoundException`, while `LocalTranscriber.IsModelDownloadedAsync` answered `true`. Both now pick the cached pair the
+  first load downloaded. `ModelDiscoveryService.IsEncoderDecoderModel` uses the same rule as the file selection: a role
+  prefix (`encoder_model`, `encoder`, `decoder_model_merged`, `decoder_with_past_model`, `decoder_model`, `decoder`) alone or
+  followed by `_<suffix>`; a name that only ends in `encoder.onnx` (`vision_encoder.onnx`) no longer counts as the encoder.
+
 ## [0.115.0] - 2026-10-09
 
 ### Added

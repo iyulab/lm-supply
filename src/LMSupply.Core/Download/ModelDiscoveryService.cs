@@ -48,25 +48,6 @@ public sealed class ModelDiscoveryService : IDisposable
         ("decoder", DecoderVariant.Standard)                   // minimal naming
     ];
 
-    // Legacy exact-match patterns kept only for IsEncoderDecoderModel (architecture detection)
-    private static readonly string[] EncoderPatterns =
-    [
-        "encoder_model.onnx",
-        "encoder_model_quantized.onnx",
-        "encoder_model_fp16.onnx",
-        "encoder_model_int8.onnx",
-        "encoder_model_int4.onnx",
-        "encoder.onnx"
-    ];
-
-    private static readonly string[] DecoderPatterns =
-    [
-        "decoder_model_merged.onnx",
-        "decoder_model.onnx",
-        "decoder_with_past_model.onnx",
-        "decoder.onnx"
-    ];
-
     // Config and tokenizer files that are typically in root or pipeline subdirectories
     private static readonly HashSet<string> ConfigFileNames = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -513,16 +494,38 @@ public sealed class ModelDiscoveryService : IDisposable
     }
 
     /// <summary>
-    /// Checks if the file list contains an encoder-decoder model pattern.
+    /// Checks if the file list contains an encoder-decoder model pattern: at least one encoder file and one decoder
+    /// file, by the same rule <see cref="DiscoverModelAsync"/> uses to pick them (a role prefix, alone or followed by a
+    /// quantization suffix such as <c>_int8</c> or <c>_q4f16</c>).
     /// </summary>
     public static bool IsEncoderDecoderModel(IEnumerable<string> filePaths)
     {
         var files = filePaths.ToList();
-        var hasEncoder = files.Any(f => EncoderPatterns.Any(p =>
-            f.EndsWith(p, StringComparison.OrdinalIgnoreCase)));
-        var hasDecoder = files.Any(f => DecoderPatterns.Any(p =>
-            f.EndsWith(p, StringComparison.OrdinalIgnoreCase)));
-        return hasEncoder && hasDecoder;
+        return files.Any(IsEncoderFile) && files.Any(f => !IsEncoderFile(f) && DecoderVariantOf(f) is not null);
+    }
+
+    // The role of an ONNX file in an encoder-decoder export. The architecture check and the file selection share it:
+    // when the check matched exact names and the selection matched prefixes, a cache holding only quantized files
+    // (encoder_model_int8.onnx + decoder_model_merged_int8.onnx — what a download manifest lists) was not seen as an
+    // encoder-decoder model at all, and a load fell back to a full-precision file name it never downloaded.
+    private static bool IsEncoderFile(string path) => HasRolePrefix(path, EncoderPrefixes);
+
+    private static DecoderVariant? DecoderVariantOf(string path)
+    {
+        foreach (var (prefix, variant) in DecoderPrefixes)
+        {
+            if (HasRolePrefix(path, [prefix]))
+                return variant;
+        }
+
+        return null;
+    }
+
+    private static bool HasRolePrefix(string path, IEnumerable<string> prefixes)
+    {
+        var baseName = Path.GetFileNameWithoutExtension(Path.GetFileName(path));
+        return prefixes.Any(prefix => baseName.Equals(prefix, StringComparison.OrdinalIgnoreCase) ||
+                                      baseName.StartsWith(prefix + "_", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -556,30 +559,21 @@ public sealed class ModelDiscoveryService : IDisposable
 
         foreach (var file in onnxFiles)
         {
-            var baseName = Path.GetFileNameWithoutExtension(file.FileName);
-
-            // Check encoder prefixes (longest match first to avoid "encoder" matching "encoder_model_*")
-            if (EncoderPrefixes.Any(prefix => baseName.Equals(prefix, StringComparison.OrdinalIgnoreCase) ||
-                                               baseName.StartsWith(prefix + "_", StringComparison.OrdinalIgnoreCase)))
+            if (IsEncoderFile(file.Path))
             {
                 allEncoders.Add(file);
                 continue;
             }
 
-            // Check decoder prefixes (ordered by specificity: merged > with_past > standard)
-            foreach (var (prefix, variant) in DecoderPrefixes)
+            // The most specific decoder prefix wins (merged > with_past > standard)
+            if (DecoderVariantOf(file.Path) is { } variant)
             {
-                if (baseName.Equals(prefix, StringComparison.OrdinalIgnoreCase) ||
-                    baseName.StartsWith(prefix + "_", StringComparison.OrdinalIgnoreCase))
+                if (!decodersByVariant.TryGetValue(variant, out var list))
                 {
-                    if (!decodersByVariant.TryGetValue(variant, out var list))
-                    {
-                        list = [];
-                        decodersByVariant[variant] = list;
-                    }
-                    list.Add(file);
-                    break; // Don't match shorter prefixes
+                    list = [];
+                    decodersByVariant[variant] = list;
                 }
+                list.Add(file);
             }
         }
 
