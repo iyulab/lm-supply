@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.113.0] - 2026-10-08
+
 ### Security
 - **`LMSupply.Vision.Core` no longer depends on SixLabors.ImageSharp.** Version 3.1.12 carries advisories
   GHSA-j3p4-wp97-rph4, GHSA-j9gm-c75j-xc9q and GHSA-jjfr-hcj7-qf5w (high) and GHSA-gwg2-r3hj-4w44 and
