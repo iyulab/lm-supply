@@ -234,9 +234,9 @@ public class DecoderVariantEnumTests
 public class ExecutionProviderEnumTests
 {
     [Fact]
-    public void ShouldHaveFourValues()
+    public void ShouldHaveFiveValues()
     {
-        Enum.GetValues<ExecutionProvider>().Should().HaveCount(4, "DirectML left in 0.111.0");
+        Enum.GetValues<ExecutionProvider>().Should().HaveCount(5, "DirectML left in 0.111.0; OpenVino came with 0.115.0");
     }
 
     [Theory]
@@ -246,6 +246,7 @@ public class ExecutionProviderEnumTests
     // slot stays reserved so a numerically bound setting keeps meaning what it meant.
     [InlineData(ExecutionProvider.CoreML, 3)]
     [InlineData(ExecutionProvider.Cpu, 4)]
+    [InlineData(ExecutionProvider.OpenVino, 5)]
     public void ShouldHaveExpectedIntValues(ExecutionProvider p, int expected)
     {
         ((int)p).Should().Be(expected);

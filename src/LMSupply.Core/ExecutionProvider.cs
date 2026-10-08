@@ -31,5 +31,23 @@ public enum ExecutionProvider
     /// CPU execution provider.
     /// Always available, no additional packages required.
     /// </summary>
-    Cpu = 4
+    Cpu = 4,
+
+    /// <summary>
+    /// Intel OpenVINO execution provider on an Intel GPU (Windows x64 and Linux x64), for ONNX sessions only.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Delivered as an ONNX Runtime plugin: on first use the <c>Intel.ML.OnnxRuntime.EP.OpenVINO</c> package (about
+    /// 120 MB with the OpenVINO runtime it carries) is downloaded into the runtime cache and registered with ONNX Runtime.
+    /// Its version is pinned by this library, independently of the ONNX Runtime version. Compiled GPU kernels are kept in
+    /// the runtime cache, so only the first load of a model pays for compilation.
+    /// </para>
+    /// <para>
+    /// Never chosen by <see cref="Auto"/>: select it explicitly. A host with no Intel GPU, or whose GPU the plugin does
+    /// not expose, gets a CPU session, as an explicit <see cref="Cuda"/> request does on a host without CUDA. Text
+    /// generation (ONNX Runtime GenAI) and llama-server do not support it and refuse it.
+    /// </para>
+    /// </remarks>
+    OpenVino = 5
 }

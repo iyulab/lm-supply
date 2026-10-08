@@ -52,6 +52,7 @@ public static class LlamaBackendSelector
             ExecutionProvider.Cpu => LlamaServerBackend.Cpu,
             ExecutionProvider.Cuda => LlamaServerBackend.Cuda12,
             ExecutionProvider.CoreML => LlamaServerBackend.Metal,
+            ExecutionProvider.OpenVino => throw new NotSupportedException(ExecutionProviderSupport.OpenVinoGenerationMessage),
             ExecutionProvider.Auto => SelectAutoBackend(gpu),
             _ => LlamaServerBackend.Cpu
         };

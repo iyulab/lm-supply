@@ -92,7 +92,7 @@ public sealed class OnnxNuGetDownloader : IDisposable
         // one the caller named. A cached binary of some OTHER version is only ever a stand-in for an
         // unreachable feed - never a substitute for a download that would succeed. Preferring "whatever
         // is cached" ran managed 1.30.0 on a native 1.24.4 for as long as the cache existed.
-        string? requestedVersion = version;
+        string? requestedVersion = version ?? config.PinnedVersion;
         string? feedFailure = null;
         if (requestedVersion is null)
         {

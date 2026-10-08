@@ -421,6 +421,8 @@ public sealed class RecoverableOnnxSession : IDisposable
                 return ExecutionProvider.Cuda;
             if (p.Contains("CoreML", StringComparison.OrdinalIgnoreCase))
                 return ExecutionProvider.CoreML;
+            if (p.Contains("OpenVINO", StringComparison.OrdinalIgnoreCase))
+                return ExecutionProvider.OpenVino;
         }
         if (activeProviders.Any(p => p.Contains("CPU", StringComparison.OrdinalIgnoreCase)))
             return ExecutionProvider.Cpu;

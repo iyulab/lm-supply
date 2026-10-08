@@ -13,6 +13,12 @@ public static class RuntimePackageRegistry
     {
         public const string OnnxRuntime = "onnxruntime";
         public const string OnnxRuntimeGenAI = "onnxruntime-genai";
+
+        /// <summary>
+        /// An execution provider delivered as an ONNX Runtime plugin library: provisioned next to the base runtime
+        /// (which still has to be loaded) and handed to ONNX Runtime by path, never loaded through P/Invoke.
+        /// </summary>
+        public const string ExecutionProviderPlugin = "onnxruntime-ep";
     }
 
     /// <summary>
@@ -25,6 +31,7 @@ public static class RuntimePackageRegistry
         public const string Cuda11 = "cuda11";
         public const string Cuda12 = "cuda12";
         public const string CoreML = "coreml";
+        public const string OpenVino = "openvino";
     }
 
     /// <summary>
@@ -36,6 +43,13 @@ public static class RuntimePackageRegistry
         string[] AdditionalLibraries = default!)
     {
         public string[] AdditionalLibraries { get; init; } = AdditionalLibraries ?? [];
+
+        /// <summary>
+        /// The one version of the package this library serves, or <see langword="null"/> when the version follows the
+        /// loaded ONNX Runtime assembly. A plugin package versions independently of ONNX Runtime, so its version is
+        /// fixed here rather than resolved: "the latest on the feed" would be a native binary no test has run.
+        /// </summary>
+        public string? PinnedVersion { get; init; }
     }
 
     // ONNX Runtime package mappings
@@ -65,6 +79,18 @@ public static class RuntimePackageRegistry
         [Providers.Cuda12] = new("Microsoft.ML.OnnxRuntimeGenAI.Cuda", "onnxruntime-genai", ["onnxruntime-genai-cuda"]),
     };
 
+    /// <summary>The OpenVINO plugin version this library is tested with.</summary>
+    public const string OpenVinoPluginVersion = "1.7.0";
+
+    // Execution provider plugin packages (win-x64 and linux-x64 natives only)
+    private static readonly Dictionary<string, PackageConfig> ExecutionProviderPluginPackages = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [Providers.OpenVino] = new("Intel.ML.OnnxRuntime.EP.OpenVINO", "onnxruntime_providers_openvino_plugin")
+        {
+            PinnedVersion = OpenVinoPluginVersion,
+        },
+    };
+
     // Platform-specific CUDA package overrides (ONNX Runtime only)
     private static readonly Dictionary<string, string> CudaPackagesByPlatform = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -88,10 +114,7 @@ public static class RuntimePackageRegistry
     {
         var normalizedProvider = NormalizeProvider(provider);
 
-        // Select the appropriate package registry
-        var registry = packageType.Equals(PackageTypes.OnnxRuntimeGenAI, StringComparison.OrdinalIgnoreCase)
-            ? GenAiPackages
-            : OnnxRuntimePackages;
+        var registry = RegistryFor(packageType);
 
         // Handle CUDA platform-specific packages for standard ONNX Runtime
         if (IsCudaProvider(normalizedProvider) &&
@@ -108,6 +131,12 @@ public static class RuntimePackageRegistry
             return config;
         }
 
+        // A plugin is its provider: there is no CPU package to stand in for it.
+        if (registry == ExecutionProviderPluginPackages)
+        {
+            return null;
+        }
+
         // Fallback to CPU
         return registry.GetValueOrDefault(Providers.Cpu);
     }
@@ -117,11 +146,18 @@ public static class RuntimePackageRegistry
     /// </summary>
     public static IEnumerable<string> GetSupportedProviders(string packageType)
     {
-        var registry = packageType.Equals(PackageTypes.OnnxRuntimeGenAI, StringComparison.OrdinalIgnoreCase)
-            ? GenAiPackages
-            : OnnxRuntimePackages;
+        var registry = RegistryFor(packageType);
 
         return registry.Keys;
+    }
+
+    private static Dictionary<string, PackageConfig> RegistryFor(string packageType)
+    {
+        if (packageType.Equals(PackageTypes.OnnxRuntimeGenAI, StringComparison.OrdinalIgnoreCase))
+            return GenAiPackages;
+        if (packageType.Equals(PackageTypes.ExecutionProviderPlugin, StringComparison.OrdinalIgnoreCase))
+            return ExecutionProviderPluginPackages;
+        return OnnxRuntimePackages;
     }
 
     /// <summary>

@@ -36,6 +36,15 @@ public class LlamaBackendSelectorTests
     }
 
     [Fact]
+    public void MapProvider_OpenVino_Throws_NotSilentlyCpu()
+    {
+        // llama-server has no OpenVINO backend here; an explicit request is refused, never run on CPU.
+        var gpu = Gpu(GpuVendor.Intel, "Intel(R) Iris(R) Xe Graphics", total: 2 * GB, directMl: true);
+        var act = () => LlamaBackendSelector.MapProvider(ExecutionProvider.OpenVino, gpu);
+        act.Should().Throw<NotSupportedException>().WithMessage("*OpenVino*text generation*");
+    }
+
+    [Fact]
     public void MapProvider_DirectML_Throws_NotSilentlyVulkan()
     {
         // 0.67.0: DirectML is refused on every path. It used to map to Vulkan here while the ONNX paths

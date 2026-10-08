@@ -20,8 +20,17 @@ public static class ExecutionProviderSupport
     public const string DirectMLUnavailableMessage =
         "The DirectML execution provider is not available on this ONNX Runtime line: " +
         "Microsoft.ML.OnnxRuntime.DirectML ends at 1.24.4 and ONNX Runtime 1.25+ ships no DirectML provider. " +
-        "Use ExecutionProvider.Auto (CUDA, CoreML or CPU for ONNX sessions; Vulkan for llama-server on AMD/Intel GPUs) " +
-        "or ExecutionProvider.Cpu.";
+        "Use ExecutionProvider.Auto (CUDA, CoreML or CPU for ONNX sessions; Vulkan for llama-server on AMD/Intel GPUs), " +
+        "ExecutionProvider.OpenVino for ONNX sessions on an Intel GPU, or ExecutionProvider.Cpu.";
+
+    /// <summary>
+    /// Why text generation refuses <see cref="ExecutionProvider.OpenVino"/>: neither generation path has an OpenVINO
+    /// backend here, and an explicit request is not quietly run elsewhere.
+    /// </summary>
+    public const string OpenVinoGenerationMessage =
+        "ExecutionProvider.OpenVino serves ONNX sessions (embedding, reranking, transcription, vision and the like) " +
+        "but not text generation: neither ONNX Runtime GenAI nor llama-server runs on it here. " +
+        "Use ExecutionProvider.Auto (Vulkan for llama-server on Intel GPUs) or ExecutionProvider.Cpu.";
 
     private const string DirectMLProviderName = "directml";
 
@@ -76,6 +85,7 @@ public static class ExecutionProviderSupport
         Trace.TraceInformation(
             $"[ExecutionProvider] A Direct3D 12 capable GPU was detected ({gpu.Vendor} {gpu.DeviceName ?? "n/a"}) but " +
             "the DirectML execution provider is unavailable on ONNX Runtime 1.25+ (package line ended at 1.24.4). " +
-            "ONNX sessions run on CPU; llama-server (GGUF) paths still use Vulkan on this GPU.");
+            "ONNX sessions run on CPU (on an Intel GPU, ExecutionProvider.OpenVino runs them on the GPU); " +
+            "llama-server (GGUF) paths still use Vulkan on this GPU.");
     }
 }

@@ -107,6 +107,7 @@ internal sealed class OnnxInferenceEngine : IDisposable
     {
         return provider is ExecutionProvider.Cuda
             or ExecutionProvider.CoreML
+            or ExecutionProvider.OpenVino
             or ExecutionProvider.Auto; // Auto may select GPU, so treat as GPU for safety
     }
 

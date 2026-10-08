@@ -38,6 +38,8 @@ public static class OnnxGeneratorBackend
             CancellationToken cancellationToken)
         {
             ExecutionProviderSupport.ThrowIfUnsupported(provider);
+            if (provider == ExecutionProvider.OpenVino)
+                throw new NotSupportedException(ExecutionProviderSupport.OpenVinoGenerationMessage);
 
             // Initialize RuntimeManager to detect hardware
             await RuntimeManager.Instance.InitializeAsync(cancellationToken);

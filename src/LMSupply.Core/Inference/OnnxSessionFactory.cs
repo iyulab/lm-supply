@@ -49,7 +49,8 @@ public sealed class SessionCreationResult
     public bool IsGpuActive => ActiveProviders.Any(p =>
         p.Contains("CUDA", StringComparison.OrdinalIgnoreCase) ||
         p.Contains("CoreML", StringComparison.OrdinalIgnoreCase) ||
-        p.Contains("TensorRT", StringComparison.OrdinalIgnoreCase));
+        p.Contains("TensorRT", StringComparison.OrdinalIgnoreCase) ||
+        p.Contains("OpenVINO", StringComparison.OrdinalIgnoreCase)); // appended on its GPU device only
 }
 
 /// <summary>
@@ -148,9 +149,9 @@ public static class OnnxSessionFactory
         {
             ExecutionProvider.Cuda => "cuda12",  // Try CUDA 12 first
             ExecutionProvider.CoreML => "coreml",
-            _ => "cpu"
+            _ => "cpu" // OpenVino too: its plugin runs on the base CPU runtime
         };
-        var isGpuRequested = provider is ExecutionProvider.Cuda or ExecutionProvider.CoreML;
+        var isGpuRequested = provider is ExecutionProvider.Cuda or ExecutionProvider.CoreML or ExecutionProvider.OpenVino;
 
         // Download runtime binaries if needed. This is provisioning, not session construction --
         // a platform that cannot provision the requested provider at all (e.g. CUDA has no native
@@ -166,6 +167,8 @@ public static class OnnxSessionFactory
                 provider: providerString,
                 progress: progress,
                 cancellationToken: cancellationToken);
+            if (provider == ExecutionProvider.OpenVino)
+                await OpenVinoExecutionProvider.EnsureRegisteredAsync(progress, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -665,7 +668,11 @@ public static class OnnxSessionFactory
     /// </summary>
     /// <param name="options">Session options to append the provider to.</param>
     /// <param name="provider">The execution provider to configure.</param>
-    /// <param name="deviceId">GPU device index for CUDA (ignored by CPU and CoreML).</param>
+    /// <param name="deviceId">GPU device index for CUDA and OpenVINO (ignored by CPU and CoreML).</param>
+    /// <remarks>
+    /// <see cref="ExecutionProvider.OpenVino"/> is appended only once its plugin is registered, which the async
+    /// <c>CreateWithInfoAsync</c> overloads do; before that this returns false and the session runs on CPU.
+    /// </remarks>
     public static bool ConfigureExecutionProvider(SessionOptions options, ExecutionProvider provider, int deviceId = 0)
     {
         ExecutionProviderSupport.ThrowIfUnsupported(provider);
@@ -674,6 +681,7 @@ public static class OnnxSessionFactory
             ExecutionProvider.Auto => TryAddBestAvailableProvider(options, deviceId),
             ExecutionProvider.Cuda => TryAddCuda(options, deviceId),
             ExecutionProvider.CoreML => TryAddCoreML(options),
+            ExecutionProvider.OpenVino => OpenVinoExecutionProvider.TryAppend(options, deviceId),
             ExecutionProvider.Cpu => false, // CPU is always available as fallback; no GPU EP appended
             _ => throw new ArgumentOutOfRangeException(nameof(provider), provider, "Unknown execution provider")
         };
@@ -715,6 +723,9 @@ public static class OnnxSessionFactory
                     break;
                 case ExecutionProvider.CoreML:
                     providers.Add("CoreMLExecutionProvider");
+                    break;
+                case ExecutionProvider.OpenVino:
+                    providers.Add(OpenVinoExecutionProvider.EpName);
                     break;
             }
         }
@@ -777,6 +788,10 @@ public static class OnnxSessionFactory
         testOptions = new SessionOptions();
         if (TryAddCoreML(testOptions))
             yield return ExecutionProvider.CoreML;
+
+        // Only once something has registered the plugin: probing must not download or register it.
+        if (OpenVinoExecutionProvider.GpuDevices().Count > 0)
+            yield return ExecutionProvider.OpenVino;
     }
 
 }

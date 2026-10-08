@@ -324,6 +324,36 @@ public sealed class RuntimeManager : IAsyncDisposable
         ex is OperationCanceledException or NativeLibraryConflictException;
 
     /// <summary>
+    /// Provisions an execution provider plugin — a provider ONNX Runtime loads from its own library through
+    /// <c>OrtEnv.RegisterExecutionProviderLibrary</c> — and returns the full path of that library. The base runtime is
+    /// not touched: provision it first with <see cref="EnsureRuntimeAsync"/>. Nothing is loaded or registered with
+    /// <see cref="NativeLoader"/>: the plugin's own dependencies (the OpenVINO runtime, for example) sit next to it and
+    /// are found by ONNX Runtime when it loads the plugin by path.
+    /// </summary>
+    /// <param name="provider">The plugin's provider name (e.g. <c>"openvino"</c>).</param>
+    /// <param name="progress">Receives the download, tagged <see cref="DownloadKind.Runtime"/>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <exception cref="ModelLoadException">The package carries no plugin library for this platform.</exception>
+    public async Task<string> EnsureExecutionProviderPluginAsync(
+        string provider,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        var (directory, version, config) = await ResolveRuntimeForProviderAsync(
+            provider, RuntimePackageRegistry.PackageTypes.ExecutionProviderPlugin, version: null, progress, cancellationToken);
+        var library = Path.Combine(directory, RuntimePackageRegistry.GetNativeLibraryFileName(config.NativeLibraryName, _platform!));
+        if (!File.Exists(library))
+        {
+            throw new ModelLoadException(
+                $"{config.PackageId} {version} has no {Path.GetFileName(library)} for {_platform!.RuntimeIdentifier} " +
+                $"(looked in '{directory}').");
+        }
+
+        return library;
+    }
+
+    /// <summary>
     /// Provisions the runtime for a specific provider and registers it with <see cref="NativeLoader"/>.
     /// </summary>
     private async Task<string> DownloadRuntimeForProviderAsync(
@@ -376,7 +406,10 @@ public sealed class RuntimeManager : IAsyncDisposable
             throw new InvalidOperationException($"No package configuration found for {packageType}/{provider}");
         }
 
-        var wantedVersion = version ?? _options.PinnedVersion;
+        // The version: the caller's; else the one the registry pins for this package (a plugin versions apart from
+        // ONNX Runtime, so the global pin, which names an ONNX Runtime version, does not apply to it); else the global pin.
+        var wantedVersion = version ?? config.PinnedVersion ?? _options.PinnedVersion;
+        var pinned = config.PinnedVersion is not null || _options.PinnedVersion is not null;
 
         if (!string.IsNullOrEmpty(_options.RuntimeDirectory))
         {
@@ -391,7 +424,7 @@ public sealed class RuntimeManager : IAsyncDisposable
             // the same policy the downloader applies when the feed is unreachable.
             var expected = wantedVersion ?? TryGetOnnxRuntimeVersion();
             var cached = _nugetDownloader.FindCached(
-                provider, _platform!, expected, packageType, exactOnly: _options.PinnedVersion is not null);
+                provider, _platform!, expected, packageType, exactOnly: pinned);
             if (cached is null)
             {
                 throw new ModelLoadException(
@@ -408,7 +441,7 @@ public sealed class RuntimeManager : IAsyncDisposable
         // Resolve initial version if not specified
         var currentVersion = wantedVersion ?? await ResolveVersionAsync(config.PackageId, cancellationToken);
 
-        if (_options.PinnedVersion is not null)
+        if (pinned)
         {
             // Pinned: exactly this version -- no background update check and no applying a previously downloaded
             // newer one, both of which the update service would do.
@@ -538,6 +571,7 @@ public sealed class RuntimeManager : IAsyncDisposable
         {
             "onnxruntime" or "onnx" or "runtime" => RuntimePackageRegistry.PackageTypes.OnnxRuntime,
             "onnxruntime-genai" or "genai" or "gen-ai" or "generator" => RuntimePackageRegistry.PackageTypes.OnnxRuntimeGenAI,
+            "onnxruntime-ep" => RuntimePackageRegistry.PackageTypes.ExecutionProviderPlugin,
             _ => package.ToLowerInvariant()
         };
     }
