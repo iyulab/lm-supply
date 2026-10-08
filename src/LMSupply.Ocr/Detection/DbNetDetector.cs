@@ -3,9 +3,7 @@ using LMSupply.Ocr.Models;
 using LMSupply.Ocr.PostProcessing;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using LMSupply.Vision;
 
 namespace LMSupply.Ocr.Detection;
 
@@ -77,7 +75,7 @@ internal sealed class DbNetDetector : IDisposable
     /// Detects text regions in an image.
     /// </summary>
     public async Task<IReadOnlyList<DetectedRegion>> DetectAsync(
-        Image<Rgb24> image,
+        RgbImage image,
         CancellationToken cancellationToken = default)
     {
         // Calculate resize dimensions while maintaining aspect ratio
@@ -92,9 +90,7 @@ internal sealed class DbNetDetector : IDisposable
         if (resizeWidth == 0) resizeWidth = 32;
         if (resizeHeight == 0) resizeHeight = 32;
 
-        // Create a copy and resize
-        using var resizedImage = image.Clone();
-        resizedImage.Mutate(x => x.Resize(resizeWidth, resizeHeight));
+        var resizedImage = image.Resize(resizeWidth, resizeHeight);
 
         // Convert to tensor
         var inputTensor = PreprocessImage(resizedImage);
@@ -129,7 +125,7 @@ internal sealed class DbNetDetector : IDisposable
         string imagePath,
         CancellationToken cancellationToken = default)
     {
-        using var image = await Image.LoadAsync<Rgb24>(imagePath, cancellationToken).ConfigureAwait(false);
+        var image = await ImageLoader.Instance.LoadAsync(imagePath, cancellationToken).ConfigureAwait(false);
         return await DetectAsync(image, cancellationToken).ConfigureAwait(false);
     }
 
@@ -140,35 +136,28 @@ internal sealed class DbNetDetector : IDisposable
         Stream imageStream,
         CancellationToken cancellationToken = default)
     {
-        using var image = await Image.LoadAsync<Rgb24>(imageStream, cancellationToken).ConfigureAwait(false);
+        var image = await ImageLoader.Instance.LoadAsync(imageStream, cancellationToken).ConfigureAwait(false);
         return await DetectAsync(image, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
     /// Gets the loaded image for use in recognition.
     /// </summary>
-    public static async Task<Image<Rgb24>> LoadImageAsync(string imagePath, CancellationToken cancellationToken = default)
-    {
-        return await Image.LoadAsync<Rgb24>(imagePath, cancellationToken).ConfigureAwait(false);
-    }
+    public static Task<RgbImage> LoadImageAsync(string imagePath, CancellationToken cancellationToken = default)
+        => ImageLoader.Instance.LoadAsync(imagePath, cancellationToken);
 
     /// <summary>
     /// Gets the loaded image for use in recognition.
     /// </summary>
-    public static async Task<Image<Rgb24>> LoadImageAsync(Stream imageStream, CancellationToken cancellationToken = default)
-    {
-        return await Image.LoadAsync<Rgb24>(imageStream, cancellationToken).ConfigureAwait(false);
-    }
+    public static Task<RgbImage> LoadImageAsync(Stream imageStream, CancellationToken cancellationToken = default)
+        => ImageLoader.Instance.LoadAsync(imageStream, cancellationToken);
 
     /// <summary>
     /// Gets the loaded image for use in recognition.
     /// </summary>
-    public static Image<Rgb24> LoadImage(byte[] imageData)
-    {
-        return Image.Load<Rgb24>(imageData);
-    }
+    public static RgbImage LoadImage(byte[] imageData) => ImageLoader.Decode(imageData);
 
-    private DenseTensor<float> PreprocessImage(Image<Rgb24> image)
+    private DenseTensor<float> PreprocessImage(RgbImage image)
     {
         var height = image.Height;
         var width = image.Width;
@@ -177,20 +166,16 @@ internal sealed class DbNetDetector : IDisposable
         var mean = _modelInfo.Mean;
         var std = _modelInfo.Std;
 
-        image.ProcessPixelRows(accessor =>
+        for (var y = 0; y < height; y++)
         {
-            for (var y = 0; y < height; y++)
+            var row = image.GetRow(y);
+            for (var x = 0; x < width; x++)
             {
-                var row = accessor.GetRowSpan(y);
-                for (var x = 0; x < width; x++)
-                {
-                    var pixel = row[x];
-                    tensor[0, 0, y, x] = (pixel.R - mean[0]) / std[0];
-                    tensor[0, 1, y, x] = (pixel.G - mean[1]) / std[1];
-                    tensor[0, 2, y, x] = (pixel.B - mean[2]) / std[2];
-                }
+                tensor[0, 0, y, x] = (row[x * 3] - mean[0]) / std[0];
+                tensor[0, 1, y, x] = (row[x * 3 + 1] - mean[1]) / std[1];
+                tensor[0, 2, y, x] = (row[x * 3 + 2] - mean[2]) / std[2];
             }
-        });
+        }
 
         return tensor;
     }

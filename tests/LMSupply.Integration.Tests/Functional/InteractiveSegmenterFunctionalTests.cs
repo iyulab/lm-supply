@@ -1,7 +1,6 @@
 using LMSupply.Segmenter;
 using LMSupply.Segmenter.Interactive;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using LMSupply.Vision;
 
 namespace LMSupply.Integration.Tests.Functional;
 
@@ -17,14 +16,12 @@ public sealed class InteractiveSegmenterFunctionalTests
 
     private static byte[] DiscImage()
     {
-        using var image = new Image<Rgb24>(Width, Height, new Rgb24(255, 255, 255));
+        var image = RgbImage.Filled(Width, Height, 255, 255, 255);
         for (var y = 0; y < Height; y++)
         for (var x = 0; x < Width; x++)
             if (InDisc(x, y))
-                image[x, y] = new Rgb24(0, 0, 0);
-        using var stream = new MemoryStream();
-        image.SaveAsPng(stream);
-        return stream.ToArray();
+                image[x, y] = (0, 0, 0);
+        return ImageLoader.EncodePng(image);
     }
 
     private static bool InDisc(int x, int y) => (x - CenterX) * (x - CenterX) + (y - CenterY) * (y - CenterY) <= Radius * Radius;

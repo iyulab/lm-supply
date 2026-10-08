@@ -3,9 +3,7 @@ using LMSupply.Inference;
 using LMSupply.Segmenter.Models;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using LMSupply.Vision;
 
 namespace LMSupply.Segmenter.Core;
 
@@ -68,7 +66,7 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(imagePath);
 
-        using var image = await Image.LoadAsync<Rgb24>(imagePath, cancellationToken);
+        var image = await ImageLoader.Instance.LoadAsync(imagePath, cancellationToken);
         return await SegmentCoreAsync(image, cancellationToken);
     }
 
@@ -78,7 +76,7 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
     {
         ArgumentNullException.ThrowIfNull(imageStream);
 
-        using var image = await Image.LoadAsync<Rgb24>(imageStream, cancellationToken);
+        var image = await ImageLoader.Instance.LoadAsync(imageStream, cancellationToken);
         return await SegmentCoreAsync(image, cancellationToken);
     }
 
@@ -88,7 +86,7 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
     {
         ArgumentNullException.ThrowIfNull(imageData);
 
-        using var image = Image.Load<Rgb24>(imageData);
+        var image = ImageLoader.Decode(imageData);
         return await SegmentCoreAsync(image, cancellationToken);
     }
 
@@ -110,7 +108,7 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
     }
 
     private async Task<SegmentationResult> SegmentCoreAsync(
-        Image<Rgb24> image,
+        RgbImage image,
         CancellationToken cancellationToken)
     {
         await EnsureInitializedAsync(cancellationToken);
@@ -148,30 +146,27 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
         };
     }
 
-    private static DenseTensor<float> PreprocessImage(Image<Rgb24> image, int targetSize)
+    private static DenseTensor<float> PreprocessImage(RgbImage image, int targetSize)
     {
         // Resize to target size
-        image.Mutate(x => x.Resize(targetSize, targetSize));
+        image = image.Resize(targetSize, targetSize);
 
         // Create tensor in NCHW format with ImageNet normalization
         var tensor = new DenseTensor<float>([1, 3, targetSize, targetSize]);
         var mean = new[] { 0.485f, 0.456f, 0.406f };
         var std = new[] { 0.229f, 0.224f, 0.225f };
 
-        image.ProcessPixelRows(accessor =>
+        for (int y = 0; y < targetSize; y++)
         {
-            for (int y = 0; y < targetSize; y++)
+            var row = image.GetRow(y);
+            for (int x = 0; x < targetSize; x++)
             {
-                var row = accessor.GetRowSpan(y);
-                for (int x = 0; x < targetSize; x++)
-                {
-                    var pixel = row[x];
-                    tensor[0, 0, y, x] = (pixel.R / 255f - mean[0]) / std[0];
-                    tensor[0, 1, y, x] = (pixel.G / 255f - mean[1]) / std[1];
-                    tensor[0, 2, y, x] = (pixel.B / 255f - mean[2]) / std[2];
-                }
+                var pixel = (R: row[x * 3], G: row[x * 3 + 1], B: row[x * 3 + 2]);
+                tensor[0, 0, y, x] = (pixel.R / 255f - mean[0]) / std[0];
+                tensor[0, 1, y, x] = (pixel.G / 255f - mean[1]) / std[1];
+                tensor[0, 2, y, x] = (pixel.B / 255f - mean[2]) / std[2];
             }
-        });
+        }
 
         return tensor;
     }

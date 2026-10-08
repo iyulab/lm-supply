@@ -6,9 +6,6 @@ using LMSupply.Segmenter.Models;
 using LMSupply.Vision;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
 
 namespace LMSupply.Segmenter.Core;
 
@@ -70,7 +67,7 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
     {
         await EnsureInitializedAsync(cancellationToken);
 
-        using var image = await Image.LoadAsync<Rgb24>(imageStream, cancellationToken);
+        var image = await ImageLoader.Instance.LoadAsync(imageStream, cancellationToken);
         return await CreateSessionFromImageAsync(image, cancellationToken);
     }
 
@@ -80,7 +77,7 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
     {
         await EnsureInitializedAsync(cancellationToken);
 
-        using var image = Image.Load<Rgb24>(imageData);
+        var image = ImageLoader.Decode(imageData);
         return await CreateSessionFromImageAsync(image, cancellationToken);
     }
 
@@ -105,7 +102,7 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
     }
 
     private async Task<MobileSamSession> CreateSessionFromImageAsync(
-        Image<Rgb24> image,
+        RgbImage image,
         CancellationToken cancellationToken)
     {
         var originalWidth = image.Width;
@@ -161,12 +158,12 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
     /// itself; a bare encoder takes <c>[1, 3, 1024, 1024]</c>, normalized with SAM's pixel mean/std and zero-padded
     /// bottom-right.
     /// </summary>
-    internal static DenseTensor<float> PreprocessImage(Image<Rgb24> image, bool includesPreprocessing)
+    internal static DenseTensor<float> PreprocessImage(RgbImage image, bool includesPreprocessing)
     {
         var scale = LongestSideScale(image.Width, image.Height);
         var width = Math.Max(1, (int)Math.Round(image.Width * scale));
         var height = Math.Max(1, (int)Math.Round(image.Height * scale));
-        using var resized = image.Clone(x => x.Resize(width, height));
+        var resized = image.Resize(width, height);
 
         // SAM's pixel statistics, on the 0..255 scale.
         ReadOnlySpan<float> mean = [123.675f, 116.28f, 103.53f];
@@ -178,29 +175,26 @@ internal sealed class MobileSamModel : IInteractiveSegmenter
             ? new DenseTensor<float>([height, width, 3])
             : new DenseTensor<float>([1, 3, ImageEncoderSize, ImageEncoderSize]);
 
-        resized.ProcessPixelRows(accessor =>
+        for (int y = 0; y < resized.Height; y++)
         {
-            for (int y = 0; y < accessor.Height; y++)
+            var row = resized.GetRow(y);
+            for (int x = 0; x < resized.Width; x++)
             {
-                var row = accessor.GetRowSpan(y);
-                for (int x = 0; x < accessor.Width; x++)
+                var pixel = (R: row[x * 3], G: row[x * 3 + 1], B: row[x * 3 + 2]);
+                if (includesPreprocessing)
                 {
-                    var pixel = row[x];
-                    if (includesPreprocessing)
-                    {
-                        tensor[y, x, 0] = pixel.R;
-                        tensor[y, x, 1] = pixel.G;
-                        tensor[y, x, 2] = pixel.B;
-                    }
-                    else
-                    {
-                        tensor[0, 0, y, x] = (pixel.R - meanArr[0]) / stdArr[0];
-                        tensor[0, 1, y, x] = (pixel.G - meanArr[1]) / stdArr[1];
-                        tensor[0, 2, y, x] = (pixel.B - meanArr[2]) / stdArr[2];
-                    }
+                    tensor[y, x, 0] = pixel.R;
+                    tensor[y, x, 1] = pixel.G;
+                    tensor[y, x, 2] = pixel.B;
+                }
+                else
+                {
+                    tensor[0, 0, y, x] = (pixel.R - meanArr[0]) / stdArr[0];
+                    tensor[0, 1, y, x] = (pixel.G - meanArr[1]) / stdArr[1];
+                    tensor[0, 2, y, x] = (pixel.B - meanArr[2]) / stdArr[2];
                 }
             }
-        });
+        }
 
         return tensor;
     }

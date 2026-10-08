@@ -3,7 +3,7 @@
   <PropertyGroup>
     <PackageId>LMSupply.Vision.Core</PackageId>
     <Description>Core vision processing components for LMSupply: image loading, preprocessing, and tensor conversion utilities shared by LMSupply.Captioner and LMSupply.Ocr.</Description>
-    <PackageTags>LMSupply;vision;image-processing;onnx;ml;ai;imagesharp</PackageTags>
+    <PackageTags>LMSupply;vision;image-processing;onnx;ml;ai</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!-- Build Settings -->
@@ -21,7 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="SixLabors.ImageSharp" />
+    <PackageReference Include="SkiaSharp" />
+    <!-- SkiaSharp carries the Windows and macOS natives; Linux needs its own package (no fontconfig: nothing here draws text) -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
   </ItemGroup>
 
   <ItemGroup>

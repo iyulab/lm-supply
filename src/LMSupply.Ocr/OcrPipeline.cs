@@ -2,8 +2,7 @@ using System.Diagnostics;
 using LMSupply.Ocr.Detection;
 using LMSupply.Ocr.Models;
 using LMSupply.Ocr.Recognition;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using LMSupply.Vision;
 
 namespace LMSupply.Ocr;
 
@@ -104,7 +103,7 @@ internal sealed class OcrPipeline : IOcr
     {
         var sw = Stopwatch.StartNew();
 
-        using var image = await DbNetDetector.LoadImageAsync(imagePath, cancellationToken).ConfigureAwait(false);
+        var image = await DbNetDetector.LoadImageAsync(imagePath, cancellationToken).ConfigureAwait(false);
         var result = await RecognizeImageAsync(image, cancellationToken).ConfigureAwait(false);
 
         sw.Stop();
@@ -116,7 +115,7 @@ internal sealed class OcrPipeline : IOcr
     {
         var sw = Stopwatch.StartNew();
 
-        using var image = await DbNetDetector.LoadImageAsync(imageStream, cancellationToken).ConfigureAwait(false);
+        var image = await DbNetDetector.LoadImageAsync(imageStream, cancellationToken).ConfigureAwait(false);
         var result = await RecognizeImageAsync(image, cancellationToken).ConfigureAwait(false);
 
         sw.Stop();
@@ -128,7 +127,7 @@ internal sealed class OcrPipeline : IOcr
     {
         var sw = Stopwatch.StartNew();
 
-        using var image = DbNetDetector.LoadImage(imageData);
+        var image = DbNetDetector.LoadImage(imageData);
         var result = await RecognizeImageAsync(image, cancellationToken).ConfigureAwait(false);
 
         sw.Stop();
@@ -147,7 +146,7 @@ internal sealed class OcrPipeline : IOcr
         return await _detector.DetectAsync(imageStream, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<OcrResult> RecognizeImageAsync(Image<Rgb24> image, CancellationToken cancellationToken)
+    private async Task<OcrResult> RecognizeImageAsync(RgbImage image, CancellationToken cancellationToken)
     {
         // Step 1: Detect text regions
         var detectedRegions = await _detector.DetectAsync(image, cancellationToken).ConfigureAwait(false);

@@ -1,9 +1,8 @@
 using AwesomeAssertions;
 using LMSupply.Detector.Core;
 using LMSupply.Detector.Models;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using Xunit;
+using LMSupply.Vision;
 
 namespace LMSupply.Detector.Tests;
 
@@ -24,13 +23,12 @@ public class DetectorPreprocessingTests
     private const byte G = 20;
     private const byte B = 30;
 
-    private static Image<Rgb24> SolidColour(int size = 4) =>
-        new(size, size, new Rgb24(R, G, B));
+    private static RgbImage SolidColour(int size = 4) => RgbImage.Filled(size, size, R, G, B);
 
     [Fact]
     public void ScaledRgb_PutsRedFirstAndOnlyDividesBy255()
     {
-        using var image = SolidColour();
+        var image = SolidColour();
 
         var tensor = OnnxDetectorModel.PreprocessImage(image, 4, 4, DetectorInputFormat.ScaledRgb);
 
@@ -44,7 +42,7 @@ public class DetectorPreprocessingTests
     [Fact]
     public void RawBgr_PutsBlueFirstAndLeavesTheBytesAlone()
     {
-        using var image = SolidColour();
+        var image = SolidColour();
 
         var tensor = OnnxDetectorModel.PreprocessImage(image, 4, 4, DetectorInputFormat.RawBgr);
 
@@ -56,8 +54,8 @@ public class DetectorPreprocessingTests
     [Fact]
     public void TheTwoFormatsAreNotInterchangeable()
     {
-        using var rgbImage = SolidColour();
-        using var bgrImage = SolidColour();
+        var rgbImage = SolidColour();
+        var bgrImage = SolidColour();
 
         var rgb = OnnxDetectorModel.PreprocessImage(rgbImage, 4, 4, DetectorInputFormat.ScaledRgb);
         var bgr = OnnxDetectorModel.PreprocessImage(bgrImage, 4, 4, DetectorInputFormat.RawBgr);
@@ -71,7 +69,7 @@ public class DetectorPreprocessingTests
         // The int32 format is NHWC and built by its own method; it is pinned below.
         foreach (var format in Enum.GetValues<DetectorInputFormat>().Where(f => f != DetectorInputFormat.PaddedRgbInt32))
         {
-            using var image = SolidColour(9);
+            var image = SolidColour(9);
 
             var tensor = OnnxDetectorModel.PreprocessImage(image, 8, 8, format);
 
@@ -82,7 +80,7 @@ public class DetectorPreprocessingTests
     [Fact]
     public void AnUndeclaredFormatIsRefusedRatherThanGuessed()
     {
-        using var image = SolidColour();
+        var image = SolidColour();
 
         var act = () => OnnxDetectorModel.PreprocessImage(image, 4, 4, (DetectorInputFormat)0);
 
@@ -95,7 +93,7 @@ public class DetectorPreprocessingTests
         // The licence-plate model takes 320x240. A single square size could not describe it, and a tensor
         // built with the two swapped is not a formatting detail - the model reads its offsets against priors
         // derived from these numbers, so every box would land somewhere else.
-        using var image = SolidColour(64);
+        var image = SolidColour(64);
 
         var tensor = OnnxDetectorModel.PreprocessImage(image, 320, 240, DetectorInputFormat.RawBgr);
 
@@ -105,8 +103,8 @@ public class DetectorPreprocessingTests
     [Fact]
     public void PixelsLandAtTheRightOffsetInANonSquareTensor()
     {
-        using var image = new Image<Rgb24>(8, 4);
-        image[7, 3] = new Rgb24(1, 2, 3);
+        var image = new RgbImage(8, 4);
+        image[7, 3] = (1, 2, 3);
 
         var tensor = OnnxDetectorModel.PreprocessImage(image, 8, 4, DetectorInputFormat.RawBgr);
 
@@ -119,7 +117,7 @@ public class DetectorPreprocessingTests
     [Fact]
     public void PaddedRgbInt32_IsNotAFloatFormat()
     {
-        using var image = SolidColour();
+        var image = SolidColour();
 
         var act = () => OnnxDetectorModel.PreprocessImage(image, 4, 4, DetectorInputFormat.PaddedRgbInt32);
 
@@ -129,7 +127,7 @@ public class DetectorPreprocessingTests
     [Fact]
     public void PaddedRgbInt32_IsNhwcRawRgb()
     {
-        using var image = SolidColour(8);
+        var image = SolidColour(8);
 
         var (tensor, _) = OnnxDetectorModel.PreprocessPaddedInt32(image, 8, 8);
 
@@ -143,7 +141,7 @@ public class DetectorPreprocessingTests
     public void PaddedRgbInt32_KeepsTheAspectRatio_AndCentresTheImageOnBlack()
     {
         // A 2:1 image on a square input fills the width and half the height, a quarter of black above and below.
-        using var image = new Image<Rgb24>(16, 8, new Rgb24(R, G, B));
+        var image = RgbImage.Filled(16, 8, R, G, B);
 
         var (tensor, frame) = OnnxDetectorModel.PreprocessPaddedInt32(image, 8, 8);
 

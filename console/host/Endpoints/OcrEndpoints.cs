@@ -1,7 +1,7 @@
 using LMSupply.Console.Host.Infrastructure;
 using LMSupply.Console.Host.Models.OpenAI;
 using LMSupply.Console.Host.Services;
-using SixLabors.ImageSharp;
+using LMSupply.Vision;
 
 namespace LMSupply.Console.Host.Endpoints;
 
@@ -43,9 +43,9 @@ public static class OcrEndpoints
                 var result = await scope.Model.RecognizeAsync(imageBytes, ct);
 
                 // Get image dimensions for page metadata
-                var imageInfo = Image.Identify(imageBytes);
-                int imageWidth = imageInfo?.Width ?? 0;
-                int imageHeight = imageInfo?.Height ?? 0;
+                var imageSize = ImageLoader.Identify(imageBytes);
+                int imageWidth = imageSize?.Width ?? 0;
+                int imageHeight = imageSize?.Height ?? 0;
 
                 var blocks = result.Regions.Select(r => new Infrastructure.Vision.OcrBlock
                 {

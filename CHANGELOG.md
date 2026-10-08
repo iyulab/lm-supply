@@ -6,6 +6,43 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Security
+- **`LMSupply.Vision.Core` no longer depends on SixLabors.ImageSharp.** Version 3.1.12 carries advisories
+  GHSA-j3p4-wp97-rph4, GHSA-j9gm-c75j-xc9q and GHSA-jjfr-hcj7-qf5w (high) and GHSA-gwg2-r3hj-4w44 and
+  GHSA-wmxv-xphr-5c9g (moderate), so NuGet audit failed restore for every project that references the vision packages
+  with warnings as errors. The only patched line (4.x) requires a license key at build time. Decoding and PNG encoding
+  now use SkiaSharp (MIT); resizing is implemented in LMSupply.
+
+### Breaking
+- **`IImageLoader.LoadAsync` returns `RgbImage` and `IImagePreprocessor.Preprocess` takes `RgbImage`**, replacing
+  ImageSharp's `Image<Rgb24>`. `RgbImage` holds 8-bit RGB pixels (`Pixels`, `GetRow`, an `[x, y]` indexer) and offers
+  `Resize`, `Crop`, `Letterbox` and `Clone`. Code that loaded images with ImageSharp itself can pass the encoded bytes
+  to `ImageLoader.Decode` instead.
+- **Accepted input formats change.** JPEG, PNG, WebP, GIF (first frame), BMP and ICO decode.
+  **TIFF, TGA, PBM and QOI no longer decode.** Data that is not
+  a supported image, or that is truncated, now throws `InvalidDataException` (it used to throw ImageSharp's
+  `UnknownImageFormatException` or `InvalidImageContentException`). To migrate, convert those files to PNG before
+  passing them in.
+
+### Changed
+- **Resize output matches the previous implementation to within one level per channel.** The bicubic (Catmull-Rom)
+  kernel widens with the scale factor when shrinking, as before. Fixture tests compare it against reference output from
+  the previous implementation.
+- **JPEG decoding differs slightly from before.** Two decoders do not produce identical pixels from the same JPEG:
+  chroma-subsampled (4:2:0) files differ by about 0.5 levels on average (at most 6); 4:4:4 files differ by at most 3.
+- **`ResizeMode.Fit` centers the letterboxed image with the offset rounded down on both axes.** It used to round the
+  vertical offset half-to-even, so content in a custom `Fit` profile can move by one pixel. No built-in profile uses
+  `Fit`.
+- **Native libraries come with the package.** Windows and macOS natives come with SkiaSharp. Linux (glibc and musl,
+  x64 and arm64) natives come with `SkiaSharp.NativeAssets.Linux.NoDependencies`, which needs no fontconfig.
+  **Consumers add nothing per platform.** An application that already references `SkiaSharp.NativeAssets.Linux` (the
+  fontconfig build) now gets both Linux native packages, which ship the same `libSkiaSharp.so`, so `dotnet publish`
+  reports a duplicate output. Keep the one you reference and exclude the other with `ExcludeAssets="all"`.
+
+### Added
+- `ImageLoader.Decode(ReadOnlySpan<byte>)`, `ImageLoader.Identify` (dimensions without decoding) and
+  `ImageLoader.EncodePng(RgbImage)`.
+
 ## [0.112.1] - 2026-10-08
 
 ### Fixed

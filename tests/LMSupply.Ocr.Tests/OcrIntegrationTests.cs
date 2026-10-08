@@ -1,9 +1,5 @@
 using AwesomeAssertions;
-using SixLabors.Fonts;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 using Xunit;
 
 namespace LMSupply.Ocr.Tests;
@@ -440,36 +436,36 @@ public class OcrIntegrationTests : IDisposable
 
     #region Helper Methods
 
-    private static Font GetDefaultFont(float size)
+    private static SKFont GetDefaultFont(float size)
     {
         // Try to get system fonts in order of preference
         var fontNames = new[] { "Arial", "Segoe UI", "DejaVu Sans", "Liberation Sans", "Noto Sans" };
 
         foreach (var fontName in fontNames)
         {
-            if (SystemFonts.TryGet(fontName, out var family))
+            if (SKFontManager.Default.MatchFamily(fontName, SKFontStyle.Bold) is { } typeface)
             {
-                return family.CreateFont(size, FontStyle.Bold);
+                return new SKFont(typeface, size);
             }
         }
 
         // Fallback to any available font
-        var availableFonts = SystemFonts.Families.ToList();
-        if (availableFonts.Count > 0)
+        var anyFamily = SKFontManager.Default.FontFamilies.FirstOrDefault();
+        if (anyFamily is not null && SKFontManager.Default.MatchFamily(anyFamily, SKFontStyle.Bold) is { } fallback)
         {
-            return availableFonts[0].CreateFont(size, FontStyle.Bold);
+            return new SKFont(fallback, size);
         }
 
         throw new InvalidOperationException("No system fonts available");
     }
 
-    private static Font? TryGetFont(float size, params string[] names)
+    private static SKFont? TryGetFont(float size, params string[] names)
     {
         foreach (var name in names)
         {
-            if (SystemFonts.TryGet(name, out var family))
+            if (SKFontManager.Default.MatchFamily(name) is { } typeface)
             {
-                return family.CreateFont(size, FontStyle.Regular);
+                return new SKFont(typeface, size);
             }
         }
 
@@ -479,49 +475,35 @@ public class OcrIntegrationTests : IDisposable
     private static void CreateTestImage(string path, string text, int width, int height)
         => CreateTestImage(path, text, width, height, GetDefaultFont(48)); // Larger font for better detection
 
-    private static void CreateTestImage(string path, string text, int width, int height, Font font)
-    {
-        using var image = new Image<Rgba32>(width, height);
-
-        // White background
-        image.Mutate(ctx => ctx.Fill(Color.White));
-
-        // Draw text with good contrast
-        var textOptions = new RichTextOptions(font)
-        {
-            Origin = new PointF(20, height / 2 - 30),
-            HorizontalAlignment = HorizontalAlignment.Left
-        };
-
-        image.Mutate(ctx => ctx.DrawText(textOptions, text, Color.Black));
-        image.SaveAsPng(path);
-    }
+    private static void CreateTestImage(string path, string text, int width, int height, SKFont font)
+        => RenderLines(path, [(text, height / 2f - 30)], width, height, font);
 
     private static void CreateMultiLineTestImage(string path, string[] lines, int width, int height)
     {
-        using var image = new Image<Rgba32>(width, height);
-
-        // White background
-        image.Mutate(ctx => ctx.Fill(Color.White));
-
-        // Get font
         var font = GetDefaultFont(36); // Larger font for better detection
         float y = 30;
         float lineHeight = 50;
+        RenderLines(path, [.. lines.Select((line, i) => (line, y + i * lineHeight))], width, height, font);
+    }
 
-        foreach (var line in lines)
+    // Black text on white; each line's top edge at the given y (the baseline sits one ascent below it).
+    private static void RenderLines(string path, (string Text, float Top)[] lines, int width, int height, SKFont font)
+    {
+        using (font)
+        using (var surface = SKSurface.Create(new SKImageInfo(width, height)))
+        using (var paint = new SKPaint { Color = SKColors.Black, IsAntialias = true })
         {
-            var textOptions = new RichTextOptions(font)
+            var canvas = surface.Canvas;
+            canvas.Clear(SKColors.White);
+            foreach (var (text, top) in lines)
             {
-                Origin = new PointF(20, y),
-                HorizontalAlignment = HorizontalAlignment.Left
-            };
+                canvas.DrawText(text, 20, top - font.Metrics.Ascent, SKTextAlign.Left, font, paint);
+            }
 
-            image.Mutate(ctx => ctx.DrawText(textOptions, line, Color.Black));
-            y += lineHeight;
+            using var image = surface.Snapshot();
+            using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+            File.WriteAllBytes(path, png.ToArray());
         }
-
-        image.SaveAsPng(path);
     }
 
     #endregion

@@ -74,7 +74,7 @@ public class ReadmeSnippetCompileTests
         "LMSupply.Core", "LMSupply.Embedder", "LMSupply.Reranker", "LMSupply.Generator", "LMSupply.Generator.Onnx",
         "LMSupply.Llama", "LMSupply.Translator", "LMSupply.Transcriber", "LMSupply.Synthesizer", "LMSupply.Captioner",
         "LMSupply.Ocr", "LMSupply.Detector", "LMSupply.Segmenter", "LMSupply.ImageGenerator",
-        "LMSupply.Text.Core", "LMSupply.Vision.Core", "SixLabors.ImageSharp",
+        "LMSupply.Text.Core", "LMSupply.Vision.Core",
     ];
 
     public static TheoryData<string> Blocks()

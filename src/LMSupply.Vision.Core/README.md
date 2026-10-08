@@ -10,14 +10,15 @@ Provides shared image processing capabilities for vision-based AI packages:
 
 ## Key Components
 
-- `IImageLoader` - Abstraction for loading images from various sources
+- `RgbImage` - 8-bit RGB image in memory, with bicubic `Resize`, `Crop` and `Letterbox`
+- `IImageLoader` / `ImageLoader` - Decodes JPEG, PNG, WebP, GIF (first frame), BMP and ICO; `ImageLoader.EncodePng` writes PNG
 - `IImagePreprocessor` - Model-specific image preprocessing pipeline
 - `PreprocessProfile` - Configuration for image preprocessing parameters
 - `TensorUtils` - Utilities for converting images to ONNX tensors
 
 ## Dependencies
 
-- `SixLabors.ImageSharp` - Cross-platform image processing (no native dependencies)
+- `SkiaSharp` - Image decoding and PNG encoding (MIT). Native libraries for Windows, macOS and Linux come with the package; nothing to add per platform
 - `LMSupply.Core` - Shared infrastructure (caching, downloading, ONNX utilities)
 
 ## Usage

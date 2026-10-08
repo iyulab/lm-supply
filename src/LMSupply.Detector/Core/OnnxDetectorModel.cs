@@ -3,9 +3,7 @@ using LMSupply.Inference;
 using LMSupply.Detector.Models;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using LMSupply.Vision;
 
 namespace LMSupply.Detector.Core;
 
@@ -81,7 +79,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(imagePath);
 
-        using var image = await Image.LoadAsync<Rgb24>(imagePath, cancellationToken);
+        var image = await ImageLoader.Instance.LoadAsync(imagePath, cancellationToken);
         return await DetectCoreAsync(image, cancellationToken);
     }
 
@@ -91,7 +89,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     {
         ArgumentNullException.ThrowIfNull(imageStream);
 
-        using var image = await Image.LoadAsync<Rgb24>(imageStream, cancellationToken);
+        var image = await ImageLoader.Instance.LoadAsync(imageStream, cancellationToken);
         return await DetectCoreAsync(image, cancellationToken);
     }
 
@@ -101,7 +99,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     {
         ArgumentNullException.ThrowIfNull(imageData);
 
-        using var image = Image.Load<Rgb24>(imageData);
+        var image = ImageLoader.Decode(imageData);
         return await DetectCoreAsync(image, cancellationToken);
     }
 
@@ -157,7 +155,7 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     }
 
     private async Task<IReadOnlyList<DetectionResult>> DetectCoreAsync(
-        Image<Rgb24> image,
+        RgbImage image,
         CancellationToken cancellationToken)
     {
         await EnsureInitializedAsync(cancellationToken);
@@ -223,12 +221,12 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     /// measured on YuNet, BGR finds seven faces in a street scene where RGB finds none.
     /// </remarks>
     internal static DenseTensor<float> PreprocessImage(
-        Image<Rgb24> image, int targetWidth, int targetHeight, DetectorInputFormat format)
+        RgbImage image, int targetWidth, int targetHeight, DetectorInputFormat format)
     {
         // Resize to the size this model was exported for. Aspect ratio is deliberately not preserved: the
         // reference preprocessing for both families stretches, and the offsets the models emit are read
         // against that stretched frame.
-        image.Mutate(x => x.Resize(targetWidth, targetHeight));
+        var resized = image.Resize(targetWidth, targetHeight);
 
         var tensor = new DenseTensor<float>([1, 3, targetHeight, targetWidth]);
 
@@ -246,25 +244,20 @@ internal sealed class OnnxDetectorModel : IDetectorModel
         // recomputes a stride product per element, and there are three million of them per 640x640 frame.
         var plane = targetWidth * targetHeight;
 
-        image.ProcessPixelRows(accessor =>
+        var buffer = tensor.Buffer.Span;
+        for (int y = 0; y < targetHeight; y++)
         {
-            // Taken inside the callback: a span cannot be captured by the lambda.
-            var buffer = tensor.Buffer.Span;
+            var row = resized.GetRow(y);
+            var offset = y * targetWidth;
 
-            for (int y = 0; y < targetHeight; y++)
+            for (int x = 0; x < targetWidth; x++)
             {
-                var row = accessor.GetRowSpan(y);
-                var offset = y * targetWidth;
-
-                for (int x = 0; x < targetWidth; x++)
-                {
-                    var pixel = row[x];
-                    buffer[offset + x] = (bgr ? pixel.B : pixel.R) * scale;
-                    buffer[plane + offset + x] = pixel.G * scale;
-                    buffer[plane * 2 + offset + x] = (bgr ? pixel.R : pixel.B) * scale;
-                }
+                byte r = row[x * 3], g = row[x * 3 + 1], b = row[x * 3 + 2];
+                buffer[offset + x] = (bgr ? b : r) * scale;
+                buffer[plane + offset + x] = g * scale;
+                buffer[plane * 2 + offset + x] = (bgr ? r : b) * scale;
             }
-        });
+        }
 
         return tensor;
     }
@@ -274,32 +267,25 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     /// with its aspect ratio kept, centred on a black canvas, raw RGB bytes. Returns where the image landed.
     /// </summary>
     internal static (DenseTensor<int> Tensor, DetectorInputFrame Frame) PreprocessPaddedInt32(
-        Image<Rgb24> image, int targetWidth, int targetHeight)
+        RgbImage image, int targetWidth, int targetHeight)
     {
         var frame = DetectorInputFrame.Padded(targetWidth, targetHeight, image.Width, image.Height);
-        image.Mutate(x => x.Resize(frame.ContentWidth, frame.ContentHeight));
+        var resized = image.Resize(frame.ContentWidth, frame.ContentHeight);
 
         // Zero-initialised: the padding is black, as in the reference preprocessing.
         var tensor = new DenseTensor<int>([1, targetHeight, targetWidth, 3]);
 
-        image.ProcessPixelRows(accessor =>
+        var buffer = tensor.Buffer.Span;
+        for (int y = 0; y < frame.ContentHeight; y++)
         {
-            var buffer = tensor.Buffer.Span;
+            var row = resized.GetRow(y);
+            var offset = ((frame.PadY + y) * targetWidth + frame.PadX) * 3;
 
-            for (int y = 0; y < frame.ContentHeight; y++)
+            for (int x = 0; x < frame.ContentWidth * 3; x++)
             {
-                var row = accessor.GetRowSpan(y);
-                var offset = ((frame.PadY + y) * targetWidth + frame.PadX) * 3;
-
-                for (int x = 0; x < frame.ContentWidth; x++)
-                {
-                    var pixel = row[x];
-                    buffer[offset + x * 3] = pixel.R;
-                    buffer[offset + x * 3 + 1] = pixel.G;
-                    buffer[offset + x * 3 + 2] = pixel.B;
-                }
+                buffer[offset + x] = row[x];
             }
-        });
+        }
 
         return (tensor, frame);
     }

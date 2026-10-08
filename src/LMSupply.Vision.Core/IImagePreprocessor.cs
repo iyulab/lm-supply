@@ -1,6 +1,3 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-
 namespace LMSupply.Vision;
 
 /// <summary>
@@ -47,8 +44,8 @@ public interface IImagePreprocessor
     /// <summary>
     /// Preprocesses an already-loaded image.
     /// </summary>
-    /// <param name="image">Loaded image in RGB24 format.</param>
+    /// <param name="image">Loaded image.</param>
     /// <param name="profile">Preprocessing profile specifying target size and normalization.</param>
     /// <returns>Preprocessed image as a float array in NCHW or NHWC format.</returns>
-    float[] Preprocess(Image<Rgb24> image, PreprocessProfile profile);
+    float[] Preprocess(RgbImage image, PreprocessProfile profile);
 }

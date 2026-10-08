@@ -1,11 +1,7 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
-
 namespace LMSupply.Vision;
 
 /// <summary>
-/// Default implementation of <see cref="IImagePreprocessor"/> using ImageSharp.
+/// Default implementation of <see cref="IImagePreprocessor"/>.
 /// Handles resizing, cropping, and normalization according to model requirements.
 /// </summary>
 public sealed class ImagePreprocessor : IImagePreprocessor
@@ -39,7 +35,7 @@ public sealed class ImagePreprocessor : IImagePreprocessor
         PreprocessProfile profile,
         CancellationToken cancellationToken = default)
     {
-        using var image = await _imageLoader.LoadAsync(imagePath, cancellationToken).ConfigureAwait(false);
+        var image = await _imageLoader.LoadAsync(imagePath, cancellationToken).ConfigureAwait(false);
         return Preprocess(image, profile);
     }
 
@@ -49,7 +45,7 @@ public sealed class ImagePreprocessor : IImagePreprocessor
         PreprocessProfile profile,
         CancellationToken cancellationToken = default)
     {
-        using var image = await _imageLoader.LoadAsync(imageStream, cancellationToken).ConfigureAwait(false);
+        var image = await _imageLoader.LoadAsync(imageStream, cancellationToken).ConfigureAwait(false);
         return Preprocess(image, profile);
     }
 
@@ -59,146 +55,70 @@ public sealed class ImagePreprocessor : IImagePreprocessor
         PreprocessProfile profile,
         CancellationToken cancellationToken = default)
     {
-        using var image = await _imageLoader.LoadAsync(imageData, cancellationToken).ConfigureAwait(false);
+        var image = await _imageLoader.LoadAsync(imageData, cancellationToken).ConfigureAwait(false);
         return Preprocess(image, profile);
     }
 
     /// <inheritdoc />
-    public float[] Preprocess(Image<Rgb24> image, PreprocessProfile profile)
+    public float[] Preprocess(RgbImage image, PreprocessProfile profile)
     {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(profile);
 
-        // Clone to avoid modifying the original
-        using var processedImage = image.Clone();
-
-        // Apply resize/crop according to profile
-        ApplyResize(processedImage, profile);
-
-        // Convert to normalized float tensor
-        return ToNormalizedTensor(processedImage, profile);
-    }
-
-    private static void ApplyResize(Image<Rgb24> image, PreprocessProfile profile)
-    {
-        var targetWidth = profile.Width;
-        var targetHeight = profile.Height;
-
-        switch (profile.ResizeMode)
+        var resized = profile.ResizeMode switch
         {
-            case ResizeMode.Stretch:
-                image.Mutate(x => x.Resize(new ResizeOptions
-                {
-                    Size = new Size(targetWidth, targetHeight),
-                    Mode = SixLabors.ImageSharp.Processing.ResizeMode.Stretch,
-                    Sampler = KnownResamplers.Bicubic
-                }));
-                break;
+            ResizeMode.Stretch => image.Resize(profile.Width, profile.Height),
+            ResizeMode.Fit => image.Letterbox(profile.Width, profile.Height),
+            ResizeMode.CenterCrop or ResizeMode.ShortEdgeCrop => CenterCrop(image, profile.Width, profile.Height),
+            _ => throw new ArgumentOutOfRangeException(nameof(profile), $"Unknown resize mode: {profile.ResizeMode}"),
+        };
 
-            case ResizeMode.Fit:
-                // Resize to fit within bounds, then pad
-                image.Mutate(x => x.Resize(new ResizeOptions
-                {
-                    Size = new Size(targetWidth, targetHeight),
-                    Mode = SixLabors.ImageSharp.Processing.ResizeMode.Pad,
-                    Sampler = KnownResamplers.Bicubic,
-                    PadColor = Color.Black
-                }));
-                break;
-
-            case ResizeMode.CenterCrop:
-                // Resize so shorter edge matches, then center crop
-                ApplyCenterCrop(image, targetWidth, targetHeight);
-                break;
-
-            case ResizeMode.ShortEdgeCrop:
-                // Same as CenterCrop but explicit naming
-                ApplyCenterCrop(image, targetWidth, targetHeight);
-                break;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(profile), $"Unknown resize mode: {profile.ResizeMode}");
-        }
+        return ToNormalizedTensor(resized, profile);
     }
 
-    private static void ApplyCenterCrop(Image<Rgb24> image, int targetWidth, int targetHeight)
+    // Scale so the image covers the target (the shorter edge matches), then cut the centered target-sized window.
+    private static RgbImage CenterCrop(RgbImage image, int targetWidth, int targetHeight)
     {
-        // Calculate scale factor based on shorter edge
-        float scaleX = (float)targetWidth / image.Width;
-        float scaleY = (float)targetHeight / image.Height;
-        float scale = Math.Max(scaleX, scaleY);
-
+        float scale = Math.Max((float)targetWidth / image.Width, (float)targetHeight / image.Height);
         int newWidth = (int)Math.Ceiling(image.Width * scale);
         int newHeight = (int)Math.Ceiling(image.Height * scale);
-
-        // Resize
-        image.Mutate(x => x.Resize(new ResizeOptions
-        {
-            Size = new Size(newWidth, newHeight),
-            Mode = SixLabors.ImageSharp.Processing.ResizeMode.Stretch,
-            Sampler = KnownResamplers.Bicubic
-        }));
-
-        // Center crop
-        int cropX = (newWidth - targetWidth) / 2;
-        int cropY = (newHeight - targetHeight) / 2;
-
-        image.Mutate(x => x.Crop(new Rectangle(cropX, cropY, targetWidth, targetHeight)));
+        var scaled = image.Resize(newWidth, newHeight);
+        return scaled.Crop((newWidth - targetWidth) / 2, (newHeight - targetHeight) / 2, targetWidth, targetHeight);
     }
 
-    private static float[] ToNormalizedTensor(Image<Rgb24> image, PreprocessProfile profile)
+    private static float[] ToNormalizedTensor(RgbImage image, PreprocessProfile profile)
     {
         int width = profile.Width;
         int height = profile.Height;
         int pixelCount = width * height;
+        var tensor = new float[3 * pixelCount];
 
-        float[] tensor;
-
-        if (profile.ChannelFirst)
+        for (int y = 0; y < height; y++)
         {
-            // NCHW format: [1, 3, H, W]
-            tensor = new float[3 * pixelCount];
-
-            image.ProcessPixelRows(accessor =>
+            var row = image.GetRow(y);
+            for (int x = 0; x < width; x++)
             {
-                for (int y = 0; y < height; y++)
+                // Normalize: (pixel/255 - mean) / std
+                var r = ((row[x * 3] / 255f) - profile.Mean[0]) / profile.Std[0];
+                var g = ((row[(x * 3) + 1] / 255f) - profile.Mean[1]) / profile.Std[1];
+                var b = ((row[(x * 3) + 2] / 255f) - profile.Mean[2]) / profile.Std[2];
+                if (profile.ChannelFirst)
                 {
-                    var row = accessor.GetRowSpan(y);
-                    for (int x = 0; x < width; x++)
-                    {
-                        var pixel = row[x];
-                        int idx = y * width + x;
-
-                        // Normalize: (pixel/255 - mean) / std
-                        tensor[0 * pixelCount + idx] = ((pixel.R / 255f) - profile.Mean[0]) / profile.Std[0];
-                        tensor[1 * pixelCount + idx] = ((pixel.G / 255f) - profile.Mean[1]) / profile.Std[1];
-                        tensor[2 * pixelCount + idx] = ((pixel.B / 255f) - profile.Mean[2]) / profile.Std[2];
-                    }
+                    // NCHW format: [1, 3, H, W]
+                    int idx = y * width + x;
+                    tensor[idx] = r;
+                    tensor[pixelCount + idx] = g;
+                    tensor[(2 * pixelCount) + idx] = b;
                 }
-            });
-        }
-        else
-        {
-            // NHWC format: [1, H, W, 3]
-            tensor = new float[3 * pixelCount];
-
-            image.ProcessPixelRows(accessor =>
-            {
-                for (int y = 0; y < height; y++)
+                else
                 {
-                    var row = accessor.GetRowSpan(y);
-                    for (int x = 0; x < width; x++)
-                    {
-                        var pixel = row[x];
-                        int idx = (y * width + x) * 3;
-
-                        // Normalize: (pixel/255 - mean) / std
-                        tensor[idx + 0] = ((pixel.R / 255f) - profile.Mean[0]) / profile.Std[0];
-                        tensor[idx + 1] = ((pixel.G / 255f) - profile.Mean[1]) / profile.Std[1];
-                        tensor[idx + 2] = ((pixel.B / 255f) - profile.Mean[2]) / profile.Std[2];
-                    }
+                    // NHWC format: [1, H, W, 3]
+                    int idx = (y * width + x) * 3;
+                    tensor[idx] = r;
+                    tensor[idx + 1] = g;
+                    tensor[idx + 2] = b;
                 }
-            });
+            }
         }
 
         return tensor;

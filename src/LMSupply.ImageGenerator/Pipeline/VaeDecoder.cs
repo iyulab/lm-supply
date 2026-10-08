@@ -1,8 +1,7 @@
 using LMSupply.Inference;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using LMSupply.Vision;
 
 namespace LMSupply.ImageGenerator.Pipeline;
 
@@ -121,7 +120,7 @@ internal sealed class VaeDecoder : IAsyncDisposable
         var width = dims[3];
 
         // Create image
-        using var image = new Image<Rgb24>(width, height);
+        var image = new RgbImage(width, height);
 
         for (int y = 0; y < height; y++)
         {
@@ -132,14 +131,11 @@ internal sealed class VaeDecoder : IAsyncDisposable
                 var g = DenormalizePixel(tensor[0, 1, y, x]);
                 var b = DenormalizePixel(tensor[0, 2, y, x]);
 
-                image[x, y] = new Rgb24(r, g, b);
+                image[x, y] = (r, g, b);
             }
         }
 
-        // Encode to PNG
-        using var ms = new MemoryStream();
-        image.SaveAsPng(ms);
-        return ms.ToArray();
+        return ImageLoader.EncodePng(image);
     }
 
     private static byte DenormalizePixel(float value)

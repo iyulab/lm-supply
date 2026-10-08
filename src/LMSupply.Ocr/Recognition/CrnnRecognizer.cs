@@ -2,9 +2,7 @@ using LMSupply.Inference;
 using LMSupply.Ocr.Models;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Processing;
+using LMSupply.Vision;
 
 namespace LMSupply.Ocr.Recognition;
 
@@ -77,7 +75,7 @@ internal sealed class CrnnRecognizer : IDisposable
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>List of recognized text regions.</returns>
     public async Task<IReadOnlyList<TextRegion>> RecognizeAsync(
-        Image<Rgb24> image,
+        RgbImage image,
         IReadOnlyList<DetectedRegion> regions,
         CancellationToken cancellationToken = default)
     {
@@ -88,7 +86,7 @@ internal sealed class CrnnRecognizer : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
 
             // Crop the region from the image
-            using var cropped = CropRegion(image, region);
+            var cropped = CropRegion(image, region);
 
             // Recognize text in the cropped region
             var (text, confidence) = await RecognizeSingleAsync(cropped, cancellationToken)
@@ -111,7 +109,7 @@ internal sealed class CrnnRecognizer : IDisposable
     /// Recognizes text in a single cropped image.
     /// </summary>
     public async Task<(string text, float confidence)> RecognizeSingleAsync(
-        Image<Rgb24> image,
+        RgbImage image,
         CancellationToken cancellationToken = default)
     {
         // Resize to target height while maintaining aspect ratio
@@ -127,8 +125,7 @@ internal sealed class CrnnRecognizer : IDisposable
         // Round to multiple of 4 for efficiency
         targetWidth = ((targetWidth + 3) / 4) * 4;
 
-        using var resized = image.Clone();
-        resized.Mutate(x => x.Resize(targetWidth, targetHeight));
+        var resized = image.Resize(targetWidth, targetHeight);
 
         // Convert to tensor
         var inputTensor = PreprocessImage(resized);
@@ -150,7 +147,7 @@ internal sealed class CrnnRecognizer : IDisposable
         return CtcDecoder.GreedyDecode(logits, _dictionary);
     }
 
-    private static Image<Rgb24> CropRegion(Image<Rgb24> image, DetectedRegion region)
+    private static RgbImage CropRegion(RgbImage image, DetectedRegion region)
     {
         var box = region.BoundingBox;
 
@@ -163,15 +160,13 @@ internal sealed class CrnnRecognizer : IDisposable
         if (width <= 0 || height <= 0)
         {
             // Return a minimal image if region is invalid
-            return new Image<Rgb24>(1, 1);
+            return new RgbImage(1, 1);
         }
 
-        var cropped = image.Clone();
-        cropped.Mutate(ctx => ctx.Crop(new Rectangle(x, y, width, height)));
-        return cropped;
+        return image.Crop(x, y, width, height);
     }
 
-    private DenseTensor<float> PreprocessImage(Image<Rgb24> image)
+    private DenseTensor<float> PreprocessImage(RgbImage image)
     {
         var height = image.Height;
         var width = image.Width;
@@ -180,21 +175,17 @@ internal sealed class CrnnRecognizer : IDisposable
         var mean = _modelInfo.Mean;
         var std = _modelInfo.Std;
 
-        image.ProcessPixelRows(accessor =>
+        for (var y = 0; y < height; y++)
         {
-            for (var y = 0; y < height; y++)
+            var row = image.GetRow(y);
+            for (var x = 0; x < width; x++)
             {
-                var row = accessor.GetRowSpan(y);
-                for (var x = 0; x < width; x++)
-                {
-                    var pixel = row[x];
-                    // Normalize to [0, 1] then apply mean/std
-                    tensor[0, 0, y, x] = (pixel.R / 255f - mean[0]) / std[0];
-                    tensor[0, 1, y, x] = (pixel.G / 255f - mean[1]) / std[1];
-                    tensor[0, 2, y, x] = (pixel.B / 255f - mean[2]) / std[2];
-                }
+                // Normalize to [0, 1] then apply mean/std
+                tensor[0, 0, y, x] = (row[x * 3] / 255f - mean[0]) / std[0];
+                tensor[0, 1, y, x] = (row[x * 3 + 1] / 255f - mean[1]) / std[1];
+                tensor[0, 2, y, x] = (row[x * 3 + 2] / 255f - mean[2]) / std[2];
             }
-        });
+        }
 
         return tensor;
     }
