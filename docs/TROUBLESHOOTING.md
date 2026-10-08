@@ -151,11 +151,13 @@ Runtime 1.25+ ships no DirectML provider and the `Microsoft.ML.OnnxRuntime.Direc
 at 1.24.4.
 
 **Solutions:**
-1. Use `ExecutionProvider.Auto` — CUDA / CoreML / CPU for ONNX sessions, Vulkan for llama-server on AMD/Intel GPUs
+1. Use `ExecutionProvider.Auto` — CUDA / CoreML / CPU for ONNX sessions, Vulkan for llama-server on AMD/Intel GPUs —
+   or `ExecutionProvider.OpenVino` for ONNX sessions on an Intel GPU
 2. Or pin `ExecutionProvider.Cpu`
 
 **Symptom:** ONNX-backed modules run on CPU on a Windows machine with an AMD/Intel GPU. This is
-expected on 0.67.0+; the library says so once per process in `Trace`
+expected on 0.67.0+ under `Auto` (on an Intel GPU, select `ExecutionProvider.OpenVino` — see
+[GPU_PROVIDERS.md](GPU_PROVIDERS.md#32-amd--intel-gpus)); the library says so once per process in `Trace`
 (`[ExecutionProvider] A Direct3D 12 capable GPU was detected ... ONNX sessions run on CPU`).
 
 ### 3.3 Out of Memory (OOM)

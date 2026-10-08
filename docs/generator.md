@@ -108,6 +108,8 @@ await foreach (var token in generator.GenerateAsync("Write a short story about a
 
 > v0.67.0: the ONNX (DirectML) row for Windows discrete AMD/Intel GPUs is gone — ONNX Runtime 1.25+ has no
 > DirectML provider. `auto`/`default` is GGUF on every host; ONNX models are explicit-only (CUDA or CPU).
+> `ExecutionProvider.OpenVino` (Intel GPU) serves ONNX sessions of the other modules, not text generation: both
+> generation paths refuse it.
 
 `gguf:auto` selects the largest Qwen3 model (`qwen3-fast/default/balanced/quality` pool) that fits the
 VRAM budget, or — when VRAM is insufficient — the largest that fits the system RAM budget (CPU): system RAM

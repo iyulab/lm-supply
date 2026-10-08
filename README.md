@@ -559,8 +559,13 @@ var auto = new EmbedderOptions { Provider = ExecutionProvider.Auto };
 // Force specific provider
 var cuda = new EmbedderOptions { Provider = ExecutionProvider.Cuda };     // NVIDIA
 var coreMl = new EmbedderOptions { Provider = ExecutionProvider.CoreML }; // macOS
+var intel = new EmbedderOptions { Provider = ExecutionProvider.OpenVino }; // Intel GPU (ONNX sessions)
 var cpu = new EmbedderOptions { Provider = ExecutionProvider.Cpu };       // CPU only
 ```
+
+`ExecutionProvider.OpenVino` runs ONNX sessions on an Intel GPU (Windows x64, Linux x64) through Intel's OpenVINO
+execution provider, an ONNX Runtime plugin LMSupply downloads into the runtime cache on first use (about 120 MB).
+`Auto` never picks it, and text generation refuses it. See [GPU Providers](docs/GPU_PROVIDERS.md#32-amd--intel-gpus).
 
 `ExecutionProvider.Cpu` also keeps the GPU out of the process: the hardware probe (NVML, which loads the CUDA driver
 library with it) runs only for a GPU or `Auto` choice, so a CPU load leaves the NVIDIA driver libraries unloaded.

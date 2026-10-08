@@ -25,6 +25,7 @@ LMSupply uses ONNX Runtime for inference, which supports multiple execution prov
 |----------|----------|------------|-------|
 | **CUDA** | Windows/Linux | NVIDIA | Best performance for NVIDIA GPUs |
 | **CoreML** | macOS | Apple Silicon | Native Apple acceleration |
+| **OpenVINO** | Windows x64 / Linux x64 | Intel GPU | ONNX sessions only; explicit, never chosen by `Auto` — see [3.2](#32-amd--intel-gpus) |
 | **CPU** | All | N/A | Fallback, always available |
 
 ---
@@ -62,6 +63,7 @@ Available values:
 - `ExecutionProvider.Auto` (default)
 - `ExecutionProvider.Cuda`
 - `ExecutionProvider.CoreML`
+- `ExecutionProvider.OpenVino` (Intel GPU, ONNX sessions)
 - `ExecutionProvider.Cpu`
 
 ---
@@ -91,12 +93,42 @@ if (profile.GpuInfo.Vendor == GpuVendor.Nvidia)
 }
 ```
 
-### 3.2 AMD / Intel GPUs on Windows
+### 3.2 AMD / Intel GPUs
 
-There is no ONNX execution provider for these GPUs on ONNX Runtime 1.25+ (DirectML was it — see the
-note at the top). ONNX-backed modules (embedder, reranker, transcriber, OCR, …) run on CPU there;
-the GGUF/llama-server modules (generator, and the embedder/reranker GGUF paths) use the GPU through
+The GGUF/llama-server modules (generator, and the embedder/reranker GGUF paths) use these GPUs through
 **Vulkan**, selected automatically under `ExecutionProvider.Auto` (see [llama.md](llama.md)).
+
+ONNX-backed modules (embedder, reranker, transcriber, OCR, …):
+
+- **Intel GPU** — `ExecutionProvider.OpenVino` runs the session on the GPU through Intel's OpenVINO execution
+  provider (Windows x64 and Linux x64). Select it explicitly; `Auto` does not pick it.
+- **AMD GPU on Windows** — no ONNX execution provider on ONNX Runtime 1.25+ (DirectML was it — see the note at
+  the top); sessions run on CPU.
+
+```csharp
+await using var model = await LocalEmbedder.LoadAsync("default",
+    new EmbedderOptions { Provider = ExecutionProvider.OpenVino });
+Console.WriteLine(string.Join(", ", model.ActiveProviders)); // OpenVINOExecutionProvider, CPUExecutionProvider
+```
+
+What happens on first use:
+
+- OpenVINO is delivered as an ONNX Runtime plugin, `Intel.ML.OnnxRuntime.EP.OpenVINO`. LMSupply downloads it
+  into the runtime cache (about 120 MB to download, about 200 MB on disk with the OpenVINO runtime it carries)
+  and registers it with ONNX Runtime. Its version is pinned by LMSupply, independently of the ONNX Runtime
+  version. Like the base runtime, this download is not counted by `GetDownloadSizeBytesAsync`.
+- The first load of a model compiles it for the GPU, which can take tens of seconds. OpenVINO's model cache
+  keeps the compiled model in the runtime cache (next to the plugin), so later loads of the same model, in any
+  process, skip the compilation. Each cached model takes disk space of the order of the model's own size.
+
+Behaviour:
+
+- The session uses the plugin's GPU device (`deviceId` picks one when there are several). A host with no Intel
+  GPU, or one the plugin does not expose, gets a CPU session — `ActiveProviders` then lists only
+  `CPUExecutionProvider` — as an explicit `Cuda` request does on a host without CUDA.
+- Text generation does not support it: ONNX Runtime GenAI and llama-server refuse `ExecutionProvider.OpenVino`
+  with `NotSupportedException`.
+- Vectors match the CPU session's to float rounding (cosine above 0.999 on the default embedder).
 
 ### 3.3 CoreML (macOS)
 
@@ -270,7 +302,8 @@ await using (var generator = await LocalGenerator.LoadAsync("auto"))
 
 - **Auto-detection** handles most cases correctly
 - **CUDA** is best for NVIDIA GPUs
-- **AMD / Intel GPUs on Windows** accelerate the GGUF/llama-server paths (Vulkan); ONNX sessions run on CPU
+- **AMD / Intel GPUs** accelerate the GGUF/llama-server paths (Vulkan); ONNX sessions use `ExecutionProvider.OpenVino`
+  on an Intel GPU and run on CPU on an AMD GPU under Windows
 - **CoreML** is optimal for Apple Silicon
 - **CPU** is always available as fallback
 - Use `HardwareProfile.Current` to check detected hardware

@@ -4,6 +4,32 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [0.115.0] - 2026-10-09
+
+### Added
+- **ONNX sessions can run on an Intel GPU: `ExecutionProvider.OpenVino`.** On a host whose only GPU is an Intel one,
+  ONNX sessions (embedder, reranker, transcriber, OCR, vision, …) ran on CPU: CUDA and CoreML do not serve it, and
+  DirectML left ONNX Runtime 1.25. Intel's OpenVINO execution provider now runs them on the GPU, on Windows x64 and
+  Linux x64. Select it explicitly; `Auto` does not pick it.
+  - It is an ONNX Runtime plugin (`Intel.ML.OnnxRuntime.EP.OpenVINO`). On first use LMSupply downloads it into the
+    runtime cache — about 120 MB to download, about 200 MB on disk with the OpenVINO runtime it carries — and
+    registers it with ONNX Runtime. Its version (1.7.0) is pinned by LMSupply, independently of the ONNX Runtime
+    version and of `RuntimeManagerOptions.PinnedVersion`. Like the base runtime, the download is not counted by
+    `GetDownloadSizeBytesAsync`. Consumers add no package.
+  - The first load of a model compiles it for the GPU, which can take tens of seconds. OpenVINO's model cache keeps
+    the compiled model next to the plugin in the runtime cache, so later loads of that model, in any process, skip
+    it. Each cached model takes disk space of the order of the model's size.
+  - The session uses the plugin's GPU device (`deviceId` selects one of several). With no Intel GPU, or one the
+    plugin does not expose, the session runs on CPU and `ActiveProviders` lists only `CPUExecutionProvider`, as an
+    explicit `Cuda` request does on a host without CUDA.
+  - Text generation refuses it with `NotSupportedException`: neither ONNX Runtime GenAI nor llama-server has an
+    OpenVINO path. llama-server keeps using Vulkan on Intel GPUs under `Auto`.
+  - Measured on an Intel Iris Xe (Windows): the default embedder's vectors match the CPU session's to float rounding
+    (cosine above 0.999). On Linux the plugin loads and registers; its GPU path has not been measured.
+- `RuntimePackageRegistry.PackageConfig.PinnedVersion`, `RuntimePackageRegistry.PackageTypes.ExecutionProviderPlugin`
+  and `RuntimeManager.EnsureExecutionProviderPluginAsync`: a runtime package can carry its own pinned version, and an
+  execution provider plugin is provisioned next to the base runtime and returned as a library path.
+
 ## [0.114.0] - 2026-10-08
 
 ### Added
