@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Breaking
+- **A runtime provider name with no package now fails instead of running on CPU.** `RuntimePackageRegistry.GetPackageConfig`
+  returned the CPU package for any name it did not know, so a misspelt provider (`"cuda13"`) loaded the CPU runtime
+  without a word and cached it a second time under the misspelt name. It now returns `null`, and
+  `RuntimeManager.EnsureRuntimeAsync`, `OnnxNuGetDownloader.DownloadAsync` and
+  `RuntimeManager.ResolveRuntimeForProviderAsync` throw `InvalidOperationException` naming the package type and
+  provider. To migrate, pass a provider `RuntimePackageRegistry.GetSupportedProviders` lists (`cpu`, `cuda`, `cuda11`,
+  `cuda12`; `openvino` for the plugin package type), or `"auto"`.
+- `RuntimePackageRegistry.Providers.CoreML` is removed: CoreML has no package of its own. Its provider ships in the base
+  ONNX Runtime package, which CoreML sessions now provision as `cpu`. A runtime cached under `runtimes/onnxruntime/coreml/`
+  by an earlier version is no longer read; on macOS the base package is used from (or downloaded once into)
+  `runtimes/onnxruntime/cpu/`, and the old directory can be deleted.
+
 ## [0.115.1] - 2026-10-09
 
 ### Fixed

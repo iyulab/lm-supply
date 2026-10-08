@@ -626,11 +626,9 @@ public sealed class RuntimeManager : IAsyncDisposable
                         chain.Add("cuda11");
                 }
             }
-
-            // CoreML (macOS/iOS)
-            if (gpu.CoreMLSupported && supportedProviders.Contains("coreml"))
-                chain.Add("coreml");
         }
+
+        // CoreML needs no package of its own: its provider ships in the base (CPU) package below.
 
         // CPU always as final fallback
         chain.Add("cpu");

@@ -30,7 +30,6 @@ public static class RuntimePackageRegistry
         public const string Cuda = "cuda";
         public const string Cuda11 = "cuda11";
         public const string Cuda12 = "cuda12";
-        public const string CoreML = "coreml";
         public const string OpenVino = "openvino";
     }
 
@@ -106,7 +105,7 @@ public static class RuntimePackageRegistry
     /// <param name="packageType">The package type (e.g., "onnxruntime", "onnxruntime-genai").</param>
     /// <param name="provider">The execution provider (e.g., "cpu", "cuda12").</param>
     /// <param name="runtimeIdentifier">Optional RID for platform-specific package selection.</param>
-    /// <returns>The package configuration, or null if not found.</returns>
+    /// <returns>The package configuration, or null for a provider this package type has no package for.</returns>
     public static PackageConfig? GetPackageConfig(
         string packageType,
         string provider,
@@ -125,20 +124,9 @@ public static class RuntimePackageRegistry
             return new PackageConfig(cudaPackageId, "onnxruntime", ["onnxruntime_providers_cuda", "onnxruntime_providers_shared"]);
         }
 
-        // Look up in the registry
-        if (registry.TryGetValue(normalizedProvider, out var config))
-        {
-            return config;
-        }
-
-        // A plugin is its provider: there is no CPU package to stand in for it.
-        if (registry == ExecutionProviderPluginPackages)
-        {
-            return null;
-        }
-
-        // Fallback to CPU
-        return registry.GetValueOrDefault(Providers.Cpu);
+        // An unknown name has no package. It used to get the CPU package, so a misspelt provider ran on CPU without a
+        // word and its runtime was cached a second time under the misspelt name.
+        return registry.GetValueOrDefault(normalizedProvider);
     }
 
     /// <summary>

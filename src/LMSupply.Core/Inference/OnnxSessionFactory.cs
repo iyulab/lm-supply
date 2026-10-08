@@ -148,8 +148,7 @@ public static class OnnxSessionFactory
         var providerString = provider switch
         {
             ExecutionProvider.Cuda => "cuda12",  // Try CUDA 12 first
-            ExecutionProvider.CoreML => "coreml",
-            _ => "cpu" // OpenVino too: its plugin runs on the base CPU runtime
+            _ => "cpu" // CoreML's provider ships in the base package; OpenVino's plugin runs on it
         };
         var isGpuRequested = provider is ExecutionProvider.Cuda or ExecutionProvider.CoreML or ExecutionProvider.OpenVino;
 
@@ -310,8 +309,7 @@ public static class OnnxSessionFactory
                 var providerString = providerToTry switch
                 {
                     ExecutionProvider.Cuda => "cuda12",  // Try CUDA 12 first
-                    ExecutionProvider.CoreML => "coreml",
-                    _ => "cpu"
+                    _ => "cpu" // CoreML's provider ships in the base package
                 };
 
                 // Download runtime binaries

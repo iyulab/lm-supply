@@ -132,13 +132,17 @@ public class RuntimePackageRegistryTests
     }
 
     [Fact]
-    public void GetPackageConfig_UnknownProvider_FallsToCpu()
+    public void GetPackageConfig_UnknownProvider_HasNoPackage()
     {
-        var config = RuntimePackageRegistry.GetPackageConfig(
-            RuntimePackageRegistry.PackageTypes.OnnxRuntime, "unknown-provider");
+        // Not the CPU package: a misspelt provider must fail where it is named, not run on CPU unnoticed.
+        foreach (var type in new[] { RuntimePackageRegistry.PackageTypes.OnnxRuntime, RuntimePackageRegistry.PackageTypes.OnnxRuntimeGenAI })
+        {
+            RuntimePackageRegistry.GetPackageConfig(type, "unknown-provider").Should().BeNull();
+            RuntimePackageRegistry.GetPackageConfig(type, "coreml").Should().BeNull("CoreML's provider ships in the base CPU package");
+        }
 
-        config.Should().NotBeNull();
-        config!.PackageId.Should().Be("Microsoft.ML.OnnxRuntime");
+        RuntimePackageRegistry.GetPackageConfig(RuntimePackageRegistry.PackageTypes.OnnxRuntime, "auto")!
+            .PackageId.Should().Be("Microsoft.ML.OnnxRuntime", "\"auto\" resolves elsewhere and looks up the CPU package");
     }
 
     [Fact]
