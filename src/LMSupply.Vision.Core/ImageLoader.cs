@@ -62,14 +62,24 @@ public sealed class ImageLoader : IImageLoader
 
         var width = codec.Info.Width;
         var height = codec.Info.Height;
+
+        // The dimensions come from the file header, before any pixel data is read. Size the buffers in 64-bit arithmetic
+        // and refuse what cannot be held, so a header claiming huge dimensions cannot wrap the size into a small buffer
+        // that the native decoder then writes past.
+        var rowBytes = (long)width * 4;
+        if (width <= 0 || height <= 0 || rowBytes * height > Array.MaxLength)
+        {
+            throw new InvalidDataException($"The image is {width}x{height} pixels, larger than can be decoded into memory.");
+        }
+
         var info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
-        var rgba = new byte[info.BytesSize];
+        var rgba = new byte[rowBytes * height];
         SKCodecResult result;
         unsafe
         {
             fixed (byte* pixels = rgba)
             {
-                result = codec.GetPixels(info, (IntPtr)pixels);
+                result = codec.GetPixels(info, (IntPtr)pixels, (int)rowBytes, SKCodecOptions.Default);
             }
         }
 

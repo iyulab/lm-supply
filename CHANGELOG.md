@@ -22,7 +22,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   to `ImageLoader.Decode` instead.
 - **Accepted input formats change.** JPEG, PNG, WebP, GIF (first frame), BMP and ICO decode.
   **TIFF, TGA, PBM and QOI no longer decode.** Data that is not
-  a supported image, or that is truncated, now throws `InvalidDataException` (it used to throw ImageSharp's
+  a supported image, that is truncated, or whose header declares more pixels than can be held in memory (about 536
+  million) now throws `InvalidDataException`, before any pixel buffer is sized from it (it used to throw ImageSharp's
   `UnknownImageFormatException` or `InvalidImageContentException`). To migrate, convert those files to PNG before
   passing them in.
 

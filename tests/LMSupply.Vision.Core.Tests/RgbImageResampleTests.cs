@@ -146,6 +146,66 @@ public class RgbImageResampleTests
         act.Should().Throw<InvalidDataException>();
     }
 
+    [Theory]
+    [InlineData(40000, 40000)]
+    [InlineData(65536, 16385)] // 4 bytes x 65536 x 16385 = 2^32 + 262144: wraps to a small positive 32-bit size
+    [InlineData(1000000, 1000000)]
+    public void A_header_claiming_dimensions_too_large_to_hold_is_rejected_before_decoding(int width, int height)
+    {
+        // A valid PNG signature and IHDR claiming the dimensions, then a truncated IDAT: the size check must refuse it
+        // from the header alone, before any buffer is sized from those dimensions.
+        var header = PngHeader(width, height);
+        ImageLoader.Identify(header).Should().Be((width, height), "the codec accepts the header, so the size check is what refuses it");
+
+        var act = () => ImageLoader.Decode(header);
+
+        act.Should().Throw<InvalidDataException>().WithMessage("*larger than can be decoded*");
+    }
+
+    private static byte[] PngHeader(int width, int height)
+    {
+        var ihdr = new byte[13];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(ihdr, width);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(ihdr.AsSpan(4), height);
+        ihdr[8] = 8; // bit depth
+        ihdr[9] = 2; // color type RGB
+        using var png = new MemoryStream();
+        png.Write([0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A]);
+        WriteChunk(png, "IHDR", ihdr);
+        WriteChunk(png, "IDAT", [0x78, 0x9C, 0x00]);
+        return png.ToArray();
+    }
+
+    private static void WriteChunk(Stream stream, string type, byte[] data)
+    {
+        Span<byte> length = stackalloc byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(length, data.Length);
+        stream.Write(length);
+        var typeAndData = new byte[4 + data.Length];
+        System.Text.Encoding.ASCII.GetBytes(type).CopyTo(typeAndData, 0);
+        data.CopyTo(typeAndData, 4);
+        stream.Write(typeAndData);
+        Span<byte> crc = stackalloc byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(crc, Crc32(typeAndData));
+        stream.Write(crc);
+    }
+
+    // PNG chunk CRC (ISO 3309 / ITU-T V.42), bitwise.
+    private static uint Crc32(byte[] data)
+    {
+        var crc = 0xFFFFFFFFu;
+        foreach (var b in data)
+        {
+            crc ^= b;
+            for (var k = 0; k < 8; k++)
+            {
+                crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
+            }
+        }
+
+        return ~crc;
+    }
+
     // Gradients, hard edges, a 1-px checkerboard, a disc and a seeded noise patch — content that exposes kernel and
     // aliasing differences.
     internal static RgbImage Synthetic(int w, int h, int seed)
