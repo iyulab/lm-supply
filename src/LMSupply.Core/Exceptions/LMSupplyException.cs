@@ -305,29 +305,6 @@ public class InferenceBackendExitedException : InferenceException
 }
 
 /// <summary>
-/// Exception thrown when tokenization fails.
-/// </summary>
-public class TokenizationException : LMSupplyException
-{
-    /// <summary>
-    /// Initializes a new instance of the <see cref="TokenizationException"/> class.
-    /// </summary>
-    /// <param name="message">The message that describes the error.</param>
-    public TokenizationException(string message) : base(message)
-    {
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="TokenizationException"/> class.
-    /// </summary>
-    /// <param name="message">The message that describes the error.</param>
-    /// <param name="innerException">The exception that is the cause of the current exception.</param>
-    public TokenizationException(string message, Exception innerException) : base(message, innerException)
-    {
-    }
-}
-
-/// <summary>
 /// Exception thrown when a user alias conflicts with a system alias name.
 /// </summary>
 public class AliasConflictException : LMSupplyException

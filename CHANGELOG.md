@@ -7,6 +7,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Breaking
+- **`TokenizationException` is removed.** Nothing threw it or named it. Migration: none expected (catch
+  `LMSupplyException` for any LMSupply failure).
 - **A runtime provider name with no package now fails instead of running on CPU.** `RuntimePackageRegistry.GetPackageConfig`
   returned the CPU package for any name it did not know, so a misspelt provider (`"cuda13"`) loaded the CPU runtime
   without a word and cached it a second time under the misspelt name. It now returns `null`, and
