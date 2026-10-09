@@ -150,6 +150,12 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         catch (Exception ex)
         {
             await serverLease.DisposeAsync();
+
+            if (ex is OperationCanceledException && cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+
             throw new InvalidOperationException(
                 $"Failed to determine embedding dimensions: {ex.Message}", ex);
         }

@@ -86,7 +86,7 @@ internal sealed class CrossEncoderInference : IDisposable
             var session = RecoverableOnnxSession.FromResult(result, modelPath, configure, logPrefix: "[CrossEncoderInference]");
             return CreateFromSession(session, modelInfo);
         }
-        catch (Exception ex) when (ex is not FileNotFoundException)
+        catch (Exception ex) when (ex is not FileNotFoundException && (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested))
         {
             throw new InferenceException($"Failed to load ONNX model from {modelPath}", ex);
         }

@@ -25,6 +25,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   version check reported «no update needed» as if the check had answered. The `VersionCheckTimeout` and a failed version
   check still return `NoUpdateNeeded`. Migration: catch `OperationCanceledException` if you relied on the result.
 
+- **Cancelling a model load throws `OperationCanceledException`.** Two loads wrapped the caller's cancellation in their
+  own failure type. Old → new, when the caller cancels: a GGUF embedding model loaded through `LocalEmbedder` (the
+  llama-server dimension probe) threw `InvalidOperationException` («Failed to determine embedding dimensions») →
+  `OperationCanceledException`; a reranker's ONNX session creation threw `InferenceException` → `OperationCanceledException`.
+  Other load failures keep their types. Migration: handle `OperationCanceledException` where you handle cancellation.
+
 ## [0.115.1] - 2026-10-09
 
 ### Fixed
