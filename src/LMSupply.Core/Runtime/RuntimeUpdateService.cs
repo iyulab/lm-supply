@@ -35,11 +35,19 @@ public sealed class RuntimeUpdateService : IAsyncDisposable
     }
 
     private RuntimeUpdateService(string packageType, RuntimeUpdateOptions options)
+        : this(packageType, options, new NuGetPackageResolver())
+    {
+    }
+
+    /// <summary>
+    /// Creates an instance outside the per-package-type registry, over the given resolver (tests).
+    /// </summary>
+    internal RuntimeUpdateService(string packageType, RuntimeUpdateOptions options, NuGetPackageResolver packageResolver)
     {
         _packageType = packageType;
         _options = options;
         _stateManager = new RuntimeVersionStateManager(options.CacheDirectory);
-        _packageResolver = new NuGetPackageResolver();
+        _packageResolver = packageResolver;
     }
 
     /// <summary>
@@ -150,7 +158,7 @@ public sealed class RuntimeUpdateService : IAsyncDisposable
             Trace.TraceInformation("[RuntimeUpdateService] Version check timed out");
             return RuntimeUpdateResult.NoUpdateNeeded(currentVersion, string.Empty);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             Trace.TraceWarning($"[RuntimeUpdateService] Version check failed: {ex.Message}");
             return RuntimeUpdateResult.NoUpdateNeeded(currentVersion, string.Empty);

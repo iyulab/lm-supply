@@ -20,6 +20,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   ONNX Runtime package, which CoreML sessions now provision as `cpu`. A runtime cached under `runtimes/onnxruntime/coreml/`
   by an earlier version is no longer read; on macOS the base package is used from (or downloaded once into)
   `runtimes/onnxruntime/cpu/`, and the old directory can be deleted.
+- **A cancelled `RuntimeUpdateService.CheckAndApplyUpdateAsync` (and `RuntimeManager.CheckAndApplyUpdateAsync`, which
+  calls it) throws `OperationCanceledException` instead of returning `NoUpdateNeeded`.** Cancelling the call during the
+  version check reported «no update needed» as if the check had answered. The `VersionCheckTimeout` and a failed version
+  check still return `NoUpdateNeeded`. Migration: catch `OperationCanceledException` if you relied on the result.
 
 ## [0.115.1] - 2026-10-09
 
