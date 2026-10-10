@@ -40,7 +40,11 @@ public class OptionsReachabilityRosterTests
     };
 
     private static readonly Lazy<OptionsReachabilityReport> Result = new(() =>
-        OptionsReachability.Scan(LibraryAssemblies(), OptionsTypes.NamedWith("Options")));
+    {
+        // Settings objects held behind an options property are scanned too (kit 0.6.0).
+        var libraries = LibraryAssemblies();
+        return OptionsReachability.Scan(libraries, OptionsTypes.WithNestedSettings(libraries, OptionsTypes.NamedWith("Options")));
+    });
 
     // The scan is Iyu.Conventions.Testing's, shared with the other repositories; a mismatch prints the roster it found.
     [Fact]
