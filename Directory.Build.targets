@@ -1,0 +1,16 @@
+<Project>
+  <!--
+    The packages of this repository are one family released at one version. A sibling referenced through ProjectReference
+    is packed as a dependency on that exact version, not a floor: a consumer that moves one member and resolves the other
+    transitively gets a restore error naming it, instead of a mismatched pair that builds and fails at run time.
+    NuGet pack collects each ProjectReference's version in _GetProjectReferenceVersions (_ProjectReferencesWithVersions,
+    metadata ProjectVersion) and writes that value as the dependency's range.
+  -->
+  <Target Name="FamilyExactProjectReferenceVersions" AfterTargets="_GetProjectReferenceVersions">
+    <ItemGroup>
+      <_ProjectReferencesWithVersions Update="@(_ProjectReferencesWithVersions)"
+                                      ProjectVersion="[%(_ProjectReferencesWithVersions.ProjectVersion)]"
+                                      Condition="!$([System.String]::Copy('%(_ProjectReferencesWithVersions.ProjectVersion)').StartsWith('['))" />
+    </ItemGroup>
+  </Target>
+</Project>
