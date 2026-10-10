@@ -174,6 +174,29 @@ public class SpeculativeDecoderTests
         await action.Should().ThrowAsync<ObjectDisposedException>();
     }
 
+    [Fact]
+    public async Task GenerateAsync_CancelledBetweenRounds_Throws_InsteadOfEndingAsIfFinished()
+    {
+        // Models that do not observe the token: the cancel lands while the caller reads a round's tokens, and the next
+        // round must not start — nor may the enumeration end as though the generation were complete.
+        var draftModel = Substitute.For<IGeneratorModel>();
+        var targetModel = Substitute.For<IGeneratorModel>();
+        draftModel.GenerateAsync(Arg.Any<string>(), Arg.Any<GenerationOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ => CreateAsyncEnumerable("a", "b"));
+        targetModel.GenerateAsync(Arg.Any<string>(), Arg.Any<GenerationOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ => CreateAsyncEnumerable("a", "b"));
+        using var decoder = new SpeculativeDecoder(draftModel, targetModel);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+
+        var act = async () =>
+        {
+            await foreach (var _ in decoder.GenerateAsync("Test", new GenerationOptions { MaxTokens = 20 }, cts.Token))
+                cts.Cancel();
+        };
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
     private static async IAsyncEnumerable<string> CreateAsyncEnumerable(params string[] items)
     {
         foreach (var item in items)

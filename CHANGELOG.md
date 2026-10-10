@@ -7,6 +7,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Breaking
+- **A cancelled `SpeculativeDecoder.GenerateAsync` throws `OperationCanceledException`.** A cancel that landed between
+  two speculation rounds ended the token stream normally, so `await foreach` (and `GenerateCompleteAsync`) returned the
+  partial text as a finished generation. Migration: catch `OperationCanceledException` where you cancel.
 - **`TokenizationException` is removed.** Nothing threw it or named it. Migration: none expected (catch
   `LMSupplyException` for any LMSupply failure).
 - **A runtime provider name with no package now fails instead of running on CPU.** `RuntimePackageRegistry.GetPackageConfig`

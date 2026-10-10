@@ -68,8 +68,11 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
         // Draft options (lower temperature for more predictable outputs)
         var draftOptions = CreateDraftOptions(options);
 
-        while (totalTokens < maxTokens && !cancellationToken.IsCancellationRequested)
+        while (totalTokens < maxTokens)
         {
+            // A cancelled generation throws; ending the enumeration would read as a finished answer.
+            cancellationToken.ThrowIfCancellationRequested();
+
             // Step 1: Generate speculative tokens with draft model
             var draftCandidates = new List<string>();
             var speculationOptions = CloneWithMaxTokens(draftOptions, SpeculationLength);
