@@ -135,6 +135,11 @@ bool cached = LocalEmbedder.IsModelDownloaded("default");
 string? license = EmbedderModelRegistry.Default.Resolve("default").License;   // "MIT"
 ```
 
+Loads take an optional `IProgress<DownloadProgress>`. Each report carries bytes and file counts, `BytesPerSecond`,
+`EstimatedRemaining` and the display strings `SpeedDisplay` and `EtaDisplay`. A host that downloads something itself
+can report it in the same shape with `DownloadProgressTracker`: call `Start()`, then `CreateProgress(fileName,
+bytesDownloaded, totalBytes)` on each chunk. It returns a `DownloadProgress` with a smoothed speed and an ETA.
+
 Every built-in Embedder, Reranker, Captioner and OCR model carries the licence of its weights on its registry entry
 (`ModelInfo.License`; `OcrModelInfo.License` for a detection + recognition pair). For an ONNX conversion it is the licence
 of the model it converts, which the conversion's own card often leaves out.
