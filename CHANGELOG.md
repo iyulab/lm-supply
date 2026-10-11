@@ -11,6 +11,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   the version its managed assembly was built against. A version the caller names is then never replaced by another cached
   copy or by a newer download. The ONNX Runtime GenAI packages carry it.
 
+### Changed
+- **`RankedResult`'s comparison operators are documented as rank comparisons.** `a < b` means `a` ranks first (its score is
+  higher), because `CompareTo` sorts in ranked order. Behaviour is unchanged. To compare scores, compare `Score`.
+
 ### Fixed
 - **`LocalTranslator` translates with a merged decoder export.** The default model (`onnx-community/opus-mt-ko-en`) ships
   only `decoder_model_merged*.onnx`. Every translation with it failed in ONNX Runtime with «Missing Input:

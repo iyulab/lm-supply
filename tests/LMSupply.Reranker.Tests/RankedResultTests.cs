@@ -40,6 +40,20 @@ public class RankedResultTests
         results[2].Score.Should().Be(0.3f);
     }
 
+    // The operators compare rank (higher score first), not score — easy to misread, so pinned here
+    [Fact]
+    public void Operators_CompareRank_NotScore()
+    {
+        var high = new RankedResult(0, 0.9f, "relevant");
+        var low = new RankedResult(1, 0.1f, "unrelated");
+
+        (high < low).Should().BeTrue("the higher score ranks first");
+        (low > high).Should().BeTrue("the lower score ranks after");
+        (high <= low).Should().BeTrue();
+        (low >= high).Should().BeTrue();
+        (high > low).Should().BeFalse();
+    }
+
     [Fact]
     public void ToString_ShouldIncludeScoreAndPreview()
     {

@@ -13,13 +13,22 @@ public readonly record struct RankedResult(
 ) : IComparable<RankedResult>
 {
     /// <summary>
-    /// Compares results by score in descending order (higher scores first).
+    /// Compares results by <b>rank</b>: a result with a higher score comes first, so sorting yields the ranked order.
+    /// The comparison operators follow it and therefore compare rank, not score — to compare scores, compare
+    /// <see cref="Score"/>.
     /// </summary>
     public int CompareTo(RankedResult other) => other.Score.CompareTo(Score);
 
+    /// <summary><paramref name="left"/> ranks before <paramref name="right"/> (its score is higher).</summary>
     public static bool operator <(RankedResult left, RankedResult right) => left.CompareTo(right) < 0;
+
+    /// <summary><paramref name="left"/> ranks after <paramref name="right"/> (its score is lower).</summary>
     public static bool operator >(RankedResult left, RankedResult right) => left.CompareTo(right) > 0;
+
+    /// <summary><paramref name="left"/> ranks before or level with <paramref name="right"/> (its score is not lower).</summary>
     public static bool operator <=(RankedResult left, RankedResult right) => left.CompareTo(right) <= 0;
+
+    /// <summary><paramref name="left"/> ranks after or level with <paramref name="right"/> (its score is not higher).</summary>
     public static bool operator >=(RankedResult left, RankedResult right) => left.CompareTo(right) >= 0;
 
     /// <summary>
