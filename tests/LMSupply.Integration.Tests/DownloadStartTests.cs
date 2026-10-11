@@ -30,7 +30,7 @@ public class DownloadStartTests
     [InlineData("fast")]
     [InlineData("quality")]
     [InlineData("large")]
-    [InlineData("multilingual")]
+    [InlineData("multilingual-e5-small")] // the bare "multilingual" alias was removed (docs/embedder.md)
     public async Task Embedder_DownloadStarts_ForAlias(string alias)
     {
         await VerifyDownloadStartsAsync(

@@ -86,9 +86,10 @@ public class FastModelFunctionalTests : IAsyncLifetime
         var inferTime = sw.ElapsedMilliseconds;
 
         scores.Should().HaveCount(3);
-        // ML-related docs should score higher than weather
-        scores[0].Should().BeGreaterThan(scores[1]);
-        scores[2].Should().BeGreaterThan(scores[1]);
+        // ML-related docs should score higher than weather. Results come back ranked, so compare by original index.
+        var scoreOf = scores.ToDictionary(r => r.OriginalIndex, r => r.Score);
+        scoreOf[0].Should().BeGreaterThan(scoreOf[1]);
+        scoreOf[2].Should().BeGreaterThan(scoreOf[1]);
 
         _testResults.Add($"Reranker (fast): Load={loadTime}ms, Infer={inferTime}ms");
     }
@@ -109,7 +110,8 @@ public class FastModelFunctionalTests : IAsyncLifetime
         long ttft = 0;
         sw.Restart();
 
-        await foreach (var token in model.GenerateAsync("Hello, my name is", new GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken))
+        // A chat model answers an open prompt in a few tokens and stops; ask for output long enough to time
+        await foreach (var token in model.GenerateAsync("Count from one to twenty in words, separated by commas.", new GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken))
         {
             if (tokenCount == 0) ttft = sw.ElapsedMilliseconds;
             tokenCount++;

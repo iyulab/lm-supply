@@ -12,6 +12,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   copy or by a newer download. The ONNX Runtime GenAI packages carry it.
 
 ### Fixed
+- **`LocalTranslator` translates with a merged decoder export.** The default model (`onnx-community/opus-mt-ko-en`) ships
+  only `decoder_model_merged*.onnx`. Every translation with it failed in ONNX Runtime with «Missing Input:
+  past_key_values.N.encoder.value», because the decoder set `use_cache_branch` but not the past key/value inputs a merged
+  graph also declares. Both greedy and beam-search decoding now supply them; the values are unused with caching off.
+- **The console's Caption page shows the caption.** The host returns `choices[0].caption` (OpenAI-style), and the page read
+  a top-level `caption` that the response does not have.
 - **The ONNX generator's native GenAI runtime now matches the managed GenAI package.** It used to be downloaded at the newest
   version on nuget.org whatever managed version the application ran, so the two drifted apart whenever GenAI shipped a new
   minor. Now it is provisioned at the `Microsoft.ML.OnnxRuntimeGenAI` version the application resolved (read from its

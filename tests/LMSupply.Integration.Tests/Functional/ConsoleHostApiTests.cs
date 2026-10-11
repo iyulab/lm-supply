@@ -827,7 +827,8 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
-        json.GetProperty("caption").GetString().Should().NotBeNullOrEmpty();
+        // OpenAI-style choices[] (CaptionResponse)
+        json.GetProperty("choices")[0].GetProperty("caption").GetString().Should().NotBeNullOrEmpty();
     }
 
     [Fact]

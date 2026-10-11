@@ -195,18 +195,18 @@ export function Caption() {
               </span>
             )}
           </h2>
-          <p className="text-lg">{captionResult.caption}</p>
-          {captionResult.confidence != null && (
+          <p className="text-lg">{captionResult.choices[0]?.caption}</p>
+          {captionResult.choices[0]?.confidence != null && (
             <p className="text-sm text-muted-foreground">
-              Confidence: {(captionResult.confidence * 100).toFixed(1)}%
+              Confidence: {(captionResult.choices[0].confidence * 100).toFixed(1)}%
             </p>
           )}
-          {captionResult.alternatives && captionResult.alternatives.length > 0 && (
+          {captionResult.choices.length > 1 && (
             <div>
               <h3 className="text-sm font-medium mt-2">Alternatives:</h3>
               <ul className="list-disc list-inside text-sm text-muted-foreground">
-                {captionResult.alternatives.map((alt) => (
-                  <li key={alt}>{alt}</li>
+                {captionResult.choices.slice(1).map((alt) => (
+                  <li key={alt.index}>{alt.caption}</li>
                 ))}
               </ul>
             </div>

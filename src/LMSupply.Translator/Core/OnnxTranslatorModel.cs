@@ -16,8 +16,6 @@ namespace LMSupply.Translator.Core;
 /// </summary>
 internal sealed class OnnxTranslatorModel : ITranslatorModel
 {
-    private static readonly bool[] s_falseArray = [false];
-    private static readonly int[] s_oneDimension = [1];
 
     private readonly TranslatorOptions _options;
     private readonly TranslatorModelInfo _modelInfo;
@@ -203,9 +201,9 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
         await _sessionLock.WaitAsync(cancellationToken);
         try
         {
-            // use_cache_branch is required by merged decoder exports; always false (no KV-caching).
+            // No KV caching: a merged export still needs use_cache_branch=false and a stand-in for every past input.
             // Metadata is identical on every provider, so reading it once is safe across recoveries.
-            var needsCacheBranch = _decoderSession!.Session.InputMetadata.ContainsKey("use_cache_branch");
+            var noCacheInputs = new NoCacheDecoderInputs(_decoderSession!.Session.InputMetadata);
 
             for (int step = 0; step < maxLength; step++)
             {
@@ -221,11 +219,7 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
                     NamedOnnxValue.CreateFromTensor("encoder_hidden_states", encoderOutput)
                 };
 
-                if (needsCacheBranch)
-                {
-                    var useCacheBranch = new DenseTensor<bool>(s_falseArray, s_oneDimension);
-                    inputs.Add(NamedOnnxValue.CreateFromTensor("use_cache_branch", useCacheBranch));
-                }
+                noCacheInputs.AddTo(inputs);
 
                 var lastPosition = outputIds.Count - 1;
 

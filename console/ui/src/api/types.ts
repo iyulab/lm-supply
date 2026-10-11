@@ -211,12 +211,21 @@ export interface TranscribeResponse {
 // Caption Types
 // ============================================================================
 
-export interface CaptionResponse {
-  id: string;
-  model: string;
+// Matches the host's /v1/images/caption response (OpenAI-style choices[])
+export interface CaptionChoice {
+  index: number;
   caption: string;
   confidence?: number;
-  alternatives?: string[];
+  finish_reason?: string;
+}
+
+export interface CaptionResponse {
+  id: string;
+  object?: string;
+  created?: number;
+  model: string;
+  choices: CaptionChoice[];
+  usage?: { image_tokens: number };
 }
 
 export interface VqaResponse {
