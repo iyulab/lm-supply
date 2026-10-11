@@ -43,4 +43,16 @@
     </ItemGroup>
   </Target>
 
+  <!-- The GenAI managed assembly carries no version (0.0.0.0); stamp the centrally pinned GenAI version so the backend can
+       provision the matching native runtime when the application has no deps.json to read it from. -->
+  <Target Name="StampOnnxRuntimeGenAIVersion" BeforeTargets="GetAssemblyAttributes">
+    <ItemGroup>
+      <_GenAiPin Include="@(PackageVersion)" Condition="'%(Identity)' == 'Microsoft.ML.OnnxRuntimeGenAI'" />
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>OnnxRuntimeGenAIVersion</_Parameter1>
+        <_Parameter2>@(_GenAiPin->'%(Version)')</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+    <Error Condition="'@(_GenAiPin)' == ''" Text="No central PackageVersion for Microsoft.ML.OnnxRuntimeGenAI." />
+  </Target>
 </Project>

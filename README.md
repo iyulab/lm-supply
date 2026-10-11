@@ -955,6 +955,11 @@ RuntimeManager.Configure(new RuntimeManagerOptions
   stands in when the expected one is absent (with a warning). With `PinnedVersion`, only that version is accepted.
 - **`PinnedVersion`**: fixes the version even when the managed assembly's version cannot be read (trimming, Native AOT),
   which would otherwise fall back to the latest version on nuget.org.
+- **The ONNX Runtime GenAI runtime** (the ONNX generator, `LMSupply.Generator.Onnx`) is always provisioned at exactly the
+  version of the `Microsoft.ML.OnnxRuntimeGenAI` package your application resolved. No other cached copy stands in for it
+  and no newer one is swapped in, because GenAI changes its native interface between 0.x versions. `PinnedVersion` names an
+  ONNX Runtime version and does not apply to it. Packages with this property carry
+  `RuntimePackageRegistry.PackageConfig.RequiresExactVersion`.
 
 `Configure` throws once the runtime manager exists, which happens at the first model load. Call it at startup.
 

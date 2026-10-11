@@ -19,6 +19,55 @@ public static class OnnxGeneratorBackend
     /// </summary>
     public static void Register() => OnnxGeneratorBackendRegistry.Register(new Backend());
 
+    private const string GenAiManagedPackage = "Microsoft.ML.OnnxRuntimeGenAI.Managed";
+    private const string GenAiVersionMetadataKey = "OnnxRuntimeGenAIVersion";
+
+    /// <summary>
+    /// The version of the managed ONNX Runtime GenAI package the application runs with. Its native runtime is provisioned
+    /// at exactly this version: GenAI is 0.x and its native interface changes between minors. The managed assembly
+    /// carries no version of its own (0.0.0.0), so this is the package version the application resolved (its deps.json),
+    /// falling back to the version this package was built against.
+    /// </summary>
+    internal static string GenAiVersion { get; } = ReadResolvedGenAiVersion() ?? ReadBuildGenAiVersion();
+
+    /// <summary>The GenAI managed package version in the application's deps.json, or null without one.</summary>
+    internal static string? ReadResolvedGenAiVersion()
+    {
+        if (AppContext.GetData("APP_CONTEXT_DEPS_FILES") is not string files)
+            return null;
+
+        foreach (var file in files.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            try
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllBytes(file));
+                if (!document.RootElement.TryGetProperty("libraries", out var libraries))
+                    continue;
+
+                foreach (var library in libraries.EnumerateObject())
+                {
+                    var slash = library.Name.IndexOf('/');
+                    if (slash > 0 && library.Name.AsSpan(0, slash).Equals(GenAiManagedPackage, StringComparison.OrdinalIgnoreCase))
+                        return library.Name[(slash + 1)..];
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                // An unreadable deps file says nothing about the version; the build-time version stands in
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The GenAI version this package was built against (stamped from the central package pin).</summary>
+    internal static string ReadBuildGenAiVersion() =>
+        typeof(OnnxGeneratorBackend).Assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
+            .OfType<System.Reflection.AssemblyMetadataAttribute>()
+            .FirstOrDefault(a => a.Key == GenAiVersionMetadataKey)?.Value
+        ?? throw new InvalidOperationException($"LMSupply.Generator.Onnx was built without its {GenAiVersionMetadataKey} metadata.");
+
     private sealed class Backend : IOnnxGeneratorBackend
     {
         public IGeneratorModel CreateModel(
@@ -64,9 +113,10 @@ public static class OnnxGeneratorBackend
                 progress: progress,
                 cancellationToken: cancellationToken);
 
-            // Download GenAI runtime binaries
+            // Download GenAI runtime binaries at the managed assembly's version (not the NuGet latest)
             await RuntimeManager.Instance.EnsureRuntimeAsync(
                 "onnxruntime-genai",
+                version: GenAiVersion,
                 provider: providerString,
                 progress: progress,
                 cancellationToken: cancellationToken);

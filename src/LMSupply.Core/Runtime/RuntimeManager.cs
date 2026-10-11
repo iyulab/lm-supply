@@ -409,7 +409,10 @@ public sealed class RuntimeManager : IAsyncDisposable
         // The version: the caller's; else the one the registry pins for this package (a plugin versions apart from
         // ONNX Runtime, so the global pin, which names an ONNX Runtime version, does not apply to it); else the global pin.
         var wantedVersion = version ?? config.PinnedVersion ?? _options.PinnedVersion;
-        var pinned = config.PinnedVersion is not null || _options.PinnedVersion is not null;
+        // A package whose native interface changes between versions (RequiresExactVersion) takes the version the caller
+        // names as exact too: no other cached copy stands in for it and no newer one is swapped in.
+        var pinned = config.PinnedVersion is not null || _options.PinnedVersion is not null
+            || (version is not null && config.RequiresExactVersion);
 
         if (!string.IsNullOrEmpty(_options.RuntimeDirectory))
         {

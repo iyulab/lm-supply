@@ -49,6 +49,13 @@ public static class RuntimePackageRegistry
         /// fixed here rather than resolved: "the latest on the feed" would be a native binary no test has run.
         /// </summary>
         public string? PinnedVersion { get; init; }
+
+        /// <summary>
+        /// The native library must be exactly the version its managed assembly was built against, so a version the caller
+        /// names is never replaced by another cached or newer one. ONNX Runtime keeps its C API backward compatible and
+        /// does not need this; ONNX Runtime GenAI is 0.x and changes its native interface between minors.
+        /// </summary>
+        public bool RequiresExactVersion { get; init; }
     }
 
     // ONNX Runtime package mappings
@@ -72,10 +79,10 @@ public static class RuntimePackageRegistry
     // ONNX Runtime GenAI package mappings
     private static readonly Dictionary<string, PackageConfig> GenAiPackages = new(StringComparer.OrdinalIgnoreCase)
     {
-        [Providers.Cpu] = new("Microsoft.ML.OnnxRuntimeGenAI", "onnxruntime-genai"),
-        [Providers.Cuda] = new("Microsoft.ML.OnnxRuntimeGenAI.Cuda", "onnxruntime-genai", ["onnxruntime-genai-cuda"]),
-        [Providers.Cuda11] = new("Microsoft.ML.OnnxRuntimeGenAI.Cuda", "onnxruntime-genai", ["onnxruntime-genai-cuda"]),
-        [Providers.Cuda12] = new("Microsoft.ML.OnnxRuntimeGenAI.Cuda", "onnxruntime-genai", ["onnxruntime-genai-cuda"]),
+        [Providers.Cpu] = new("Microsoft.ML.OnnxRuntimeGenAI", "onnxruntime-genai") { RequiresExactVersion = true },
+        [Providers.Cuda] = new("Microsoft.ML.OnnxRuntimeGenAI.Cuda", "onnxruntime-genai", ["onnxruntime-genai-cuda"]) { RequiresExactVersion = true },
+        [Providers.Cuda11] = new("Microsoft.ML.OnnxRuntimeGenAI.Cuda", "onnxruntime-genai", ["onnxruntime-genai-cuda"]) { RequiresExactVersion = true },
+        [Providers.Cuda12] = new("Microsoft.ML.OnnxRuntimeGenAI.Cuda", "onnxruntime-genai", ["onnxruntime-genai-cuda"]) { RequiresExactVersion = true },
     };
 
     /// <summary>The OpenVINO plugin version this library is tested with.</summary>

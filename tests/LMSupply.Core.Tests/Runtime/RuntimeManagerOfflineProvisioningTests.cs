@@ -101,6 +101,47 @@ public sealed class RuntimeManagerOfflineProvisioningTests : IDisposable
         feed.Requests.Should().BeEmpty();
     }
 
+    private string SeedGenAiCache(RuntimeManager manager, string version)
+    {
+        var dir = Path.Combine(CacheDir, GenAi, "cpu", version, manager.Platform.RuntimeIdentifier);
+        Directory.CreateDirectory(dir);
+        File.WriteAllBytes(Path.Combine(dir, NativeFile(manager, "onnxruntime-genai")), [1, 2, 3]);
+        return dir;
+    }
+
+    private const string GenAi = RuntimePackageRegistry.PackageTypes.OnnxRuntimeGenAI;
+
+    // GenAI changes its native interface between 0.x minors: the version the managed assembly names is the only one that
+    // can run, so no other cached copy stands in for it (contrast LocalOnly_WithoutPin_OlderCachedVersionStandsIn)
+    [Fact]
+    public async Task LocalOnly_GenAi_OnlyTheNamedVersionIsAccepted()
+    {
+        var (manager, feed) = await CreateAsync(new RuntimeManagerOptions { CacheDirectory = CacheDir, DisableAutoDownload = true });
+        SeedGenAiCache(manager, "0.18.0");
+        SeedGenAiCache(manager, "0.16.0");
+
+        var act = () => manager.ResolveRuntimeForProviderAsync(
+            "cpu", GenAi, "0.17.1", progress: null, TestContext.Current.CancellationToken);
+
+        (await act.Should().ThrowAsync<ModelLoadException>()).WithMessage("*0.17.1*");
+        feed.Requests.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task LocalOnly_GenAi_TheNamedVersionIsUsed_EvenWithANewerOneCached()
+    {
+        var (manager, feed) = await CreateAsync(new RuntimeManagerOptions { CacheDirectory = CacheDir, DisableAutoDownload = true });
+        var named = SeedGenAiCache(manager, "0.17.1");
+        SeedGenAiCache(manager, "0.18.0");
+
+        var (path, version, _) = await manager.ResolveRuntimeForProviderAsync(
+            "cpu", GenAi, "0.17.1", progress: null, TestContext.Current.CancellationToken);
+
+        path.Should().Be(named);
+        version.Should().Be("0.17.1");
+        feed.Requests.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task RuntimeDirectory_IsUsedAsIs_WithNoFeedRequest()
     {

@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Added
+- **`RuntimePackageRegistry.PackageConfig.RequiresExactVersion`** marks a runtime package whose native library must be exactly
+  the version its managed assembly was built against. A version the caller names is then never replaced by another cached
+  copy or by a newer download. The ONNX Runtime GenAI packages carry it.
+
+### Fixed
+- **The ONNX generator's native GenAI runtime now matches the managed GenAI package.** It used to be downloaded at the newest
+  version on nuget.org whatever managed version the application ran, so the two drifted apart whenever GenAI shipped a new
+  minor. Now it is provisioned at the `Microsoft.ML.OnnxRuntimeGenAI` version the application resolved (read from its
+  deps.json, or the version LMSupply was built against). With downloads off, only that version is accepted from the cache.
+  A `RuntimeManagerOptions.PinnedVersion`, which names an ONNX Runtime version, no longer applies to the GenAI runtime.
+
 ## [0.117.1] - 2026-10-11
 
 ### Fixed
