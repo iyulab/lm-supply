@@ -6,6 +6,14 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Breaking
+- **Public types that nothing in the libraries reads are removed.** `ModelPrecision`, `ComputePrecision`, `OptimizationLevel`,
+  `PrecisionConfig`, `ModelVariantResolver` (with `FilePatterns`, `ModelVariantInfo`), `OrtValueExtensions`,
+  `InferenceBufferPool`, `OrtValueInput` (LMSupply.Core), `GeneratorBackendType` (LMSupply.Generator) and `LlamaBackend`
+  (LMSupply.Llama). Model variants are chosen by `ModelPreferences` (`Quantization`), tensors are built with `TensorUtils`,
+  and the backend enums in use are `ModelBackend` and `LlamaServerBackend`. Migration: use those, or copy the removed type
+  if you depended on it.
+
 ### Changed
 - **The nuget.org «Release Notes» of every package link to the GitHub release of its version**, whose notes are this CHANGELOG's section for that version.
 

@@ -228,20 +228,3 @@ public class ModelFormatEnumTests
         ((int)format).Should().Be(expected);
     }
 }
-
-public class GeneratorBackendTypeEnumTests
-{
-    [Fact]
-    public void ShouldHaveTwoValues()
-    {
-        Enum.GetValues<GeneratorBackendType>().Should().HaveCount(2);
-    }
-
-    [Theory]
-    [InlineData(GeneratorBackendType.OnnxGenAI, 0)]
-    [InlineData(GeneratorBackendType.LlamaCpp, 1)]
-    public void ShouldHaveExpectedIntValues(GeneratorBackendType type, int expected)
-    {
-        ((int)type).Should().Be(expected);
-    }
-}

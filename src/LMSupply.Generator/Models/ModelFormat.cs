@@ -22,19 +22,3 @@ public enum ModelFormat
     /// </summary>
     Unknown
 }
-
-/// <summary>
-/// Specifies the backend type used for inference.
-/// </summary>
-public enum GeneratorBackendType
-{
-    /// <summary>
-    /// ONNX Runtime GenAI backend (Microsoft.ML.OnnxRuntimeGenAI).
-    /// </summary>
-    OnnxGenAI,
-
-    /// <summary>
-    /// llama.cpp backend via llama-server.
-    /// </summary>
-    LlamaCpp
-}
