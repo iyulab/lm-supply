@@ -303,6 +303,17 @@ internal static class GeneratorModelLoader
 
         modelId ??= Path.GetFileName(modelPath);
 
+        // A downloaded repository keeps its GenAI model in a variant subfolder (cpu-int4/, cpu_and_mobile/cpu-int4-…/);
+        // find it the way the hub load does instead of handing the runtime a directory without genai_config.json
+        // (a complete download validates at its root, so look for the config file itself)
+        if (!File.Exists(Path.Combine(modelPath, "genai_config.json")))
+        {
+            modelPath = OnnxVariantLocator.Find(modelPath, options.Provider)
+                ?? throw new FileNotFoundException(
+                    $"No ONNX Runtime GenAI model found at '{modelPath}': neither it nor a variant subfolder up to two levels down contains genai_config.json and its model files.",
+                    Path.Combine(modelPath, "genai_config.json"));
+        }
+
         // Determine chat formatter
         var chatFormatter = options.ChatFormat != null
             ? ChatFormatterFactory.CreateByFormat(options.ChatFormat)

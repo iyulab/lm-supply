@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Fixed
+- **`LocalGenerator.LoadFromPathAsync` loads an ONNX model from a downloaded repository folder.** Given a folder whose GenAI
+  model sits in a variant subfolder (`cpu-int4/`, or two levels down such as
+  `cpu_and_mobile/cpu-int4-rtn-block-32-acc-level-4/`), it now finds that subfolder the way a load by model id does,
+  preferring the requested provider's variant. Before, it handed the runtime the outer folder and failed with «Error opening
+  …\genai_config.json». A folder with no model anywhere now gets a `FileNotFoundException` that says what was searched.
+
+### Dependencies
+- **`Microsoft.ML.OnnxRuntimeGenAI` 0.13.2 → 0.17.1** (LMSupply.Generator.Onnx). The ONNX generator integration suite (Phi-3.5
+  and Phi-4 mini on CUDA and CPU: load, generate, stream, warm-up, provider selection, load from path) passes on it.
+
 ## [0.117.0] - 2026-10-11
 
 ### Breaking

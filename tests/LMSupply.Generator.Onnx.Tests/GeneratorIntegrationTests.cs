@@ -1,15 +1,18 @@
 using AwesomeAssertions;
 using LMSupply.Generator.Abstractions;
 
-namespace LMSupply.Generator.Tests;
+namespace LMSupply.Generator.Onnx.Tests;
 
 /// <summary>
-/// Integration tests for Generator models.
+/// Integration tests for ONNX Runtime GenAI generator models (Phi-3.5, Phi-4 mini).
 /// These tests require actual model downloads and GPU/CPU inference.
 /// </summary>
 [Trait("Category", "Integration")]
 public class GeneratorIntegrationTests
 {
+    // An ONNX model loads only through the separately packaged backend
+    public GeneratorIntegrationTests() => OnnxGeneratorBackend.Register();
+
     private const string Phi35Model = "microsoft/Phi-3.5-mini-instruct-onnx";
     private const string Phi4Model = "microsoft/Phi-4-mini-instruct-onnx";
     private const string TestPrompt = "What is 2+2? Answer with just the number.";

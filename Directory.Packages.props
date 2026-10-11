@@ -30,10 +30,10 @@
          native library, the same cross-platform stance as NLayer above. -->
     <PackageVersion Include="Concentus" Version="2.2.2" />
     <PackageVersion Include="MathNet.Numerics" Version="5.0.0" />
-    <!-- ONNX Runtime GenAI for LLM Inference. Held at 0.13.2 (0.17.x is out and dependency-compatible with
-         OnnxRuntime 1.30): the 0.x API changes between minors, and the generator paths are covered only by the
-         integration and local-model suites, which CI does not run. Move after those suites pass on the new version. -->
-    <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.13.2" />
+    <!-- ONNX Runtime GenAI for LLM Inference. The 0.x API changes between minors, and the generator paths are covered
+         only by the integration and local-model suites, which CI does not run: move it only after those suites pass on
+         the new version on a GPU machine. -->
+    <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.17.1" />
     <!-- llama-server process management -->
     <PackageVersion Include="ChildProcessGuard" Version="1.4.0" />
     <!-- GPU Providers (optional, user installs separately) -->

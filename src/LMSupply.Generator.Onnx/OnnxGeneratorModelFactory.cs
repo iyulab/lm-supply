@@ -4,6 +4,7 @@ using LMSupply.Download;
 using LMSupply.Exceptions;
 using LMSupply.Generator.Abstractions;
 using LMSupply.Generator.ChatFormatters;
+using LMSupply.Generator.Internal;
 
 namespace LMSupply.Generator;
 
@@ -268,74 +269,9 @@ public sealed class OnnxGeneratorModelFactory : IOnnxGeneratorModelFactory
     /// <summary>
     /// Finds a valid variant subfolder within the model directory.
     /// </summary>
-    private string? FindVariantSubfolder(string basePath)
-    {
-        if (!Directory.Exists(basePath))
-            return null;
+    private string? FindVariantSubfolder(string basePath) => OnnxVariantLocator.Find(basePath, _defaultProvider);
 
-        // Provider-specific variant prefixes in priority order
-        var variantPatterns = _defaultProvider switch
-        {
-            ExecutionProvider.Cuda => new[] { "cuda", "gpu", "cpu" },
-            _ => new[] { "cpu", "gpu" }
-        };
-
-        // Level 1: direct prefix match on an immediate subdirectory
-        foreach (var pattern in variantPatterns)
-        {
-            foreach (var subdir in Directory.GetDirectories(basePath))
-            {
-                var dirName = Path.GetFileName(subdir);
-                if (dirName.StartsWith(pattern, StringComparison.OrdinalIgnoreCase)
-                    && IsValidModelDirectory(subdir))
-                    return subdir;
-            }
-        }
-
-        // Level 2: nested variant layout (e.g., cpu_and_mobile/cpu-int4-rtn-block-32-acc-level-4)
-        // Walk into any level-1 directory whose name contains the provider pattern,
-        // then check each of its immediate children for a valid model directory.
-        foreach (var pattern in variantPatterns)
-        {
-            foreach (var subdir in Directory.GetDirectories(basePath))
-            {
-                var dirName = Path.GetFileName(subdir);
-                if (!dirName.Contains(pattern, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                foreach (var nested in Directory.GetDirectories(subdir))
-                {
-                    if (IsValidModelDirectory(nested))
-                        return nested;
-                }
-            }
-        }
-
-        // Fallback: any valid model at level 1
-        foreach (var subdir in Directory.GetDirectories(basePath))
-        {
-            if (IsValidModelDirectory(subdir))
-                return subdir;
-        }
-
-        // Fallback: any valid model at level 2
-        foreach (var subdir in Directory.GetDirectories(basePath))
-        {
-            foreach (var nested in Directory.GetDirectories(subdir))
-            {
-                if (IsValidModelDirectory(nested))
-                    return nested;
-            }
-        }
-
-        return null;
-    }
-
-    private static bool IsValidModelDirectory(string path)
-    {
-        var result = ModelDirectoryValidator.Validate(path);
-        return result.IsValid;
-    }
+    private static bool IsValidModelDirectory(string path) => OnnxVariantLocator.IsValidModelDirectory(path);
 
     private static IChatFormatter ResolveChatFormatter(string modelId, string? explicitFormat)
     {
