@@ -2,7 +2,7 @@
 
   <!-- Centralized Version Management -->
   <PropertyGroup>
-<Version>0.116.0</Version>
+<Version>0.117.0</Version>
 <!-- nuget.org «Release Notes»: the GitHub release of this version (its notes are the CHANGELOG section). -->
 <PackageReleaseNotes>https://github.com/iyulab/lm-supply/releases/tag/v$(Version)</PackageReleaseNotes>
   </PropertyGroup>
