@@ -112,7 +112,9 @@ public sealed class TranscriberDownloadSizeTests : IDisposable
         var repoDir = Directory.GetDirectories(_cache, "models--onnx-community--whisper-base").Single();
         var written = Directory.GetFiles(Path.Combine(repoDir, "snapshots"), "*", SearchOption.AllDirectories)
             .Where(f => !Path.GetFileName(f).StartsWith('.'))
-            .Sum(f => new FileInfo(f).Length);
+            // A snapshot entry may be a link into blobs/; a link's own length is 0, so measure what it points at
+            .Sum(f => (File.ResolveLinkTarget(f, returnFinalTarget: true) as FileInfo ?? new FileInfo(f)).Length);
+        written.Should().BePositive();
         size.Should().Be(written);
     }
 }

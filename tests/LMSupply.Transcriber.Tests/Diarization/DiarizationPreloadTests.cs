@@ -135,8 +135,11 @@ public sealed class DiarizationPreloadIntegrationTests : IDisposable
             .Should().BeTrue();
 
         // Downloads disabled, pair gone: the load fails like a missing transcription model, not mid-transcription.
-        File.Delete(Path.Combine(
-            CacheManager.GetModelDirectory(_cache, SpeakerDiarizer.EmbeddingRepo), SpeakerDiarizer.EmbeddingFile));
+        // The hub cache keeps a file under snapshots/{commit} (refs/main names the commit), not snapshots/main
+        var embeddingFile = CacheManager.GetSnapshotDirectories(_cache, SpeakerDiarizer.EmbeddingRepo)
+            .Select(dir => Path.Combine(dir, SpeakerDiarizer.EmbeddingFile))
+            .First(File.Exists);
+        File.Delete(embeddingFile);
         var offline = new TranscriberOptions
         {
             CacheDirectory = _cache, Provider = ExecutionProvider.Cpu, PreloadDiarization = true, DisableAutoDownload = true,

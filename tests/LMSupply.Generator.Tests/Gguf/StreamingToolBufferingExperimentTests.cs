@@ -23,6 +23,13 @@ namespace LMSupply.Generator.Tests.Gguf;
 [Trait("Category", "Integration")]
 public class StreamingToolBufferingExperimentTests
 {
+    // Reflection-based JSON is off in this repository; JsonDocument needs no type info
+    private static JsonElement ParseSchema(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
+    }
+
     private readonly ITestOutputHelper _output;
 
     public StreamingToolBufferingExperimentTests(ITestOutputHelper output)
@@ -49,7 +56,7 @@ public class StreamingToolBufferingExperimentTests
                           $"chars={off.TotalChars} finish={off.FinishReason}");
 
         // tools-on: a dummy tool the model has no reason to call on this prompt.
-        var weatherSchema = JsonSerializer.Deserialize<JsonElement>(
+        var weatherSchema = ParseSchema(
             """{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}""");
         var tools = new List<ChatToolDefinition>
         {
@@ -97,7 +104,7 @@ public class StreamingToolBufferingExperimentTests
     {
         await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", new GeneratorOptions { MaxContextLength = 4096 }, cancellationToken: TestContext.Current.CancellationToken);
 
-        var weatherSchema = JsonSerializer.Deserialize<JsonElement>(
+        var weatherSchema = ParseSchema(
             """{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}""");
         var tools = new List<ChatToolDefinition>
         {
