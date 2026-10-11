@@ -36,7 +36,8 @@ public static class OnnxGeneratorBackend
         if (AppContext.GetData("APP_CONTEXT_DEPS_FILES") is not string files)
             return null;
 
-        foreach (var file in files.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        // The host joins the deps files with ';' on every platform (not Path.PathSeparator, which is ':' on Unix)
+        foreach (var file in files.Split(';', StringSplitOptions.RemoveEmptyEntries))
         {
             try
             {
