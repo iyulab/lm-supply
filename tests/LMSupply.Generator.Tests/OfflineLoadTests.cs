@@ -74,4 +74,35 @@ public sealed class OfflineLoadTests : IDisposable
 
         resolved.Should().Be(seeded);
     }
+
+    // A cache hit is not a download: no Downloading report (a consumer that tracks «did this load download» or shows a
+    // download bar saw «100 %» of a 1-byte file on every warm start), one Complete report for the file.
+    [Fact]
+    public async Task ACachedGgufFile_IsReportedAsComplete_NeverAsDownloading()
+    {
+        const string repoId = "example/some-model-GGUF";
+        using var downloader = new GgufModelDownloader(_cacheDir, localFilesOnly: true);
+        var seeded = Path.Combine(_cacheDir, "models--example--some-model-GGUF", "snapshots", "main", "some-model-Q4_K_M.gguf");
+        Directory.CreateDirectory(Path.GetDirectoryName(seeded)!);
+        await File.WriteAllTextAsync(seeded, "placeholder", Ct);
+        var named = new Reports();
+        var chosen = new Reports();
+
+        await downloader.DownloadAsync(repoId, "some-model-Q4_K_M.gguf", progress: named, cancellationToken: Ct);
+        await downloader.DownloadAsync(repoId, progress: chosen, cancellationToken: Ct);
+
+        foreach (var reports in new[] { named, chosen })
+        {
+            reports.Items.Should().NotBeEmpty("the load still says which file it resolved");
+            reports.Items.Should().NotContain(r => r.Phase == DownloadPhase.Downloading);
+            reports.Items.Should().ContainSingle(r => r.Phase == DownloadPhase.Complete);
+        }
+    }
+
+    private sealed class Reports : IProgress<DownloadProgress>
+    {
+        public List<DownloadProgress> Items { get; } = [];
+
+        public void Report(DownloadProgress value) => Items.Add(value);
+    }
 }

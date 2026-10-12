@@ -127,11 +127,13 @@ public sealed class GgufModelDownloader : IDisposable
             : null;
         if (usablePath is not null)
         {
+            // A cache hit, not a transfer: Downloading is reserved for moving bytes (DownloadProgress.Phase).
             progress?.Report(new DownloadProgress
             {
                 FileName = filename,
                 BytesDownloaded = 1,
-                TotalBytes = 1
+                TotalBytes = 1,
+                Phase = DownloadPhase.Complete
             });
             return usablePath;
         }
@@ -485,11 +487,13 @@ public sealed class GgufModelDownloader : IDisposable
         for (int i = 0; i < shardFilenames.Count; i++)
         {
             var shardFile = shardFilenames[i];
+            // Before the cache check: nothing is moving yet (DownloadAsync reports Complete for a cached shard).
             progress?.Report(new DownloadProgress
             {
                 FileName = $"{Path.GetFileName(shardFile)} ({i + 1}/{shardCount})",
                 BytesDownloaded = 0,
-                TotalBytes = 0
+                TotalBytes = 0,
+                Phase = DownloadPhase.Preparing
             });
 
             var path = await DownloadAsync(repoId, shardFile, preferredQuantization: null,

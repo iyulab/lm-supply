@@ -74,7 +74,9 @@ public record DownloadProgress
     public TimeSpan? EstimatedRemaining { get; init; }
 
     /// <summary>
-    /// Gets the current download phase.
+    /// Gets the current download phase. <see cref="DownloadPhase.Downloading"/> means bytes are moving: a file found usable in
+    /// the cache is reported once as <see cref="DownloadPhase.Complete"/>, never as a download, so «was anything downloaded»
+    /// is answered by whether a <see cref="DownloadPhase.Downloading"/> report arrived.
     /// </summary>
     public DownloadPhase Phase { get; init; } = DownloadPhase.Downloading;
 

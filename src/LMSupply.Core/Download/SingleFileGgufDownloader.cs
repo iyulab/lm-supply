@@ -61,7 +61,8 @@ internal class SingleFileGgufDownloader : IDisposable
             {
                 FileName = Path.GetFileName(cached),
                 BytesDownloaded = 1,
-                TotalBytes = 1
+                TotalBytes = 1,
+                Phase = DownloadPhase.Complete
             });
             return cached;
         }
@@ -81,7 +82,8 @@ internal class SingleFileGgufDownloader : IDisposable
             {
                 FileName = selectedFile.Path,
                 BytesDownloaded = 1,
-                TotalBytes = 1
+                TotalBytes = 1,
+                Phase = DownloadPhase.Complete
             });
             return cachePath;
         }

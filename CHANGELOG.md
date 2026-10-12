@@ -6,6 +6,14 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Changed
+- **Breaking** — **a GGUF file found in the cache is reported as `DownloadPhase.Complete`, never as `Downloading`.**
+  `GgufModelDownloader` and `SingleFileGgufDownloader` reported a cache hit as a 1/1-byte download in the default
+  `Downloading` phase. So a host showing progress printed «Downloading …: 100%» on every warm start, and a tracker of «did
+  this load download» counted a download each time. A sharded load's per-shard report before the cache check is now
+  `Preparing`. `DownloadProgress.Phase` documents the rule: `Downloading` means bytes are moving. Migration: a consumer that
+  inferred a cache hit from a first report already at 100 % can read `Phase == Complete` instead.
+
 ### Fixed
 - **The translator no longer puts an unknown token in front of every input.** `TranslatorTokenizer` created its SentencePiece
   tokenizer with the model's automatic `<s>` on, and a Marian `vocab.json` has no `<s>`, so every source sentence was encoded as
