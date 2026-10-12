@@ -34,4 +34,31 @@ public sealed class ConsoleRegistryListingTests(WebApplicationFactory<Program> f
         Assert.NotEmpty(listed);
         Assert.All(listed, repo => Assert.Contains(repo, registryRepos));
     }
+
+    /// <summary>
+    /// Models that share a repository are each listed: the synthesizer's voices all live in one.
+    /// </summary>
+    [Fact]
+    public async Task EveryVoiceOfTheSynthesizer_IsListed()
+    {
+        using var client = factory.CreateClient();
+        var json = await client.GetFromJsonAsync<JsonElement>("/api/registry/models/synthesizer", TestContext.Current.CancellationToken);
+
+        var listed = json.GetProperty("models").EnumerateArray().Select(m => m.GetProperty("aliasName").GetString()!).ToList();
+
+        Assert.Equal(["default", "lessac", "fast", "quality", "british", "korean", "chinese"], listed);
+    }
+
+    /// <summary>
+    /// A model is found by its catalog key, which names one voice where the repository id names seven.
+    /// </summary>
+    [Fact]
+    public async Task AModel_IsFoundByItsCatalogKey()
+    {
+        using var client = factory.CreateClient();
+        var json = await client.GetFromJsonAsync<JsonElement>(
+            "/v1/models/rhasspy/piper-voices:ko/ko_KR/kss/medium", TestContext.Current.CancellationToken);
+
+        Assert.Equal("korean", json.GetProperty("id").GetString());
+    }
 }

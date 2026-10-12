@@ -10,7 +10,12 @@ namespace LMSupply;
 /// Provides unified resolution for system aliases, user aliases, model IDs, and fallbacks.
 /// </summary>
 /// <remarks>
-/// Resolution order: auto -> user alias -> system alias -> full ID -> short name -> local path -> HF fallback.
+/// Resolution order: auto -> user alias -> system alias -> catalog key -> full ID -> short name -> local path -> HF fallback.
+/// <para>
+/// A catalog entry is identified by its <see cref="IModelInfoBase.CatalogKey"/>, not by its id: a repository can hold
+/// several models, and their entries then share the id. Entries with one key are one model under several aliases and
+/// are listed once; a full ID or a short name that several models share resolves to the first of them registered.
+/// </para>
 /// </remarks>
 public abstract class ModelRegistryBase<TModelInfo> : IModelRegistry<TModelInfo>
     where TModelInfo : IModelInfoBase
@@ -19,6 +24,9 @@ public abstract class ModelRegistryBase<TModelInfo> : IModelRegistry<TModelInfo>
         = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly ConcurrentDictionary<string, string> _userAliases
+        = new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly Dictionary<string, TModelInfo> _modelsByKey
         = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly Dictionary<string, TModelInfo> _modelsById
@@ -35,6 +43,11 @@ public abstract class ModelRegistryBase<TModelInfo> : IModelRegistry<TModelInfo>
         {
             _systemAliases[model.AliasName] = model;
 
+            // A key seen before is the same model under another alias; a new key is another model, even under an id
+            // seen before.
+            if (_modelsByKey.TryAdd(model.CatalogKey, model))
+                _allModels.Add(model);
+
             if (!_modelsById.ContainsKey(model.Id))
                 _modelsById[model.Id] = model;
 
@@ -43,9 +56,6 @@ public abstract class ModelRegistryBase<TModelInfo> : IModelRegistry<TModelInfo>
                 : model.Id;
             if (!_modelsByShortName.ContainsKey(shortName))
                 _modelsByShortName[shortName] = model;
-
-            if (!_allModels.Any(m => m.Id.Equals(model.Id, StringComparison.OrdinalIgnoreCase)))
-                _allModels.Add(model);
         }
     }
 
@@ -91,13 +101,13 @@ public abstract class ModelRegistryBase<TModelInfo> : IModelRegistry<TModelInfo>
             return true;
         }
 
-        // 3-7. Standard resolution
+        // 3-8. Standard resolution
         return TryResolveInternal(baseId, out modelInfo);
     }
 
     /// <summary>
     /// Like <see cref="TryResolve"/>, but only what the catalog actually knows: <c>auto</c>, a system or
-    /// user alias, a full model id or a short name. A local path or a repository id the catalog has no
+    /// user alias, a catalog key, a full model id or a short name. A local path or a repository id the catalog has no
     /// entry for is <see langword="false"/> — <see cref="TryResolve"/> answers those with a fallback
     /// entry whose values (dimensions, pooling, length, subfolder) are placeholders, and a loader that
     /// took that placeholder for a declaration read the model wrongly. <paramref name="resolvedId"/> is
@@ -187,34 +197,30 @@ public abstract class ModelRegistryBase<TModelInfo> : IModelRegistry<TModelInfo>
         where TCandidate : IModelMemoryInfo =>
         ModelMemoryEstimator.EstimateModelSizeBytes(candidate.ParameterCount, candidate.QuantizationType, candidate.EstimatedSizeBytes);
 
-    /// <summary>Steps 3–5 of resolution: what is in the catalog, and nothing made up.</summary>
+    /// <summary>
+    /// Steps 3–6 of resolution: what is in the catalog, and nothing made up. The key comes before the id because it
+    /// names exactly one model; an id or a short name that several models share answers with the first registered.
+    /// </summary>
     private bool TryResolveCataloged(string modelIdOrAlias, out TModelInfo? modelInfo) =>
         _systemAliases.TryGetValue(modelIdOrAlias, out modelInfo!)
+        || _modelsByKey.TryGetValue(modelIdOrAlias, out modelInfo!)
         || _modelsById.TryGetValue(modelIdOrAlias, out modelInfo!)
         || _modelsByShortName.TryGetValue(modelIdOrAlias, out modelInfo!);
 
     private bool TryResolveInternal(string modelIdOrAlias, out TModelInfo? modelInfo)
     {
-        // 3. System alias
-        if (_systemAliases.TryGetValue(modelIdOrAlias, out modelInfo!))
+        // 3-6. System alias, catalog key, full model ID, short name
+        if (TryResolveCataloged(modelIdOrAlias, out modelInfo))
             return true;
 
-        // 4. Full model ID
-        if (_modelsById.TryGetValue(modelIdOrAlias, out modelInfo!))
-            return true;
-
-        // 5. Short name
-        if (_modelsByShortName.TryGetValue(modelIdOrAlias, out modelInfo!))
-            return true;
-
-        // 6. Local path
+        // 7. Local path
         if (IsLocalPath(modelIdOrAlias))
         {
             modelInfo = CreateFallbackModelInfo(modelIdOrAlias);
             return true;
         }
 
-        // 7. HuggingFace repo pattern
+        // 8. HuggingFace repo pattern
         if (modelIdOrAlias.Contains('/'))
         {
             modelInfo = CreateFallbackModelInfo(modelIdOrAlias);
@@ -279,8 +285,9 @@ public abstract class ModelRegistryBase<TModelInfo> : IModelRegistry<TModelInfo>
         var result = new List<AliasInfo>();
         result.Add(new AliasInfo("auto", "(hardware-adaptive)", AliasKind.System));
 
+        // The key, not the id: aliases of models that share an id would otherwise all name the same target.
         foreach (var (name, model) in _systemAliases)
-            result.Add(new AliasInfo(name, model.Id, AliasKind.System));
+            result.Add(new AliasInfo(name, model.CatalogKey, AliasKind.System));
 
         foreach (var (name, targetId) in _userAliases)
             result.Add(new AliasInfo(name, targetId, AliasKind.User));

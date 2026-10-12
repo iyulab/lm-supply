@@ -282,22 +282,37 @@ foreach (var alias in LocalSynthesizer.GetAvailableModels())
     Console.WriteLine(alias);
 }
 
-// Get detailed model information
+// Every voice of the catalog, once each
 foreach (var model in LocalSynthesizer.GetAllModels())
 {
     Console.WriteLine($"{model.AliasName}: {model.DisplayName}");
+    Console.WriteLine($"  Key: {model.CatalogKey}");
     Console.WriteLine($"  Language: {model.Language}");
     Console.WriteLine($"  Voice: {model.VoiceName}");
     Console.WriteLine($"  Sample Rate: {model.SampleRate} Hz");
 }
 ```
 
-### Load by HuggingFace ID
+`GetAvailableModels()` returns alias names, `auto` and the aliases you registered included. `GetAllModels()` returns the
+seven voices of the table above.
+
+### Load a Voice by Its Catalog Key
+
+The catalog's voices all live in one HuggingFace repository, `rhasspy/piper-voices`, each in a folder of its own. Their
+`Id` is therefore the same, and a voice is named by its `CatalogKey`: the repository id, `:` and the voice's folder
+(`VoiceName`).
 
 ```csharp
-// Load specific Piper voice from HuggingFace
-var synthesizer = await LocalSynthesizer.LoadAsync("rhasspy/piper-voices");
+// The Lessac voice by its key, which is what the alias "lessac" resolves to
+var synthesizer = await LocalSynthesizer.LoadAsync("rhasspy/piper-voices:en/en_US/lessac/medium");
+
+// The key of a voice picked from the catalog
+var korean = LocalSynthesizer.GetAllModels().First(m => m.Language == "ko-KR");
+var koreanSynthesizer = await LocalSynthesizer.LoadAsync(korean.CatalogKey);
 ```
+
+The repository id on its own names no voice: `LoadAsync("rhasspy/piper-voices")` loads the first voice of the catalog,
+which is the default one.
 
 ### Access Model Info
 

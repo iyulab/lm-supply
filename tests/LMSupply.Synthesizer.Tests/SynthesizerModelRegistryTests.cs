@@ -36,19 +36,53 @@ public class SynthesizerModelRegistryTests
         model!.AliasName.Should().Be(alias);
     }
 
+    // Every catalog voice lives in one repository, so the repository id names none of them. It answers with the first
+    // registered, which is the default voice.
     [Fact]
-    public void TryResolve_ReturnsModelById()
+    public void TryResolve_RepositoryId_ReturnsTheFirstVoiceOfTheCatalog()
     {
-        // Arrange
-        var id = "rhasspy/piper-voices";
-
         // Act
-        var found = SynthesizerModelRegistry.Default.TryResolve(id, out var model);
+        var found = SynthesizerModelRegistry.Default.TryResolve("rhasspy/piper-voices", out var model);
 
         // Assert
         found.Should().BeTrue();
-        model.Should().NotBeNull();
-        model!.Id.Should().Be(id);
+        model.Should().Be(DefaultModels.EnUsLjSpeech);
+    }
+
+    [Theory]
+    [InlineData("rhasspy/piper-voices:en/en_US/ljspeech/medium", "default")]
+    [InlineData("rhasspy/piper-voices:en/en_US/lessac/medium", "lessac")]
+    [InlineData("rhasspy/piper-voices:en/en_US/ryan/low", "fast")]
+    [InlineData("rhasspy/piper-voices:en/en_US/amy/medium", "quality")]
+    [InlineData("rhasspy/piper-voices:en/en_GB/semaine/medium", "british")]
+    [InlineData("rhasspy/piper-voices:ko/ko_KR/kss/medium", "korean")]
+    [InlineData("rhasspy/piper-voices:zh/zh_CN/huayan/medium", "chinese")]
+    public void TryResolve_CatalogKey_ReturnsThatVoice(string key, string alias)
+    {
+        // Act
+        var found = SynthesizerModelRegistry.Default.TryResolve(key, out var model);
+        var cataloged = SynthesizerModelRegistry.Default.TryResolveCatalog(key, out var catalogModel, out var resolvedId);
+
+        // Assert
+        found.Should().BeTrue();
+        model!.AliasName.Should().Be(alias);
+        model.CatalogKey.Should().Be(key);
+        cataloged.Should().BeTrue();
+        catalogModel.Should().Be(model);
+        resolvedId.Should().Be(key);
+    }
+
+    // A folder the catalog has no voice for is not answered with another voice of the repository.
+    [Fact]
+    public void TryResolveCatalog_ReturnsFalseForVoiceTheCatalogDoesNotHave()
+    {
+        // Act
+        var cataloged = SynthesizerModelRegistry.Default.TryResolveCatalog(
+            "rhasspy/piper-voices:en/en_US/nobody/medium", out var model, out _);
+
+        // Assert
+        cataloged.Should().BeFalse();
+        model.Should().BeNull();
     }
 
     [Fact]
@@ -96,16 +130,33 @@ public class SynthesizerModelRegistryTests
         aliasNames.Should().Contain("chinese");
     }
 
+    // The voices share a repository id, so an alias names its voice by the catalog key.
     [Fact]
-    public void GetAvailableModels_ReturnsAllModels()
+    public void GetAliases_NamesTheVoiceOfEachAlias()
+    {
+        // Act
+        var aliases = SynthesizerModelRegistry.Default.GetAliases();
+
+        // Assert
+        DefaultModels.All.Should().AllSatisfy(voice =>
+            aliases.Should().Contain(new AliasInfo(voice.AliasName, voice.CatalogKey, AliasKind.System)));
+    }
+
+    [Fact]
+    public void GetAvailableModels_ListsEveryVoice()
     {
         // Act
         var models = SynthesizerModelRegistry.Default.GetAvailableModels();
 
         // Assert
-        models.Should().NotBeEmpty();
-        // All models share the same ID "rhasspy/piper-voices", so only 1 unique by ID
-        models.Should().HaveCountGreaterThanOrEqualTo(1);
+        models.Select(m => m.VoiceName).Should().Equal(
+            "en/en_US/ljspeech/medium",
+            "en/en_US/lessac/medium",
+            "en/en_US/ryan/low",
+            "en/en_US/amy/medium",
+            "en/en_GB/semaine/medium",
+            "ko/ko_KR/kss/medium",
+            "zh/zh_CN/huayan/medium");
     }
 
     [Fact]
@@ -131,11 +182,10 @@ public class SynthesizerModelRegistryTests
     {
         var registry = new SynthesizerModelRegistry(DefaultModels.All);
 
-        registry.RegisterAlias("my-voice", "rhasspy/piper-voices");
+        registry.RegisterAlias("my-voice", "rhasspy/piper-voices:ko/ko_KR/kss/medium");
 
         var model = registry.Resolve("my-voice");
-        model.Should().NotBeNull();
-        model.Id.Should().Be("rhasspy/piper-voices");
+        model.Should().Be(DefaultModels.KoKr);
     }
 
     [Fact]
@@ -260,6 +310,14 @@ public class DefaultModelsTests
     }
 
     [Fact]
+    public void EveryVoice_HasItsOwnCatalogKey()
+    {
+        // Assert
+        DefaultModels.All.Select(m => m.CatalogKey).Should().OnlyHaveUniqueItems();
+        DefaultModels.EnUsLessac.CatalogKey.Should().Be("rhasspy/piper-voices:en/en_US/lessac/medium");
+    }
+
+    [Fact]
     public void AllModels_UsePiperVoicesRepo()
     {
         // Assert
@@ -292,6 +350,7 @@ public class SynthesizerModelInfoTests
 
         // Assert
         info.Id.Should().Be("test/model");
+        info.CatalogKey.Should().Be("test/model:test-voice");
         info.AliasName.Should().Be("test");
         info.DisplayName.Should().Be("Test Model");
         info.VoiceName.Should().Be("test-voice");
@@ -316,6 +375,7 @@ public class SynthesizerModelInfoTests
         info.Architecture.Should().Be("VITS");
         info.Language.Should().Be("en");
         info.VoiceName.Should().BeNull();
+        info.CatalogKey.Should().Be("test", "a model at the root of its repository is named by the id alone");
         info.NumSpeakers.Should().Be(1);
         info.SampleRate.Should().Be(22050);
         info.ModelFile.Should().Be("model.onnx");

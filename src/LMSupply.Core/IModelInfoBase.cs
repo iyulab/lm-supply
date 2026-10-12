@@ -7,9 +7,23 @@ namespace LMSupply;
 public interface IModelInfoBase
 {
     /// <summary>
-    /// Gets the unique identifier for this model (typically HuggingFace repo ID).
+    /// Gets the identifier the model is loaded by (typically its HuggingFace repository id). A repository can hold
+    /// several models, so several catalog entries may share it; <see cref="CatalogKey"/> tells them apart.
     /// </summary>
     string Id { get; }
+
+    /// <summary>
+    /// Identifies the model within its catalog. Entries with the same key are one model under several aliases, and a
+    /// registry lists that model once; entries with different keys are different models, even when they share an
+    /// <see cref="Id"/>. <see cref="ModelRegistryBase{TModelInfo}"/> resolves the key to its entry, so it names a model
+    /// where the id alone cannot.
+    /// </summary>
+    /// <remarks>
+    /// The default is <see cref="Id"/>, which is right when the id names one model. A type whose entries can share an
+    /// id (several voices, files or folders of one repository) returns the id followed by <c>:</c> and what tells them
+    /// apart, for example <c>org/name:folder/in/the/repository</c>.
+    /// </remarks>
+    string CatalogKey => Id;
 
     /// <summary>
     /// Gets the user-friendly alias name for this model (e.g., "default", "fast", "quality").
@@ -31,7 +45,10 @@ public interface IModelInfoBase
 /// Represents an alias registration in a model registry.
 /// </summary>
 /// <param name="Name">The alias name (e.g., "default", "my-model").</param>
-/// <param name="TargetModelId">The model ID this alias resolves to.</param>
+/// <param name="TargetModelId">
+/// What the alias resolves to: for a system alias the model's <see cref="IModelInfoBase.CatalogKey"/> (its id, unless
+/// several models share that id), for a user alias the target it was registered with.
+/// </param>
 /// <param name="Kind">Whether this is a system or user alias.</param>
 public record AliasInfo(string Name, string TargetModelId, AliasKind Kind);
 
@@ -88,7 +105,8 @@ public interface IModelRegistry<TModelInfo> : IAliasRegistry where TModelInfo : 
     bool TryResolve(string modelIdOrAlias, out TModelInfo? modelInfo);
 
     /// <summary>
-    /// Gets all registered model information (deduplicated).
+    /// Gets every model of the catalog, once each: a model registered under several aliases is listed as the first of
+    /// its entries, and models that share an id are all listed (see <see cref="IModelInfoBase.CatalogKey"/>).
     /// </summary>
     IReadOnlyList<TModelInfo> GetAvailableModels();
 }

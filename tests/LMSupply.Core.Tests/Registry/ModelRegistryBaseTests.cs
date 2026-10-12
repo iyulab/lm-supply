@@ -9,6 +9,10 @@ internal sealed record TestModelInfo : IModelInfoBase
     public required string Id { get; init; }
     public required string AliasName { get; init; }
     public string? Description { get; init; }
+
+    // What tells the models of one repository apart; null when the id names one model.
+    public string? Variant { get; init; }
+    public string CatalogKey => Variant is null ? Id : $"{Id}:{Variant}";
 }
 
 internal sealed class TestModelRegistry : ModelRegistryBase<TestModelInfo>
@@ -221,6 +225,85 @@ public class ModelRegistryBaseTests
         var models = registry.GetAvailableModels();
         models.Should().HaveCount(3);
         models.Select(m => m.Id).Should().Contain("org/model-a");
+    }
+
+    // --- Several models in one repository ---
+
+    // "org/voices" holds two models, and the first of them is registered again under its own name; "org/single" holds
+    // one model under two aliases.
+    private static TestModelRegistry CreateSharedRepositoryRegistry() => new(
+    [
+        new TestModelInfo { Id = "org/voices", AliasName = "default", Variant = "en/amy" },
+        new TestModelInfo { Id = "org/voices", AliasName = "british", Variant = "en/alan" },
+        new TestModelInfo { Id = "org/voices", AliasName = "amy", Variant = "en/amy" },
+        new TestModelInfo { Id = "org/single", AliasName = "fast" },
+        new TestModelInfo { Id = "org/single", AliasName = "small" },
+    ]);
+
+    [Fact]
+    public void GetAvailableModels_ListsEveryModelOfOneRepository_AndAModelUnderTwoAliasesOnce()
+    {
+        var models = CreateSharedRepositoryRegistry().GetAvailableModels();
+
+        models.Select(m => m.AliasName).Should().Equal("default", "british", "fast");
+        models.Select(m => m.CatalogKey).Should().Equal("org/voices:en/amy", "org/voices:en/alan", "org/single");
+    }
+
+    [Fact]
+    public void Resolve_CatalogKey_ReturnsTheModelItNames()
+    {
+        var registry = CreateSharedRepositoryRegistry();
+
+        registry.Resolve("org/voices:en/alan").AliasName.Should().Be("british");
+        registry.Resolve("ORG/Voices:EN/Alan").AliasName.Should().Be("british");
+        registry.GetAvailableModels().Should().AllSatisfy(m => registry.Resolve(m.CatalogKey).Should().BeSameAs(m));
+    }
+
+    [Theory]
+    [InlineData("org/voices")]
+    [InlineData("voices")]
+    public void Resolve_IdOrShortNameSeveralModelsShare_ReturnsTheFirstRegistered(string idOrShortName)
+    {
+        var registry = CreateSharedRepositoryRegistry();
+
+        registry.Resolve(idOrShortName).AliasName.Should().Be("default");
+    }
+
+    [Fact]
+    public void TryResolveCatalog_CatalogKey_IsWhatTheCatalogKnows()
+    {
+        var registry = CreateSharedRepositoryRegistry();
+
+        registry.TryResolveCatalog("org/voices:en/alan", out var known, out var knownId).Should().BeTrue();
+        known!.AliasName.Should().Be("british");
+        knownId.Should().Be("org/voices:en/alan");
+
+        // A variant the catalog has no entry for is not answered with a neighbour from the same repository.
+        registry.TryResolveCatalog("org/voices:en/nobody", out var unknown, out var unknownId).Should().BeFalse();
+        unknown.Should().BeNull();
+        unknownId.Should().Be("org/voices:en/nobody");
+        registry.Resolve("org/voices:en/nobody").Should().Be(
+            new TestModelInfo { Id = "org/voices:en/nobody", AliasName = "org/voices:en/nobody" }, "that is the fallback entry");
+    }
+
+    [Fact]
+    public void RegisterAlias_TargetingCatalogKey_ResolvesTheModelItNames()
+    {
+        var registry = CreateSharedRepositoryRegistry();
+        registry.RegisterAlias("my-voice", "org/voices:en/alan");
+
+        registry.Resolve("my-voice").AliasName.Should().Be("british");
+    }
+
+    [Fact]
+    public void GetAliases_NamesTheModelOfEachSystemAliasByItsCatalogKey()
+    {
+        var aliases = CreateSharedRepositoryRegistry().GetAliases();
+
+        aliases.Should().Contain(new AliasInfo("default", "org/voices:en/amy", AliasKind.System));
+        aliases.Should().Contain(new AliasInfo("british", "org/voices:en/alan", AliasKind.System));
+        aliases.Should().Contain(new AliasInfo("amy", "org/voices:en/amy", AliasKind.System));
+        aliases.Should().Contain(new AliasInfo("small", "org/single", AliasKind.System));
     }
 
     // --- Edge cases ---

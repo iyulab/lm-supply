@@ -20,13 +20,13 @@ public class LocalSynthesizerTests
     }
 
     [Fact]
-    public void GetAllModels_ReturnsModelInfoCollection()
+    public void GetAllModels_ReturnsEveryVoice()
     {
         // Act
         var models = LocalSynthesizer.GetAllModels().ToList();
 
         // Assert
-        models.Should().NotBeEmpty();
+        models.Select(m => m.AliasName).Should().Equal("default", "lessac", "fast", "quality", "british", "korean", "chinese");
         models.Should().AllSatisfy(m =>
         {
             m.Id.Should().NotBeNullOrEmpty();

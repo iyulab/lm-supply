@@ -190,6 +190,7 @@ public static class ModelsEndpoints
 
             var found = allModels.FirstOrDefault(m =>
                 string.Equals(m.AliasName, model, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(m.CatalogKey, model, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(m.Id, model, StringComparison.OrdinalIgnoreCase));
 
             if (found is null)

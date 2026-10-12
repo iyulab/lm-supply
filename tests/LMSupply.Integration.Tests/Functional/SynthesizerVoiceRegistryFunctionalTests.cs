@@ -27,6 +27,21 @@ public sealed class SynthesizerVoiceRegistryFunctionalTests
     }
 
     /// <summary>
+    /// The catalog's voices share a repository id, so a voice is loaded by its catalog key. The repository id on its own
+    /// names no voice and loads the first of the catalog, the default one.
+    /// </summary>
+    [Theory]
+    [InlineData("rhasspy/piper-voices:ko/ko_KR/kss/medium", "ko/ko_KR/kss/medium", "ko")]
+    [InlineData("rhasspy/piper-voices", "en/en_US/ljspeech/medium", "en")]
+    public async Task Voice_LoadsByCatalogKey(string modelId, string voiceFolder, string phonemizerVoice)
+    {
+        await using var model = await LocalSynthesizer.LoadAsync(modelId, cancellationToken: TestContext.Current.CancellationToken);
+
+        model.Voice.Should().Be(voiceFolder);
+        model.PhonemeScheme.Voice.Should().Be(phonemizerVoice);
+    }
+
+    /// <summary>
     /// A voice with several speakers is run with the speaker input its graph requires, by the count its config declares.
     /// </summary>
     [Fact]

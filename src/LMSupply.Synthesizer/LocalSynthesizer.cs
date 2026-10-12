@@ -33,8 +33,10 @@ public static class LocalSynthesizer
     /// Loads a TTS model by name or path.
     /// </summary>
     /// <param name="modelIdOrPath">
-    /// Either a model alias (e.g., "default", "fast", "quality"),
-    /// a HuggingFace model ID, or a local path to ONNX model files.
+    /// Either a model alias (e.g., "default", "fast", "quality"), a catalog voice's
+    /// <see cref="SynthesizerModelInfo.CatalogKey"/> (e.g., "rhasspy/piper-voices:en/en_US/ljspeech/medium"),
+    /// a HuggingFace repository ID, or a local path to ONNX model files. The repository ID of the catalog's
+    /// voices names no single voice and loads the first of them, the default one.
     /// </param>
     /// <param name="options">Optional configuration options.</param>
     /// <param name="progress">Optional progress reporting for downloads.</param>
@@ -88,7 +90,7 @@ public static class LocalSynthesizer
     }
 
     /// <summary>
-    /// Gets all registered model information.
+    /// Gets every voice of the catalog, once each.
     /// </summary>
     /// <returns>Collection of model information.</returns>
     public static IEnumerable<SynthesizerModelInfo> GetAllModels()
