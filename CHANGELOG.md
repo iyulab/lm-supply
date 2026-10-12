@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [Unreleased]
+## [0.120.0] - 2026-10-13
 
 ### Added
 - **`DownloadPhase.Loading`: a load says when it starts bringing the model into memory.** Once the files are in place,
