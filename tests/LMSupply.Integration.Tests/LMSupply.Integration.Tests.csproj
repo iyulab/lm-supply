@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- LMSUPPLY001: These tests exercise the experimental synthesizer, including the intelligibility fact that stays red until G2P lands. Only this id; removed when the synthesizer leaves [Experimental]. -->
+    <!-- LMSUPPLY001: These tests exercise the experimental synthesizer: speech from phonemes, and the refusal of text it has no phonemizer for. Only this id; removed when the synthesizer leaves [Experimental]. -->
     <NoWarn>$(NoWarn);LMSUPPLY001</NoWarn>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

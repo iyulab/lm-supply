@@ -182,7 +182,7 @@ public class FastModelFunctionalTests : IAsyncLifetime
         var loadTime = sw.ElapsedMilliseconds;
 
         sw.Restart();
-        var audio = await model.SynthesizeAsync("Hello world", cancellationToken: TestContext.Current.CancellationToken);
+        var audio = await model.SynthesizePhonemesAsync([Helpers.SpokenPhonemes.Hello], cancellationToken: TestContext.Current.CancellationToken);
         var inferTime = sw.ElapsedMilliseconds;
 
         audio.Should().NotBeNull();

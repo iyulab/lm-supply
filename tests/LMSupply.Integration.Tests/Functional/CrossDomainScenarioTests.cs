@@ -251,28 +251,25 @@ public class CrossDomainScenarioTests
         // Pipeline completes — caption→generate→re-caption works end-to-end
     }
 
-    // ── Scenario: Translate → Synthesize → Transcribe ────────────────
+    // ── Scenario: Translate → Synthesize ─────────────────────────────
     // The translator runs into English only (no English→Korean ONNX export is published), so the pipeline starts with it.
+    // It stops at the synthesizer: a translation is free text, and the package has no phonemizer for its English voices.
+    // When one ships, this scenario goes on to transcribe the speech back to text.
 
     [Fact]
-    [Trait("Scenario", "Translate-Synthesize-Transcribe")]
-    public async Task Scenario_TranslateSynthesizeTranscribe_PipelineCompletes()
+    [Trait("Scenario", "Translate-Synthesize")]
+    public async Task Scenario_TranslateSynthesize_TheTranslationIsRefusedWithoutAPhonemizer()
     {
         // 1. Translate Korean into English
         await using var translator = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
         var translation = await translator.TranslateAsync("오늘 날씨가 좋습니다.", TestContext.Current.CancellationToken);
         translation.TranslatedText.Should().NotBeNullOrEmpty("the translator should produce English text");
 
-        // 2. Speak the translation
+        // 2. Speaking free text needs a phonemizer the synthesizer does not have
         await using var synthesizer = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
-        var synthesis = await synthesizer.SynthesizeAsync(translation.TranslatedText, cancellationToken: TestContext.Current.CancellationToken);
+        var speak = () => synthesizer.SynthesizeAsync(translation.TranslatedText, cancellationToken: TestContext.Current.CancellationToken);
 
-        // 3. Transcribe the speech back to text
-        await using var transcriber = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
-        var transcription = await transcriber.TranscribeAsync(synthesis.ToWavBytes(), cancellationToken: TestContext.Current.CancellationToken);
-
-        transcription.Text.Should().NotBeNullOrEmpty(
-            "Translate → Synthesize → Transcribe pipeline should produce text");
+        await speak.Should().ThrowAsync<NotSupportedException>().WithMessage("*SynthesizerOptions.Phonemizer*");
     }
 
     // ── Scenario: Generate → Embed → similarity check ────────────────
@@ -307,11 +304,11 @@ public class CrossDomainScenarioTests
     [Trait("Scenario", "TTS-STT-Embed")]
     public async Task Scenario_SynthesizeTranscribeEmbed_SemanticPreservation()
     {
-        var originalText = "The weather is beautiful today.";
+        var originalText = Helpers.SpokenPhonemes.WeatherText;
 
-        // 1. Synthesize text to speech
+        // 1. Synthesize the sentence from its phonemes
         await using var synthesizer = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
-        var audio = await synthesizer.SynthesizeAsync(originalText, cancellationToken: TestContext.Current.CancellationToken);
+        var audio = await synthesizer.SynthesizePhonemesAsync([Helpers.SpokenPhonemes.Weather], cancellationToken: TestContext.Current.CancellationToken);
         var wavBytes = audio.ToWavBytes();
 
         // 2. Transcribe back to text
@@ -327,8 +324,7 @@ public class CrossDomainScenarioTests
         var unrelatedEmb = await embedder.EmbedAsync("Database query optimization techniques", TestContext.Current.CancellationToken);
 
         // 4. TTS→STT output should be semantically closer to original than to unrelated text.
-        // Weak: this passes on unintelligible audio too (the synthesizer has no G2P yet). SynthesizerIntelligibilityFacts is the
-        // real check.
+        // Weak: a transcript of noise can pass this too. SynthesizerIntelligibilityFacts is the real check.
         var relevantSim = LocalEmbedder.CosineSimilarity(originalEmb, transcribedEmb);
         var unrelatedSim = LocalEmbedder.CosineSimilarity(originalEmb, unrelatedEmb);
 
@@ -386,7 +382,7 @@ public class CrossDomainScenarioTests
         // Run inference in parallel across different domains
         var embedTask = embedder.EmbedAsync("parallel test", TestContext.Current.CancellationToken).AsTask();
         var rerankTask = reranker.RerankAsync("test", ["hello", "world", "test"], cancellationToken: TestContext.Current.CancellationToken);
-        var synthTask = synthesizer.SynthesizeAsync("parallel", cancellationToken: TestContext.Current.CancellationToken);
+        var synthTask = synthesizer.SynthesizePhonemesAsync([Helpers.SpokenPhonemes.Hello], cancellationToken: TestContext.Current.CancellationToken);
 
         await Task.WhenAll(embedTask, rerankTask, synthTask);
 

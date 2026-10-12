@@ -1,3 +1,4 @@
+using LMSupply.Integration.Tests.Helpers;
 using LMSupply.Synthesizer;
 using LMSupply.Transcriber;
 
@@ -9,11 +10,17 @@ namespace LMSupply.Integration.Tests.Functional;
 /// Includes cross-domain TTS→STT roundtrip test.
 /// Requires GPU + network access. Run locally only.
 /// </summary>
+/// <remarks>
+/// The package has no phonemizer for these voices, so the facts pass phonemes (<see cref="SpokenPhonemes"/>), or text
+/// through a phonemizer set in the options; text on its own is refused (<see cref="E_TextWithoutAPhonemizer_IsRefused"/>).
+/// </remarks>
 [Trait("Category", "Functional")]
 [Trait("Category", "LocalOnly")]
 [Trait("Domain", "Synthesizer")]
 public class SynthesizerFunctionalTests
 {
+    private static readonly string[] Hello = [SpokenPhonemes.Hello];
+
     // ── L axis: Model Loading ───────────────────────────────────────
 
     [Fact]
@@ -24,6 +31,17 @@ public class SynthesizerFunctionalTests
 
         model.ModelId.Should().NotBeNullOrEmpty();
         model.SampleRate.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    [Trait("Axis", "Loading")]
+    public async Task L_FastAlias_ReportsWhatItsConfigDeclares()
+    {
+        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+
+        // This voice's config names no phoneme type (so it is "espeak") and declares 16 kHz audio.
+        model.SampleRate.Should().Be(16000);
+        model.PhonemeScheme.Should().Be(new PhonemeScheme { Type = "espeak", Voice = "en-us", Language = "en-US" });
     }
 
     [Fact]
@@ -44,11 +62,12 @@ public class SynthesizerFunctionalTests
     {
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.SynthesizeAsync("Hello world", cancellationToken: TestContext.Current.CancellationToken);
+        var result = await model.SynthesizePhonemesAsync(Hello, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result.AudioSamples.Should().NotBeEmpty();
         result.SampleRate.Should().BeGreaterThan(0);
+        result.UnknownPhonemes.Should().BeEmpty();
     }
 
     [Fact]
@@ -57,7 +76,7 @@ public class SynthesizerFunctionalTests
     {
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.SynthesizeAsync("Hello world", cancellationToken: TestContext.Current.CancellationToken);
+        var result = await model.SynthesizePhonemesAsync(Hello, cancellationToken: TestContext.Current.CancellationToken);
         var wavBytes = result.ToWavBytes();
 
         // Validate WAV header
@@ -76,7 +95,7 @@ public class SynthesizerFunctionalTests
     {
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.SynthesizeAsync("Hello world, this is a test.", cancellationToken: TestContext.Current.CancellationToken);
+        var result = await model.SynthesizePhonemesAsync(Hello, cancellationToken: TestContext.Current.CancellationToken);
 
         result.DurationSeconds.Should().BeGreaterThan(0, "synthesized audio should have positive duration");
     }
@@ -87,7 +106,7 @@ public class SynthesizerFunctionalTests
     {
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.SynthesizeAsync("Hello world", cancellationToken: TestContext.Current.CancellationToken);
+        var result = await model.SynthesizePhonemesAsync(Hello, cancellationToken: TestContext.Current.CancellationToken);
 
         result.AudioSamples.Should().AllSatisfy(sample =>
             sample.Should().BeInRange(-1.1f, 1.1f, "samples should be approximately in [-1, 1]"));
@@ -95,39 +114,52 @@ public class SynthesizerFunctionalTests
 
     [Fact]
     [Trait("Axis", "Quality")]
-    public async Task Q_LongerText_ProducesLongerAudio()
+    public async Task Q_MorePhonemes_ProduceLongerAudio()
     {
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var shortResult = await model.SynthesizeAsync("Hi", cancellationToken: TestContext.Current.CancellationToken);
-        var longResult = await model.SynthesizeAsync("This is a much longer sentence with many more words.", cancellationToken: TestContext.Current.CancellationToken);
+        var shortResult = await model.SynthesizePhonemesAsync(["hˈaɪ."], cancellationToken: TestContext.Current.CancellationToken);
+        var longResult = await model.SynthesizePhonemesAsync([SpokenPhonemes.Fox], cancellationToken: TestContext.Current.CancellationToken);
 
         longResult.AudioSamples.Length.Should().BeGreaterThan(shortResult.AudioSamples.Length,
-            "longer text should produce more audio samples");
+            "a longer sentence should produce more audio samples");
     }
 
     // ── E axis: Edge Cases ──────────────────────────────────────────
 
     [Fact]
     [Trait("Axis", "EdgeCase")]
-    public async Task E_NumbersAndSymbols_DoNotCrash()
+    public async Task E_TextWithoutAPhonemizer_IsRefused()
     {
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var act = () => model.SynthesizeAsync("2024 January 1st, $100.00");
-        var result = await act.Should().NotThrowAsync();
-        result.Subject.AudioSamples.Should().NotBeEmpty();
+        var act = () => model.SynthesizeAsync("2024 January 1st, $100.00", cancellationToken: TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<NotSupportedException>().WithMessage("*'espeak'*");
     }
 
     [Fact]
     [Trait("Axis", "EdgeCase")]
-    public async Task E_LongText_DoesNotOOM()
+    public async Task E_PhonemesTheVoiceDoesNotKnow_AreSkippedAndReported()
     {
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var longText = string.Join(". ", Enumerable.Repeat("This is a sentence", 50));
-        var act = () => model.SynthesizeAsync(longText);
-        await act.Should().NotThrowAsync("long text synthesis should not OOM");
+        // '%' and '@' are not phonemes of this voice.
+        var result = await model.SynthesizePhonemesAsync(["hˈaɪ% @."], cancellationToken: TestContext.Current.CancellationToken);
+
+        result.AudioSamples.Should().NotBeEmpty();
+        result.UnknownPhonemes.Should().Be("%@");
+    }
+
+    [Fact]
+    [Trait("Axis", "EdgeCase")]
+    public async Task E_ManySentences_DoNotOOM()
+    {
+        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+
+        var sentences = Enumerable.Repeat(SpokenPhonemes.Hello, 50).ToList();
+        var act = () => model.SynthesizePhonemesAsync(sentences, cancellationToken: TestContext.Current.CancellationToken);
+        await act.Should().NotThrowAsync("synthesizing many sentences should not OOM");
     }
 
     // ── Cross-Domain: TTS → STT Roundtrip ───────────────────────────
@@ -137,9 +169,9 @@ public class SynthesizerFunctionalTests
     [Trait("Scenario", "TTS-STT-Roundtrip")]
     public async Task CrossDomain_TtsToStt_ProducesRecognizableText()
     {
-        // 1. Synthesize text to speech
+        // 1. Synthesize speech
         await using var synthesizer = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
-        var synthesis = await synthesizer.SynthesizeAsync("Hello, this is a test.", cancellationToken: TestContext.Current.CancellationToken);
+        var synthesis = await synthesizer.SynthesizePhonemesAsync(Hello, cancellationToken: TestContext.Current.CancellationToken);
 
         synthesis.AudioSamples.Should().NotBeEmpty("synthesis should produce audio");
 
@@ -150,12 +182,9 @@ public class SynthesizerFunctionalTests
         await using var transcriber = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
         var transcription = await transcriber.TranscribeAsync(wavBytes, cancellationToken: TestContext.Current.CancellationToken);
 
-        // 4. Verify the transcription is not empty and vaguely matches
+        // 4. Verify the transcription is not empty; whether it matches is SynthesizerIntelligibilityFacts' question
         transcription.Text.Should().NotBeNullOrEmpty(
             "transcriber should recognize synthesized speech");
-
-        // We don't assert exact match because TTS→STT roundtrip has inherent quality loss,
-        // but the text should not be empty/garbage
     }
 
     // ── Gap Tests: Default Alias, Voice, Models, Properties ────────
@@ -215,7 +244,7 @@ public class SynthesizerFunctionalTests
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var options = new SynthesizeOptions { SpeakerId = 0 };
-        var result = await model.SynthesizeAsync("Hello world", options, TestContext.Current.CancellationToken);
+        var result = await model.SynthesizePhonemesAsync(Hello, options, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result.AudioSamples.Should().NotBeEmpty();
@@ -225,31 +254,42 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_SynthesizeToStream_Works()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var options = new SynthesizerOptions { Phonemizer = new SpokenPhonemes.Phonemizer() };
+        await using var model = await LocalSynthesizer.LoadAsync("fast", options, cancellationToken: TestContext.Current.CancellationToken);
 
         using var stream = new MemoryStream();
-        await model.SynthesizeToStreamAsync("Hello world", stream, cancellationToken: TestContext.Current.CancellationToken);
+        await model.SynthesizeToStreamAsync(SpokenPhonemes.HelloText, stream, cancellationToken: TestContext.Current.CancellationToken);
 
         stream.Length.Should().BeGreaterThan(0, "stream should contain audio data");
     }
 
     [Fact]
-    [Trait("Axis", "EdgeCase")]
-    public async Task E_EmptyText_HandlesGracefully()
+    [Trait("Axis", "Inference")]
+    public async Task I_Streaming_YieldsOneChunkPerSentence()
     {
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        try
+        var chunks = new List<AudioChunk>();
+        await foreach (var chunk in model.SynthesizePhonemesStreamingAsync(
+            [SpokenPhonemes.Hello, SpokenPhonemes.Weather], cancellationToken: TestContext.Current.CancellationToken))
         {
-            var result = await model.SynthesizeAsync("", cancellationToken: TestContext.Current.CancellationToken);
-            // If it succeeds, that's acceptable
-            result.Should().NotBeNull();
+            chunks.Add(chunk);
         }
-        catch (Exception ex)
-        {
-            // If it throws, should be a meaningful exception
-            ex.Should().NotBeOfType<NullReferenceException>();
-        }
+
+        chunks.Select(c => c.Index).Should().Equal(0, 1);
+        chunks.Select(c => c.IsFinal).Should().Equal(false, true);
+        chunks.Should().AllSatisfy(c => c.Samples.Should().NotBeEmpty());
+    }
+
+    [Fact]
+    [Trait("Axis", "EdgeCase")]
+    public async Task E_NoPhonemes_ProduceNoAudio()
+    {
+        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+
+        var result = await model.SynthesizePhonemesAsync([], cancellationToken: TestContext.Current.CancellationToken);
+
+        result.AudioSamples.Should().BeEmpty();
     }
 
     [Fact]
@@ -258,8 +298,8 @@ public class SynthesizerFunctionalTests
     {
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var act = () => model.SynthesizeAsync("..., ???, !!!");
-        await act.Should().NotThrowAsync("punctuation-only text should not crash");
+        var act = () => model.SynthesizePhonemesAsync(["..., ???, !!!"], cancellationToken: TestContext.Current.CancellationToken);
+        await act.Should().NotThrowAsync("punctuation-only phonemes should not crash");
     }
 
     // ── Static Tests: Model Registry Validation (no model loading) ─
@@ -352,8 +392,8 @@ public class SynthesizerFunctionalTests
     {
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var normalResult = await model.SynthesizeAsync("Hello world test sentence", new SynthesizeOptions { Speed = 1.0f }, TestContext.Current.CancellationToken);
-        var fastResult = await model.SynthesizeAsync("Hello world test sentence", new SynthesizeOptions { Speed = 2.0f }, TestContext.Current.CancellationToken);
+        var normalResult = await model.SynthesizePhonemesAsync([SpokenPhonemes.Fox], new SynthesizeOptions { Speed = 1.0f }, TestContext.Current.CancellationToken);
+        var fastResult = await model.SynthesizePhonemesAsync([SpokenPhonemes.Fox], new SynthesizeOptions { Speed = 2.0f }, TestContext.Current.CancellationToken);
 
         // Faster speed should produce fewer samples (shorter audio)
         fastResult.AudioSamples.Length.Should().BeLessThan(normalResult.AudioSamples.Length,
@@ -366,7 +406,7 @@ public class SynthesizerFunctionalTests
     {
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.SynthesizeAsync("Hello", cancellationToken: TestContext.Current.CancellationToken);
+        var result = await model.SynthesizePhonemesAsync(Hello, cancellationToken: TestContext.Current.CancellationToken);
         var pcmBytes = result.ToPcm16Bytes();
 
         pcmBytes.Should().NotBeEmpty();
@@ -385,8 +425,8 @@ public class SynthesizerFunctionalTests
 
         opts.Speed.Should().BeApproximately(1.0f, 0.01f);
         opts.SpeakerId.Should().Be(0);
-        opts.NoiseScale.Should().BeApproximately(0.667f, 0.01f);
-        opts.NoiseWidth.Should().BeApproximately(0.8f, 0.01f);
+        opts.NoiseScale.Should().BeNull("unset means the voice's own default");
+        opts.NoiseWidth.Should().BeNull("unset means the voice's own default");
         opts.OutputFormat.Should().Be(AudioFormat.Wav);
     }
 

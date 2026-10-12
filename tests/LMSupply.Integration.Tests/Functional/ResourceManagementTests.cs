@@ -180,7 +180,7 @@ public class ResourceManagementTests
 
         for (var i = 0; i < 3; i++)
         {
-            var result = await model.SynthesizeAsync($"Test sentence number {i}", cancellationToken: TestContext.Current.CancellationToken);
+            var result = await model.SynthesizePhonemesAsync([Helpers.SpokenPhonemes.Hello], cancellationToken: TestContext.Current.CancellationToken);
             result.AudioSamples.Should().NotBeEmpty();
         }
     }
@@ -265,8 +265,9 @@ public class ResourceManagementTests
         var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
 
-        Func<Task> act = () => model.SynthesizeAsync("test");
-        await act.Should().ThrowAsync<Exception>();
+        // Phonemes, not text: text is refused for want of a phonemizer, which would pass this without touching the disposed model.
+        Func<Task> act = () => model.SynthesizePhonemesAsync([Helpers.SpokenPhonemes.Hello]);
+        await act.Should().ThrowAsync<ObjectDisposedException>();
     }
 
     [Fact]
