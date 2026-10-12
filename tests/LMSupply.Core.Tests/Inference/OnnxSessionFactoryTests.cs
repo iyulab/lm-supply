@@ -301,6 +301,10 @@ public class OnnxSessionFactoryTests
         var ex = await Assert.ThrowsAnyAsync<Exception>(action);
         ex.Should().NotBeOfType<InvalidOperationException>(
             "the simulated GPU failure should be caught and CPU fallback should be attempted");
-        attemptCount.Should().Be(2, "configureOptions should have been called twice: once for GPU, once for CPU fallback");
+        // When this fails, the count and the final exception say which way: 1 = the CPU retry failed before it built its
+        // options (so the final exception is that failure), 3+ = more attempts than the explicit-provider path makes.
+        attemptCount.Should().Be(2,
+            "configureOptions should have been called twice: once for GPU, once for CPU fallback (final exception: {0}: {1})",
+            ex.GetType().FullName, ex.Message);
     }
 }
