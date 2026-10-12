@@ -90,6 +90,11 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `CatalogKey`. `LocalSynthesizer.Registry.GetAvailableModels()`, the console host's registry listing and its
   `GET /v1/models` show the seven voices too; the other domains list what they listed before. Code that took the only
   element of the list as the default voice resolves `default` instead.
+- **The console host answers 400 for a JSON body that does not parse.** Its error middleware answered 422 for every
+  request the framework could not read, whatever status the framework gave it; `POST /v1/audio/speech`,
+  `/v1/chat/completions`, `/v1/embeddings`, `/v1/rerank` and `/v1/translate` did so for malformed JSON. The response now
+  carries the framework's status, the error code `invalid_request` (it was `unprocessable_entity`) and a message naming
+  the parameter that could not be read.
 
 ## [0.118.0] - 2026-10-12
 

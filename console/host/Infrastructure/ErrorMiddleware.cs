@@ -23,7 +23,9 @@ public sealed partial class ErrorMiddleware(RequestDelegate next, ILogger<ErrorM
         {
             ModelResolutionException mre => (404, "invalid_request_error", "model_not_found", mre.Message),
             ArgumentException ae         => (400, "invalid_request_error", "invalid_value", ae.Message),
-            BadHttpRequestException      => (422, "invalid_request_error", "unprocessable_entity", "Malformed request body."),
+            // The framework states the status of a request it could not read: 400 for a body that is not valid JSON,
+            // 415 for a media type the endpoint does not take.
+            BadHttpRequestException bre  => (bre.StatusCode, "invalid_request_error", "invalid_request", bre.Message),
             OperationCanceledException   => (499, "api_error", "request_cancelled", "Request was cancelled."),
             _                            => (500, "api_error", "internal_error", "An internal error occurred.")
         };
