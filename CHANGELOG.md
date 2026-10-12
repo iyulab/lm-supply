@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Fixed
+- **The translator no longer puts an unknown token in front of every input.** `TranslatorTokenizer` created its SentencePiece
+  tokenizer with the model's automatic `<s>` on, and a Marian `vocab.json` has no `<s>`, so every source sentence was encoded as
+  `<unk>` followed by its pieces, even with `addSpecialTokens: false`. opus-mt-ko-en: `[1, 1114, …]`; the Marian reference is
+  `[1114, …]`. The encoding now matches the reference id for id. Translations of three test sentences stayed the same or
+  improved: «이 문서는 사용자 가이드입니다.» was «This document is a custom guide.» and is now «This document is your guide.».
+
 ## [0.118.0] - 2026-10-12
 
 ### Added

@@ -268,9 +268,12 @@ internal sealed class TranslatorTokenizer : IDisposable
         {
             try
             {
-                // Use SentencePieceTokenizer for .spm files (supports both BPE and Unigram)
+                // Use SentencePieceTokenizer for .spm files (supports both BPE and Unigram).
+                // BOS/EOS emission is off: EncodeSource owns the special tokens. Left on, the model's own <s> was
+                // prepended to every input and, absent from a Marian vocab.json, mapped to <unk> (opus-mt-ko-en:
+                // [1, 1114, ...] where the reference is [1114, ...]).
                 using var stream = File.OpenRead(tokenizerPath);
-                return SentencePieceTokenizer.Create(stream);
+                return SentencePieceTokenizer.Create(stream, addBeginningOfSentence: false, addEndOfSentence: false);
             }
             catch (Exception ex)
             {

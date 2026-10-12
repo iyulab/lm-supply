@@ -15,6 +15,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="LMSupply.Translator.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\LMSupply.Core\LMSupply.Core.csproj" />
     <ProjectReference Include="..\LMSupply.Text.Core\LMSupply.Text.Core.csproj" />
   </ItemGroup>
