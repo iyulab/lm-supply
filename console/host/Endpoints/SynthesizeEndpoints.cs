@@ -41,7 +41,17 @@ public static class SynthesizeEndpoints
                     Speed = Math.Clamp(request.Speed, 0.25f, 4.0f)
                 };
 
-                var result = await scope.Model.SynthesizeAsync(request.Input, synthesizeOptions, ct);
+                SynthesisResult result;
+                try
+                {
+                    result = await scope.Model.SynthesizeAsync(request.Input, synthesizeOptions, ct);
+                }
+                catch (NotSupportedException ex)
+                {
+                    // The voice needs a phonemizer the host does not have. The library's message says what the voice
+                    // takes; it is the answer the caller needs, not an internal detail.
+                    return ApiHelper.Error(ex.Message, type: "not_supported_error", statusCode: 501);
+                }
 
                 var format = request.ResponseFormat ?? "wav";
                 var (audioBytes, contentType) = string.Equals(format, "pcm", StringComparison.OrdinalIgnoreCase)
@@ -68,10 +78,12 @@ public static class SynthesizeEndpoints
         })
         .WithName("CreateSpeech")
         .WithSummary("Generate audio from text (OpenAI compatible)")
-        .WithDescription("Supports wav, pcm, mp3 (fallback wav for unsupported formats). Uses chunked transfer encoding.")
+        .WithDescription("Supports wav, pcm, mp3 (fallback wav for unsupported formats). Uses chunked transfer encoding. " +
+            "Returns 501 for a voice whose text needs a phonemizer the host does not have (every catalog voice today).")
         .Produces(200, contentType: "audio/wav")
         .Produces<ErrorResponse>(400)
         .Produces<ErrorResponse>(404)
-        .Produces<ErrorResponse>(500);
+        .Produces<ErrorResponse>(500)
+        .Produces<ErrorResponse>(501);
     }
 }

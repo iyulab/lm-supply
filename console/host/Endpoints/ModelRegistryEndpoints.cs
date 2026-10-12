@@ -190,7 +190,7 @@ public static class ModelRegistryEndpoints
         "transcriber", "Transcriber", "Speech-to-text models", LocalTranscriber.Registry.GetAvailableModels(), cachedRepoIds);
 
     private static ModelTypeInfo CreateSynthesizerModels(HashSet<string> cachedRepoIds) => FromRegistry(
-        "synthesizer", "Synthesizer", "Text-to-speech voices (Piper) — see the known issue: no text-to-phoneme step yet",
+        "synthesizer", "Synthesizer", "Text-to-speech voices (Piper) — see the known issue: text needs a phonemizer the package does not ship yet",
         LocalSynthesizer.Registry.GetAvailableModels(), cachedRepoIds);
 
     private static ModelTypeInfo CreateTranslatorModels(HashSet<string> cachedRepoIds) => FromRegistry(

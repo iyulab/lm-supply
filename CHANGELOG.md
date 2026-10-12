@@ -48,6 +48,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 - **`SynthesizeStreamingAsync` yields one chunk per sentence the phonemizer returns.** It used to split the text at `.`, `!`
   and `?` itself and drop that punctuation. `AudioChunk.IsFinal` is set on the last chunk only; it was also set on any
   earlier sentence equal to the last one.
+- **The console host's `POST /v1/audio/speech` answers 501 with the reason** when the voice needs a phonemizer the host does
+  not have, which is every catalog voice today. It answered 200 with noise.
 - **Breaking** — **a GGUF file found in the cache is reported as `DownloadPhase.Complete`, never as `Downloading`.**
   `GgufModelDownloader` and `SingleFileGgufDownloader` reported a cache hit as a 1/1-byte download in the default
   `Downloading` phase. So a host showing progress printed «Downloading …: 100%» on every warm start, and a tracker of «did

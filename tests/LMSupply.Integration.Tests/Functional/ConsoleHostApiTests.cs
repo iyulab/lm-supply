@@ -782,8 +782,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     [Trait("Axis", "API-Inference")]
     [Trait("Category", "Integration")]
-    public async Task POST_Speech_ReturnsWavAudio()
+    public async Task POST_Speech_ForAVoiceThatNeedsAPhonemizer_Returns501WithTheReason()
     {
+        // The host has no phonemizer for the catalog's voices, so it cannot speak text: it says so instead of
+        // answering with noise or an opaque 500.
         var content = JsonContent.Create(new
         {
             input = "Hello, this is a test.",
@@ -791,10 +793,9 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         });
         var response = await _client.PostAsync("/v1/audio/speech", content, TestContext.Current.CancellationToken);
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        response.Content.Headers.ContentType?.MediaType.Should().Be("audio/wav");
-        var bytes = await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
-        bytes.Length.Should().BeGreaterThan(44, "WAV should have header + audio data");
+        response.StatusCode.Should().Be(HttpStatusCode.NotImplemented);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
+        json.GetProperty("error").GetProperty("message").GetString().Should().Contain("'espeak'").And.Contain("phonemizer");
     }
 
     [Fact]
