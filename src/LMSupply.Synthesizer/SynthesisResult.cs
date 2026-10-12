@@ -39,9 +39,21 @@ public sealed class SynthesisResult
         : null;
 
     /// <summary>
-    /// Gets the original text that was synthesized.
+    /// Gets the original text that was synthesized, or <see langword="null"/> when phonemes were given instead.
     /// </summary>
     public string? Text { get; init; }
+
+    /// <summary>
+    /// Gets the phonemes that were synthesized, one string per sentence: the phonemizer's output for text, the caller's
+    /// input otherwise.
+    /// </summary>
+    public IReadOnlyList<string> Phonemes { get; init; } = [];
+
+    /// <summary>
+    /// Gets the phonemes the voice has no id for, each once, in the order they first appeared. They were skipped, so the
+    /// audio does not contain them. Empty when the voice knew every phoneme.
+    /// </summary>
+    public string UnknownPhonemes { get; init; } = string.Empty;
 
     /// <summary>
     /// Converts the audio samples to 16-bit PCM bytes.
@@ -118,6 +130,12 @@ public sealed class AudioChunk
     /// Gets whether this is the final chunk.
     /// </summary>
     public bool IsFinal { get; init; }
+
+    /// <summary>
+    /// Gets the phonemes of this chunk's sentence that the voice has no id for, in the order they appeared. They were
+    /// skipped. Empty when the voice knew every phoneme.
+    /// </summary>
+    public string UnknownPhonemes { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the duration of this chunk in seconds.

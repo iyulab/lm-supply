@@ -6,7 +6,10 @@ namespace LMSupply.Synthesizer;
 /// <summary>
 /// Interface for text-to-speech synthesis models.
 /// </summary>
-/// <remarks>Experimental: no text-to-phoneme step yet — see <see cref="SynthesizerDiagnostics.ExperimentalId"/>.</remarks>
+/// <remarks>
+/// Experimental: the package has no phonemizer for the voices in its catalog, so text is spoken only through an
+/// <see cref="IPhonemizer"/> the caller supplies — see <see cref="SynthesizerDiagnostics.ExperimentalId"/>.
+/// </remarks>
 [Experimental(SynthesizerDiagnostics.ExperimentalId, UrlFormat = SynthesizerDiagnostics.ExperimentalUrl)]
 public interface ISynthesizerModel : IAsyncDisposable
 {
@@ -42,9 +45,15 @@ public interface ISynthesizerModel : IAsyncDisposable
     string? Voice { get; }
 
     /// <summary>
-    /// Gets the sample rate of the generated audio.
+    /// Gets the sample rate of the generated audio, as the voice's config declares it.
     /// </summary>
     int SampleRate { get; }
+
+    /// <summary>
+    /// Gets the phonemes the voice takes, as its config declares them: what an <see cref="IPhonemizer"/> is asked for and
+    /// what <see cref="SynthesizePhonemesAsync"/> expects.
+    /// </summary>
+    PhonemeScheme PhonemeScheme { get; }
 
     /// <summary>
     /// Warms up the model by running a minimal inference.
@@ -59,14 +68,33 @@ public interface ISynthesizerModel : IAsyncDisposable
     SynthesizerModelInfo? GetModelInfo();
 
     /// <summary>
-    /// Synthesizes speech from text.
+    /// Synthesizes speech from text. The text is turned into phonemes by <see cref="SynthesizerOptions.Phonemizer"/>, or
+    /// by the package itself for a voice whose phonemes are its text.
     /// </summary>
     /// <param name="text">The text to synthesize.</param>
     /// <param name="options">Optional synthesis options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The synthesis result containing audio data.</returns>
+    /// <exception cref="NotSupportedException">
+    /// The voice needs a phonemizer and none was supplied. No audio is produced. This holds for every method that takes text.
+    /// </exception>
     Task<SynthesisResult> SynthesizeAsync(
         string text,
+        SynthesizeOptions? options = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Synthesizes speech from phonemes of the voice's <see cref="PhonemeScheme"/>, in the form an
+    /// <see cref="IPhonemizer"/> returns them.
+    /// </summary>
+    /// <param name="sentences">
+    /// One string per sentence; every Unicode code point is one phoneme, spaces and clause punctuation included.
+    /// </param>
+    /// <param name="options">Optional synthesis options.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The synthesis result: the sentences' audio one after another.</returns>
+    Task<SynthesisResult> SynthesizePhonemesAsync(
+        IReadOnlyList<string> sentences,
         SynthesizeOptions? options = null,
         CancellationToken cancellationToken = default);
 
@@ -97,7 +125,7 @@ public interface ISynthesizerModel : IAsyncDisposable
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Synthesizes speech from text with streaming output.
+    /// Synthesizes speech from text with streaming output: one chunk per sentence the phonemizer returns.
     /// </summary>
     /// <param name="text">The text to synthesize.</param>
     /// <param name="options">Optional synthesis options.</param>
@@ -105,6 +133,18 @@ public interface ISynthesizerModel : IAsyncDisposable
     /// <returns>Async enumerable of audio chunks.</returns>
     IAsyncEnumerable<AudioChunk> SynthesizeStreamingAsync(
         string text,
+        SynthesizeOptions? options = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Synthesizes speech from phonemes with streaming output: one chunk per sentence.
+    /// </summary>
+    /// <param name="sentences">The phonemes, as <see cref="SynthesizePhonemesAsync"/> takes them.</param>
+    /// <param name="options">Optional synthesis options.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Async enumerable of audio chunks.</returns>
+    IAsyncEnumerable<AudioChunk> SynthesizePhonemesStreamingAsync(
+        IReadOnlyList<string> sentences,
         SynthesizeOptions? options = null,
         CancellationToken cancellationToken = default);
 }

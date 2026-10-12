@@ -95,7 +95,7 @@ public static class DefaultModels
     };
 
     /// <summary>
-    /// English GB (Semaine) - British English voice.
+    /// English GB (Semaine) - British English voice, four speakers.
     /// Voice license: CC BY-NC-SA 4.0 (non-commercial), ~64MB.
     /// Path in repo: en/en_GB/semaine/medium/
     /// </summary>
@@ -107,12 +107,12 @@ public static class DefaultModels
         Architecture = "VITS",
         Language = "en-GB",
         VoiceName = "en/en_GB/semaine/medium",
-        NumSpeakers = 1,
+        NumSpeakers = 4,
         SampleRate = 22050,
         ModelFile = "en_GB-semaine-medium.onnx",
         ConfigFile = "en_GB-semaine-medium.onnx.json",
         SizeBytes = 64_000_000,
-        Description = "British English female voice.",
+        Description = "British English voice with four speakers.",
         License = "CC-BY-NC-SA-4.0"
     };
 

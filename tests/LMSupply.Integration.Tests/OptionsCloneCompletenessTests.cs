@@ -78,6 +78,16 @@ public class OptionsCloneCompletenessTests
         if (t.IsAssignableFrom(typeof(List<string>))) return new List<string> { "probe" };
         if (t.IsClass && t.GetConstructor(Type.EmptyTypes) is not null && !typeof(IEnumerable).IsAssignableFrom(t))
             return Activator.CreateInstance(t)!;
+        // A service the caller supplies (a phonemizer, say): any instance will do, the copy must carry that same one.
+        if (t.IsInterface && !typeof(IEnumerable).IsAssignableFrom(t))
+            return DispatchProxy.Create(t, typeof(ProbeService));
         throw new NotSupportedException($"No probe value for {type} — extend NonDefault when an option of that type is added.");
+    }
+
+    /// <summary>Stands in for an interface-typed option; the clone check compares references and never calls it.</summary>
+    public class ProbeService : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
+            throw new NotSupportedException("A probe value is not meant to be called.");
     }
 }

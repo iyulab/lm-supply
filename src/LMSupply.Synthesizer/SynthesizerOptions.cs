@@ -13,10 +13,6 @@ public sealed class SynthesizerOptions : LMSupplyOptionsBase
     public string ModelId { get; set; } = "default";
 
     /// <summary>
-    /// Creates a deep copy of these options.
-    /// </summary>
-    /// <returns>A new instance with the same values.</returns>
-    /// <summary>
     /// Gets or sets whether to disable automatic model download.
     /// When true, loading uses only the local cache and throws <see cref="LMSupply.Exceptions.ModelNotFoundException"/>
     /// if a model file is not there, writing nothing to the cache.
@@ -25,6 +21,15 @@ public sealed class SynthesizerOptions : LMSupplyOptionsBase
     /// <para>Default: false</para>
     /// </summary>
     public bool DisableAutoDownload { get; set; }
+
+    /// <summary>
+    /// Gets or sets the phonemizer that turns text into the voice's phonemes. A voice whose phonemes are its text
+    /// (<see cref="PhonemeScheme.Type"/> <c>"text"</c>) needs none. For any other voice the package has no phonemizer of
+    /// its own, and synthesizing text without one throws <see cref="NotSupportedException"/>; phonemes can always be
+    /// passed directly (<see cref="ISynthesizerModel.SynthesizePhonemesAsync"/>).
+    /// <para>Default: null</para>
+    /// </summary>
+    public IPhonemizer? Phonemizer { get; set; }
 
     /// <summary>
     /// A copy with every option carried over — the loader keeps its own copy so a caller's later edits
@@ -38,7 +43,8 @@ public sealed class SynthesizerOptions : LMSupplyOptionsBase
         ThreadCount = ThreadCount,
         LogLevel = LogLevel,
         QuantizationHint = QuantizationHint,
-        DisableAutoDownload = DisableAutoDownload
+        DisableAutoDownload = DisableAutoDownload,
+        Phonemizer = Phonemizer
     };
 }
 
@@ -48,14 +54,16 @@ public sealed class SynthesizerOptions : LMSupplyOptionsBase
 public sealed class SynthesizeOptions
 {
     /// <summary>
-    /// Gets or sets the speaking speed multiplier.
+    /// Gets or sets the speaking speed multiplier, relative to the pace the voice declares for itself
+    /// (its config's <c>length_scale</c>, which is divided by this value).
     /// Values greater than 1.0 speed up, less than 1.0 slow down.
     /// <para>Default: 1.0</para>
     /// </summary>
     public float Speed { get; set; } = 1.0f;
 
     /// <summary>
-    /// Gets or sets the speaker ID for multi-speaker models.
+    /// Gets or sets the speaker ID for multi-speaker models: 0 up to the voice's speaker count. A single-speaker voice
+    /// ignores it.
     /// <para>Default: 0</para>
     /// </summary>
     public int SpeakerId { get; set; }
@@ -63,15 +71,15 @@ public sealed class SynthesizeOptions
     /// <summary>
     /// Gets or sets the noise scale for variability.
     /// Higher values produce more expressive speech.
-    /// <para>Default: 0.667</para>
+    /// <para>Default: null — the voice's own default (its config's <c>noise_scale</c>)</para>
     /// </summary>
-    public float NoiseScale { get; set; } = 0.667f;
+    public float? NoiseScale { get; set; }
 
     /// <summary>
     /// Gets or sets the noise width for duration variability.
-    /// <para>Default: 0.8</para>
+    /// <para>Default: null — the voice's own default (its config's <c>noise_w</c>)</para>
     /// </summary>
-    public float NoiseWidth { get; set; } = 0.8f;
+    public float? NoiseWidth { get; set; }
 
     /// <summary>
     /// Gets or sets the output audio format.

@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
+using System.Text;
 using LMSupply.Inference;
 using LMSupply.Synthesizer.Models;
 using Microsoft.ML.OnnxRuntime;
@@ -14,12 +14,6 @@ namespace LMSupply.Synthesizer.Core;
 [System.Diagnostics.CodeAnalysis.Experimental(SynthesizerDiagnostics.ExperimentalId, UrlFormat = SynthesizerDiagnostics.ExperimentalUrl)]
 internal sealed class OnnxSynthesizerModel : ISynthesizerModel
 {
-    private static readonly JsonSerializerOptions s_caseInsensitiveJsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        TypeInfoResolver = SynthesizerJsonContext.Default
-    };
-
     private readonly SynthesizerOptions _options;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
@@ -27,7 +21,7 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
     // to the next one in the fallback chain (see RecoverableOnnxSession).
     private RecoverableOnnxSession? _session;
     private SynthesizerModelInfo? _modelInfo;
-    private VitsConfig? _config;
+    private VoiceConfig? _voice;
     private bool _isInitialized;
     private bool _isDisposed;
 
@@ -47,7 +41,9 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
     public long? EstimatedMemoryBytes => _modelInfo?.SizeBytes * 2;
 
     public string? Voice => _modelInfo?.VoiceName;
-    public int SampleRate => _config?.Audio?.SampleRate ?? 22050;
+    public int SampleRate => _voice?.SampleRate ?? _modelInfo?.SampleRate ?? 22050;
+
+    public PhonemeScheme PhonemeScheme => _voice?.Scheme ?? throw new InvalidOperationException("The voice is not loaded.");
 
     // Reported by the download the first initialization makes (Local*.LoadAsync warms up at once).
     private readonly IProgress<DownloadProgress>? _downloadProgress;
@@ -70,19 +66,23 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
         SynthesizeOptions? options = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(text);
         await EnsureInitializedAsync(cancellationToken);
 
         var sw = Stopwatch.StartNew();
-        var samples = await SynthesizeCoreAsync(text, options, cancellationToken);
-        sw.Stop();
+        var sentences = await PhonemizeAsync(text, cancellationToken);
+        return await SynthesizeSentencesAsync(sentences, text, options, sw, cancellationToken);
+    }
 
-        return new SynthesisResult
-        {
-            AudioSamples = samples,
-            SampleRate = SampleRate,
-            InferenceTimeMs = sw.Elapsed.TotalMilliseconds,
-            Text = text
-        };
+    public async Task<SynthesisResult> SynthesizePhonemesAsync(
+        IReadOnlyList<string> sentences,
+        SynthesizeOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sentences);
+        await EnsureInitializedAsync(cancellationToken);
+
+        return await SynthesizeSentencesAsync(sentences, text: null, options, Stopwatch.StartNew(), cancellationToken);
     }
 
     public async Task SynthesizeToStreamAsync(
@@ -92,17 +92,7 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
         CancellationToken cancellationToken = default)
     {
         var result = await SynthesizeAsync(text, options, cancellationToken);
-        var format = options?.OutputFormat ?? AudioFormat.Wav;
-
-        byte[] audioData = format switch
-        {
-            AudioFormat.Wav => result.ToWavBytes(),
-            AudioFormat.RawPcm16 => result.ToPcm16Bytes(),
-            AudioFormat.RawFloat32 => FloatToBytes(result.AudioSamples),
-            _ => result.ToWavBytes()
-        };
-
-        await outputStream.WriteAsync(audioData, cancellationToken);
+        await outputStream.WriteAsync(Format(result, options), cancellationToken);
     }
 
     public async Task SynthesizeToFileAsync(
@@ -111,71 +101,175 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
         SynthesizeOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        using var fileStream = File.Create(outputPath);
-        await SynthesizeToStreamAsync(text, fileStream, options, cancellationToken);
+        // Synthesize first: text that is refused leaves no file behind.
+        var result = await SynthesizeAsync(text, options, cancellationToken);
+        await File.WriteAllBytesAsync(outputPath, Format(result, options), cancellationToken);
     }
+
+    private static byte[] Format(SynthesisResult result, SynthesizeOptions? options) =>
+        (options?.OutputFormat ?? AudioFormat.Wav) switch
+        {
+            AudioFormat.RawPcm16 => result.ToPcm16Bytes(),
+            AudioFormat.RawFloat32 => FloatToBytes(result.AudioSamples),
+            _ => result.ToWavBytes()
+        };
 
     public async IAsyncEnumerable<AudioChunk> SynthesizeStreamingAsync(
         string text,
         SynthesizeOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(text);
         await EnsureInitializedAsync(cancellationToken);
 
-        // For simplicity, split text into sentences and yield chunks
-        var sentences = SplitIntoSentences(text);
-        var chunkIndex = 0;
+        var sentences = await PhonemizeAsync(text, cancellationToken);
+        await foreach (var chunk in StreamSentencesAsync(sentences, options, cancellationToken))
+            yield return chunk;
+    }
 
-        foreach (var sentence in sentences)
+    public async IAsyncEnumerable<AudioChunk> SynthesizePhonemesStreamingAsync(
+        IReadOnlyList<string> sentences,
+        SynthesizeOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sentences);
+        await EnsureInitializedAsync(cancellationToken);
+
+        await foreach (var chunk in StreamSentencesAsync(sentences, options, cancellationToken))
+            yield return chunk;
+    }
+
+    // Text becomes phonemes through the caller's phonemizer, or the built-in one for a voice whose phonemes are its
+    // text. A voice with neither gets no audio: ids made up for its text would come out as noise.
+    private async Task<IReadOnlyList<string>> PhonemizeAsync(string text, CancellationToken cancellationToken)
+    {
+        var scheme = _voice!.Scheme;
+        var phonemizer = ResolvePhonemizer(_options.Phonemizer, scheme, _modelInfo!.AliasName);
+
+        return await phonemizer.PhonemizeAsync(text, scheme, cancellationToken)
+            ?? throw new InvalidOperationException($"{phonemizer.GetType().Name}.PhonemizeAsync returned null.");
+    }
+
+    internal static IPhonemizer ResolvePhonemizer(IPhonemizer? callers, PhonemeScheme scheme, string voiceName)
+    {
+        if (callers is not null)
+            return callers;
+
+        if (string.Equals(scheme.Type, VoiceConfig.TextType, StringComparison.OrdinalIgnoreCase))
+            return CodepointPhonemizer.Instance;
+
+        throw new NotSupportedException(
+            $"The voice '{voiceName}' takes '{scheme.Type}' phonemes (phonemizer voice '{scheme.Voice ?? "unspecified"}', " +
+            $"language '{scheme.Language ?? "unspecified"}'), and this package has no phonemizer that turns text into them. " +
+            "Set SynthesizerOptions.Phonemizer to an IPhonemizer that produces them, or pass phonemes to SynthesizePhonemesAsync.");
+    }
+
+    private async Task<SynthesisResult> SynthesizeSentencesAsync(
+        IReadOnlyList<string> sentences,
+        string? text,
+        SynthesizeOptions? options,
+        Stopwatch sw,
+        CancellationToken cancellationToken)
+    {
+        var (encoded, unknown) = Encode(sentences);
+        var scales = _voice!.Scales(options);
+        var speakerId = _voice.SpeakerId(options);
+
+        var audio = new List<float[]>(encoded.Count);
+        foreach (var sentence in encoded)
+            audio.Add(await RunAsync(sentence.Ids, scales, speakerId, cancellationToken));
+
+        var samples = new float[audio.Sum(a => a.Length)];
+        var offset = 0;
+        foreach (var part in audio)
+        {
+            part.CopyTo(samples, offset);
+            offset += part.Length;
+        }
+
+        sw.Stop();
+        return new SynthesisResult
+        {
+            AudioSamples = samples,
+            SampleRate = SampleRate,
+            InferenceTimeMs = sw.Elapsed.TotalMilliseconds,
+            Text = text,
+            Phonemes = [.. sentences],
+            UnknownPhonemes = unknown
+        };
+    }
+
+    private async IAsyncEnumerable<AudioChunk> StreamSentencesAsync(
+        IReadOnlyList<string> sentences,
+        SynthesizeOptions? options,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var (encoded, _) = Encode(sentences);
+        var scales = _voice!.Scales(options);
+        var speakerId = _voice.SpeakerId(options);
+
+        for (var i = 0; i < encoded.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (string.IsNullOrWhiteSpace(sentence))
-                continue;
-
-            var samples = await SynthesizeCoreAsync(sentence.Trim(), options, cancellationToken);
-
             yield return new AudioChunk
             {
-                Samples = samples,
+                Samples = await RunAsync(encoded[i].Ids, scales, speakerId, cancellationToken),
                 SampleRate = SampleRate,
-                Index = chunkIndex++,
-                IsFinal = sentence == sentences.Last()
+                Index = i,
+                IsFinal = i == encoded.Count - 1,
+                UnknownPhonemes = encoded[i].Unknown
             };
         }
     }
 
-    private async Task<float[]> SynthesizeCoreAsync(
-        string text,
-        SynthesizeOptions? options,
-        CancellationToken cancellationToken)
+    // Every sentence is encoded before the first one runs, so what the voice cannot say is known up front. A sentence
+    // left with no phoneme the voice knows is dropped: its ids would be the start and end symbols alone.
+    private (List<EncodedSentence> Encoded, string Unknown) Encode(IReadOnlyList<string> sentences)
+    {
+        var encoded = new List<EncodedSentence>(sentences.Count);
+        var unknown = new List<Rune>();
+        foreach (var sentence in sentences)
+        {
+            if (sentence is null)
+                throw new ArgumentException("A sentence of phonemes is null.", nameof(sentences));
+
+            var result = _voice!.Encoder.Encode(sentence);
+            foreach (var phoneme in result.Unknown.EnumerateRunes())
+            {
+                if (!unknown.Contains(phoneme))
+                    unknown.Add(phoneme);
+            }
+
+            if (result.PhonemeCount > 0)
+                encoded.Add(result);
+        }
+
+        if (unknown.Count > 0)
+        {
+            Trace.TraceWarning(
+                $"[OnnxSynthesizerModel] {ModelId}: skipped {unknown.Count} phoneme(s) the voice has no id for: " +
+                string.Join(" ", unknown.Select(r => $"U+{r.Value:X4}")));
+        }
+
+        return (encoded, string.Concat(unknown));
+    }
+
+    private async Task<float[]> RunAsync(long[] phonemeIds, float[] scales, long? speakerId, CancellationToken cancellationToken)
     {
         await _lock.WaitAsync(cancellationToken);
         try
         {
-            // Convert text to phoneme IDs
-            var phonemeIds = TextToPhonemeIds(text);
-
-            // Prepare inputs
-            var inputIds = new DenseTensor<long>(phonemeIds, new[] { 1, phonemeIds.Length });
-            var inputLengths = new DenseTensor<long>(new long[] { phonemeIds.Length }, new[] { 1 });
-            var scales = new DenseTensor<float>(
-                new[] { options?.NoiseScale ?? 0.667f, options?.Speed ?? 1.0f, options?.NoiseWidth ?? 0.8f },
-                new[] { 3 });
-
             var inputs = new List<NamedOnnxValue>
             {
-                NamedOnnxValue.CreateFromTensor("input", inputIds),
-                NamedOnnxValue.CreateFromTensor("input_lengths", inputLengths),
-                NamedOnnxValue.CreateFromTensor("scales", scales)
+                NamedOnnxValue.CreateFromTensor("input", new DenseTensor<long>(phonemeIds, [1, phonemeIds.Length])),
+                NamedOnnxValue.CreateFromTensor("input_lengths", new DenseTensor<long>(new long[] { phonemeIds.Length }, [1])),
+                NamedOnnxValue.CreateFromTensor("scales", new DenseTensor<float>(scales, [scales.Length]))
             };
 
-            // Add speaker ID for multi-speaker models
-            if (_modelInfo?.NumSpeakers > 1)
-            {
-                var speakerId = new DenseTensor<long>(new long[] { options?.SpeakerId ?? 0 }, new[] { 1 });
-                inputs.Add(NamedOnnxValue.CreateFromTensor("sid", speakerId));
-            }
+            // The graph of a multi-speaker voice has a speaker input; a single-speaker one does not.
+            if (speakerId is { } sid)
+                inputs.Add(NamedOnnxValue.CreateFromTensor("sid", new DenseTensor<long>(new[] { sid }, [1])));
 
             // Bounded run: if the native call hangs (e.g. a cold GPU kernel init) or the
             // provider crashes, the session moves to the next provider and the run is retried once.
@@ -189,64 +283,6 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
         {
             _lock.Release();
         }
-    }
-
-    private static long[] TextToPhonemeIds(string text)
-    {
-        // Simplified phoneme conversion - in production, use proper G2P (grapheme-to-phoneme)
-        // This is a basic character-to-ID mapping for demonstration
-        var ids = new List<long> { 0 }; // Start token
-
-        foreach (var c in text.ToLowerInvariant())
-        {
-            var id = c switch
-            {
-                ' ' => 1,
-                'a' => 2,
-                'b' => 3,
-                'c' => 4,
-                'd' => 5,
-                'e' => 6,
-                'f' => 7,
-                'g' => 8,
-                'h' => 9,
-                'i' => 10,
-                'j' => 11,
-                'k' => 12,
-                'l' => 13,
-                'm' => 14,
-                'n' => 15,
-                'o' => 16,
-                'p' => 17,
-                'q' => 18,
-                'r' => 19,
-                's' => 20,
-                't' => 21,
-                'u' => 22,
-                'v' => 23,
-                'w' => 24,
-                'x' => 25,
-                'y' => 26,
-                'z' => 27,
-                '.' => 28,
-                ',' => 29,
-                '!' => 30,
-                '?' => 31,
-                '\'' => 32,
-                '-' => 33,
-                _ => 1 // Default to space for unknown
-            };
-            ids.Add(id);
-        }
-
-        ids.Add(0); // End token
-        return ids.ToArray();
-    }
-
-    private static string[] SplitIntoSentences(string text)
-    {
-        // Simple sentence splitting
-        return text.Split(['.', '!', '?'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
     private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
@@ -264,13 +300,16 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
             // Download model if needed
             var modelPath = await ResolveModelPathAsync(cancellationToken);
 
-            // Load config
+            // The config is the voice's contract: its phoneme ids, inference defaults, sample rate and speaker count.
+            // A voice without one cannot be run correctly, so it is not run at all.
             var configPath = Path.Combine(modelPath, _modelInfo!.ConfigFile);
-            if (File.Exists(configPath))
+            if (!File.Exists(configPath))
             {
-                var configJson = await File.ReadAllTextAsync(configPath, cancellationToken);
-                _config = JsonSerializer.Deserialize(configJson, (System.Text.Json.Serialization.Metadata.JsonTypeInfo<VitsConfig>)s_caseInsensitiveJsonOptions.GetTypeInfo(typeof(VitsConfig)));
+                throw new FileNotFoundException($"Voice config not found: {configPath}");
             }
+
+            _voice = VoiceConfig.Parse(await File.ReadAllTextAsync(configPath, cancellationToken), _modelInfo);
+            _modelInfo = _voice.Reconcile(_modelInfo);
 
             // Load model
             var modelFilePath = Path.Combine(modelPath, _modelInfo.ModelFile);
@@ -347,22 +386,4 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
         _lock.Dispose();
         return ValueTask.CompletedTask;
     }
-}
-
-/// <summary>
-/// VITS model configuration from JSON.
-/// </summary>
-internal sealed class VitsConfig
-{
-    public AudioConfig? Audio { get; set; }
-    public int NumSymbols { get; set; }
-    public int NumSpeakers { get; set; }
-}
-
-/// <summary>
-/// Audio configuration.
-/// </summary>
-internal sealed class AudioConfig
-{
-    public int SampleRate { get; set; } = 22050;
 }

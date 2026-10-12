@@ -17,6 +17,23 @@ public class SynthesizerOptionsTests
         options.Provider.Should().Be(ExecutionProvider.Auto);
         options.CacheDirectory.Should().BeNull();
         options.ThreadCount.Should().BeNull();
+        options.Phonemizer.Should().BeNull();
+    }
+
+    [Fact]
+    public void SynthesizerOptions_Clone_CarriesThePhonemizer()
+    {
+        var phonemizer = new NoPhonemizer();
+
+        var clone = new SynthesizerOptions { Phonemizer = phonemizer }.Clone();
+
+        clone.Phonemizer.Should().BeSameAs(phonemizer);
+    }
+
+    private sealed class NoPhonemizer : IPhonemizer
+    {
+        public ValueTask<IReadOnlyList<string>> PhonemizeAsync(string text, PhonemeScheme scheme, CancellationToken cancellationToken = default)
+            => new([]);
     }
 
     [Fact]
@@ -69,8 +86,8 @@ public class SynthesizeOptionsTests
         // Assert
         options.Speed.Should().Be(1.0f);
         options.SpeakerId.Should().Be(0);
-        options.NoiseScale.Should().BeApproximately(0.667f, 0.001f);
-        options.NoiseWidth.Should().BeApproximately(0.8f, 0.001f);
+        options.NoiseScale.Should().BeNull("unset means the voice's own default");
+        options.NoiseWidth.Should().BeNull("unset means the voice's own default");
         options.OutputFormat.Should().Be(AudioFormat.Wav);
     }
 

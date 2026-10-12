@@ -6,7 +6,48 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **The synthesizer runs a voice by the contract its config declares.** A Piper voice's `.onnx.json` names the phonemes the
+  voice was trained on and the id of each, its inference defaults, its sample rate and its speaker count. The package
+  downloaded that file and encoded text with a letter table of its own instead. Phonemes are now encoded with the voice's
+  `phoneme_id_map` in the layout the voice was trained on: the start symbol, a pad, every phoneme followed by a pad, the end
+  symbol, after decomposing the phonemes (NFD). A phoneme the voice has no id for is skipped. From phonemes for «The weather
+  is beautiful today. The quick brown fox jumps over the lazy dog.», the default voice's audio is transcribed by Whisper
+  word for word.
+- **`ISynthesizerModel.SynthesizePhonemesAsync` and `SynthesizePhonemesStreamingAsync` synthesize from phonemes.** They take
+  one string per sentence, in which every Unicode code point is one phoneme (a space and the clause punctuation `, ; : . ? !`
+  included). Each sentence is synthesized on its own; streaming yields one chunk per sentence.
+  `ISynthesizerModel.PhonemeScheme` says which phonemes the voice takes: its `phoneme_type` (`espeak` or `text`), the
+  phonemizer voice its config names (`en-us`, `en-gb-x-rp`, `ko`, ...) and its language.
+- **`IPhonemizer` and `SynthesizerOptions.Phonemizer`: the text-to-phoneme step is a seam.** An implementation is given the
+  text and the voice's `PhonemeScheme` and returns phonemes in the form `SynthesizePhonemesAsync` takes; with one set, the
+  text methods speak through it. A voice whose phoneme type is `text` needs none: its phonemes are its characters,
+  lower-cased and decomposed.
+- **`SynthesisResult.Phonemes` and `UnknownPhonemes`, `AudioChunk.UnknownPhonemes`.** The result carries the phonemes that
+  were synthesized (the phonemizer's output, for text) and the ones that were skipped because the voice has no id for them.
+
 ### Changed
+- **Breaking** — **synthesizing text with a voice that needs a phonemizer throws `NotSupportedException`; it no longer
+  returns audio.** Every voice in the catalog was trained on eSpeak NG phonemes, and the package has no text-to-phoneme step
+  for them. `SynthesizeAsync`, `SynthesizeToFileAsync`, `SynthesizeToStreamAsync` and `SynthesizeStreamingAsync` used to
+  return voice-like noise for any text; now they throw, and the message names the voice's phoneme type and language and the
+  two ways on. Migration: set `SynthesizerOptions.Phonemizer` to an `IPhonemizer` for the voice's scheme, or pass phonemes
+  to `SynthesizePhonemesAsync`. The package stays `[Experimental]` (`LMSUPPLY001`) until it ships a phonemizer; what the
+  diagnostic means is now this, not unintelligible output.
+- **Breaking** — **`SynthesizeOptions.NoiseScale` and `NoiseWidth` are `float?`, and unset means the voice's own default.**
+  They defaulted to 0.667 and 0.8, which overrode what a voice declares for itself: the default voice declares a noise
+  width of 0.333. `Speed` now divides the length scale the voice declares, and a speed that is not a positive, finite
+  number is refused with `ArgumentOutOfRangeException`. Migration: code that reads the two properties handles `null`; set
+  them to keep 0.667 and 0.8.
+- **Breaking** — **`ISynthesizerModel` has three more members** (`PhonemeScheme`, `SynthesizePhonemesAsync`,
+  `SynthesizePhonemesStreamingAsync`). Migration: an implementation of the interface outside the package adds them.
+- **Breaking** — **a voice whose config is missing, or has no `phoneme_id_map`, fails to load.** The config was optional
+  and a voice loaded without it. It is the voice's contract now, so a load without it throws `FileNotFoundException`, and a
+  config that is not valid JSON, has no `phoneme_id_map`, or lacks the pad, start or end symbol throws
+  `ModelLoadException`. Migration: keep the voice's `.onnx.json` next to its model.
+- **`SynthesizeStreamingAsync` yields one chunk per sentence the phonemizer returns.** It used to split the text at `.`, `!`
+  and `?` itself and drop that punctuation. `AudioChunk.IsFinal` is set on the last chunk only; it was also set on any
+  earlier sentence equal to the last one.
 - **Breaking** — **a GGUF file found in the cache is reported as `DownloadPhase.Complete`, never as `Downloading`.**
   `GgufModelDownloader` and `SingleFileGgufDownloader` reported a cache hit as a 1/1-byte download in the default
   `Downloading` phase. So a host showing progress printed «Downloading …: 100%» on every warm start, and a tracker of «did
@@ -15,6 +56,14 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   inferred a cache hit from a first report already at 100 % can read `Phase == Complete` instead.
 
 ### Fixed
+- **A voice's sample rate is the one its config declares.** `audio.sample_rate` was never read (the key is snake_case and
+  was matched against `SampleRate`), so every voice reported 22050 Hz. The `fast` voice produces 16000 Hz audio:
+  `ISynthesizerModel.SampleRate`, `SynthesisResult.SampleRate` and the WAV header said 22050, and the file played fast and
+  high. Where a catalog entry and the config disagree, the config is used and `GetModelInfo()` reports its values.
+- **The `british` voice has four speakers and takes a speaker.** Its catalog entry said one, so the speaker input its model
+  requires was never supplied and synthesis failed in ONNX Runtime. `SynthesizerModelInfo.NumSpeakers` is 4 for it, the
+  speaker count is read from the voice's config, and a `SynthesizeOptions.SpeakerId` the voice does not have is refused
+  with `ArgumentOutOfRangeException`. A single-speaker voice ignores the option.
 - **The translator no longer puts an unknown token in front of every input.** `TranslatorTokenizer` created its SentencePiece
   tokenizer with the model's automatic `<s>` on, and a Marian `vocab.json` has no `<s>`, so every source sentence was encoded as
   `<unk>` followed by its pieces, even with `addSpecialTokens: false`. opus-mt-ko-en: `[1, 1114, …]`; the Marian reference is

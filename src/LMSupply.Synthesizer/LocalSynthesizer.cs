@@ -8,9 +8,11 @@ namespace LMSupply.Synthesizer;
 /// Main entry point for loading and using text-to-speech synthesis models.
 /// </summary>
 /// <remarks>
-/// Known issue: there is no text-to-phoneme (G2P) step yet. Text is mapped letter by letter to fixed ids, not to the phoneme
-/// ids the Piper voices expect, so the output is voice-like noise rather than intelligible speech, and non-Latin text is
-/// near-silent. See the package README. Every use reports <see cref="SynthesizerDiagnostics.ExperimentalId"/> until then.
+/// Known issue: the package has no text-to-phoneme (G2P) step of its own for the voices in its catalog. A voice is run by
+/// the contract its config declares, so phonemes (<see cref="ISynthesizerModel.SynthesizePhonemesAsync"/>) and text spoken
+/// through a caller's <see cref="SynthesizerOptions.Phonemizer"/> come out as real speech; text without a phonemizer throws
+/// <see cref="NotSupportedException"/>. See the package README. Every use reports
+/// <see cref="SynthesizerDiagnostics.ExperimentalId"/> until a phonemizer ships with the package.
 /// </remarks>
 [Experimental(SynthesizerDiagnostics.ExperimentalId, UrlFormat = SynthesizerDiagnostics.ExperimentalUrl)]
 public static class LocalSynthesizer
@@ -62,7 +64,7 @@ public static class LocalSynthesizer
     }
 
     /// <summary>
-    /// Loads the default TTS model (English US Lessac).
+    /// Loads the default TTS model (English US LJSpeech).
     /// </summary>
     /// <param name="options">Optional configuration options.</param>
     /// <param name="progress">Optional progress reporting for downloads.</param>
