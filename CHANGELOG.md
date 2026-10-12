@@ -4,6 +4,42 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Added
+- **`IModelInfoBase.CatalogKey` names a model within its catalog, and every registry resolves it.** A repository can hold
+  several models, and their catalog entries then share an `Id`. The key is the id when the id names one model; otherwise it
+  is the id, `:` and what tells the models apart. For the synthesizer's Lessac voice it is
+  `rhasspy/piper-voices:en/en_US/lessac/medium` (the repository and the voice's folder). `Resolve`, `TryResolve`,
+  `TryResolveCatalog`, `RegisterAlias` and `LocalSynthesizer.LoadAsync` take a key, so a voice can be named by something
+  other than its alias. An id that several models share resolves as before, to the first of them registered:
+  `rhasspy/piper-voices` is the default voice. The console host's `GET /v1/models/{model}` finds a model by its key as
+  well. `CatalogKey` is a default interface member returning `Id`, so implementations outside this library keep compiling.
+
+### Changed
+- **Breaking** — **`GetAliases()` reports the target of a system alias as the model's `CatalogKey`.**
+  `AliasInfo.TargetModelId` was the model's `Id`. The two are equal unless several models share the id, which today is the
+  synthesizer: its seven voice aliases all reported `rhasspy/piper-voices`, and each now reports its own voice
+  (`rhasspy/piper-voices:en/en_US/lessac/medium` for `lessac`). Migration: code that matched an alias to a model with
+  `TargetModelId == Id` compares with `CatalogKey`; the target can be passed to `Resolve` or `LoadAsync` as it is.
+
+### Fixed
+- **`LocalSynthesizer.GetAllModels()` returns the seven voices of the catalog; it returned one.** A registry listed one
+  entry per `Id`, so that a model registered under several aliases is listed once. Every voice has the id of the repository
+  they all live in, `rhasspy/piper-voices`, so the default voice stood for all seven. A registry now lists one entry per
+  `CatalogKey`. `LocalSynthesizer.Registry.GetAvailableModels()`, the console host's registry listing and its
+  `GET /v1/models` show the seven voices too; the other domains list what they listed before. Code that took the only
+  element of the list as the default voice resolves `default` instead.
+- **The console host answers 400 for a JSON body that does not parse.** Its error middleware answered 422 for every
+  request the framework could not read, whatever status the framework gave it; `POST /v1/audio/speech`,
+  `/v1/chat/completions`, `/v1/embeddings`, `/v1/rerank` and `/v1/translate` did so for malformed JSON. The response now
+  carries the framework's status, the error code `invalid_request` (it was `unprocessable_entity`) and a message naming
+  the parameter that could not be read.
+
+### Dependencies
+- **`LMSupply.Synthesizer` no longer references `NAudio`.** Nothing in the package used it. An application that used
+  NAudio only because this package brought it in references `NAudio` itself.
+
 ## [0.119.0] - 2026-10-12
 
 ### Added
@@ -25,14 +61,6 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   lower-cased and decomposed.
 - **`SynthesisResult.Phonemes` and `UnknownPhonemes`, `AudioChunk.UnknownPhonemes`.** The result carries the phonemes that
   were synthesized (the phonemizer's output, for text) and the ones that were skipped because the voice has no id for them.
-- **`IModelInfoBase.CatalogKey` names a model within its catalog, and every registry resolves it.** A repository can hold
-  several models, and their catalog entries then share an `Id`. The key is the id when the id names one model; otherwise it
-  is the id, `:` and what tells the models apart. For the synthesizer's Lessac voice it is
-  `rhasspy/piper-voices:en/en_US/lessac/medium` (the repository and the voice's folder). `Resolve`, `TryResolve`,
-  `TryResolveCatalog`, `RegisterAlias` and `LocalSynthesizer.LoadAsync` take a key, so a voice can be named by something
-  other than its alias. An id that several models share resolves as before, to the first of them registered:
-  `rhasspy/piper-voices` is the default voice. The console host's `GET /v1/models/{model}` finds a model by its key as
-  well. `CatalogKey` is a default interface member returning `Id`, so implementations outside this library keep compiling.
 
 ### Changed
 - **Breaking** — **synthesizing text with a voice that needs a phonemizer throws `NotSupportedException`; it no longer
@@ -58,11 +86,6 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   earlier sentence equal to the last one.
 - **The console host's `POST /v1/audio/speech` answers 501 with the reason** when the voice needs a phonemizer the host does
   not have, which is every catalog voice today. It answered 200 with noise.
-- **Breaking** — **`GetAliases()` reports the target of a system alias as the model's `CatalogKey`.**
-  `AliasInfo.TargetModelId` was the model's `Id`. The two are equal unless several models share the id, which today is the
-  synthesizer: its seven voice aliases all reported `rhasspy/piper-voices`, and each now reports its own voice
-  (`rhasspy/piper-voices:en/en_US/lessac/medium` for `lessac`). Migration: code that matched an alias to a model with
-  `TargetModelId == Id` compares with `CatalogKey`; the target can be passed to `Resolve` or `LoadAsync` as it is.
 - **Breaking** — **a GGUF file found in the cache is reported as `DownloadPhase.Complete`, never as `Downloading`.**
   `GgufModelDownloader` and `SingleFileGgufDownloader` reported a cache hit as a 1/1-byte download in the default
   `Downloading` phase. So a host showing progress printed «Downloading …: 100%» on every warm start, and a tracker of «did
@@ -84,21 +107,6 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `<unk>` followed by its pieces, even with `addSpecialTokens: false`. opus-mt-ko-en: `[1, 1114, …]`; the Marian reference is
   `[1114, …]`. The encoding now matches the reference id for id. Translations of three test sentences stayed the same or
   improved: «이 문서는 사용자 가이드입니다.» was «This document is a custom guide.» and is now «This document is your guide.».
-- **`LocalSynthesizer.GetAllModels()` returns the seven voices of the catalog; it returned one.** A registry listed one
-  entry per `Id`, so that a model registered under several aliases is listed once. Every voice has the id of the repository
-  they all live in, `rhasspy/piper-voices`, so the default voice stood for all seven. A registry now lists one entry per
-  `CatalogKey`. `LocalSynthesizer.Registry.GetAvailableModels()`, the console host's registry listing and its
-  `GET /v1/models` show the seven voices too; the other domains list what they listed before. Code that took the only
-  element of the list as the default voice resolves `default` instead.
-- **The console host answers 400 for a JSON body that does not parse.** Its error middleware answered 422 for every
-  request the framework could not read, whatever status the framework gave it; `POST /v1/audio/speech`,
-  `/v1/chat/completions`, `/v1/embeddings`, `/v1/rerank` and `/v1/translate` did so for malformed JSON. The response now
-  carries the framework's status, the error code `invalid_request` (it was `unprocessable_entity`) and a message naming
-  the parameter that could not be read.
-
-### Dependencies
-- **`LMSupply.Synthesizer` no longer references `NAudio`.** Nothing in the package used it. An application that used
-  NAudio only because this package brought it in references `NAudio` itself.
 
 ## [0.118.0] - 2026-10-12
 
