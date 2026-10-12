@@ -21,7 +21,7 @@
     <PackageReference Include="NAudio" />
     <PackageReference Include="NAudio.Lame" />
     <!-- README snippet compile teeth -->
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="Iyu.Conventions.Testing.Snippets" />
   </ItemGroup>
 
   <ItemGroup>
