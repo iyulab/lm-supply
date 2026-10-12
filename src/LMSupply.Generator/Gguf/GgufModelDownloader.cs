@@ -128,13 +128,7 @@ public sealed class GgufModelDownloader : IDisposable
         if (usablePath is not null)
         {
             // A cache hit, not a transfer: Downloading is reserved for moving bytes (DownloadProgress.Phase).
-            progress?.Report(new DownloadProgress
-            {
-                FileName = filename,
-                BytesDownloaded = 1,
-                TotalBytes = 1,
-                Phase = DownloadPhase.Complete
-            });
+            progress?.Report(DownloadProgress.CachedFile(filename, usablePath));
             return usablePath;
         }
 

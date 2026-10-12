@@ -62,8 +62,10 @@ await using var model = await LocalEmbedder.LoadAsync("default", options);
 var progress = new Progress<DownloadProgress>(p =>
 {
     // A first load can also fetch a runtime (the native ONNX Runtime, llama-server) once per host
-    var what = p.Kind == DownloadKind.Runtime ? "Preparing runtime" : "Downloading model";
-    Console.WriteLine($"{what} {p.FileName}: {p.Phase} {p.OverallPercentComplete:F0}%");
+    var what = p.Kind == DownloadKind.Runtime ? "Runtime" : "Model";
+    // A step that counts nothing (Preparing, Loading, a download of unknown size) has no percentage to show
+    var howFar = p.IsIndeterminate ? "..." : $"{p.OverallPercentComplete:F0}%";
+    Console.WriteLine($"{what} {p.FileName}: {p.Phase} {howFar}");
 });
 
 await using var model = await LocalEmbedder.LoadAsync("default", progress: progress);
@@ -75,6 +77,30 @@ report. Every load that takes a progress reporter forwards it to the runtime ste
 `LocalSegmenter.LoadInteractiveAsync`), `LocalGenerator.LoadAsync` and `LoadFromPathAsync` (a model already on disk can
 still need its runtime), and `TextGeneratorBuilder.WithDownloadProgress`. `LocalImageGenerator.LoadAsync` takes the
 same `IProgress<DownloadProgress>` as the others.
+
+What a load reports, in order:
+
+| Phase | When | Counts |
+|---|---|---|
+| `Preparing` | Before a file or runtime is looked up | nothing (`IsIndeterminate`) |
+| `Downloading` | Bytes are moving. A file found usable in the cache is never reported as a download | bytes of the file, and of the whole download when every size is known |
+| `Extracting`, `Verifying`, `Finalizing` | An archive is unpacked (a runtime, on first use), content is checked, a file moves into the cache | bytes when the step has a total |
+| `Complete` | The file is in place — downloaded, or found in the cache. Once per file; a cached file carries its size | `PercentComplete` is 100 |
+| `Loading` | The files are in place and the model is being brought into memory: llama-server starts and reads the weights, or an ONNX Runtime session is created. Reported for each file loaded, under the name its download had (`unet/model.onnx`) | nothing (`IsIndeterminate`) |
+
+`Loading` is the last report of a file. Nothing is reported when loading ends: the load is over when `LoadAsync`
+returns. A GGUF load that shares a llama-server already running for the same model loads nothing and reports no
+`Loading`. The byte fields are bytes or zero — never a percentage in disguise — so `IsIndeterminate` is the one test
+for «show this step as busy»: `PercentComplete` and `OverallPercentComplete` are zero for such a report, and that zero
+means «not measured».
+
+A load whose model is cached reports, for a GGUF model:
+
+```
+Model   Qwen3-8B-Q4_K_M.gguf  Complete   (the file's size)
+Runtime llama-server          Preparing
+Model   Qwen3-8B-Q4_K_M.gguf  Loading
+```
 
 ---
 

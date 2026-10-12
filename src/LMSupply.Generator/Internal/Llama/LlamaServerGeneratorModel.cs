@@ -170,15 +170,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             Trace.TraceInformation($"[LlamaServerGeneratorModel] GGUF metadata reading failed: {ex.Message}");
         }
 
-        // 3. Configure and start llama-server
-        progress?.Report(new DownloadProgress
-        {
-            FileName = Path.GetFileName(modelPath),
-            BytesDownloaded = 30,
-            TotalBytes = 100,
-            Phase = DownloadPhase.Extracting
-        });
-
+        // 3. Configure and start llama-server. The pool reports Loading when it starts a server.
         var llamaOpts = ChooseLlamaOptions(options, modelPath, ggufMetadata);
         var contextLength = ResolveRequestedContextLength(options.MaxContextLength, ggufMetadata?.ContextLength);
         var requestedContextLength = contextLength;
@@ -440,6 +432,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         // 4. Lease server from pool with OOM retry (reduces GPU layers on failure)
         ServerLease serverLease;
         var currentGpuLayers = serverConfig.GpuLayers;
+        var leaseProgress = progress;
 
         while (true)
         {
@@ -449,12 +442,15 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                     serverPath,
                     serverConfig,
                     backend,
-                    progress,
+                    leaseProgress,
                     cancellationToken);
                 break; // Success
             }
             catch (Exception ex) when ((ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested) && (IsOomError(ex) && currentGpuLayers > 0))
             {
+                // The start that just failed reported Loading; the retries are the same load.
+                leaseProgress = null;
+
                 // Reduce GPU layers by ~25% (minimum 1 layer reduction)
                 var reduction = Math.Max(1, currentGpuLayers / 4);
                 currentGpuLayers -= reduction;
@@ -466,14 +462,6 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                 serverConfig = CloneConfigWithGpuLayers(serverConfig, currentGpuLayers);
             }
         }
-
-        progress?.Report(new DownloadProgress
-        {
-            FileName = Path.GetFileName(modelPath),
-            BytesDownloaded = 100,
-            TotalBytes = 100,
-            Phase = DownloadPhase.Complete
-        });
 
         // OOM retry may have further reduced GPU layers — update captured value.
         if (capturedGpuLayers.HasValue && currentGpuLayers != serverConfig.GpuLayers)

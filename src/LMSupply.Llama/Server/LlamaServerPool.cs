@@ -155,11 +155,11 @@ public sealed class LlamaServerPool : IAsyncDisposable
                 await EvictOldestIdleServerAsync();
             }
 
-            // Start new server
+            // Start new server: from here the time goes into the server reading the weights.
             progress?.Report(new DownloadProgress
             {
-                FileName = Path.GetFileName(config.ModelPath),
-                Phase = DownloadPhase.Extracting
+                FileName = CacheManager.ReportedFileName(config.ModelPath),
+                Phase = DownloadPhase.Loading
             });
 
             var serverProcess = await LlamaServerProcess.StartAsync(

@@ -58,5 +58,7 @@ public class RuntimeDownloadProgressTests
         Assert.Equal(DownloadKind.Runtime, report.Kind);
         Assert.Equal(DownloadPhase.Complete, report.Phase);
         Assert.Equal("onnxruntime", report.FileName);
+        Assert.Equal(0, report.TotalBytes);
+        Assert.Equal(100, report.PercentComplete);
     }
 }

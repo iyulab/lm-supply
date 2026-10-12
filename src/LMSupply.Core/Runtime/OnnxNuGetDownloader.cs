@@ -273,8 +273,6 @@ public sealed class OnnxNuGetDownloader : IDisposable
             progress?.Report(new DownloadProgress
             {
                 FileName = packageFile,
-                BytesDownloaded = 1,
-                TotalBytes = 1,
                 Phase = DownloadPhase.Complete,
             });
 
@@ -540,8 +538,6 @@ public sealed class OnnxNuGetDownloader : IDisposable
         progress?.Report(new DownloadProgress
         {
             FileName = runtimeName,
-            BytesDownloaded = 1,
-            TotalBytes = 1,
             Phase = DownloadPhase.Complete,
             Kind = DownloadKind.Runtime,
         });

@@ -156,6 +156,22 @@ public static class CacheManager
             .FirstOrDefault(IsCachedFile);
 
     /// <summary>
+    /// The name a progress report gives a file on disk: its path within the repository
+    /// (<c>unet/model.onnx</c>) when it lies in a snapshot of the hub cache — the name its download was reported
+    /// under, and the one that tells apart files of the same name in different folders — otherwise its file name.
+    /// </summary>
+    internal static string ReportedFileName(string path)
+    {
+        var full = Path.GetFullPath(path);
+        var parts = full.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var snapshots = Array.LastIndexOf(parts, "snapshots");
+        // snapshots/{revision}/{path within the repository}, under models--{org}--{name}
+        return snapshots >= 1 && parts[snapshots - 1].StartsWith("models--", StringComparison.Ordinal) && parts.Length > snapshots + 2
+            ? string.Join('/', parts[(snapshots + 2)..])
+            : Path.GetFileName(full);
+    }
+
+    /// <summary>
     /// Whether <paramref name="directory"/> (a snapshot of <paramref name="repoId"/>, or a directory inside one) belongs
     /// to another tool — read and never modified. A snapshot is this library's own when it recorded a download there
     /// (a manifest, see <see cref="DownloadManifest"/>) or when it is named after <paramref name="revision"/>

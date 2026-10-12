@@ -136,10 +136,12 @@ public static class OnnxSessionFactory
         // Ensure runtime binaries are available
         await RuntimeManager.Instance.InitializeAsync(cancellationToken);
 
+        var loading = new LoadingReport(progress, modelPath);
+
         if (provider == ExecutionProvider.Auto)
         {
             // Use fallback chain: CUDA → CoreML → CPU
-            return await CreateWithFallbackChainAsync(modelPath, skipProviders, configureOptions, progress, deviceId, cancellationToken);
+            return await CreateWithFallbackChainAsync(modelPath, skipProviders, configureOptions, progress, loading, deviceId, cancellationToken);
         }
 
         // Explicit provider specified. A provider this build cannot serve is refused here, before any
@@ -177,6 +179,8 @@ public static class OnnxSessionFactory
         {
             throw WrapProvisioningFailure(provider, modelPath, ex);
         }
+
+        loading.Once();
 
         InferenceSession session;
         bool gpuEpAppended;
@@ -263,6 +267,7 @@ public static class OnnxSessionFactory
         IReadOnlyCollection<ExecutionProvider>? skipProviders,
         Action<SessionOptions>? configureOptions,
         IProgress<DownloadProgress>? progress,
+        LoadingReport loading,
         int deviceId,
         CancellationToken cancellationToken)
     {
@@ -318,6 +323,8 @@ public static class OnnxSessionFactory
                     provider: providerString,
                     progress: progress,
                     cancellationToken: cancellationToken);
+
+                loading.Once();
 
                 // Create session on a dedicated thread to avoid thread pool starvation.
                 // InferenceSession construction blocks for several seconds on large models.
@@ -420,6 +427,7 @@ public static class OnnxSessionFactory
         await RuntimeManager.Instance.EnsureRuntimeAsync(
             "onnxruntime", provider: "cpu", progress: progress, cancellationToken: cancellationToken);
 
+        loading.Once();
         var cpuSession = Create(modelPath, ExecutionProvider.Cpu, configureOptions);
         return new SessionCreationResult
         {
@@ -429,6 +437,27 @@ public static class OnnxSessionFactory
             FailedProviders = failedProviders,
             DeviceId = deviceId
         };
+    }
+
+    /// <summary>
+    /// Reports <see cref="DownloadPhase.Loading"/> for a model file once, however many providers are tried for it:
+    /// the session is created after the runtime of each provider is in place, and a second attempt is the same load.
+    /// </summary>
+    private sealed class LoadingReport(IProgress<DownloadProgress>? progress, string modelPath)
+    {
+        private bool _reported;
+
+        public void Once()
+        {
+            if (_reported || progress is null)
+                return;
+            _reported = true;
+            progress.Report(new DownloadProgress
+            {
+                FileName = CacheManager.ReportedFileName(modelPath),
+                Phase = DownloadPhase.Loading
+            });
+        }
     }
 
     /// <summary>

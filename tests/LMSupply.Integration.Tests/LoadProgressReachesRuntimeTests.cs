@@ -3,6 +3,7 @@ using LMSupply.Captioner;
 using LMSupply.Detector;
 using LMSupply.Embedder;
 using LMSupply.Exceptions;
+using LMSupply.Generator;
 using LMSupply.ImageGenerator;
 using LMSupply.Ocr;
 using LMSupply.Reranker;
@@ -54,9 +55,59 @@ public sealed class LoadProgressReachesRuntimeTests
             string.Join(" | ", seen.Take(8).Select(r => $"{r.Kind}:{r.FileName}:{r.Phase}")));
     }
 
+    public static TheoryData<string> DomainsAndTheGgufGenerator => [.. Domains, "GgufGenerator"];
+
+    // Every model here is already on disk, so what is left of the load is bringing the model into memory. That stage
+    // is reported as Loading, with nothing counted; it does not borrow a download phase or invent byte counts, and a
+    // file that was reported Complete is not completed again.
+    [Theory]
+    [MemberData(nameof(DomainsAndTheGgufGenerator))]
+    public async Task AWarmLoadReportsLoading_AndNothingItDidNotMeasure(string domain)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var reports = new List<DownloadProgress>();
+        var progress = new SyncProgress(p => { lock (reports) reports.Add(p); });
+
+        try
+        {
+            await using var model = await LoadAsync(domain, progress, ct);
+        }
+        catch (ModelNotFoundException ex)
+        {
+            Assert.Skip($"{domain}: the model is not cached here ({ex.Message}).");
+        }
+
+        List<DownloadProgress> seen;
+        lock (reports) seen = [.. reports];
+        var trace = string.Join(" | ", seen.Select(r => $"{r.Kind}:{r.FileName}:{r.Phase}:{r.BytesDownloaded}/{r.TotalBytes}"));
+        TestContext.Current.TestOutputHelper?.WriteLine($"{domain}: {trace}");
+        var modelReports = seen.Where(r => r.Kind == DownloadKind.Model).ToList();
+
+        var loading = modelReports.Where(r => r.Phase == DownloadPhase.Loading).ToList();
+        loading.Should().NotBeEmpty($"{domain}: the load brings a model into memory; saw: {trace}");
+        loading.Should().OnlyContain(r => r.IsIndeterminate && r.BytesDownloaded == 0 && r.TotalBytes == 0,
+            $"nothing is counted while a model loads; saw: {trace}");
+        loading.Select(r => r.FileName).Should().OnlyHaveUniqueItems($"a file is loaded once; saw: {trace}");
+
+        modelReports.Should().NotContain(r => r.Phase == DownloadPhase.Downloading || r.Phase == DownloadPhase.Extracting,
+            $"the files were on disk and none of them is an archive; saw: {trace}");
+        modelReports.Where(r => r.Phase == DownloadPhase.Complete).Select(r => r.FileName)
+            .Should().OnlyHaveUniqueItems($"a file is completed once; saw: {trace}");
+        foreach (var file in loading.Select(r => r.FileName))
+        {
+            var loadingAt = seen.FindIndex(r => r.Phase == DownloadPhase.Loading && r.FileName == file);
+            seen.Skip(loadingAt + 1).Should().NotContain(r => r.Kind == DownloadKind.Model && r.FileName == file,
+                $"Loading is the last report of a file — the load is over when LoadAsync returns; saw: {trace}");
+        }
+        seen.Where(r => r.Phase != DownloadPhase.Complete && r.TotalBytes > 0).Should()
+            .OnlyContain(r => r.Phase == DownloadPhase.Downloading || r.Phase == DownloadPhase.Extracting || r.Phase == DownloadPhase.Verifying,
+                $"only a step that counts bytes carries a total; saw: {trace}");
+    }
+
     private static Task<IAsyncDisposable> LoadAsync(string domain, IProgress<DownloadProgress> progress, CancellationToken ct) =>
         domain switch
         {
+            "GgufGenerator" => Box(LocalGenerator.LoadAsync(CachedGgufRepository, new GeneratorOptions { DisableAutoDownload = true }, progress, ct)),
             "Captioner" => Box(LocalCaptioner.LoadAsync("default", new CaptionerOptions { DisableAutoDownload = true }, progress, ct)),
             "Detector" => Box(LocalDetector.LoadAsync("default", new DetectorOptions { DisableAutoDownload = true }, progress, ct)),
             "Embedder" => Box(LocalEmbedder.LoadAsync("default", new EmbedderOptions { DisableAutoDownload = true }, progress, ct)),
@@ -70,6 +121,9 @@ public sealed class LoadProgressReachesRuntimeTests
             "Translator" => Box(LocalTranslator.LoadAsync("default", new TranslatorOptions { DisableAutoDownload = true }, progress, ct)),
             _ => throw new ArgumentOutOfRangeException(nameof(domain)),
         };
+
+    // A small GGUF repository; the test skips where it is not cached.
+    private const string CachedGgufRepository = "unsloth/Qwen3.5-2B-GGUF";
 
     private static async Task<IAsyncDisposable> Box<T>(Task<T> load) where T : IAsyncDisposable => await load;
 

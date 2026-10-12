@@ -7,6 +7,16 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Added
+- **`DownloadPhase.Loading`: a load says when it starts bringing the model into memory.** Once the files are in place,
+  a load reports `Loading` for the file — when llama-server is started to read the weights, and when an ONNX Runtime
+  session is created — so a host can say «loading the model» for what is usually the longest part of a warm load. The
+  report counts nothing and is the last report of the file; the load is over when `LoadAsync` returns. A GGUF load that
+  shares a server already running for the model reports no `Loading`. An ONNX file is named by its path in the
+  repository (`unet/model.onnx`), the name its download is reported under. `Loading` is a new member at the end of the
+  enum, so the values of the others do not move; a `switch` over `DownloadPhase` that must be exhaustive needs the case.
+- **`DownloadProgress.IsIndeterminate`** is true when a report measures nothing: a step with no total to be a share of
+  (`Preparing`, `Loading`, a download whose size the server did not announce). `PercentComplete` and
+  `OverallPercentComplete` are zero for such a report, and that zero means «not measured»; show the step as busy.
 - **`IModelInfoBase.CatalogKey` names a model within its catalog, and every registry resolves it.** A repository can hold
   several models, and their catalog entries then share an `Id`. The key is the id when the id names one model; otherwise it
   is the id, `:` and what tells the models apart. For the synthesizer's Lessac voice it is
@@ -17,6 +27,18 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   well. `CatalogKey` is a default interface member returning `Id`, so implementations outside this library keep compiling.
 
 ### Changed
+- **Breaking** — **A GGUF load no longer reports its load stage as `Extracting`, and progress reports carry no invented
+  byte counts.** After the file's `Complete` report, `LocalGenerator`, `LocalEmbedder` and `LocalReranker` reported the
+  model file as `Extracting` with `30/100` (the embedder also `80/100`), then as `Extracting` with `0/0`, then a second
+  `Complete` with `100/100` — none of them a measurement, so a progress bar jumped to 30 %, fell to zero and completed
+  a file twice. A load now reports `Loading` once, with no byte counts, and does not complete the file again. Also:
+  a cached file's `Complete` carries the size of the file (it was `1/1`); a cached runtime's `Complete` carries no byte
+  counts (it was `1/1`, or `100/100` for llama-server); `PercentComplete` is 100 for any `Complete` report; and the
+  opening llama-server report of the embedder and the reranker is `Runtime` / `Preparing`, as the generator's already
+  was (it was a `Model` / `Downloading` report with nothing moving). Migration: code that showed `Extracting` for a
+  model file as the load stage reads `Loading`; code that skipped reports with no total to avoid a bar at zero tests
+  `IsIndeterminate`; code that read `BytesDownloaded == TotalBytes == 1` as «cached» reads `Phase == Complete` with no
+  `Downloading` report before it.
 - **Breaking** — **`GetAliases()` reports the target of a system alias as the model's `CatalogKey`.**
   `AliasInfo.TargetModelId` was the model's `Id`. The two are equal unless several models share the id, which today is the
   synthesizer: its seven voice aliases all reported `rhasspy/piper-voices`, and each now reports its own voice

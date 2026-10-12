@@ -57,13 +57,7 @@ internal class SingleFileGgufDownloader : IDisposable
             var cached = TrySelectFromLocalCache(_cacheDirectory, repoId, preferredQuantization, _legacyTreeName)
                 ?? throw NotCached(repoId);
 
-            progress?.Report(new DownloadProgress
-            {
-                FileName = Path.GetFileName(cached),
-                BytesDownloaded = 1,
-                TotalBytes = 1,
-                Phase = DownloadPhase.Complete
-            });
+            progress?.Report(DownloadProgress.CachedFile(Path.GetFileName(cached), cached));
             return cached;
         }
 
@@ -78,13 +72,7 @@ internal class SingleFileGgufDownloader : IDisposable
             if (!ResumableFileDownload.IsUsableCachedFile(cachePath, expectedSize, readOnly))
                 continue;
 
-            progress?.Report(new DownloadProgress
-            {
-                FileName = selectedFile.Path,
-                BytesDownloaded = 1,
-                TotalBytes = 1,
-                Phase = DownloadPhase.Complete
-            });
+            progress?.Report(DownloadProgress.CachedFile(selectedFile.Path, cachePath));
             return cachePath;
         }
 

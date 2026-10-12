@@ -3,8 +3,14 @@ using System.Globalization;
 namespace LMSupply;
 
 /// <summary>
-/// Progress information for model downloads.
+/// One report of what a download or a load is doing: which file (<see cref="FileName"/>), which step
+/// (<see cref="Phase"/>), and — when the step counts something — how far along it is.
 /// </summary>
+/// <remarks>
+/// The byte fields carry bytes or nothing. A step with nothing to count (<see cref="DownloadPhase.Preparing"/>,
+/// <see cref="DownloadPhase.Loading"/>, a download whose size the server did not announce) leaves
+/// <see cref="TotalBytes"/> at zero and is <see cref="IsIndeterminate"/>.
+/// </remarks>
 public record DownloadProgress
 {
     /// <summary>
@@ -36,9 +42,20 @@ public record DownloadProgress
     public long? OverallTotalBytes { get; init; }
 
     /// <summary>
-    /// Gets the download progress of the current file as a percentage (0-100).
+    /// Gets the progress of the current file as a percentage (0-100): 100 once the file is
+    /// <see cref="DownloadPhase.Complete"/>, otherwise the share of <see cref="TotalBytes"/> done. Zero while
+    /// <see cref="IsIndeterminate"/> — that zero is «not measured», not «nothing done».
     /// </summary>
-    public double PercentComplete => TotalBytes > 0 ? (double)BytesDownloaded / TotalBytes * 100 : 0;
+    public double PercentComplete => Phase == DownloadPhase.Complete ? 100
+        : TotalBytes > 0 ? (double)BytesDownloaded / TotalBytes * 100 : 0;
+
+    /// <summary>
+    /// Gets whether this report measures nothing: the step is under way, and there is no total to be a share of.
+    /// True for <see cref="DownloadPhase.Preparing"/> and <see cref="DownloadPhase.Loading"/>, and for a download
+    /// whose size is not known. Show such a step as busy, not as a percentage; <see cref="PercentComplete"/> and
+    /// <see cref="OverallPercentComplete"/> are zero for it.
+    /// </summary>
+    public bool IsIndeterminate => Phase != DownloadPhase.Complete && TotalBytes <= 0 && OverallTotalBytes is not > 0;
 
     /// <summary>
     /// Gets the 1-based index of the current file in a multi-file download.
@@ -74,9 +91,12 @@ public record DownloadProgress
     public TimeSpan? EstimatedRemaining { get; init; }
 
     /// <summary>
-    /// Gets the current download phase. <see cref="DownloadPhase.Downloading"/> means bytes are moving: a file found usable in
+    /// Gets the current phase. <see cref="DownloadPhase.Downloading"/> means bytes are moving: a file found usable in
     /// the cache is reported once as <see cref="DownloadPhase.Complete"/>, never as a download, so «was anything downloaded»
-    /// is answered by whether a <see cref="DownloadPhase.Downloading"/> report arrived.
+    /// is answered by whether a <see cref="DownloadPhase.Downloading"/> report arrived. A file is reported
+    /// <see cref="DownloadPhase.Complete"/> once. <see cref="DownloadPhase.Loading"/> comes after that, when a load
+    /// brings the model into memory, and is not followed by a closing report: the load is over when the call that
+    /// was given this reporter returns.
     /// </summary>
     public DownloadPhase Phase { get; init; } = DownloadPhase.Downloading;
 
@@ -86,6 +106,22 @@ public record DownloadProgress
     /// tells them apart, so a long first-run runtime step can be shown as such.
     /// </summary>
     public DownloadKind Kind { get; init; } = DownloadKind.Model;
+
+    /// <summary>
+    /// The one report of a file found usable in the cache: <see cref="DownloadPhase.Complete"/>, with the size of
+    /// the file on disk.
+    /// </summary>
+    internal static DownloadProgress CachedFile(string fileName, string path)
+    {
+        var size = new FileInfo(path).Length;
+        return new DownloadProgress
+        {
+            FileName = fileName,
+            BytesDownloaded = size,
+            TotalBytes = size,
+            Phase = DownloadPhase.Complete
+        };
+    }
 
     /// <summary>
     /// Gets a human-readable speed string (e.g., "15.3 MB/s").
@@ -135,7 +171,7 @@ internal sealed class RuntimeDownloadProgress(IProgress<DownloadProgress> inner)
 }
 
 /// <summary>
-/// Phases of the download process.
+/// The steps a file goes through while it is fetched, and — in a load — brought into memory.
 /// </summary>
 public enum DownloadPhase
 {
@@ -154,6 +190,14 @@ public enum DownloadPhase
     /// <summary>Finalizing download (moving to cache, cleanup).</summary>
     Finalizing,
 
-    /// <summary>Download complete.</summary>
-    Complete
+    /// <summary>The file is in place: downloaded, or found usable in the cache. Reported once per file.</summary>
+    Complete,
+
+    /// <summary>
+    /// The files are in place and the model is being brought into memory: an inference server is starting and
+    /// reading the weights, or a runtime session is being created. Nothing is counted, so the report carries no
+    /// byte counts. It is reported when that work starts — not when a load shares a server that is already
+    /// running — and nothing is reported when it ends.
+    /// </summary>
+    Loading
 }

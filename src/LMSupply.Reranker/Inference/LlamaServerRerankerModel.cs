@@ -50,9 +50,8 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
         progress?.Report(new DownloadProgress
         {
             FileName = "llama-server",
-            BytesDownloaded = 0,
-            TotalBytes = 0,
-            Phase = DownloadPhase.Downloading
+            Kind = DownloadKind.Runtime,
+            Phase = DownloadPhase.Preparing
         });
 
         var preferredBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(
@@ -72,15 +71,8 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
         var serverPath = updateResult.ServerPath;
         var backend = updateResult.Backend;
 
-        // 2. Configure server for reranking mode (embedding + rank pooling)
-        progress?.Report(new DownloadProgress
-        {
-            FileName = Path.GetFileName(modelPath),
-            BytesDownloaded = 30,
-            TotalBytes = 100,
-            Phase = DownloadPhase.Extracting
-        });
-
+        // 2. Configure server for reranking mode (embedding + rank pooling). The pool reports Loading when it
+        // starts a server.
         var contextSize = options.MaxSequenceLength ?? 512;
 
         var serverConfig = new LlamaServerConfig
@@ -104,14 +96,6 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
             backend,
             progress,
             cancellationToken);
-
-        progress?.Report(new DownloadProgress
-        {
-            FileName = Path.GetFileName(modelPath),
-            BytesDownloaded = 100,
-            TotalBytes = 100,
-            Phase = DownloadPhase.Complete
-        });
 
         return new LlamaServerRerankerModel(
             modelId,

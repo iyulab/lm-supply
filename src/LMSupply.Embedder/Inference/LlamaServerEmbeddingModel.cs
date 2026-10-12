@@ -67,9 +67,8 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         progress?.Report(new DownloadProgress
         {
             FileName = "llama-server",
-            BytesDownloaded = 0,
-            TotalBytes = 0,
-            Phase = DownloadPhase.Downloading
+            Kind = DownloadKind.Runtime,
+            Phase = DownloadPhase.Preparing
         });
 
         var preferredBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(
@@ -89,15 +88,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         var serverPath = updateResult.ServerPath;
         var backend = updateResult.Backend;
 
-        // 2. Configure server for embedding mode
-        progress?.Report(new DownloadProgress
-        {
-            FileName = Path.GetFileName(modelPath),
-            BytesDownloaded = 30,
-            TotalBytes = 100,
-            Phase = DownloadPhase.Extracting
-        });
-
+        // 2. Configure server for embedding mode. The pool reports Loading when it starts a server.
         // Map pooling mode
         // A GGUF model carries no 1_Pooling/config.json to read; unset means the mean, as before.
         options.PoolingMode ??= PoolingMode.Mean;
@@ -132,14 +123,6 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             progress,
             cancellationToken);
 
-        progress?.Report(new DownloadProgress
-        {
-            FileName = Path.GetFileName(modelPath),
-            BytesDownloaded = 80,
-            TotalBytes = 100,
-            Phase = DownloadPhase.Extracting
-        });
-
         // 4. Determine embedding dimensions by running a test embedding
         int dimensions;
         try
@@ -159,14 +142,6 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             throw new InvalidOperationException(
                 $"Failed to determine embedding dimensions: {ex.Message}", ex);
         }
-
-        progress?.Report(new DownloadProgress
-        {
-            FileName = Path.GetFileName(modelPath),
-            BytesDownloaded = 100,
-            TotalBytes = 100,
-            Phase = DownloadPhase.Complete
-        });
 
         // What the server was actually asked to do — not the option as requested (Max is sent as Last).
         // Tokenization happens inside llama-server and is not visible here; the server binary's version

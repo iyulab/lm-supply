@@ -442,8 +442,6 @@ public sealed class LlamaServerDownloader : IDisposable
         progress?.Report(new DownloadProgress
         {
             FileName = asset.Name,
-            BytesDownloaded = 100,
-            TotalBytes = 100,
             Phase = DownloadPhase.Complete
         });
 

@@ -95,7 +95,8 @@ public sealed class OfflineLoadTests : IDisposable
         {
             reports.Items.Should().NotBeEmpty("the load still says which file it resolved");
             reports.Items.Should().NotContain(r => r.Phase == DownloadPhase.Downloading);
-            reports.Items.Should().ContainSingle(r => r.Phase == DownloadPhase.Complete);
+            reports.Items.Should().ContainSingle(r => r.Phase == DownloadPhase.Complete)
+                .Which.TotalBytes.Should().Be("placeholder".Length, "the byte fields carry the file's size, not a stand-in");
         }
     }
 

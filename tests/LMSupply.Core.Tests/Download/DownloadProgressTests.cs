@@ -4,6 +4,90 @@ namespace LMSupply.Core.Tests.Download;
 
 public class DownloadProgressTests
 {
+    // --- A step that measures nothing ---
+
+    [Theory]
+    [InlineData(DownloadPhase.Preparing)]
+    [InlineData(DownloadPhase.Loading)]
+    [InlineData(DownloadPhase.Extracting)]
+    [InlineData(DownloadPhase.Downloading)]
+    public void AReportWithNoTotal_IsIndeterminate_AndItsPercentIsNotAMeasurement(DownloadPhase phase)
+    {
+        var progress = new DownloadProgress { FileName = "model.gguf", Phase = phase };
+
+        progress.IsIndeterminate.Should().BeTrue();
+        progress.PercentComplete.Should().Be(0);
+        progress.OverallPercentComplete.Should().Be(0);
+    }
+
+    [Fact]
+    public void ADownloadOfUnknownSize_IsIndeterminate_HoweverManyBytesArrived()
+    {
+        var progress = new DownloadProgress { FileName = "model.onnx", BytesDownloaded = 4096 };
+
+        progress.IsIndeterminate.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AReportWithATotal_IsNotIndeterminate()
+    {
+        new DownloadProgress { FileName = "model.onnx", BytesDownloaded = 0, TotalBytes = 1000 }
+            .IsIndeterminate.Should().BeFalse();
+        new DownloadProgress { FileName = "a.bin", OverallBytesDownloaded = 10, OverallTotalBytes = 100 }
+            .IsIndeterminate.Should().BeFalse("the whole download has a total even when this file's is unknown");
+    }
+
+    [Fact]
+    public void ACompleteReport_Is100Percent_WithoutBytesStandingInForIt()
+    {
+        var progress = new DownloadProgress { FileName = "onnxruntime", Phase = DownloadPhase.Complete };
+
+        progress.PercentComplete.Should().Be(100);
+        progress.OverallPercentComplete.Should().Be(100);
+        progress.IsIndeterminate.Should().BeFalse();
+        progress.TotalBytes.Should().Be(0);
+    }
+
+    [Fact]
+    public void ACachedFile_IsReportedComplete_WithTheSizeOfTheFile()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "lmsupply-cached-" + Guid.NewGuid().ToString("N") + ".bin");
+        File.WriteAllBytes(path, new byte[1234]);
+        try
+        {
+            var progress = DownloadProgress.CachedFile("weights.bin", path);
+
+            progress.Phase.Should().Be(DownloadPhase.Complete);
+            progress.FileName.Should().Be("weights.bin");
+            progress.TotalBytes.Should().Be(1234);
+            progress.BytesDownloaded.Should().Be(1234);
+            progress.PercentComplete.Should().Be(100);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    // --- The name a loaded file is reported under ---
+
+    [Fact]
+    public void AFileInAHubSnapshot_IsNamedByItsPathInTheRepository()
+    {
+        var snapshot = Path.Combine(Path.GetTempPath(), "hub", "models--acme--pipeline", "snapshots", "0123abcd");
+
+        LMSupply.Download.CacheManager.ReportedFileName(Path.Combine(snapshot, "unet", "model.onnx")).Should().Be("unet/model.onnx");
+        LMSupply.Download.CacheManager.ReportedFileName(Path.Combine(snapshot, "model.gguf")).Should().Be("model.gguf");
+    }
+
+    [Fact]
+    public void AFileOutsideTheHubCache_IsNamedByItsFileName()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "snapshots", "mine", "weights", "model.gguf");
+
+        LMSupply.Download.CacheManager.ReportedFileName(path).Should().Be("model.gguf");
+    }
+
     // --- PercentComplete (per-file) ---
 
     [Fact]

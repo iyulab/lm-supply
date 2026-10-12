@@ -329,13 +329,14 @@ public record DownloadProgress
     string FileName,
     long BytesDownloaded,             // current file
     long TotalBytes,                  // current file
-    double PercentComplete,           // per-file (0-100)
+    double PercentComplete,           // per-file (0-100); 100 once Complete, 0 while IsIndeterminate
+    bool IsIndeterminate,             // the step counts nothing (Preparing, Loading, a download of unknown size)
     int CurrentFileIndex,             // 1-based, 0 for single-file
     int TotalFileCount,               // 0 for single-file
     long? OverallBytesDownloaded,     // whole download, null when a file size is unknown
     long? OverallTotalBytes,          // whole download, null when a file size is unknown
     double OverallPercentComplete,    // overall (0-100): byte-weighted when sizes are known, else by file count
-    DownloadPhase Phase,              // Preparing, Downloading, Extracting, Verifying, Finalizing, Complete
+    DownloadPhase Phase,              // Preparing, Downloading, Extracting, Verifying, Finalizing, Complete, Loading
     DownloadKind Kind                 // Model, or Runtime (the native ONNX Runtime, llama-server) a first load provisions
 }
 
