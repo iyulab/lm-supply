@@ -96,6 +96,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   carries the framework's status, the error code `invalid_request` (it was `unprocessable_entity`) and a message naming
   the parameter that could not be read.
 
+### Dependencies
+- **`LMSupply.Synthesizer` no longer references `NAudio`.** Nothing in the package used it. An application that used
+  NAudio only because this package brought it in references `NAudio` itself.
+
 ## [0.118.0] - 2026-10-12
 
 ### Added

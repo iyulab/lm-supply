@@ -16,10 +16,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NAudio" />
-  </ItemGroup>
-
-  <ItemGroup>
     <InternalsVisibleTo Include="LMSupply.Synthesizer.Tests" />
   </ItemGroup>
 
