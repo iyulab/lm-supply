@@ -209,11 +209,11 @@ for (int i = 0; i < images.Length; i++)
 ```csharp
 // From stream
 using var stream = File.OpenRead("image.png");
-var results = await detector.DetectAsync(stream);
+var fromStream = await detector.DetectAsync(stream);
 
 // From byte array (useful for API scenarios)
 byte[] imageBytes = await httpClient.GetByteArrayAsync(imageUrl);
-var results = await detector.DetectAsync(imageBytes);
+var fromBytes = await detector.DetectAsync(imageBytes);
 ```
 
 ### Working with Bounding Boxes

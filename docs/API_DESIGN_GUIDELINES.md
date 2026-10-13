@@ -55,11 +55,12 @@ public static class Local{Domain}
 }
 ```
 
-**Examples:**
+#### Static factory examples
+
 ```csharp
 // Embedder
 var embedder = await LocalEmbedder.LoadAsync("default");
-var embedder = await LocalEmbedder.LoadAsync("bge-base-en-v1.5");
+var bgeBase = await LocalEmbedder.LoadAsync("bge-base-en-v1.5");
 
 // Reranker
 var reranker = await LocalReranker.LoadAsync("default");
@@ -67,7 +68,7 @@ var reranker = await LocalReranker.LoadAsync("default");
 // Generator
 var generator = await LocalGenerator.LoadAsync("default");
 
-// Future: Transcriber
+// Transcriber
 var transcriber = await LocalTranscriber.LoadAsync("whisper-base");
 ```
 
@@ -232,9 +233,10 @@ the option to the shared downloader — `new HuggingFaceDownloader(cacheDir, loc
 (or `new ModelPathResolver(cacheDir, localFilesOnly: ...)`) — rather than checking the cache in the
 package. An option declared here and not passed on is caught by the options roster test
 (`tests/LMSupply.Integration.Tests/OptionsReachabilityRosterTests.cs`). The mirror image — a
-document naming an option that does not exist — is caught by the docs snippet roster beside it
-(`DocsOptionsSnippetRosterTests.cs`): every `new <T>Options { … }` in `README.md` and `docs/*.md` must set
-real public properties of that type.
+document naming an option that does not exist — is caught by the snippet compile tests beside it
+(`DocsSnippetCompileTests.cs` for `docs/*.md`, `ReadmeSnippetCompileTests.cs` for the READMEs): every C#
+block is compiled against the current assemblies, so a `new <T>Options { … }` must set real public
+properties of that type.
 
 ---
 
@@ -323,25 +325,22 @@ public class InferenceException : LMSupplyException
 All long-running operations MUST support progress reporting:
 
 ```csharp
-// Shared in LMSupply.Core
+// Shared in LMSupply.Core; taken as IProgress<DownloadProgress>? progress
 public record DownloadProgress
 {
-    string FileName,
-    long BytesDownloaded,             // current file
-    long TotalBytes,                  // current file
-    double PercentComplete,           // per-file (0-100); 100 once Complete, 0 while IsIndeterminate
-    bool IsIndeterminate,             // the step counts nothing (Preparing, Loading, a download of unknown size)
-    int CurrentFileIndex,             // 1-based, 0 for single-file
-    int TotalFileCount,               // 0 for single-file
-    long? OverallBytesDownloaded,     // whole download, null when a file size is unknown
-    long? OverallTotalBytes,          // whole download, null when a file size is unknown
-    double OverallPercentComplete,    // overall (0-100): byte-weighted when sizes are known, else by file count
-    DownloadPhase Phase,              // Preparing, Downloading, Extracting, Verifying, Finalizing, Complete, Loading
-    DownloadKind Kind                 // Model, or Runtime (the native ONNX Runtime, llama-server) a first load provisions
+    public required string FileName { get; init; }
+    public long BytesDownloaded { get; init; }           // current file
+    public long TotalBytes { get; init; }                // current file
+    public double PercentComplete { get; }               // per-file (0-100); 100 once Complete, 0 while IsIndeterminate
+    public bool IsIndeterminate { get; }                 // the step counts nothing (Preparing, Loading, a download of unknown size)
+    public int CurrentFileIndex { get; init; }           // 1-based, 0 for single-file
+    public int TotalFileCount { get; init; }             // 0 for single-file
+    public long? OverallBytesDownloaded { get; init; }   // whole download, null when a file size is unknown
+    public long? OverallTotalBytes { get; init; }        // whole download, null when a file size is unknown
+    public double OverallPercentComplete { get; }        // overall (0-100): byte-weighted when sizes are known, else by file count
+    public DownloadPhase Phase { get; init; }            // Preparing, Downloading, Extracting, Verifying, Finalizing, Complete, Loading
+    public DownloadKind Kind { get; init; }              // Model, or Runtime (the native ONNX Runtime, llama-server) a first load provisions
 }
-
-// Usage
-IProgress<DownloadProgress>? progress
 ```
 
 ---
@@ -366,8 +365,9 @@ public interface I{Domain}Model : IAsyncDisposable
 await using var model = await LocalEmbedder.LoadAsync("default");
 var embedding = await model.EmbedAsync("Hello");
 
-// Also valid for sync cleanup
-using var model = await LocalEmbedder.LoadAsync("default");
+// Or dispose explicitly (the models are IAsyncDisposable only; there is no synchronous Dispose)
+var other = await LocalEmbedder.LoadAsync("default");
+await other.DisposeAsync();
 ```
 
 ---
@@ -465,12 +465,12 @@ All current packages are fully compliant with API design guidelines.
 ## Appendix B: Future Package Template
 
 ```csharp
-// LMSupply.Transcriber example
+// LMSupply.Transcriber, as shipped
 
 public static class LocalTranscriber
 {
     public static Task<ITranscriberModel> LoadAsync(
-        string modelIdOrPath = "default",
+        string modelIdOrPath,
         TranscriberOptions? options = null,
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default);
@@ -486,7 +486,7 @@ public interface ITranscriberModel : IAsyncDisposable
         CancellationToken cancellationToken = default);
 
     IAsyncEnumerable<TranscriptionSegment> TranscribeStreamingAsync(
-        Stream audioStream,
+        string audioPath,
         TranscribeOptions? options = null,
         CancellationToken cancellationToken = default);
 
@@ -498,9 +498,10 @@ public sealed class TranscriberOptions
 {
     public string? CacheDirectory { get; set; }
     public ExecutionProvider Provider { get; set; } = ExecutionProvider.Auto;
-    public string? Language { get; set; } // Domain-specific
-    public bool EnableTimestamps { get; set; } = true; // Domain-specific
+    public bool PreloadDiarization { get; set; } // Domain-specific
 }
+
+// Per-call settings (language, timestamps, diarization) are a second options type, TranscribeOptions
 ```
 
 ---

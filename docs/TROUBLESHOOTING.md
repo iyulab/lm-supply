@@ -227,27 +227,28 @@ InferenceException: Runtime inference error
 
 **Solutions:**
 ```csharp
-// 1. Validate input
-if (string.IsNullOrWhiteSpace(text))
-    throw new ArgumentException("Text cannot be empty");
-
-// 2. Check input length
-var info = model.GetModelInfo();
-if (text.Length > info.MaxSequenceLength * 4)  // Rough estimate
-    Console.WriteLine("Warning: Text may be truncated");
-
-// 3. Implement retry with backoff
-var retryCount = 0;
-while (retryCount < 3)
+async Task<float[]> EmbedWithRetryAsync(IEmbeddingModel model, string text)
 {
-    try
+    // 1. Validate input
+    if (string.IsNullOrWhiteSpace(text))
+        throw new ArgumentException("Text cannot be empty");
+
+    // 2. Check input length
+    var info = model.GetModelInfo();
+    if (info is not null && text.Length > info.MaxSequenceLength * 4)  // Rough estimate
+        Console.WriteLine("Warning: Text may be truncated");
+
+    // 3. Implement retry with backoff: two retries, then the exception propagates
+    for (var retryCount = 0; ; retryCount++)
     {
-        return await model.EmbedAsync(text);
-    }
-    catch (InferenceException) when (retryCount < 2)
-    {
-        retryCount++;
-        await Task.Delay(100 * retryCount);
+        try
+        {
+            return await model.EmbedAsync(text);
+        }
+        catch (InferenceException) when (retryCount < 2)
+        {
+            await Task.Delay(100 * (retryCount + 1));
+        }
     }
 }
 ```

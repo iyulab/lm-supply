@@ -5,8 +5,8 @@ using Xunit;
 namespace LMSupply.Integration.Tests;
 
 /// <summary>
-/// What the documentation tells a reader to install must be something to install. <see cref="DocsSnippetRosterTests"/>
-/// checks the C# blocks; an install line is shell, and it is the first thing a reader copies. Install lines for an
+/// What the documentation tells a reader to install must be something to install. <see cref="ReadmeSnippetCompileTests"/>
+/// and <see cref="DocsSnippetCompileTests"/> compile the C# blocks; an install line is shell, and it is the first thing a reader copies. Install lines for an
 /// execution provider that was removed, or for a package that never existed, stayed in the package READMEs shown on
 /// nuget.org long after the code had moved on.
 /// </summary>

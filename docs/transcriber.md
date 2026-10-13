@@ -59,11 +59,11 @@ var result = await transcriber.TranscribeAsync("audio.wav");
 
 // Transcribe from stream
 using var stream = File.OpenRead("audio.wav");
-var result = await transcriber.TranscribeAsync(stream);
+var fromStream = await transcriber.TranscribeAsync(stream);
 
 // Transcribe from byte array
 var audioData = await File.ReadAllBytesAsync("audio.wav");
-var result = await transcriber.TranscribeAsync(audioData);
+var fromBytes = await transcriber.TranscribeAsync(audioData);
 ```
 
 ### Streaming Transcription
@@ -344,9 +344,9 @@ You can use any Whisper ONNX model from HuggingFace by its full ID:
 
 ```csharp
 // Use any Whisper ONNX model from HuggingFace
-var transcriber = await LocalTranscriber.LoadAsync("onnx-community/whisper-small");
-var transcriber = await LocalTranscriber.LoadAsync("openai/whisper-base");
-var transcriber = await LocalTranscriber.LoadAsync("distil-whisper/distil-small.en");
+var whisperSmall = await LocalTranscriber.LoadAsync("onnx-community/whisper-small");
+var whisperBase = await LocalTranscriber.LoadAsync("openai/whisper-base");
+var distilSmall = await LocalTranscriber.LoadAsync("distil-whisper/distil-small.en");
 ```
 
 The model repository must contain ONNX files (`encoder.onnx`, `decoder.onnx`) in the `onnx/` subfolder.
@@ -371,35 +371,36 @@ Audio is automatically:
 
 ```csharp
 // For real-time applications (fast)
-var transcriber = await LocalTranscriber.LoadAsync("fast");
+var realTime = await LocalTranscriber.LoadAsync("fast");
 
 // For batch processing (quality)
-var transcriber = await LocalTranscriber.LoadAsync("quality");
+var batch = await LocalTranscriber.LoadAsync("quality");
 
 // For maximum accuracy (large)
-var transcriber = await LocalTranscriber.LoadAsync("large");
+var accurate = await LocalTranscriber.LoadAsync("large");
 ```
 
 ### GPU Acceleration
 
 ```csharp
 // Auto-detect best GPU
-var options = new TranscriberOptions { Provider = ExecutionProvider.Auto };
+var auto = new TranscriberOptions { Provider = ExecutionProvider.Auto };
 
 // Force specific GPU backend
-var options = new TranscriberOptions { Provider = ExecutionProvider.Cuda };     // NVIDIA
-var options = new TranscriberOptions { Provider = ExecutionProvider.CoreML };   // macOS
+var cuda = new TranscriberOptions { Provider = ExecutionProvider.Cuda };     // NVIDIA
+var coreMl = new TranscriberOptions { Provider = ExecutionProvider.CoreML };   // macOS
 ```
 
 ### Memory Management
 
 ```csharp
 // Dispose when done
-using var transcriber = await LocalTranscriber.LoadAsync("default");
+await using var transcriber = await LocalTranscriber.LoadAsync("default");
 var result = await transcriber.TranscribeAsync("audio.wav");
 
 // Or explicit disposal
-await transcriber.DisposeAsync();
+var other = await LocalTranscriber.LoadAsync("default");
+await other.DisposeAsync();
 ```
 
 ### Named Pool (multi-model management)
@@ -424,6 +425,8 @@ The pool uses LRU eviction and memory safety margins to stay within available GP
 When loading large models (e.g., `large` ~3GB) inside a `BackgroundService`, use the pool or load before `WebApplication.Run()` to avoid Kestrel heartbeat warnings. The library internally uses `TaskCreationOptions.LongRunning` to prevent thread pool starvation during model initialization.
 
 ```csharp
+using Microsoft.AspNetCore.Builder;
+
 // Recommended: load at startup before accepting requests
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
@@ -441,16 +444,21 @@ app.Run();
 ### ITranscriberModel
 
 ```csharp
-public interface ITranscriberModel : IDisposable, IAsyncDisposable
+public interface ITranscriberModel : IAsyncDisposable
 {
+    string ModelId { get; }
     string? Language { get; }
+    bool IsGpuActive { get; }
+    IReadOnlyList<string> ActiveProviders { get; }
+    ExecutionProvider RequestedProvider { get; }
+    long? EstimatedMemoryBytes { get; }
     Task WarmupAsync(CancellationToken cancellationToken = default);
     TranscriberModelInfo? GetModelInfo();
 
-    Task<TranscriptionResult> TranscribeAsync(string audioPath, ...);
-    Task<TranscriptionResult> TranscribeAsync(Stream audioStream, ...);
-    Task<TranscriptionResult> TranscribeAsync(byte[] audioData, ...);
-    IAsyncEnumerable<TranscriptionSegment> TranscribeStreamingAsync(string audioPath, ...);
+    Task<TranscriptionResult> TranscribeAsync(string audioPath, TranscribeOptions? options = null, CancellationToken cancellationToken = default);
+    Task<TranscriptionResult> TranscribeAsync(Stream audioStream, TranscribeOptions? options = null, CancellationToken cancellationToken = default);
+    Task<TranscriptionResult> TranscribeAsync(byte[] audioData, TranscribeOptions? options = null, CancellationToken cancellationToken = default);
+    IAsyncEnumerable<TranscriptionSegment> TranscribeStreamingAsync(string audioPath, TranscribeOptions? options = null, CancellationToken cancellationToken = default);
 }
 ```
 

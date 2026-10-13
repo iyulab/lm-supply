@@ -261,11 +261,11 @@ var reranker = await LocalReranker.LoadAsync("default");
 var generator = await LocalGenerator.LoadAsync("default"); // OOM risk!
 
 // ✅ Load on demand
-await using var embedder = await LocalEmbedder.LoadAsync("default");
-// ... use embedder, then automatically released
+await using var lazyEmbedder = await LocalEmbedder.LoadAsync("default");
+// ... use the embedder, then automatically released
 
-await using var reranker = await LocalReranker.LoadAsync("default");
-// ... use reranker, then automatically released
+await using var lazyReranker = await LocalReranker.LoadAsync("default");
+// ... use the reranker, then automatically released
 ```
 
 ### 3. Explicit Disposal
@@ -279,14 +279,14 @@ await using (var model = await LocalEmbedder.LoadAsync("large"))
 } // automatically released here
 
 // Or manual disposal
-var model = await LocalEmbedder.LoadAsync("large");
+var manual = await LocalEmbedder.LoadAsync("large");
 try
 {
     // use
 }
 finally
 {
-    await model.DisposeAsync();
+    await manual.DisposeAsync();
 }
 ```
 
@@ -313,10 +313,10 @@ Generator is memory-intensive:
 
 ```csharp
 // Use GGUF quantized model (auto-selects best fit for your hardware)
-var generator = await LocalGenerator.LoadAsync("model-q4_k_m.gguf");
+var gguf = await LocalGenerator.LoadAsync("model-q4_k_m.gguf");
 
 // Or use a small ONNX model
-var generator = await LocalGenerator.LoadAsync("microsoft/Phi-4-mini-instruct-onnx");
+var onnx = await LocalGenerator.LoadAsync("microsoft/Phi-4-mini-instruct-onnx");
 ```
 
 ### 6. Check Estimated Memory
@@ -345,8 +345,8 @@ LMSupply auto-selects models based on `HardwareProfile.Current.Tier`:
 ```csharp
 var profile = HardwareProfile.Current;
 Console.WriteLine($"Tier: {profile.Tier}");
-Console.WriteLine($"GPU: {profile.GpuInfo?.Name ?? "None"}");
-Console.WriteLine($"VRAM: {profile.GpuInfo?.VramBytes / (1024*1024*1024)}GB");
+Console.WriteLine($"GPU: {profile.GpuInfo.DeviceName ?? "None"}");
+Console.WriteLine($"VRAM: {profile.GpuMemoryGB:F1}GB");
 Console.WriteLine($"Recommended Provider: {profile.RecommendedProvider}");
 ```
 

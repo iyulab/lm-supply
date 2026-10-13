@@ -152,27 +152,27 @@ await using var def  = await LocalGenerator.LoadAsync("default"); // same as "au
 ### Preset Models
 
 ```csharp
-// Default: Phi-4 Mini (balanced, MIT license)
-.WithDefaultModel()
+// Default: the hardware-aware selection (see "Default and auto selection" above)
+var builder = TextGeneratorBuilder.Create().WithDefaultModel();
 
 // Or use presets
-.WithModel(GeneratorModelPreset.Default)   // Phi-4 Mini
-.WithModel(GeneratorModelPreset.Fast)      // Phi-4 Mini (smallest FC-capable)
-.WithModel(GeneratorModelPreset.Quality)   // Phi-4
+builder.WithModel(GeneratorModelPreset.Default);   // same as WithDefaultModel()
+builder.WithModel(GeneratorModelPreset.Fast);      // Phi-4 Mini (smallest FC-capable)
+builder.WithModel(GeneratorModelPreset.Quality);   // Phi-4
 ```
 
 ### HuggingFace Models
 
 ```csharp
 // Use any ONNX model from HuggingFace
-.WithHuggingFaceModel("microsoft/Phi-4-mini-instruct-onnx")
+var builder = TextGeneratorBuilder.Create().WithHuggingFaceModel("microsoft/Phi-4-mini-instruct-onnx");
 ```
 
 ### Local Models
 
 ```csharp
 // Use a local model directory
-.WithModelPath("C:/models/my-model-onnx")
+var builder = TextGeneratorBuilder.Create().WithModelPath("/models/my-model-onnx");
 ```
 
 ### Downloading ahead of time
@@ -274,7 +274,7 @@ var memoryOptions = new MemoryAwareOptions
     AutoGcOnWarning = true
 };
 
-var generator = await TextGeneratorBuilder.Create()
+var managed = await TextGeneratorBuilder.Create()
     .WithDefaultModel()
     .WithMemoryManagement(memoryOptions)
     .BuildAsync();
@@ -289,6 +289,8 @@ GPU (for a generator, an embedder or a reranker) stops the idle servers of *othe
 dispose the old model before loading the new one. A host that switches models (or wants the memory back now) can also stop every idle server:
 
 ```csharp
+using LMSupply.Llama.Server;   // LlamaServerPool
+
 await oldModel.DisposeAsync();
 await LlamaServerPool.Instance.ReleaseIdleAsync();   // returns how many servers were stopped
 await using var newModel = await LocalGenerator.LoadAsync("gguf:qwen3-default");
@@ -370,12 +372,12 @@ if (!factory.IsModelAvailable("microsoft/Phi-4-mini-instruct-onnx"))
     // Download model
     await factory.DownloadModelAsync(
         "microsoft/Phi-4-mini-instruct-onnx",
-        progress: new Progress<double>(p => Console.WriteLine($"Downloading: {p:P0}"))
+        progress: new Progress<DownloadProgress>(p => Console.WriteLine($"Downloading {p.FileName}: {p.PercentComplete:F0}%"))
     );
 }
 
-// Create model instance
-var model = await factory.CreateAsync("microsoft/Phi-4-mini-instruct-onnx");
+// Load a model instance
+await using var model = await factory.LoadAsync("microsoft/Phi-4-mini-instruct-onnx");
 
 // List available models
 foreach (var modelId in factory.GetAvailableModels())
@@ -388,7 +390,7 @@ foreach (var modelId in factory.GetAvailableModels())
 
 | Alias | Model | Parameters | License |
 |-------|-------|------------|---------|
-| Default | Phi-4-mini-instruct | 3.8B | MIT |
+| Default | the hardware-aware selection (`"default"`, see above) | — | — |
 | Fast | Phi-4-mini-instruct | 3.8B | MIT |
 | Quality | phi-4 | 14B | MIT |
 
@@ -521,9 +523,9 @@ await using var model = await LocalGenerator.LoadAsync(
     "NousResearch/Hermes-3-Llama-3.1-8B-GGUF");
 
 // Other popular repositories
-await using var model = await LocalGenerator.LoadAsync("bartowski/Mistral-Nemo-Instruct-2407-GGUF");
-await using var model = await LocalGenerator.LoadAsync("unsloth/Qwen3-32B-GGUF");
-await using var model = await LocalGenerator.LoadAsync("mistralai/Ministral-3-3B-Instruct-2512-GGUF");
+await using var mistralNemo = await LocalGenerator.LoadAsync("bartowski/Mistral-Nemo-Instruct-2407-GGUF");
+await using var qwen3 = await LocalGenerator.LoadAsync("unsloth/Qwen3-32B-GGUF");
+await using var ministral = await LocalGenerator.LoadAsync("mistralai/Ministral-3-3B-Instruct-2512-GGUF");
 
 // Specify a particular quantization file
 // One specific file: download it by name, then load the path (GgufModelDownloader is in LMSupply.Generator.Gguf).

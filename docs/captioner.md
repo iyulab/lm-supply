@@ -30,7 +30,7 @@ Console.WriteLine(result.Caption);
 
 // Generate a caption from stream
 using var stream = File.OpenRead("image.png");
-var result = await captioner.CaptionAsync(stream);
+var fromStream = await captioner.CaptionAsync(stream);
 ```
 
 ## Available Models
@@ -100,7 +100,7 @@ Console.WriteLine($"Confidence: {result.Confidence:P1}");
 ```csharp
 await using var captioner = await LocalCaptioner.LoadAsync("default", new CaptionerOptions { Prompt = "a painting of" });
 var result = await captioner.CaptionAsync("image.jpg");   // "a painting of a colorful wall with ..."
-Console.WriteLine($"Processing time: {result.ProcessingTimeMs}ms");
+Console.WriteLine(result.Caption);
 ```
 
 ### Batch Processing

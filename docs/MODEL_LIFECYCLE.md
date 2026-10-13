@@ -23,10 +23,10 @@ All model interfaces implement `IAsyncDisposable`, enabling the `await using` pa
 await using var model = await LocalEmbedder.LoadAsync("default");
 
 // Load with "auto" for hardware-optimized model selection
-await using var model = await LocalEmbedder.LoadAsync("auto");
+await using var auto = await LocalEmbedder.LoadAsync("auto");
 
-// Load from local path
-await using var model = await LocalEmbedder.LoadFromPathAsync("/path/to/model");
+// Load from a local path: the same call, given the model file
+await using var local = await LocalEmbedder.LoadAsync("/path/to/model.onnx");
 ```
 
 ### 1.2 What Happens During Load
@@ -140,7 +140,7 @@ All LMSupply models are **thread-safe** for inference:
 await using var model = await LocalEmbedder.LoadAsync("default");
 
 // Safe to call from multiple threads
-var tasks = texts.Select(text => model.EmbedAsync(text));
+var tasks = texts.Select(text => model.EmbedAsync(text).AsTask());
 var embeddings = await Task.WhenAll(tasks);
 ```
 
@@ -201,6 +201,9 @@ var ranked = await reranker.RerankAsync(query, documents);
 
 ```csharp
 // Sequential approach for limited VRAM
+float[][] embeddings;
+IReadOnlyList<RankedResult> ranked;
+
 await using (var embedder = await LocalEmbedder.LoadAsync("default"))
 {
     embeddings = await embedder.EmbedAsync(texts);
@@ -222,10 +225,10 @@ await using (var reranker = await LocalReranker.LoadAsync("quality"))
 ```csharp
 await using var model = await LocalEmbedder.LoadAsync("default");
 
-var info = model.GetModelInfo();
-Console.WriteLine($"Model: {info.ModelId}");
-Console.WriteLine($"Path: {info.ModelPath}");
-Console.WriteLine($"Dimensions: {info.Dimensions}");
+var info = model.GetModelInfo();   // null for a model the catalog does not describe
+Console.WriteLine($"Model: {model.ModelId}");
+Console.WriteLine($"Repository: {info?.RepoId}");
+Console.WriteLine($"Dimensions: {model.Dimensions}");
 ```
 
 ### 5.2 Runtime Diagnostics
@@ -233,7 +236,7 @@ Console.WriteLine($"Dimensions: {info.Dimensions}");
 Check GPU activation status:
 
 ```csharp
-// For Transcriber (currently)
+// Every model reports the execution providers its session uses
 Console.WriteLine($"GPU Active: {model.IsGpuActive}");
 Console.WriteLine($"Providers: {string.Join(", ", model.ActiveProviders)}");
 ```
@@ -260,7 +263,8 @@ public class EmbeddingService : IAsyncDisposable
 
     private EmbeddingService(IEmbeddingModel model) => _model = model;
 
-    public Task<float[]> EmbedAsync(string text) => _model.EmbedAsync(text);
+    public ValueTask<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default) =>
+        _model.EmbedAsync(text, cancellationToken);
 
     public ValueTask DisposeAsync() => _model.DisposeAsync();
 }

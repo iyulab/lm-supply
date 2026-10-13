@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Documentation
+- **The guides under `docs/` now compile against the current API, and are checked on every build.** They showed calls
+  that do not exist: `LocalEmbedder.LoadFromPathAsync` (a path goes to `LocalEmbedder.LoadAsync`), `IReranker` and
+  `embedder.CosineSimilarity` (`IRerankerModel`, `LocalEmbedder.CosineSimilarity`), `OnnxGeneratorModelFactory.CreateAsync`
+  with a `Progress<double>` (`LoadAsync` with an `IProgress<DownloadProgress>`), `ModelInfo.ModelId` / `ModelPath` /
+  `ActiveProviders` (the model's own `ModelId`, `ActiveProviders`, `RequestedProvider`), `GpuInfo.Name` / `VramBytes`
+  (`DeviceName`, `HardwareProfile.GpuMemoryGB`) and `CaptionResult.ProcessingTimeMs`; and `using var` on a model, which is
+  `IAsyncDisposable` only (`await using`). The transcriber and synthesizer interface listings show the real signatures.
+
 ## [0.120.0] - 2026-10-13
 
 ### Added

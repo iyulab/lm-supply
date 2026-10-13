@@ -6,9 +6,9 @@ using Xunit;
 namespace LMSupply.Integration.Tests;
 
 /// <summary>
-/// Compiles every C# block in the README(s) against the current assemblies. <see cref="DocsSnippetRosterTests"/>
-/// checks that a documented method name exists on some type and that an initializer's properties exist; a compiler also
-/// checks the receiver, the arguments, the return types a block goes on to use, and the namespaces it needs.
+/// Compiles every C# block in the README(s) against the current assemblies: the receiver of each call, the arguments,
+/// the return types a block goes on to use, and the namespaces it needs. The guides under <c>docs/</c> are compiled by
+/// <see cref="DocsSnippetCompileTests"/>.
 /// </summary>
 /// <remarks>
 /// Each block is compiled as a top-level program by <see cref="SnippetCompiler"/>: its own usings, the document's usings

@@ -258,11 +258,10 @@ Console.WriteLine($"Providers: {string.Join(", ", model.ActiveProviders)}");
 
 ```csharp
 await using var model = await LocalEmbedder.LoadAsync("default");
-var info = model.GetModelInfo();
 
-if (info.RequestedProvider != ExecutionProvider.Cpu &&
-    !info.ActiveProviders.Contains("CUDAExecutionProvider") &&
-    !info.ActiveProviders.Contains("CoreMLExecutionProvider"))
+if (model.RequestedProvider != ExecutionProvider.Cpu &&
+    !model.ActiveProviders.Contains("CUDAExecutionProvider") &&
+    !model.ActiveProviders.Contains("CoreMLExecutionProvider"))
 {
     Console.WriteLine("Warning: Running on CPU fallback");
 }

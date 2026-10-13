@@ -428,7 +428,7 @@ The error message above is only reached if the auto-upgrade path also fails. Val
 
 #### Public API
 
-`LlamaServerVersionRequirements` exposes three public members:
+`LlamaServerVersionRequirements` exposes four public members:
 
 | Member | Description |
 |--------|-------------|

@@ -56,13 +56,13 @@ Console.WriteLine(result.FullText);
 
 ```csharp
 // Japanese (read by the Chinese/Japanese recognizer)
-await using var ocr = await LocalOcr.LoadForLanguageAsync("ja");
+await using var japanese = await LocalOcr.LoadForLanguageAsync("ja");
 
 // Chinese
-await using var ocr = await LocalOcr.LoadForLanguageAsync("zh");
+await using var chinese = await LocalOcr.LoadForLanguageAsync("zh");
 
 // Or specify the recognition model explicitly
-await using var ocr = await LocalOcr.LoadAsync(
+await using var explicitModel = await LocalOcr.LoadAsync(
     detectionModel: "default",
     recognitionModel: "crnn-chinese-v3");
 ```
@@ -192,11 +192,11 @@ var layoutText = result.GetTextWithLayout(lineTolerancePixels: 10);
 ```csharp
 // From stream
 using var stream = File.OpenRead("document.png");
-var result = await ocr.RecognizeAsync(stream);
+var fromStream = await ocr.RecognizeAsync(stream);
 
 // From byte array
 byte[] imageData = await httpClient.GetByteArrayAsync(imageUrl);
-var result = await ocr.RecognizeAsync(imageData);
+var fromBytes = await ocr.RecognizeAsync(imageData);
 ```
 
 ### Polygon Coordinates

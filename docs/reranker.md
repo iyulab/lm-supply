@@ -85,8 +85,8 @@ You can also use any HuggingFace cross-encoder model by its full ID:
 
 ```csharp
 // Use any cross-encoder from HuggingFace
-var reranker = await LocalReranker.LoadAsync("cross-encoder/ms-marco-MiniLM-L-12-v2");
-var reranker = await LocalReranker.LoadAsync("BAAI/bge-reranker-large");
+var miniLm = await LocalReranker.LoadAsync("cross-encoder/ms-marco-MiniLM-L-12-v2");
+var bgeLarge = await LocalReranker.LoadAsync("BAAI/bge-reranker-large");
 ```
 
 ### Download size before a load
@@ -247,7 +247,7 @@ using LMSupply.Reranker;
 public class RagPipeline
 {
     private readonly IEmbeddingModel _embedder;
-    private readonly IReranker _reranker;
+    private readonly IRerankerModel _reranker;
     private readonly float[][] _documentEmbeddings;
     private readonly string[] _documents;
 
@@ -261,7 +261,7 @@ public class RagPipeline
             {
                 Document = doc,
                 Index = i,
-                Score = _embedder.CosineSimilarity(queryEmbedding, _documentEmbeddings[i])
+                Score = LocalEmbedder.CosineSimilarity(queryEmbedding, _documentEmbeddings[i])
             })
             .OrderByDescending(x => x.Score)
             .Take(20)  // Get top 20 candidates
@@ -293,7 +293,7 @@ Scores are normalized between 0.0 and 1.0:
 
 ## Thread Safety
 
-The `IReranker` instance is thread-safe:
+The `IRerankerModel` instance is thread-safe:
 
 ```csharp
 await using var reranker = await LocalReranker.LoadAsync("default");

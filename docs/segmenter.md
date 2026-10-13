@@ -111,11 +111,11 @@ for (int i = 0; i < images.Length; i++)
 ```csharp
 // From stream
 using var stream = File.OpenRead("image.png");
-var result = await segmenter.SegmentAsync(stream);
+var fromStream = await segmenter.SegmentAsync(stream);
 
 // From byte array (useful for API scenarios)
 byte[] imageBytes = await httpClient.GetByteArrayAsync(imageUrl);
-var result = await segmenter.SegmentAsync(imageBytes);
+var fromBytes = await segmenter.SegmentAsync(imageBytes);
 ```
 
 ### Interactive Segmentation with MobileSAM

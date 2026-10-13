@@ -21,10 +21,10 @@ using LMSupply.Embedder;
 await using var model = await LocalEmbedder.LoadAsync("default");
 
 // Or use "auto" for hardware-optimized model selection
-await using var model = await LocalEmbedder.LoadAsync("auto");
+await using var auto = await LocalEmbedder.LoadAsync("auto");
 
 // Or load directly from HuggingFace with owner/repo-name format
-await using var model = await LocalEmbedder.LoadAsync("BAAI/bge-large-en-v1.5");
+await using var bgeLarge = await LocalEmbedder.LoadAsync("BAAI/bge-large-en-v1.5");
 
 // Generate a single embedding
 float[] embedding = await model.EmbedAsync("Hello, world!");
@@ -57,9 +57,9 @@ You can load any HuggingFace ONNX embedding model directly with `owner/repo-name
 
 ```csharp
 // Load by HuggingFace repository ID
-await using var model = await LocalEmbedder.LoadAsync("BAAI/bge-large-en-v1.5");
-await using var model = await LocalEmbedder.LoadAsync("sentence-transformers/all-MiniLM-L12-v2");
-await using var model = await LocalEmbedder.LoadAsync("intfloat/multilingual-e5-large");
+await using var bgeLarge = await LocalEmbedder.LoadAsync("BAAI/bge-large-en-v1.5");
+await using var miniLm = await LocalEmbedder.LoadAsync("sentence-transformers/all-MiniLM-L12-v2");
+await using var e5Large = await LocalEmbedder.LoadAsync("intfloat/multilingual-e5-large");
 ```
 
 The system automatically discovers the ONNX files in the repository.

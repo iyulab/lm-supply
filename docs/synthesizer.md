@@ -9,6 +9,8 @@ Text-to-speech synthesis using VITS/Piper models with ONNX Runtime.
 ```csharp
 using LMSupply.Synthesizer;
 
+#pragma warning disable LMSUPPLY001 // the known issue above — opt in knowingly
+
 // Load the default model (English US LJSpeech, public domain)
 var synthesizer = await LocalSynthesizer.LoadAsync("default");
 
@@ -92,6 +94,7 @@ if (result.UnknownPhonemes.Length > 0)
 phonemes in the same form `SynthesizePhonemesAsync` takes. Set it when loading the model:
 
 ```csharp
+#pragma warning disable LMSUPPLY001
 var options = new SynthesizerOptions { Phonemizer = new LexiconPhonemizer() };
 var synthesizer = await LocalSynthesizer.LoadAsync("default", options);
 
@@ -216,6 +219,7 @@ var options = new SynthesizerOptions
     Phonemizer = null                   // the text-to-phoneme step, for voices that need one
 };
 
+#pragma warning disable LMSUPPLY001
 var synthesizer = await LocalSynthesizer.LoadAsync("quality", options);
 ```
 
@@ -276,6 +280,7 @@ await foreach (var chunk in synthesizer.SynthesizePhonemesStreamingAsync(sentenc
 ### Query Available Models
 
 ```csharp
+#pragma warning disable LMSUPPLY001
 // List available aliases
 foreach (var alias in LocalSynthesizer.GetAvailableModels())
 {
@@ -303,6 +308,7 @@ The catalog's voices all live in one HuggingFace repository, `rhasspy/piper-voic
 (`VoiceName`).
 
 ```csharp
+#pragma warning disable LMSUPPLY001
 // The Lessac voice by its key, which is what the alias "lessac" resolves to
 var synthesizer = await LocalSynthesizer.LoadAsync("rhasspy/piper-voices:en/en_US/lessac/medium");
 
@@ -340,33 +346,36 @@ the config is used and `GetModelInfo()` returns the config's values.
 ### Model Selection
 
 ```csharp
+#pragma warning disable LMSUPPLY001
 // For real-time applications (fastest)
-var synthesizer = await LocalSynthesizer.LoadAsync("fast");
+var realTime = await LocalSynthesizer.LoadAsync("fast");
 
 // For highest quality
-var synthesizer = await LocalSynthesizer.LoadAsync("quality");
+var highQuality = await LocalSynthesizer.LoadAsync("quality");
 ```
 
 ### GPU Acceleration
 
 ```csharp
 // Auto-detect best GPU
-var options = new SynthesizerOptions { Provider = ExecutionProvider.Auto };
+var auto = new SynthesizerOptions { Provider = ExecutionProvider.Auto };
 
 // Force specific GPU backend
-var options = new SynthesizerOptions { Provider = ExecutionProvider.Cuda };     // NVIDIA
-var options = new SynthesizerOptions { Provider = ExecutionProvider.CoreML };   // macOS
+var cuda = new SynthesizerOptions { Provider = ExecutionProvider.Cuda };     // NVIDIA
+var coreMl = new SynthesizerOptions { Provider = ExecutionProvider.CoreML };   // macOS
 ```
 
 ### Memory Management
 
 ```csharp
+#pragma warning disable LMSUPPLY001
 // Dispose when done
 await using var synthesizer = await LocalSynthesizer.LoadAsync("default");
 var result = await synthesizer.SynthesizePhonemesAsync(["həlˈəʊ!"]);
 
 // Or explicit disposal
-await synthesizer.DisposeAsync();
+var other = await LocalSynthesizer.LoadAsync("default");
+await other.DisposeAsync();
 ```
 
 ## Interface Reference
@@ -376,6 +385,11 @@ await synthesizer.DisposeAsync();
 ```csharp
 public interface ISynthesizerModel : IAsyncDisposable
 {
+    string ModelId { get; }
+    bool IsGpuActive { get; }
+    IReadOnlyList<string> ActiveProviders { get; }
+    ExecutionProvider RequestedProvider { get; }
+    long? EstimatedMemoryBytes { get; }
     string? Voice { get; }
     int SampleRate { get; }
     PhonemeScheme PhonemeScheme { get; }
@@ -384,14 +398,14 @@ public interface ISynthesizerModel : IAsyncDisposable
     SynthesizerModelInfo? GetModelInfo();
 
     // Text: through SynthesizerOptions.Phonemizer, or built in for a voice of the "text" type
-    Task<SynthesisResult> SynthesizeAsync(string text, ...);
-    Task SynthesizeToStreamAsync(string text, Stream outputStream, ...);
-    Task SynthesizeToFileAsync(string text, string outputPath, ...);
-    IAsyncEnumerable<AudioChunk> SynthesizeStreamingAsync(string text, ...);
+    Task<SynthesisResult> SynthesizeAsync(string text, SynthesizeOptions? options = null, CancellationToken cancellationToken = default);
+    Task SynthesizeToStreamAsync(string text, Stream outputStream, SynthesizeOptions? options = null, CancellationToken cancellationToken = default);
+    Task SynthesizeToFileAsync(string text, string outputPath, SynthesizeOptions? options = null, CancellationToken cancellationToken = default);
+    IAsyncEnumerable<AudioChunk> SynthesizeStreamingAsync(string text, SynthesizeOptions? options = null, CancellationToken cancellationToken = default);
 
     // Phonemes of the voice's scheme, one string per sentence
-    Task<SynthesisResult> SynthesizePhonemesAsync(IReadOnlyList<string> sentences, ...);
-    IAsyncEnumerable<AudioChunk> SynthesizePhonemesStreamingAsync(IReadOnlyList<string> sentences, ...);
+    Task<SynthesisResult> SynthesizePhonemesAsync(IReadOnlyList<string> sentences, SynthesizeOptions? options = null, CancellationToken cancellationToken = default);
+    IAsyncEnumerable<AudioChunk> SynthesizePhonemesStreamingAsync(IReadOnlyList<string> sentences, SynthesizeOptions? options = null, CancellationToken cancellationToken = default);
 }
 ```
 
