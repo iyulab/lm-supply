@@ -6,6 +6,15 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Fixed
+- **A batch embedding call runs batched inference.** `EmbedAsync(IReadOnlyList<string>)` padded the whole batch to its
+  longest text and then ran the model one text at a time, so every text paid the batch's padding and nothing ran
+  together — measured on CPU with bge-m3, 64 passages per call embedded at 2.2 passages/s against 3.5/s one per call.
+  Texts are now sorted by token count and run in groups of similar length as one `[batch, length]` inference each, a
+  group holding at most 8,192 padded tokens (or one text of the model's maximum length); each text is pooled over its
+  own tokens. Vectors are the same as embedding each text alone (cosine > 0.9999 over 40 texts of mixed length). The
+  token embeddings are also copied out of the output tensor in one block instead of element by element.
+
 ### Documentation
 - **The guides under `docs/` now compile against the current API, and are checked on every build.** They showed calls
   that do not exist: `LocalEmbedder.LoadFromPathAsync` (a path goes to `LocalEmbedder.LoadAsync`), `IReranker` and

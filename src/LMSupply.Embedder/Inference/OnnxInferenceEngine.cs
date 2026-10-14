@@ -201,21 +201,57 @@ internal sealed class OnnxInferenceEngine : IDisposable
         return _session.Run((session, runOptions) =>
         {
             using var results = session.Run(inputs, [_outputName], runOptions);
-            var output = results[0].AsTensor<float>();
-
-            // Output shape: [1, seqLength, hiddenSize] — copy to a flat array
-            var outputArray = new float[seqLength * HiddenSize];
-            int idx = 0;
-            for (int seq = 0; seq < seqLength; seq++)
-            {
-                for (int dim = 0; dim < HiddenSize; dim++)
-                {
-                    outputArray[idx++] = output[0, seq, dim];
-                }
-            }
-
-            return outputArray;
+            // Output shape: [1, seqLength, hiddenSize], row-major.
+            return Flatten(results[0].AsTensor<float>(), seqLength * HiddenSize);
         }, cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs inference for a batch of sequences in one call: <paramref name="inputIds"/> and
+    /// <paramref name="attentionMask"/> are <c>[batch, sequenceLength]</c>, padded to a common length (masked
+    /// positions are 0 in the mask). Returns the token embeddings as one row-major
+    /// <c>[batch, sequenceLength, hiddenSize]</c> array.
+    /// </summary>
+    public float[] RunBatchInference(long[,] inputIds, long[,] attentionMask, CancellationToken cancellationToken = default)
+    {
+        int batch = inputIds.GetLength(0);
+        int seqLength = inputIds.GetLength(1);
+        int[] shape = [batch, seqLength];
+
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("input_ids", new DenseTensor<long>(Copy(inputIds), shape)),
+            NamedOnnxValue.CreateFromTensor("attention_mask", new DenseTensor<long>(Copy(attentionMask), shape))
+        };
+
+        if (_hasTokenTypeIds)
+            inputs.Add(NamedOnnxValue.CreateFromTensor("token_type_ids", new DenseTensor<long>(new long[batch * seqLength], shape)));
+
+        return _session.Run((session, runOptions) =>
+        {
+            using var results = session.Run(inputs, [_outputName], runOptions);
+            return Flatten(results[0].AsTensor<float>(), batch * seqLength * HiddenSize);
+        }, cancellationToken);
+    }
+
+    private static long[] Copy(long[,] values)
+    {
+        var flat = new long[values.Length];
+        Buffer.BlockCopy(values, 0, flat, 0, values.Length * sizeof(long));
+        return flat;
+    }
+
+    /// <summary>
+    /// The tensor's values in row-major order. A dense tensor is copied as one block; the per-element indexer
+    /// (the previous copy) costs a multi-dimensional index computation for each of millions of values.
+    /// </summary>
+    private static float[] Flatten(Tensor<float> output, int expectedLength)
+    {
+        var values = output is DenseTensor<float> dense ? dense.Buffer.ToArray() : output.ToArray();
+        if (values.Length != expectedLength)
+            throw new InvalidOperationException(
+                $"Embedding model output has {values.Length} values; expected {expectedLength} (batch x sequence x hidden size).");
+        return values;
     }
 
     /// <summary>

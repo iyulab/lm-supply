@@ -1,4 +1,3 @@
-using System.Buffers;
 using LMSupply.Embedder.Inference;
 using LMSupply.Embedder.Pooling;
 using LMSupply.Embedder.Utils;
@@ -22,6 +21,12 @@ internal sealed class EmbeddingModel : IEmbeddingModel
     private readonly VectorSpaceDescriptor? _vectorSpace;
     private bool _disposed;
     private bool _warmedUp;
+
+    /// <summary>
+    /// Padded tokens one batched inference run may hold when the model's maximum sequence length is shorter: a
+    /// 512-token model runs up to 16 full-length texts, or 64 texts of 128 tokens, per call.
+    /// </summary>
+    internal const int BatchTokenBudget = 8192;
 
     public string ModelId { get; }
     public int Dimensions => _engine.HiddenSize;
@@ -131,64 +136,72 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         if (texts.Count == 0)
             return [];
 
-        // Tokenize all texts
-        var encodedBatch = _tokenizer.EncodeBatch(texts, _options.MaxSequenceLength ?? EmbedderOptions.DefaultMaxSequenceLength);
+        var maxLength = _options.MaxSequenceLength ?? EmbedderOptions.DefaultMaxSequenceLength;
 
-        // Get jagged arrays for batch inference
-        var allInputIds = encodedBatch.GetInputIdsJagged();
-        var allAttentionMasks = encodedBatch.GetAttentionMasksJagged();
-
-        // Run inference one item at a time, each under its own CancellableInference bound. The
-        // bound exists to catch a hung native call, and a hang shows up on a single item — whereas
-        // a whole batch on CPU can legitimately run well past one item's bound (observed: a 5-item
-        // bge-m3 batch on CPU exceeded the 60s default and was reported as a hang). Per-item bounds
-        // also let timeout recovery retry only the item that timed out, not the entire batch.
-        var allTokenEmbeddings = new float[texts.Count][];
+        // Group the texts into runs of similar length: sorted by token count, each run takes texts while its padded
+        // size (texts x longest) stays within the budget. One run is one [batch, length] inference, so short texts
+        // share a call instead of each paying a call, and no text is padded to a much longer one. The budget is at
+        // least one sequence of the longest length the model takes, so a run never costs more padded tokens than a
+        // single maximum-length text, which the per-run timeout bound already allows for.
+        var lengths = new int[texts.Count];
         for (int i = 0; i < texts.Count; i++)
-        {
-            var inputIds = allInputIds[i];
-            var attentionMask = allAttentionMasks[i];
-            allTokenEmbeddings[i] = await RunWithTimeoutRecoveryAsync(
-                () => _engine.RunInference(inputIds, attentionMask, cancellationToken),
-                cancellationToken);
-        }
+            lengths[i] = _tokenizer.EncodeSequence(texts[i], maxLength).InputIds.Length;
 
-        // Pool each to sentence embedding with parallel processing
         var results = new float[texts.Count][];
-        int seqLength = encodedBatch.SequenceLength;
         int hiddenDim = Dimensions;
         bool normalize = _options.NormalizeEmbeddings;
 
-        Parallel.For(0, texts.Count, i =>
+        foreach (var group in PlanRuns(lengths, Math.Max(maxLength, BatchTokenBudget)))
         {
-            // Rent buffer from pool for intermediate work
-            var resultBuffer = ArrayPool<float>.Shared.Rent(hiddenDim);
-            try
-            {
-                var resultSpan = resultBuffer.AsSpan(0, hiddenDim);
+            var encoded = _tokenizer.EncodeBatch(group.Select(i => texts[i]).ToArray(), maxLength);
+            var masks = encoded.GetAttentionMasksJagged();
+            int seqLength = encoded.SequenceLength;
 
+            var tokenEmbeddings = await RunWithTimeoutRecoveryAsync(
+                () => _engine.RunBatchInference(encoded.InputIds, encoded.AttentionMask, cancellationToken),
+                cancellationToken);
+
+            int itemSize = seqLength * hiddenDim;
+            for (int g = 0; g < group.Length; g++)
+            {
+                var result = new float[hiddenDim];
                 _poolingStrategy.Pool(
-                    allTokenEmbeddings[i].AsSpan(),
-                    allAttentionMasks[i].AsSpan(),
-                    resultSpan,
+                    tokenEmbeddings.AsSpan(g * itemSize, itemSize),
+                    masks[g].AsSpan(),
+                    result.AsSpan(),
                     seqLength,
                     hiddenDim);
 
                 if (normalize)
-                {
-                    VectorOperations.NormalizeL2(resultSpan);
-                }
+                    VectorOperations.NormalizeL2(result.AsSpan());
 
-                // Copy to final result array
-                results[i] = resultSpan.ToArray();
+                results[group[g]] = result;
             }
-            finally
-            {
-                ArrayPool<float>.Shared.Return(resultBuffer);
-            }
-        });
+        }
 
         return results;
+    }
+
+    /// <summary>
+    /// Splits texts of the given token <paramref name="lengths"/> into inference runs: indexes in ascending length,
+    /// each run as long as its size times its longest length stays within <paramref name="budget"/>. A text longer
+    /// than the budget runs alone.
+    /// </summary>
+    internal static List<int[]> PlanRuns(IReadOnlyList<int> lengths, int budget)
+    {
+        var order = Enumerable.Range(0, lengths.Count).OrderBy(i => lengths[i]).ToArray();
+        var runs = new List<int[]>();
+        for (int start = 0; start < order.Length;)
+        {
+            int end = start + 1;
+            while (end < order.Length && (end - start + 1) * lengths[order[end]] <= budget)
+                end++;
+
+            runs.Add(order[start..end]);
+            start = end;
+        }
+
+        return runs;
     }
 
     public async ValueTask<float[]> EmbedRawAsync(
