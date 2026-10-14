@@ -10,6 +10,7 @@ internal static class PoolingFactory
         PoolingMode.Mean => new MeanPoolingStrategy(),
         PoolingMode.Cls => new ClsPoolingStrategy(),
         PoolingMode.Max => new MaxPoolingStrategy(),
+        PoolingMode.Last => new LastTokenPoolingStrategy(),
         _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown pooling mode")
     };
 }

@@ -136,16 +136,18 @@ var options = new EmbedderOptions
     Provider = ExecutionProvider.Auto,  // Auto, Cpu, Cuda, CoreML
 
     // Maximum sequence length (tokens). Left null (the default), the model decides: its
-    // sentence_bert_config.json max_seq_length first, then the catalog, then 512. A value is used
-    // as given. After loading, this property holds the length in effect.
+    // sentence_bert_config.json max_seq_length first, then the catalog, then 512 (a GGUF model: its
+    // trained context_length, up to 8,192). A value is used as given. After loading, this property
+    // holds the length in effect.
     MaxSequenceLength = null,
 
     // Normalize embeddings to unit length
     NormalizeEmbeddings = true,
 
-    // Pooling strategy (ONNX models only). Left null (the default), the model decides: its
-    // 1_Pooling/config.json first, then the catalog, then Mean. A value is used as given.
-    PoolingMode = null,  // Mean, Cls, Max
+    // Pooling strategy. Left null (the default), the model decides: its 1_Pooling/config.json
+    // (a GGUF model: its pooling_type) first, then the catalog, then Mean. A value is used as given;
+    // GGUF models (llama-server) take Mean, Cls or Last, not Max.
+    PoolingMode = null,  // Mean, Cls, Max, Last
 
     // Lowercase input text (for uncased models)
     DoLowerCase = true,
@@ -260,12 +262,14 @@ for (int i = 0; i < texts.Length; i++)
 |----------|-------------|----------|
 | `Mean` | Average of all token embeddings | General purpose (default) |
 | `Cls` | Use [CLS] token embedding | Classification tasks |
-| `Max` | Max pooling across tokens | Capturing key features |
+| `Max` | Max pooling across tokens | Capturing key features (ONNX only) |
+| `Last` | Embedding of the last token | Decoder-based embedders (Qwen3-Embedding) |
 
 ```csharp
 var meanOptions = new EmbedderOptions { PoolingMode = PoolingMode.Mean };
 var clsOptions = new EmbedderOptions { PoolingMode = PoolingMode.Cls };
 var maxOptions = new EmbedderOptions { PoolingMode = PoolingMode.Max };
+var lastOptions = new EmbedderOptions { PoolingMode = PoolingMode.Last };
 ```
 
 ## Thread Safety

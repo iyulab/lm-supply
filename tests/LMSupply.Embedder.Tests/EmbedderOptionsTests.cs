@@ -52,8 +52,12 @@ public class EmbedderOptionsTests
     [Fact]
     public void PoolingMode_HasExpectedValues()
     {
-        Enum.GetValues<PoolingMode>().Should().HaveCount(3);
-        Enum.GetNames<PoolingMode>().Should().Contain(["Mean", "Cls", "Max"]);
+        Enum.GetValues<PoolingMode>().Should().HaveCount(4);
+        // Ordinals are pinned: a configuration bound by number keeps its meaning (Last was appended in 0.121.0).
+        ((int)PoolingMode.Mean).Should().Be(0);
+        ((int)PoolingMode.Cls).Should().Be(1);
+        ((int)PoolingMode.Max).Should().Be(2);
+        ((int)PoolingMode.Last).Should().Be(3);
     }
 
     [Fact]

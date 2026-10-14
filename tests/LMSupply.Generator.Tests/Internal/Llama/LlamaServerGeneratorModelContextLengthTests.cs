@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using LMSupply.Generator.Gguf;
+using LMSupply.Llama.Gguf;
 using LMSupply.Generator.Internal.Llama;
 
 namespace LMSupply.Generator.Tests.Internal.Llama;

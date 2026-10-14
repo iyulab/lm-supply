@@ -40,16 +40,17 @@ internal static class SentenceTransformersModules
         var lastToken = Flag(config, "pooling_mode_lasttoken");
         var weightedMean = Flag(config, "pooling_mode_weightedmean_tokens");
 
-        if (meanSqrt || lastToken || weightedMean)
+        if (meanSqrt || weightedMean)
         {
             return null;
         }
 
-        return (cls, mean, max) switch
+        return (cls, mean, max, lastToken) switch
         {
-            (true, false, false) => PoolingMode.Cls,
-            (false, true, false) => PoolingMode.Mean,
-            (false, false, true) => PoolingMode.Max,
+            (true, false, false, false) => PoolingMode.Cls,
+            (false, true, false, false) => PoolingMode.Mean,
+            (false, false, true, false) => PoolingMode.Max,
+            (false, false, false, true) => PoolingMode.Last,
             _ => null
         };
     }

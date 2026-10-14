@@ -1,5 +1,5 @@
 
-namespace LMSupply.Generator.Gguf;
+namespace LMSupply.Llama.Gguf;
 
 /// <summary>
 /// Metadata extracted from a GGUF model file.
@@ -131,32 +131,15 @@ public sealed record GgufMetadata
     public int? FullAttentionInterval { get; init; }
 
     /// <summary>
+    /// The pooling the model was converted with (<c>&lt;arch&gt;.pooling_type</c>): 0 none, 1 mean, 2 CLS, 3 last, 4 rank.
+    /// Null when the file does not say. An embedding server pools this way unless told otherwise.
+    /// </summary>
+    public int? PoolingType { get; init; }
+
+    /// <summary>
     /// Raw metadata key-value pairs.
     /// </summary>
     public IReadOnlyDictionary<string, object?>? RawMetadata { get; init; }
-
-    /// <summary>
-    /// Creates a ModelMemoryConfig from this metadata.
-    /// </summary>
-    /// <param name="contextLength">Override context length (uses metadata value if null).</param>
-    /// <returns>Memory configuration, or null if insufficient metadata.</returns>
-    public ModelMemoryConfig? ToMemoryConfig(int? contextLength = null)
-    {
-        if (!LayerCount.HasValue || !EmbeddingLength.HasValue)
-            return null;
-
-        // Estimate parameter count if not available
-        var paramCount = EstimatedParameterCount ?? EstimateParameterCount();
-
-        return new ModelMemoryConfig
-        {
-            ParameterCount = paramCount,
-            NumLayers = LayerCount.Value,
-            HiddenSize = EmbeddingLength.Value,
-            ContextLength = contextLength ?? ContextLength ?? 4096,
-            Quantization = InferQuantization()
-        };
-    }
 
     /// <summary>
     /// Estimates parameter count from architecture dimensions.
@@ -183,41 +166,10 @@ public sealed record GgufMetadata
     }
 
     /// <summary>
-    /// Infers quantization type from file type or quantization string.
+    /// The parameter count the file states, or an estimate from its layer count, hidden size, feed-forward length and
+    /// vocabulary when it states none; 0 when the shape is not in the file either.
     /// </summary>
-    private Quantization InferQuantization()
-    {
-        // Infer from quantization type string
-        if (!string.IsNullOrEmpty(QuantizationType))
-        {
-            var qt = QuantizationType.ToUpperInvariant();
-            if (qt.Contains("Q4") || qt.Contains("INT4"))
-                return Quantization.Quant4;
-            if (qt.Contains("Q8") || qt.Contains("INT8"))
-                return Quantization.Quant8;
-            if (qt.Contains("F16") || qt.Contains("FP16"))
-                return Quantization.FP16;
-            if (qt.Contains("F32") || qt.Contains("FP32"))
-                return Quantization.FP32;
-        }
-
-        // Infer from GGUF file type enum
-        if (FileType.HasValue)
-        {
-            // GGUF file types (from llama.cpp/ggml.h):
-            // 0: F32, 1: F16, 2-6: Q4_X, 7-8: Q8_X, etc.
-            return FileType.Value switch
-            {
-                0 => Quantization.FP32,
-                1 => Quantization.FP16,
-                >= 2 and <= 6 => Quantization.Quant4,
-                >= 7 and <= 8 => Quantization.Quant8,
-                _ => Quantization.Quant4 // Default to Quant4 for quantized models
-            };
-        }
-
-        return Quantization.Quant4; // Most GGUF files are quantized
-    }
+    public long ParameterCountOrEstimate => EstimatedParameterCount ?? EstimateParameterCount();
 
     /// <summary>
     /// Gets a human-readable summary of the metadata.

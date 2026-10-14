@@ -78,5 +78,10 @@ public enum PoolingMode
     /// <summary>
     /// Max pooling across all tokens.
     /// </summary>
-    Max
+    Max,
+
+    /// <summary>
+    /// The embedding of the last token the attention mask keeps (decoder-based embedders such as Qwen3-Embedding).
+    /// </summary>
+    Last
 }

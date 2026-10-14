@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Text;
 
-namespace LMSupply.Generator.Gguf;
+namespace LMSupply.Llama.Gguf;
 
 /// <summary>
 /// Reads metadata from GGUF model files.
@@ -70,6 +70,7 @@ public static class GgufMetadataReader
         string? name = null;
         int? layerCount = null;
         int? contextLength = null;
+        int? poolingType = null;
         int? embeddingLength = null;
         int? headCount = null;
         int? headCountKv = null;
@@ -120,6 +121,8 @@ public static class GgufMetadataReader
                         layerCount = ConvertToInt(value);
                     else if (key.EndsWith(".context_length", StringComparison.Ordinal))
                         contextLength = ConvertToInt(value);
+                    else if (key.EndsWith(".pooling_type", StringComparison.Ordinal))
+                        poolingType = ConvertToInt(value);
                     else if (key.EndsWith(".embedding_length", StringComparison.Ordinal))
                         embeddingLength = ConvertToInt(value);
                     else if (key.EndsWith(".attention.head_count", StringComparison.Ordinal))
@@ -180,6 +183,7 @@ public static class GgufMetadataReader
             Name = name,
             LayerCount = layerCount,
             ContextLength = contextLength,
+            PoolingType = poolingType,
             EmbeddingLength = embeddingLength,
             HeadCount = headCount,
             HeadCountKv = headCountKv,

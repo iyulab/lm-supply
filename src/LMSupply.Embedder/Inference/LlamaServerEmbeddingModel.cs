@@ -1,3 +1,4 @@
+using LMSupply.Llama.Gguf;
 using LMSupply.Download;
 using LMSupply.Embedder.Utils;
 using LMSupply.Llama.Server;
@@ -89,17 +90,16 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         var backend = updateResult.Backend;
 
         // 2. Configure server for embedding mode. The pool reports Loading when it starts a server.
-        // Map pooling mode
-        // A GGUF model carries no 1_Pooling/config.json to read; unset means the mean, as before.
-        options.PoolingMode ??= PoolingMode.Mean;
-        options.MaxSequenceLength ??= EmbedderOptions.DefaultMaxSequenceLength;
-        var poolingType = options.PoolingMode switch
-        {
-            PoolingMode.Cls => PoolingType.Cls,
-            PoolingMode.Mean => PoolingType.Mean,
-            PoolingMode.Max => PoolingType.Last, // Max isn't directly supported, use Last as fallback
-            _ => PoolingType.Mean
-        };
+        // Pooling and length come from the file when the options leave them unset: a GGUF embedder records the pooling
+        // it was converted with (<arch>.pooling_type) and the length it was trained to (<arch>.context_length). The
+        // previous defaults - mean pooling, 512 tokens - turned a CLS model such as bge-m3 into a different vector space
+        // and rejected any passage longer than 512 tokens.
+        var metadata = await GgufMetadataReader.ReadAsync(modelPath, false, cancellationToken);
+        options.PoolingMode ??= PoolingFromFile(metadata?.PoolingType) ?? PoolingMode.Mean;
+        options.MaxSequenceLength ??= metadata?.ContextLength is { } trained
+            ? Math.Min(trained, MaxAutomaticContextLength)
+            : EmbedderOptions.DefaultMaxSequenceLength;
+        var poolingType = ServerPooling(options.PoolingMode.Value);
 
         var serverConfig = new LlamaServerConfig
         {
@@ -107,7 +107,10 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             Port = 0, // Auto-assign
             ContextSize = options.MaxSequenceLength.Value,
             GpuLayers = backend == LlamaServerBackend.Cpu ? 0 : -1,
-            BatchSize = 512,
+            // An embedding model reads each input in one physical batch, so both batch sizes hold the whole context;
+            // with 512 an input longer than 512 tokens was refused.
+            BatchSize = options.MaxSequenceLength.Value,
+            UBatchSize = options.MaxSequenceLength.Value,
             Parallel = 1,
             Mode = ServerMode.Embedding,
             Pooling = poolingType,
@@ -169,6 +172,35 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             vectorSpace,
             prompts);
     }
+
+    /// <summary>
+    /// The longest context taken from a file's trained length when the options set none. Embedders trained to 32K
+    /// tokens exist; a context that size costs memory most passages never use, and 8,192 covers the common long-context
+    /// embedders (bge-m3). Set <see cref="EmbedderOptions.MaxSequenceLength"/> to go higher.
+    /// </summary>
+    internal const int MaxAutomaticContextLength = 8192;
+
+    /// <summary>The pooling a GGUF <c>pooling_type</c> value names, or null for none, rank or a value it does not know.</summary>
+    internal static PoolingMode? PoolingFromFile(int? poolingType) => poolingType switch
+    {
+        1 => PoolingMode.Mean,
+        2 => PoolingMode.Cls,
+        3 => PoolingMode.Last,
+        _ => null,
+    };
+
+    /// <summary>
+    /// The llama-server pooling for an embedder pooling mode. llama-server has no max pooling; asking for it is refused
+    /// rather than sent as another pooling (it used to be sent as last-token, a different vector space without a word).
+    /// </summary>
+    internal static PoolingType ServerPooling(PoolingMode mode) => mode switch
+    {
+        PoolingMode.Mean => PoolingType.Mean,
+        PoolingMode.Cls => PoolingType.Cls,
+        PoolingMode.Last => PoolingType.Last,
+        _ => throw new NotSupportedException(
+            $"PoolingMode.{mode} is not available for GGUF embedders: llama-server pools by mean, CLS or last token."),
+    };
 
     /// <inheritdoc />
     public string ModelId { get; }

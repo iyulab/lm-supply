@@ -9,6 +9,34 @@ public class PoolingStrategyTests
     private const int SeqLength = 3;
 
     [Fact]
+    public void LastTokenPooling_ReturnsTheLastUnmaskedToken()
+    {
+        var strategy = new LastTokenPoolingStrategy();
+        var tokenEmbeddings = new float[]
+        {
+            1, 2, 3, 4,     // Token 0
+            5, 6, 7, 8,     // Token 1 - the last real token
+            9, 10, 11, 12   // Token 2 - padding
+        };
+        var result = new float[HiddenDim];
+
+        strategy.Pool(tokenEmbeddings, new long[] { 1, 1, 0 }, result, SeqLength, HiddenDim);
+
+        result.Should().Equal(5, 6, 7, 8);
+    }
+
+    [Fact]
+    public void LastTokenPooling_WithoutPadding_ReturnsTheFinalToken()
+    {
+        var result = new float[HiddenDim];
+
+        new LastTokenPoolingStrategy().Pool(
+            new float[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 }, new long[] { 1, 1, 1 }, result, SeqLength, HiddenDim);
+
+        result.Should().Equal(9, 10, 11, 12);
+    }
+
+    [Fact]
     public void MeanPooling_CalculatesCorrectAverage()
     {
         var strategy = new MeanPoolingStrategy();

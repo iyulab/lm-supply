@@ -73,7 +73,6 @@ public sealed class SentenceTransformersModulesTests : IDisposable
 
     [Theory]
     [InlineData("""{ "pooling_mode_mean_sqrt_len_tokens": true }""")]
-    [InlineData("""{ "pooling_mode_lasttoken": true }""")]
     [InlineData("""{ "pooling_mode_weightedmean_tokens": true, "pooling_mode_mean_tokens": false }""")]
     [InlineData("""{ "pooling_mode_cls_token": true, "pooling_mode_mean_tokens": true }""")]
     [InlineData("""{ "word_embedding_dimension": 384 }""")]
@@ -84,6 +83,15 @@ public sealed class SentenceTransformersModulesTests : IDisposable
         WritePooling(json);
 
         SentenceTransformersModules.TryReadPoolingMode(_dir).Should().BeNull();
+    }
+
+    [Fact]
+    public void LastTokenPooling_IsRead()
+    {
+        // Decoder-based embedders (Qwen3-Embedding) pool by the last token; read as unknown, they were mean-pooled.
+        WritePooling("""{ "pooling_mode_lasttoken": true, "pooling_mode_mean_tokens": false }""");
+
+        SentenceTransformersModules.TryReadPoolingMode(_dir).Should().Be(PoolingMode.Last);
     }
 
     [Fact]

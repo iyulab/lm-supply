@@ -9,9 +9,28 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ### Changed
 - **Breaking** — **A GGUF embedder loaded from a repository takes the largest quantization that fits in memory, as the
   guide says.** It always preferred `Q4_K_M` when that fit (bge-m3: Q4_K_M with FP16 in the repository and 7.9 GB of VRAM
-  free), which costs embedding quality for little memory on models this size. A fresh download now fetches the larger
-  file, so its vectors differ from a Q4_K_M load; a file already in the cache keeps being used. Migration: to keep a
-  specific quantization, load the `.gguf` file by its path.
+  free), which costs embedding quality for little memory on models this size. An online load now fetches the larger
+  file even when a Q4_K_M copy is cached (an offline load, `DisableAutoDownload`, keeps using what is cached), so its
+  vectors and `VectorSpaceRevision` differ from a Q4_K_M load. Migration: to keep a specific quantization, load the
+  `.gguf` file by its path.
+- **Breaking** — **A GGUF embedder pools the way its file says and reads inputs up to the length it was trained to.**
+  With no `PoolingMode` set it was always mean-pooled, and its context and batch were 512 tokens: bge-m3 (a CLS model)
+  produced vectors with cosine 0.71–0.75 to the same model loaded as ONNX, and a passage over 512 tokens was refused with
+  HTTP 500. The pooling now comes from the file's `pooling_type` and the context from its `context_length` (up to 8,192
+  unless `MaxSequenceLength` says otherwise), with batch sizes that hold a whole input. bge-m3 GGUF FP16 now gives cosine
+  1.0000 to the ONNX model and embeds a 3,479-character passage. `VectorSpaceRevision` changes for GGUF embedders that
+  relied on the defaults — re-embed stored vectors.
+- **Breaking** — **`PoolingMode.Max` is refused for GGUF embedders** (`NotSupportedException`); llama-server has no max
+  pooling and it was sent as last-token pooling, a different vector space without a word.
+- **Breaking** — **`GgufMetadata` and `GgufMetadataReader` moved to `LMSupply.Llama`** (namespace `LMSupply.Llama.Gguf`),
+  shared by the generator and the GGUF embedder; `GgufMetadata.ToMemoryConfig` is now an extension in
+  `LMSupply.Generator.Gguf`. Migration: `using LMSupply.Llama.Gguf;`. Property access through `GeneratorModelInfo.GgufMetadata`
+  is unchanged.
+
+### Added
+- **`PoolingMode.Last`** — last-token pooling, read from a sentence-transformers `pooling_mode_lasttoken` file and from a
+  GGUF `pooling_type` of 3. Decoder-based embedders (Qwen3-Embedding) were read as «unknown» and mean-pooled.
+- **`GgufMetadata.PoolingType`** and **`GgufMetadata.ParameterCountOrEstimate`**.
 
 ### Fixed
 - **ONNX sessions use CUDA only where the ONNX Runtime GPU build can run, and the warning says what it needs.** ONNX
