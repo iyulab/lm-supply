@@ -1014,7 +1014,9 @@ Non-model artifacts — ONNX runtime packages and llama-server builds — are de
 
 - **Default**: `%LOCALAPPDATA%/LMSupply/cache` (platform equivalent elsewhere)
 - **Relocate everything**: set the `LMSUPPLY_CACHE_DIR` environment variable
-  (read at first use — set it before the first model load)
+  (read at first use — set it before the first model load). Moving or copying an existing cache to the new root
+  keeps its llama-server builds and rollback history: the state file records builds by version and backend, not by
+  path
 - **Programmatic (llama-server)**: `new LlamaServerUpdateOptions { CacheDirectory = "..." }`
   when constructing `LlamaServerUpdateService` directly
 

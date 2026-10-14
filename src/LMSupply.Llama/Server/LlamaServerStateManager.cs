@@ -39,13 +39,24 @@ public sealed class LlamaServerStateManager : IDisposable
     }
 
     /// <summary>
-    /// Deletes versioned build directories (<c>b*</c>) under the cache root that no state entry
-    /// references via InstalledPath, PendingPath, or PreviousVersions. This is the single retention
-    /// mechanism: <see cref="ActivateUpdateAsync"/> trims state only, which makes superseded
-    /// versions unreferenced and therefore reclaimable here. Deletion is best-effort per directory
-    /// (a locked directory is retried on the next cleanup).
+    /// The directory a build lives in: <c>&lt;cache root&gt;/&lt;version&gt;/&lt;build backend&gt;</c>, resolved against
+    /// this manager's cache root. The state records only the version and the build backend, so a moved cache root
+    /// (<c>LMSUPPLY_CACHE_DIR</c>, a moved profile, a renamed drive) keeps its builds.
     /// </summary>
-    /// <returns>The number of version directories deleted.</returns>
+    /// <param name="version">Build version (e.g. "b7898").</param>
+    /// <param name="buildBackend">Backend directory the build was extracted under (e.g. "cuda12", "cpu").</param>
+    public string GetBuildDirectory(string version, string buildBackend)
+        => Path.Combine(_cacheDirectory, version, buildBackend.ToLowerInvariant());
+
+    /// <summary>
+    /// Deletes build directories (<c>b*/&lt;backend&gt;</c>) under the cache root that no state entry references as
+    /// its installed, pending or previous build, and a version directory left empty by that. This is the single
+    /// retention mechanism: <see cref="ActivateUpdateAsync"/> trims state only, which makes superseded builds
+    /// unreferenced and therefore reclaimable here. A build is matched by version and backend directory, not by path,
+    /// so a backend directory no entry references is reclaimed even when another backend of the same version is kept.
+    /// Deletion is best-effort per directory (a locked directory is retried on the next cleanup).
+    /// </summary>
+    /// <returns>The number of build directories deleted.</returns>
     public async Task<int> CleanupUnreferencedVersionsAsync(CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);
@@ -62,44 +73,27 @@ public sealed class LlamaServerStateManager : IDisposable
             if (stateFile.Entries.Count == 0)
                 return 0;
 
-            var referencedPaths = stateFile.Entries.Values
-                .SelectMany(state => state.PreviousVersions.Select(previous => previous.Path)
-                    .Append(state.InstalledPath)
-                    .Append(state.PendingPath))
-                .Where(path => !string.IsNullOrEmpty(path))
-                .Select(path => Path.GetFullPath(path!).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
-                .ToList();
-
-            var comparison = OperatingSystem.IsWindows()
-                ? StringComparison.OrdinalIgnoreCase
-                : StringComparison.Ordinal;
+            var comparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+            var referenced = new HashSet<string>(stateFile.Entries.Values.SelectMany(ReferencedBuilds), comparer);
 
             var deleted = 0;
-            foreach (var candidate in Directory.GetDirectories(_cacheDirectory))
+            foreach (var versionDir in Directory.GetDirectories(_cacheDirectory))
             {
-                if (!IsVersionDirectoryName(Path.GetFileName(candidate)))
+                var version = Path.GetFileName(versionDir);
+                if (!IsVersionDirectoryName(version))
                     continue;
 
-                var candidateFull = Path.GetFullPath(candidate)
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                var candidatePrefix = candidateFull + Path.DirectorySeparatorChar;
-
-                var isReferenced = referencedPaths.Any(path =>
-                    path.Equals(candidateFull, comparison) ||
-                    path.StartsWith(candidatePrefix, comparison));
-                if (isReferenced)
-                    continue;
-
-                try
+                foreach (var buildDir in Directory.GetDirectories(versionDir))
                 {
-                    Directory.Delete(candidate, recursive: true);
-                    deleted++;
+                    if (referenced.Contains(BuildKey(version, Path.GetFileName(buildDir))))
+                        continue;
+
+                    if (TryDelete(buildDir))
+                        deleted++;
                 }
-                catch (Exception ex)
-                {
-                    Trace.TraceInformation(
-                        $"[LlamaServerStateManager] Cleanup of superseded version dir failed (will retry next cleanup): {candidate} — {ex.Message}");
-                }
+
+                if (Directory.Exists(versionDir) && Directory.GetFileSystemEntries(versionDir).Length == 0)
+                    TryDelete(versionDir);
             }
 
             return deleted;
@@ -107,6 +101,32 @@ public sealed class LlamaServerStateManager : IDisposable
         finally
         {
             _lock.Release();
+        }
+    }
+
+    private static IEnumerable<string> ReferencedBuilds(LlamaServerVersionState state)
+    {
+        yield return BuildKey(state.InstalledVersion, state.InstalledBuildBackend ?? state.Backend);
+        if (state.PendingVersion is not null)
+            yield return BuildKey(state.PendingVersion, state.PendingBuildBackend ?? state.Backend);
+        foreach (var previous in state.PreviousVersions)
+            yield return BuildKey(previous.Version, previous.BuildBackend ?? state.Backend);
+    }
+
+    private static string BuildKey(string version, string buildBackend) => $"{version}/{buildBackend.ToLowerInvariant()}";
+
+    private static bool TryDelete(string directory)
+    {
+        try
+        {
+            Directory.Delete(directory, recursive: true);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceInformation(
+                $"[LlamaServerStateManager] Cleanup of superseded build dir failed (will retry next cleanup): {directory} - {ex.Message}");
+            return false;
         }
     }
 
@@ -203,11 +223,16 @@ public sealed class LlamaServerStateManager : IDisposable
     /// <summary>
     /// Marks a new version as ready to be applied.
     /// </summary>
+    /// <param name="backend">GPU backend of the state entry (e.g. "cuda12").</param>
+    /// <param name="platform">Platform identifier (e.g. "win-x64").</param>
+    /// <param name="version">Downloaded build version.</param>
+    /// <param name="buildBackend">Backend directory the build was extracted under (see <see cref="GetBuildDirectory"/>).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task MarkUpdateReadyAsync(
         string backend,
         string platform,
         string version,
-        string path,
+        string buildBackend,
         CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);
@@ -219,7 +244,7 @@ public sealed class LlamaServerStateManager : IDisposable
             if (stateFile.Entries.TryGetValue(key, out var state))
             {
                 state.PendingVersion = version;
-                state.PendingPath = path;
+                state.PendingBuildBackend = buildBackend.ToLowerInvariant();
                 state.UpdateReady = true;
                 await SaveStateFileAsync(stateFile, cancellationToken);
             }
@@ -248,31 +273,26 @@ public sealed class LlamaServerStateManager : IDisposable
             if (!stateFile.Entries.TryGetValue(key, out var state))
                 return null;
 
-            if (!state.UpdateReady || state.PendingVersion == null || state.PendingPath == null)
+            if (!state.UpdateReady || state.PendingVersion == null)
                 return null;
 
             // Move current to previous
             state.PreviousVersions.Insert(0, new VersionEntry
             {
                 Version = state.InstalledVersion,
-                Path = state.InstalledPath,
+                BuildBackend = state.InstalledBuildBackend,
                 InstalledAt = DateTimeOffset.UtcNow
             });
 
-            // Trim old versions
+            // Trim old versions (their builds become unreferenced; CleanupUnreferencedVersionsAsync reclaims them)
             while (state.PreviousVersions.Count > maxVersionsToKeep)
-            {
-                var oldest = state.PreviousVersions[^1];
                 state.PreviousVersions.RemoveAt(state.PreviousVersions.Count - 1);
-
-                // Optionally clean up old files (leave for now, can be done manually)
-            }
 
             // Activate pending
             state.InstalledVersion = state.PendingVersion;
-            state.InstalledPath = state.PendingPath;
+            state.InstalledBuildBackend = state.PendingBuildBackend;
             state.PendingVersion = null;
-            state.PendingPath = null;
+            state.PendingBuildBackend = null;
             state.UpdateReady = false;
 
             await SaveStateFileAsync(stateFile, cancellationToken);
@@ -285,7 +305,9 @@ public sealed class LlamaServerStateManager : IDisposable
     }
 
     /// <summary>
-    /// Rolls back to a previous version.
+    /// Rolls back to the newest previous version whose build is still on disk under the cache root, marking the
+    /// installed version as failed. Previous entries newer than it whose build is gone are dropped. Returns null,
+    /// changing nothing, when no previous build exists.
     /// </summary>
     public async Task<LlamaServerVersionState?> RollbackAsync(
         string backend,
@@ -301,22 +323,24 @@ public sealed class LlamaServerStateManager : IDisposable
             if (!stateFile.Entries.TryGetValue(key, out var state))
                 return null;
 
-            if (state.PreviousVersions.Count == 0)
+            var index = state.PreviousVersions.FindIndex(previous =>
+                Directory.Exists(GetBuildDirectory(previous.Version, previous.BuildBackend ?? state.Backend)));
+            if (index < 0)
                 return null;
 
             // Mark current as failed
             state.FailedVersions.Add(state.InstalledVersion);
 
-            // Restore previous
-            var previous = state.PreviousVersions[0];
-            state.PreviousVersions.RemoveAt(0);
+            // Restore previous; the entries before it have no build left to roll back to
+            var previous = state.PreviousVersions[index];
+            state.PreviousVersions.RemoveRange(0, index + 1);
 
             state.InstalledVersion = previous.Version;
-            state.InstalledPath = previous.Path;
+            state.InstalledBuildBackend = previous.BuildBackend;
 
             // Clear pending update if any
             state.PendingVersion = null;
-            state.PendingPath = null;
+            state.PendingBuildBackend = null;
             state.UpdateReady = false;
 
             await SaveStateFileAsync(stateFile, cancellationToken);
@@ -356,26 +380,65 @@ public sealed class LlamaServerStateManager : IDisposable
     }
 
     /// <summary>
-    /// Creates initial state for a new installation.
+    /// Records <paramref name="version"/> as the installed build of a backend: a first installation, or a build
+    /// adopted from the cache when the recorded one is gone. An existing entry keeps its failed versions, its last
+    /// version check, the previous versions whose builds are still on disk, and a pending update whose build is on disk.
     /// </summary>
+    /// <param name="backend">GPU backend of the state entry (e.g. "cuda12").</param>
+    /// <param name="platform">Platform identifier (e.g. "win-x64").</param>
+    /// <param name="version">Installed build version.</param>
+    /// <param name="buildBackend">Backend directory the build was extracted under (see <see cref="GetBuildDirectory"/>).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<LlamaServerVersionState> CreateInitialStateAsync(
         string backend,
         string platform,
         string version,
-        string path,
+        string buildBackend,
         CancellationToken cancellationToken = default)
     {
-        var state = new LlamaServerVersionState
+        await _lock.WaitAsync(cancellationToken);
+        try
         {
-            InstalledVersion = version,
-            InstalledPath = path,
-            Backend = backend,
-            LastVersionCheck = DateTimeOffset.UtcNow,
-            LatestKnownVersion = version
-        };
+            var stateFile = await LoadStateFileAsync(cancellationToken);
+            var key = MakeKey(backend, platform);
+            var existing = stateFile.Entries.GetValueOrDefault(key);
 
-        await UpdateStateAsync(backend, platform, state, cancellationToken);
-        return state;
+            var state = new LlamaServerVersionState
+            {
+                InstalledVersion = version,
+                InstalledBuildBackend = buildBackend.ToLowerInvariant(),
+                Backend = backend,
+                LastVersionCheck = DateTimeOffset.UtcNow,
+                LatestKnownVersion = version
+            };
+
+            if (existing is not null)
+            {
+                state.FailedVersions = existing.FailedVersions;
+                state.LatestKnownVersion = existing.LatestKnownVersion ?? version;
+                state.LastVersionCheck = existing.LastVersionCheck;
+                state.PreviousVersions = existing.PreviousVersions
+                    .Where(previous => !string.Equals(previous.Version, version, StringComparison.OrdinalIgnoreCase)
+                        && Directory.Exists(GetBuildDirectory(previous.Version, previous.BuildBackend ?? existing.Backend)))
+                    .ToList();
+                if (existing.PendingVersion is not null
+                    && !string.Equals(existing.PendingVersion, version, StringComparison.OrdinalIgnoreCase)
+                    && Directory.Exists(GetBuildDirectory(existing.PendingVersion, existing.PendingBuildBackend ?? existing.Backend)))
+                {
+                    state.PendingVersion = existing.PendingVersion;
+                    state.PendingBuildBackend = existing.PendingBuildBackend;
+                    state.UpdateReady = existing.UpdateReady;
+                }
+            }
+
+            stateFile.Entries[key] = state;
+            await SaveStateFileAsync(stateFile, cancellationToken);
+            return state;
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 
     private async Task<LlamaServerStateFile> LoadStateFileAsync(CancellationToken cancellationToken)
@@ -394,6 +457,8 @@ public sealed class LlamaServerStateManager : IDisposable
             var json = await File.ReadAllTextAsync(_stateFilePath, cancellationToken);
             _cachedState = JsonSerializer.Deserialize(json, JsonOptions.TypeInfo<LlamaServerStateFile>())
                 ?? new LlamaServerStateFile();
+            foreach (var state in _cachedState.Entries.Values)
+                MigrateLegacyPaths(state);
         }
         catch (JsonException)
         {
@@ -404,9 +469,46 @@ public sealed class LlamaServerStateManager : IDisposable
         return _cachedState;
     }
 
+    // A file written by a release before 0.122 records builds only as absolute paths. The build backend is the path's
+    // last segment; the version is recorded on its own. The paths themselves are not used — they point at whatever
+    // root was in use when they were written.
+    private static void MigrateLegacyPaths(LlamaServerVersionState state)
+    {
+        state.InstalledBuildBackend ??= LegacyBuildBackend(state.LegacyInstalledPath, state.InstalledVersion);
+        if (state.PendingVersion is not null)
+            state.PendingBuildBackend ??= LegacyBuildBackend(state.LegacyPendingPath, state.PendingVersion);
+        foreach (var previous in state.PreviousVersions)
+            previous.BuildBackend ??= LegacyBuildBackend(previous.LegacyPath, previous.Version);
+    }
+
+    private static string? LegacyBuildBackend(string? legacyPath, string version)
+    {
+        if (string.IsNullOrEmpty(legacyPath))
+            return null;
+
+        // Split on both separators: the file may have been written on another OS than the one reading it.
+        var segments = legacyPath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        return segments.Length >= 2 && string.Equals(segments[^2], version, StringComparison.OrdinalIgnoreCase)
+            ? segments[^1].ToLowerInvariant()
+            : null;
+    }
+
     private async Task SaveStateFileAsync(LlamaServerStateFile stateFile, CancellationToken cancellationToken)
     {
         _cachedState = stateFile;
+        stateFile.SchemaVersion = 2;
+
+        // Absolute directories for releases before 0.122 sharing this cache (see LegacyInstalledPath), resolved
+        // against this manager's root; never read back except by MigrateLegacyPaths.
+        foreach (var state in stateFile.Entries.Values)
+        {
+            state.LegacyInstalledPath = GetBuildDirectory(state.InstalledVersion, state.InstalledBuildBackend ?? state.Backend);
+            state.LegacyPendingPath = state.PendingVersion is null
+                ? null
+                : GetBuildDirectory(state.PendingVersion, state.PendingBuildBackend ?? state.Backend);
+            foreach (var previous in state.PreviousVersions)
+                previous.LegacyPath = GetBuildDirectory(previous.Version, previous.BuildBackend ?? state.Backend);
+        }
 
         // Atomic write: write to temp file, then rename
         var tempPath = _stateFilePath + ".tmp";

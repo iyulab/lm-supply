@@ -187,10 +187,10 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         if (state != null)
         {
             // Check if pending update should be applied
-            if (state.UpdateReady && state.PendingPath != null)
+            if (state.UpdateReady && state.PendingVersion != null)
             {
-                var serverExe = GetServerExecutablePath(state.PendingPath);
-                if (File.Exists(serverExe))
+                var serverExe = ResolvePendingServer(state);
+                if (serverExe != null)
                 {
                     // Apply the update
                     var activatedState = await _stateManager.ActivateUpdateAsync(
@@ -207,8 +207,8 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
             }
 
             // Use existing installation
-            var existingExe = GetServerExecutablePath(state.InstalledPath);
-            if (File.Exists(existingExe))
+            var existingExe = ResolveInstalledServer(state);
+            if (existingExe != null)
             {
                 TriggerBackgroundCheck(backend);
                 return LlamaServerUpdateResult.NoUpdate(existingExe, backend, state.InstalledVersion);
@@ -222,9 +222,10 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
             var cachedPath = _downloader.GetCachedServerPath(cachedVersion, backend);
             if (cachedPath != null)
             {
-                // Found existing cache without state - create state for it
-                var versionDir = Path.GetDirectoryName(cachedPath)!;
-                await _stateManager.CreateInitialStateAsync(backendStr, platform, cachedVersion, versionDir, cancellationToken);
+                // Found a cached build the state does not record (no state yet, or the recorded build is gone):
+                // adopt it, keeping the entry's rollback history where those builds still exist
+                await _stateManager.CreateInitialStateAsync(
+                    backendStr, platform, cachedVersion, BuildBackendOf(cachedPath), cancellationToken);
 
                 TriggerBackgroundCheck(backend);
                 return LlamaServerUpdateResult.NoUpdate(cachedPath, backend, cachedVersion);
@@ -250,8 +251,7 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         var version = asset.Version;
 
         // Create initial state
-        var versionDir2 = Path.GetDirectoryName(serverPath)!;
-        await _stateManager.CreateInitialStateAsync(backendStr, platform, version, versionDir2, cancellationToken);
+        await _stateManager.CreateInitialStateAsync(backendStr, platform, version, BuildBackendOf(serverPath), cancellationToken);
 
         TriggerBackgroundCheck(backend);
         return LlamaServerUpdateResult.NoUpdate(serverPath, backend, version);
@@ -316,11 +316,11 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
 
             var state = await _stateManager.GetStateAsync(backendStr, platform, cancellationToken);
 
-            if (state == null)
-            {
-                // No existing state, just get latest
+            // No existing state, or the recorded build is gone from the cache root: acquire as on a first load
+            // (adopts a cached build or downloads), then the next check updates it
+            var installedExe = state is null ? null : ResolveInstalledServer(state);
+            if (state is null || installedExe is null)
                 return await AcquireAsync(backend, progress, cancellationToken);
-            }
 
             // Check for new version
             var latestVersion = await _downloader.GetLatestVersionAsync(cancellationToken);
@@ -330,16 +330,12 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
                 string.Equals(state.InstalledVersion, latestVersion, StringComparison.OrdinalIgnoreCase))
             {
                 // Already up to date
-                var existingPath = GetServerExecutablePath(state.InstalledPath);
-                return LlamaServerUpdateResult.NoUpdate(existingPath, backend, state.InstalledVersion);
+                return LlamaServerUpdateResult.NoUpdate(installedExe, backend, state.InstalledVersion);
             }
 
             // Check if this version has failed before
             if (state.FailedVersions.Contains(latestVersion))
-            {
-                var existingPath = GetServerExecutablePath(state.InstalledPath);
-                return LlamaServerUpdateResult.NoUpdate(existingPath, backend, state.InstalledVersion);
-            }
+                return LlamaServerUpdateResult.NoUpdate(installedExe, backend, state.InstalledVersion);
 
             // Download new version
             progress?.Report(new DownloadProgress
@@ -356,10 +352,9 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
                     progress: progress,
                     cancellationToken: cancellationToken);
 
-                var newVersionDir = Path.GetDirectoryName(newServerPath)!;
-
                 // Mark update ready
-                await _stateManager.MarkUpdateReadyAsync(backendStr, platform, latestVersion, newVersionDir, cancellationToken);
+                await _stateManager.MarkUpdateReadyAsync(
+                    backendStr, platform, latestVersion, BuildBackendOf(newServerPath), cancellationToken);
 
                 // Activate immediately
                 var activatedState = await _stateManager.ActivateUpdateAsync(
@@ -373,14 +368,12 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
                 }
 
                 // Activation failed, use existing
-                var existingPath = GetServerExecutablePath(state.InstalledPath);
-                return LlamaServerUpdateResult.NoUpdate(existingPath, backend, state.InstalledVersion);
+                return LlamaServerUpdateResult.NoUpdate(installedExe, backend, state.InstalledVersion);
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
                 // Download/update failed, use existing
-                var existingPath = GetServerExecutablePath(state.InstalledPath);
-                return LlamaServerUpdateResult.Failed(existingPath, backend, ex.Message);
+                return LlamaServerUpdateResult.Failed(installedExe, backend, ex.Message);
             }
         }
         finally
@@ -390,7 +383,8 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Gets update information for the specified backend.
+    /// Gets update information for the specified backend, or null when nothing is installed for it — no state, or
+    /// the recorded build is not under the cache root in use.
     /// </summary>
     public async Task<LlamaServerUpdateInfo?> GetUpdateInfoAsync(
         LlamaServerBackend backend,
@@ -400,7 +394,8 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         var backendStr = backend.ToString().ToLowerInvariant();
 
         var state = await _stateManager.GetStateAsync(backendStr, platform, cancellationToken);
-        if (state == null)
+        var serverPath = state is null ? null : ResolveInstalledServer(state);
+        if (state == null || serverPath == null)
             return null;
 
         return new LlamaServerUpdateInfo
@@ -411,7 +406,7 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
             PendingVersion = state.PendingVersion,
             LastChecked = state.LastVersionCheck,
             Backend = backend,
-            ServerPath = GetServerExecutablePath(state.InstalledPath)
+            ServerPath = serverPath
         };
     }
 
@@ -431,8 +426,11 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
             return LlamaServerUpdateResult.Failed("", backend, "No previous version available for rollback");
         }
 
-        var serverPath = GetServerExecutablePath(state.InstalledPath);
-        return LlamaServerUpdateResult.NoUpdate(serverPath, backend, state.InstalledVersion);
+        // The state manager rolls back only to a build whose directory exists; the executable is checked here
+        var serverPath = ResolveInstalledServer(state);
+        return serverPath is null
+            ? LlamaServerUpdateResult.Failed("", backend, $"Rolled back to {state.InstalledVersion}, but its server executable is missing")
+            : LlamaServerUpdateResult.NoUpdate(serverPath, backend, state.InstalledVersion);
     }
 
     /// <summary>
@@ -499,8 +497,8 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
                     progress: null,
                     cancellationToken: cancellationToken);
 
-                var versionDir = Path.GetDirectoryName(serverPath)!;
-                await _stateManager.MarkUpdateReadyAsync(backendStr, platform, latestVersion, versionDir, cancellationToken);
+                await _stateManager.MarkUpdateReadyAsync(
+                    backendStr, platform, latestVersion, BuildBackendOf(serverPath), cancellationToken);
             }
             finally
             {
@@ -532,6 +530,23 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
             Trace.TraceInformation($"[LlamaServerUpdateService] Superseded-build cleanup failed: {ex.Message}");
         }
     }
+
+    // Every reader of a recorded build goes through these two: the build is resolved against the cache root in use,
+    // and a build whose executable is not there counts as not installed.
+    private string? ResolveInstalledServer(LlamaServerVersionState state)
+        => ResolveServer(state.InstalledVersion, state.InstalledBuildBackend ?? state.Backend);
+
+    private string? ResolvePendingServer(LlamaServerVersionState state)
+        => state.PendingVersion is null ? null : ResolveServer(state.PendingVersion, state.PendingBuildBackend ?? state.Backend);
+
+    private string? ResolveServer(string version, string buildBackend)
+    {
+        var serverExe = GetServerExecutablePath(_stateManager.GetBuildDirectory(version, buildBackend));
+        return File.Exists(serverExe) ? serverExe : null;
+    }
+
+    // The backend directory a downloaded or cached server executable sits in (a GPU request can land on the CPU build).
+    private static string BuildBackendOf(string serverPath) => Path.GetFileName(Path.GetDirectoryName(serverPath)!);
 
     private static string GetServerExecutablePath(string directory)
     {

@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Fixed
+- **A relocated cache keeps its llama-server builds.** The state file recorded each build as an absolute path, so after
+  the cache root moved (`LMSUPPLY_CACHE_DIR`, a moved profile, a renamed drive) the retention sweep found no reference to
+  the builds under the new root and deleted them — every backend's install and rollback builds — while the server kept
+  running the copy under the old root if it still existed. Builds are now recorded by version and backend directory and
+  resolved against the cache root in use; a state file written by an earlier release is migrated on read. A recorded
+  build that is not under the root counts as not installed everywhere (`GetUpdateInfoAsync` returns null,
+  `CheckAndApplyUpdateAsync` acquires as on a first load, `RollbackAsync` skips previous builds that are gone), and
+  adopting a cached build keeps the entry's failed versions and the rollback builds that still exist.
+- **The retention sweep reclaims a backend directory no entry references** even when another backend of the same build
+  version is kept (a `b*/cuda12` directory survived while the CPU entry referenced `b*/cpu`).
+
+### Changed
+- **Breaking** — **`LlamaServerVersionState` and `VersionEntry` record a build backend instead of a path.**
+  `InstalledPath`, `PendingPath` and `VersionEntry.Path` are replaced by `InstalledBuildBackend`, `PendingBuildBackend`
+  and `VersionEntry.BuildBackend` (null means the entry's `Backend`); the directory is
+  `LlamaServerStateManager.GetBuildDirectory(version, buildBackend)`. `CreateInitialStateAsync` and
+  `MarkUpdateReadyAsync` take the build backend in place of the directory. Migration: pass the backend directory name
+  (e.g. `"cuda12"`, or `"cpu"` for a CPU fallback build) and resolve paths with `GetBuildDirectory`. The state file still
+  carries the absolute paths, written for earlier releases that share the cache.
+
 ## [0.121.0] - 2026-10-14
 
 ### Changed

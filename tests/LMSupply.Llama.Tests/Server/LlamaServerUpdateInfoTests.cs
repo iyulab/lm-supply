@@ -225,14 +225,13 @@ public class LlamaServerVersionStateModelTests
         var state = new LlamaServerVersionState
         {
             InstalledVersion = "b1000",
-            InstalledPath = "/path/v1"
         };
 
         state.InstalledVersion.Should().Be("b1000");
-        state.InstalledPath.Should().Be("/path/v1");
+        state.InstalledBuildBackend.Should().BeNull("null means the state's Backend");
         state.LatestKnownVersion.Should().BeNull();
         state.PendingVersion.Should().BeNull();
-        state.PendingPath.Should().BeNull();
+        state.PendingBuildBackend.Should().BeNull();
         state.UpdateReady.Should().BeFalse();
         state.PreviousVersions.Should().NotBeNull();
         state.PreviousVersions.Should().BeEmpty();
@@ -247,11 +246,10 @@ public class LlamaServerVersionStateModelTests
         var state = new LlamaServerVersionState
         {
             InstalledVersion = "b3000",
-            InstalledPath = "/path/v3",
             PreviousVersions =
             [
-                new VersionEntry { Version = "b1000", Path = "/old1" },
-                new VersionEntry { Version = "b2000", Path = "/old2" }
+                new VersionEntry { Version = "b1000", BuildBackend = "cpu" },
+                new VersionEntry { Version = "b2000" }
             ]
         };
 
@@ -265,7 +263,6 @@ public class LlamaServerVersionStateModelTests
         var state = new LlamaServerVersionState
         {
             InstalledVersion = "b3000",
-            InstalledPath = "/path/v3",
             FailedVersions = ["b1000", "b2000", "b1000"]
         };
 
@@ -282,12 +279,12 @@ public class LlamaServerVersionStateModelTests
         var entry = new VersionEntry
         {
             Version = "b3000",
-            Path = "/versions/b3000",
+            BuildBackend = "cuda12",
             InstalledAt = now
         };
 
         entry.Version.Should().Be("b3000");
-        entry.Path.Should().Be("/versions/b3000");
+        entry.BuildBackend.Should().Be("cuda12");
         entry.InstalledAt.Should().Be(now);
     }
 
@@ -298,7 +295,7 @@ public class LlamaServerVersionStateModelTests
     {
         var file = new LlamaServerStateFile();
 
-        file.SchemaVersion.Should().Be(1);
+        file.SchemaVersion.Should().Be(2);
         file.Entries.Should().NotBeNull();
         file.Entries.Should().BeEmpty();
     }
@@ -310,12 +307,10 @@ public class LlamaServerVersionStateModelTests
         file.Entries["cuda12|win-x64"] = new LlamaServerVersionState
         {
             InstalledVersion = "b3000",
-            InstalledPath = "/path/cuda12"
         };
         file.Entries["cpu|linux-x64"] = new LlamaServerVersionState
         {
             InstalledVersion = "b2500",
-            InstalledPath = "/path/cpu"
         };
 
         file.Entries.Should().HaveCount(2);

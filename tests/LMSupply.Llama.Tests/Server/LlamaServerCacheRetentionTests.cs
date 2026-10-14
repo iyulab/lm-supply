@@ -12,8 +12,8 @@ namespace LMSupply.Llama.Tests.Server;
 /// never touches the disk.
 ///
 /// The mechanism is deliberately single: trimming state makes a version unreferenced, and cleanup
-/// deletes any version directory (<c>b*</c>) under the cache root that no state entry references
-/// via InstalledPath, PendingPath, or PreviousVersions[].Path.
+/// deletes any build directory (<c>b*/&lt;backend&gt;</c>) under the cache root that no state entry references
+/// as its installed, pending or previous build (matched by version and backend directory).
 ///
 /// Network-free / HW-free: state manager + real temp directories only.
 /// </summary>
@@ -40,10 +40,9 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
         return dir;
     }
 
-    private static LlamaServerVersionState State(string version, string path) => new()
+    private static LlamaServerVersionState State(string version) => new()
     {
         InstalledVersion = version,
-        InstalledPath = path,
         Backend = "vulkan"
     };
 
@@ -54,7 +53,7 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
         CreateVersionDir("b100"); // orphan — never referenced by state
 
         using var manager = new LlamaServerStateManager(_root);
-        await manager.UpdateStateAsync("vulkan", "win-x64", State("b200", referenced), TestContext.Current.CancellationToken);
+        await manager.UpdateStateAsync("vulkan", "win-x64", State("b200"), TestContext.Current.CancellationToken);
 
         var deleted = await manager.CleanupUnreferencedVersionsAsync(TestContext.Current.CancellationToken);
 
@@ -71,14 +70,12 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
         var previous = CreateVersionDir("b200");
         CreateVersionDir("b100"); // orphan
 
-        var state = State("b300", installed);
+        var state = State("b300");
         state.PendingVersion = "b400";
-        state.PendingPath = pending;
         state.UpdateReady = true;
         state.PreviousVersions.Add(new VersionEntry
         {
             Version = "b200",
-            Path = previous,
             InstalledAt = DateTimeOffset.UtcNow
         });
 
@@ -102,7 +99,7 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
         Directory.CreateDirectory(Path.Combine(_root, "backup")); // no b\d+ shape
 
         using var manager = new LlamaServerStateManager(_root);
-        await manager.UpdateStateAsync("vulkan", "win-x64", State("b200", referenced), TestContext.Current.CancellationToken);
+        await manager.UpdateStateAsync("vulkan", "win-x64", State("b200"), TestContext.Current.CancellationToken);
 
         var deleted = await manager.CleanupUnreferencedVersionsAsync(TestContext.Current.CancellationToken);
 
@@ -122,7 +119,7 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
         CreateVersionDir("b900"); // orphan despite sharing the b90 prefix
 
         using var manager = new LlamaServerStateManager(_root);
-        await manager.UpdateStateAsync("vulkan", "win-x64", State("b90", referenced), TestContext.Current.CancellationToken);
+        await manager.UpdateStateAsync("vulkan", "win-x64", State("b90"), TestContext.Current.CancellationToken);
 
         var deleted = await manager.CleanupUnreferencedVersionsAsync(TestContext.Current.CancellationToken);
 
@@ -159,14 +156,13 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
         var adopted = CreateVersionDir("b300"); // referenced only by the "other process" write
 
         using var manager = new LlamaServerStateManager(_root);
-        await manager.UpdateStateAsync("vulkan", "win-x64", State("b200", installed), TestContext.Current.CancellationToken); // populates cache
+        await manager.UpdateStateAsync("vulkan", "win-x64", State("b200"), TestContext.Current.CancellationToken); // populates cache
 
         // Simulate another process updating the shared state file on disk.
         using (var external = new LlamaServerStateManager(_root))
         {
-            var state = State("b200", installed);
+            var state = State("b200");
             state.PendingVersion = "b300";
-            state.PendingPath = adopted;
             state.UpdateReady = true;
             await external.UpdateStateAsync("vulkan", "win-x64", state, TestContext.Current.CancellationToken);
         }
@@ -189,12 +185,12 @@ public sealed class LlamaServerCacheRetentionTests : IDisposable
         var dir3 = CreateVersionDir("b3");
 
         using var manager = new LlamaServerStateManager(_root);
-        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b1", dir1, TestContext.Current.CancellationToken);
+        await manager.CreateInitialStateAsync("vulkan", "win-x64", "b1", "vulkan", TestContext.Current.CancellationToken);
 
-        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b2", dir2, TestContext.Current.CancellationToken);
+        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b2", "vulkan", TestContext.Current.CancellationToken);
         (await manager.ActivateUpdateAsync("vulkan", "win-x64", maxVersionsToKeep: 1, cancellationToken: TestContext.Current.CancellationToken)).Should().NotBeNull();
 
-        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b3", dir3, TestContext.Current.CancellationToken);
+        await manager.MarkUpdateReadyAsync("vulkan", "win-x64", "b3", "vulkan", TestContext.Current.CancellationToken);
         (await manager.ActivateUpdateAsync("vulkan", "win-x64", maxVersionsToKeep: 1, cancellationToken: TestContext.Current.CancellationToken)).Should().NotBeNull();
 
         var deleted = await manager.CleanupUnreferencedVersionsAsync(TestContext.Current.CancellationToken);
