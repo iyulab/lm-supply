@@ -305,15 +305,14 @@ public class DocsSnippetCompileTests
 
     /// <summary>
     /// Every Markdown document of the repository with a C# block, except the READMEs compiled elsewhere, changelogs, the
-    /// tests' own, build output, dependencies (<c>node_modules</c>), dot-folders and the untracked local notes folder.
+    /// tests' own, build output, dependencies (<c>node_modules</c>) and dot-folders. «Of the repository» is what git does not
+    /// ignore: a folder a contributor keeps locally and ignores is not a document of the repository.
     /// </summary>
     private static IEnumerable<string> GuidesWithCSharp()
     {
         var root = RepositoryRoot();
-        return Directory.EnumerateFiles(root, "*.md", SearchOption.AllDirectories)
-            .Select(p => Path.GetRelativePath(root, p).Replace('\\', '/'))
+        return MarkdownFilesGitDoesNotIgnore(root)
             .Where(p => !p.StartsWith("tests/", StringComparison.Ordinal)
-                        && !p.StartsWith("claudedocs/", StringComparison.Ordinal)
                         && !p.Contains("/bin/", StringComparison.Ordinal) && !p.Contains("/obj/", StringComparison.Ordinal)
                         && !p.Contains("node_modules/", StringComparison.Ordinal)
                         && !p.StartsWith('.') && !p.Contains("/.", StringComparison.Ordinal)
@@ -321,6 +320,33 @@ public class DocsSnippetCompileTests
                         && !Path.GetFileName(p).Equals("CHANGELOG.md", StringComparison.OrdinalIgnoreCase))
             .Where(p => DocSnippets.Read(Path.Combine(root, p), p).Count > 0)
             .Order(StringComparer.Ordinal);
+    }
+
+    // Tracked and untracked-but-not-ignored Markdown, relative and with forward slashes; every Markdown file when git is absent.
+    private static List<string> MarkdownFilesGitDoesNotIgnore(string root)
+    {
+        try
+        {
+            using var git = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                "git", "ls-files -z --cached --others --exclude-standard -- *.md")
+            {
+                WorkingDirectory = root,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+            })!;
+            var output = git.StandardOutput.ReadToEnd();
+            git.WaitForExit();
+            if (git.ExitCode == 0)
+                return output.Split('\0', StringSplitOptions.RemoveEmptyEntries).Distinct(StringComparer.Ordinal).ToList();
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // git is not installed: fall back to the file system below
+        }
+
+        return Directory.EnumerateFiles(root, "*.md", SearchOption.AllDirectories)
+            .Select(p => Path.GetRelativePath(root, p).Replace('\\', '/'))
+            .ToList();
     }
 
     // The repository README and the package READMEs (src/<package>/README.md) are ReadmeSnippetCompileTests'.
