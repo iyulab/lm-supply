@@ -123,8 +123,8 @@ public sealed class LocalEmbedderDownloadSizeTests : IDisposable
             ("tiny-embed.Q8_0.gguf", 150_000_000),
             ("README.md", 5_000));
 
-        (await LocalEmbedder.GetDownloadSizeBytesAsync("gguf:" + repo, Options(), Ct)).Should().Be(80_000_000,
-            "the embedder prefers Q4_K_M when it fits, so the load fetches it and not the Q8_0 file");
+        (await LocalEmbedder.GetDownloadSizeBytesAsync("gguf:" + repo, Options(), Ct)).Should().Be(150_000_000,
+            "the embedder loads the largest quantization that fits in memory, so the load fetches Q8_0 and not Q4_K_M");
     }
 
     [Fact]

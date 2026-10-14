@@ -6,6 +6,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Changed
+- **Breaking** — **A GGUF embedder loaded from a repository takes the largest quantization that fits in memory, as the
+  guide says.** It always preferred `Q4_K_M` when that fit (bge-m3: Q4_K_M with FP16 in the repository and 7.9 GB of VRAM
+  free), which costs embedding quality for little memory on models this size. A fresh download now fetches the larger
+  file, so its vectors differ from a Q4_K_M load; a file already in the cache keeps being used. Migration: to keep a
+  specific quantization, load the `.gguf` file by its path.
+
 ### Fixed
 - **ONNX sessions use CUDA only where the ONNX Runtime GPU build can run, and the warning says what it needs.** ONNX
   Runtime 1.27 and later (LMSupply uses 1.30) publish their GPU build for CUDA 13, but LMSupply checked for any installed

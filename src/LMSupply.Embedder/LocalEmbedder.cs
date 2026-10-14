@@ -233,7 +233,8 @@ public static class LocalEmbedder
                 throw GgufModelNotFound(target);
 
             using var ggufDownloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
-            return await ggufDownloader.PlanAsync(repoIdOrPath, GgufPreferredQuantization, cancellationToken);
+            // No preferred quantization: the largest file that fits in memory, as the load picks it.
+            return await ggufDownloader.PlanAsync(repoIdOrPath, preferredQuantization: null, cancellationToken);
         }
 
         if (File.Exists(target) || target.EndsWith(".onnx", StringComparison.OrdinalIgnoreCase))
@@ -876,9 +877,6 @@ public static class LocalEmbedder
         return false;
     }
 
-    /// <summary>The quantization a GGUF repository load prefers when the memory budget allows it.</summary>
-    private const string GgufPreferredQuantization = "Q4_K_M";
-
     private static string StripGgufPrefix(string modelIdOrPath) =>
         modelIdOrPath.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ? modelIdOrPath[5..] : modelIdOrPath;
 
@@ -917,7 +915,7 @@ public static class LocalEmbedder
             using var downloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
             modelPath = await downloader.DownloadAsync(
                 cleanPath,
-                preferredQuantization: GgufPreferredQuantization,
+                preferredQuantization: null,   // the largest quantization that fits in memory (docs/embedder.md)
                 progress: progress,
                 cancellationToken: cancellationToken);
 
