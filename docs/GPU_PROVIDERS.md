@@ -42,7 +42,7 @@ await using var model = await LocalEmbedder.LoadAsync("default");
 ```
 
 **Auto-detection priority:**
-1. **CUDA** - If NVIDIA GPU with 4GB+ VRAM detected
+1. **CUDA** - If an NVIDIA GPU with 4GB+ VRAM is detected and its driver supports the CUDA version ONNX Runtime needs (13)
 2. **CoreML** - If macOS with Apple Silicon
 3. **CPU** - Fallback
 
@@ -72,10 +72,15 @@ Available values:
 
 ### 3.1 CUDA (NVIDIA)
 
-**Requirements:**
-- NVIDIA GPU with Compute Capability 3.5+
-- NVIDIA Driver 450.80.02+ (Linux) / 452.39+ (Windows)
-- Minimum 4GB VRAM recommended
+**Requirements (ONNX sessions):** ONNX Runtime 1.27 and later — LMSupply uses 1.30 — publish their GPU build for
+CUDA 13, so:
+- an NVIDIA driver that supports CUDA 13 (`nvidia-smi` shows «CUDA Version: 13.x» or higher); with an older driver
+  LMSupply leaves CUDA out and logs `CUDA not used for ONNX sessions: the NVIDIA driver supports CUDA up to 12.x …`
+- the CUDA 13 runtime (cuBLAS) and cuDNN 9 for CUDA 13 installed (`CUDA_PATH`); LMSupply downloads the ONNX Runtime
+  binaries but not these — a CUDA 12 install cannot load the provider (it depends on `cublasLt64_13.dll`)
+- minimum 4GB VRAM
+
+GGUF models (llama-server) are different: their CUDA runtime is bundled, the driver alone is enough.
 
 **Performance Characteristics:**
 - Fastest inference for most models
@@ -293,7 +298,7 @@ await using (var generator = await LocalGenerator.LoadAsync("auto"))
 | **Latency** | Lowest | Low | Highest |
 | **Batch Perf** | Excellent | Good | Moderate |
 | **Memory** | GPU VRAM | Unified | System RAM |
-| **Setup** | Driver only | Auto | None |
+| **Setup** | Driver + CUDA 13 runtime + cuDNN 9 (ONNX); driver only (GGUF) | Auto | None |
 
 ---
 

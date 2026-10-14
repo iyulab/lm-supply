@@ -10,7 +10,10 @@ Supports both **ONNX** models (sentence-transformers) and **GGUF** models (via l
 dotnet add package LMSupply.Embedder
 ```
 
-GPU acceleration is **automatic** — LMSupply detects your hardware and downloads appropriate runtime binaries on first use. No additional packages required.
+LMSupply detects your hardware and downloads the ONNX Runtime binaries on first use; no additional packages are
+required. GPU inference for ONNX embedders also needs CUDA on the machine — the CUDA execution provider of ONNX Runtime 1.30 is built for **CUDA 13**: it needs an NVIDIA driver that supports CUDA 13 (`nvidia-smi` shows «CUDA Version: 13.x» or higher) and the **CUDA 13 runtime (cuBLAS) and cuDNN 9 for CUDA 13** installed on the machine (LMSupply does not
+download them). Without them the embedder runs on CPU; `model.ActiveProviders` says which provider runs. GGUF embedders
+bring their own CUDA runtime. Details: [GPU providers](GPU_PROVIDERS.md#31-cuda-nvidia).
 
 ## Basic Usage
 

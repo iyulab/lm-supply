@@ -81,11 +81,13 @@ public class RuntimeManagerTests
         // Act
         var chain = manager.GetProviderFallbackChain();
 
-        // Assert - Only check if NVIDIA GPU is detected
-        if (manager.Gpu.Vendor == GpuVendor.Nvidia && manager.Gpu.CudaDriverVersionMajor >= 11)
-        {
+        // Assert - only where the driver can run the ONNX Runtime GPU build (CUDA 13 since 1.27); an older driver must
+        // leave CUDA out of the chain rather than try a provider that cannot load.
+        var required = OnnxRuntimeCuda.RequiredCudaMajorForLoadedRuntime;
+        if (manager.Gpu.Vendor == GpuVendor.Nvidia && manager.Gpu.CudaDriverVersionMajor >= required)
             chain.Should().Contain(p => p.StartsWith("cuda", StringComparison.Ordinal), "CUDA should be available on NVIDIA GPU");
-        }
+        else
+            chain.Should().NotContain(p => p.StartsWith("cuda", StringComparison.Ordinal), "the driver cannot run the CUDA build");
     }
 
     [Fact]

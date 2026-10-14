@@ -558,14 +558,15 @@ matching `llama-server` build *and* its CUDA runtime on first use, so a machine 
 installed gets the GPU for generation, GGUF embedders and GGUF rerankers.
 
 **ONNX sessions (the default embedder, reranker, OCR, Whisper transcriber, captioner, …) are different:**
-LMSupply provisions the ONNX Runtime binaries, but the CUDA execution provider also needs the **CUDA 12
-runtime and cuDNN 9 installed on the machine** (`CUDA_PATH`), which LMSupply does not download. Without them
+LMSupply provisions the ONNX Runtime binaries, but the CUDA execution provider of ONNX Runtime 1.30 is built for
+**CUDA 13**: it also needs a driver that supports CUDA 13 and the **CUDA 13 runtime (cuBLAS) and cuDNN 9 for CUDA 13
+installed on the machine** (`CUDA_PATH`), which LMSupply does not download. Without them
 `ExecutionProvider.Auto` runs those sessions on **CPU** and says so once per process in `Trace`
 (`CUDA skipped (missing: …)` / `Active=CPUExecutionProvider`). A driver-only NVIDIA laptop is the common
 case — check `Trace` before assuming the GPU is in use.
 
 ```
-Detection priority (ONNX sessions): CUDA (if the CUDA runtime is installed) → CoreML → CPU
+Detection priority (ONNX sessions): CUDA (if the driver supports CUDA 13 and the CUDA 13 runtime is installed) → CoreML → CPU
 Detection priority (GGUF/llama-server): CUDA → Metal → Vulkan → CPU, runtime bundled
 ```
 
@@ -631,7 +632,7 @@ dotnet remove package Microsoft.ML.OnnxRuntime.DirectML
 
 For NVIDIA CUDA support, ensure you have:
 - NVIDIA GPU drivers installed (enough for GGUF models — the llama-server CUDA runtime is downloaded for you)
-- For ONNX sessions: the CUDA 12 runtime and cuDNN 9 installed on the machine (see [GPU Acceleration](#gpu-acceleration)); LMSupply provisions the ONNX Runtime GPU build, tried first as `cuda12` when the driver reports CUDA 12
+- For ONNX sessions: a driver that supports CUDA 13, and the CUDA 13 runtime and cuDNN 9 for CUDA 13 installed on the machine (see [GPU Acceleration](#gpu-acceleration)); LMSupply provisions the ONNX Runtime GPU build (cached under the provider key `cuda12`, which names the package slot, not the CUDA version — ONNX Runtime 1.30 is built for CUDA 13)
 
 If inference behaves as though a different provider/version is active than the one you last
 requested, check `RuntimeManager.Instance.ActuallyLoadedRuntimePath` — a native runtime binary

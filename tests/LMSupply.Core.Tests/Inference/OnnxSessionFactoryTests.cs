@@ -34,10 +34,10 @@ public class OnnxSessionFactoryTests
         await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
 
-        // Skip if not NVIDIA GPU
-        if (gpu?.Vendor != GpuVendor.Nvidia || gpu.CudaDriverVersionMajor < 11)
+        // Skip unless an NVIDIA driver can run the ONNX Runtime GPU build (CUDA 13 since ONNX Runtime 1.27)
+        if (gpu?.Vendor != GpuVendor.Nvidia || gpu.CudaDriverVersionMajor < OnnxRuntimeCuda.RequiredCudaMajorForLoadedRuntime)
         {
-            return; // Skip test - no NVIDIA GPU available
+            return; // Skip test - no NVIDIA GPU that can run it
         }
 
         // Act

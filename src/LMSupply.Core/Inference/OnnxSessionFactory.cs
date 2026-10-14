@@ -149,7 +149,7 @@ public static class OnnxSessionFactory
         ExecutionProviderSupport.ThrowIfUnsupported(provider);
         var providerString = provider switch
         {
-            ExecutionProvider.Cuda => "cuda12",  // Try CUDA 12 first
+            ExecutionProvider.Cuda => "cuda12",  // the ONNX Runtime GPU package slot; its CUDA major is OnnxRuntimeCuda.RequiredCudaMajor
             _ => "cpu" // CoreML's provider ships in the base package; OpenVino's plugin runs on it
         };
         var isGpuRequested = provider is ExecutionProvider.Cuda or ExecutionProvider.CoreML or ExecutionProvider.OpenVino;
@@ -303,7 +303,8 @@ public static class OnnxSessionFactory
                         Trace.TraceWarning(
                             $"[OnnxSessionFactory] CUDA skipped (missing: {string.Join(", ", missingLibs)}). " +
                             $"Falling back to next provider in chain - ONNX sessions (embedder, reranker, OCR, transcriber) run on CPU. " +
-                            $"To use the GPU for ONNX sessions install the CUDA 12 runtime and cuDNN 9 (LMSupply provisions the ONNX Runtime " +
+                            $"To use the GPU for ONNX sessions install the CUDA {Runtime.OnnxRuntimeCuda.RequiredCudaMajorForLoadedRuntime} runtime (cuBLAS) and cuDNN 9 for it, " +
+                            $"with an NVIDIA driver that supports that CUDA version (LMSupply provisions the ONNX Runtime " +
                             $"binaries but not the CUDA libraries; GGUF/llama-server models get their CUDA runtime bundled and are unaffected).");
                         triedProviders.Add("CUDA(skipped)");
                         continue;
@@ -313,7 +314,7 @@ public static class OnnxSessionFactory
                 // Get provider string for binary download
                 var providerString = providerToTry switch
                 {
-                    ExecutionProvider.Cuda => "cuda12",  // Try CUDA 12 first
+                    ExecutionProvider.Cuda => "cuda12",  // the ONNX Runtime GPU package slot; its CUDA major is OnnxRuntimeCuda.RequiredCudaMajor
                     _ => "cpu" // CoreML's provider ships in the base package
                 };
 
@@ -473,15 +474,16 @@ public static class OnnxSessionFactory
         var cudaEnv = Runtime.CudaEnvironment.Instance;
         cudaEnv.Initialize();
 
-        // Check for CUDA installation
-        var cuda = cudaEnv.PrimaryCuda;
-        if (cuda is null)
-        {
-            return (false, new[] { "CUDA_PATH not set or CUDA not installed" });
-        }
-
-        var cudaMajorVersion = cuda.MajorVersion;
+        // The CUDA major the ONNX Runtime GPU build links against (13 since 1.27) - not whichever CUDA is installed:
+        // a CUDA 12 install passed this check and the provider then failed to load on cublasLt64_13.dll.
+        var cudaMajorVersion = Runtime.OnnxRuntimeCuda.RequiredCudaMajorForLoadedRuntime;
         var missing = new List<string>();
+
+        if (Runtime.RuntimeManager.Instance.IsInitialized && Runtime.RuntimeManager.Instance.Gpu is { Vendor: Runtime.GpuVendor.Nvidia } gpu
+            && Runtime.OnnxRuntimeCuda.DriverShortfall(gpu.CudaDriverVersionMajor, gpu.CudaDriverVersionMinor, cudaMajorVersion) is { } shortfall)
+        {
+            missing.Add(shortfall);
+        }
 
         // Check for required CUDA libraries (cuBLAS)
         var (cudaAvailable, cudaMissing) = cudaEnv.CheckCudaLibraries(cudaMajorVersion);
@@ -490,8 +492,7 @@ public static class OnnxSessionFactory
             missing.AddRange(cudaMissing);
         }
 
-        // Check for cuDNN (required for CUDA provider)
-        // ONNX Runtime 1.22+ requires cuDNN 9.x for CUDA 12.x
+        // Check for cuDNN (required for CUDA provider): cuDNN 9 for the CUDA 12 and 13 builds.
         var requiredCudnnMajor = cudaMajorVersion >= 12 ? 9 : 8;
         var (cudnnAvailable, cudnnMissing, _) = cudaEnv.CheckCuDnnLibraries(cudaMajorVersion);
 

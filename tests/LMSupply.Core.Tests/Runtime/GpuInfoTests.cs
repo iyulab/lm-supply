@@ -85,16 +85,30 @@ public class GpuInfoTests
     }
 
     [Fact]
-    public void RecommendedProvider_NvidiaCuda11Plus_ShouldBeCuda()
+    public void RecommendedProvider_NvidiaDriverForCuda13_ShouldBeCuda()
     {
         var gpu = new GpuInfo
         {
             Vendor = GpuVendor.Nvidia,
-            CudaDriverVersionMajor = 12,
-            CudaDriverVersionMinor = 3
+            CudaDriverVersionMajor = 13,
+            CudaDriverVersionMinor = 0
         };
 
         gpu.RecommendedProvider.Should().Be(ExecutionProvider.Cuda);
+    }
+
+    [Fact]
+    public void RecommendedProvider_NvidiaDriverForCuda12Only_ShouldBeCpu()
+    {
+        // The ONNX Runtime 1.30 GPU build needs CUDA 13; a driver that supports CUDA up to 12.9 cannot run it.
+        var gpu = new GpuInfo
+        {
+            Vendor = GpuVendor.Nvidia,
+            CudaDriverVersionMajor = 12,
+            CudaDriverVersionMinor = 9
+        };
+
+        gpu.RecommendedProvider.Should().Be(ExecutionProvider.Cpu);
     }
 
     [Fact]
@@ -153,12 +167,12 @@ public class GpuInfoTests
     }
 
     [Fact]
-    public void GetFallbackProviders_NvidiaCuda11_ShouldIncludeCudaFirst()
+    public void GetFallbackProviders_NvidiaDriverForCuda13_ShouldIncludeCudaFirst()
     {
         var gpu = new GpuInfo
         {
             Vendor = GpuVendor.Nvidia,
-            CudaDriverVersionMajor = 12,
+            CudaDriverVersionMajor = 13,
             DirectMLSupported = true
         };
 

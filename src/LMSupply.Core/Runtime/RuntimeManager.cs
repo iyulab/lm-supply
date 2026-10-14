@@ -118,6 +118,9 @@ public sealed class RuntimeManager : IAsyncDisposable
     /// </summary>
     public GpuInfo Gpu => _initialized ? EnsureGpu() : throw new InvalidOperationException("Runtime manager not initialized");
 
+    /// <summary>Whether <see cref="InitializeAsync"/> has run, so <see cref="Gpu"/> can be read.</summary>
+    internal bool IsInitialized => _initialized;
+
     /// <summary>
     /// Gets the recommended execution provider based on detected hardware. Reading it probes the GPU.
     /// </summary>
@@ -204,7 +207,7 @@ public sealed class RuntimeManager : IAsyncDisposable
     /// This enables ONNX Runtime's CUDA provider to find native dependencies.
     /// Uses both AddDllDirectory (for LoadLibraryEx) and PATH modification (for LoadLibrary).
     /// </summary>
-    private void SetupCudaDllSearchPaths()
+    private static void SetupCudaDllSearchPaths()
     {
         if (!OperatingSystem.IsWindows())
             return;
@@ -213,8 +216,8 @@ public sealed class RuntimeManager : IAsyncDisposable
         var cudaEnv = CudaEnvironment.Instance;
         cudaEnv.Initialize();
 
-        // Determine target CUDA version from detected GPU
-        var cudaMajorVersion = _gpu?.CudaDriverVersionMajor ?? 12;
+        // The libraries to find are the ones the ONNX Runtime GPU build links against, not the newest the driver supports.
+        var cudaMajorVersion = OnnxRuntimeCuda.RequiredCudaMajorForLoadedRuntime;
 
         // Get all DLL search paths from CudaEnvironment
         var pathsToAdd = cudaEnv.GetDllSearchPaths(cudaMajorVersion).ToList();
@@ -523,7 +526,7 @@ public sealed class RuntimeManager : IAsyncDisposable
         return latest ?? throw new InvalidOperationException($"Could not determine version for {packageId}");
     }
 
-    private static string? TryGetOnnxRuntimeVersion()
+    internal static string? TryGetOnnxRuntimeVersion()
     {
         try
         {
@@ -622,11 +625,15 @@ public sealed class RuntimeManager : IAsyncDisposable
                 }
                 else
                 {
-                    // For standard ONNX Runtime, use specific CUDA versions
-                    if (gpu.CudaDriverVersionMajor >= 12 && supportedProviders.Contains("cuda12"))
+                    // The standard ONNX Runtime GPU package (provider key "cuda12") is one build, against the CUDA
+                    // major its version needs (13 since 1.27). A driver that does not support that major cannot run
+                    // it, whatever CUDA is installed; there is no older-CUDA build of the same version to fall back to.
+                    var required = OnnxRuntimeCuda.RequiredCudaMajorForLoadedRuntime;
+                    var shortfall = OnnxRuntimeCuda.DriverShortfall(gpu.CudaDriverVersionMajor, gpu.CudaDriverVersionMinor, required);
+                    if (shortfall is null && supportedProviders.Contains("cuda12"))
                         chain.Add("cuda12");
-                    else if (gpu.CudaDriverVersionMajor >= 11 && supportedProviders.Contains("cuda11"))
-                        chain.Add("cuda11");
+                    else if (shortfall is not null)
+                        Trace.TraceWarning($"[RuntimeManager] CUDA not used for ONNX sessions: {shortfall}.");
                 }
             }
         }

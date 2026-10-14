@@ -90,11 +90,18 @@ public sealed record GpuInfo
     public bool CoreMLSupported { get; init; }
 
     /// <summary>
+    /// Whether the driver supports the CUDA major the ONNX Runtime GPU build needs (13 since ONNX Runtime 1.27) - the
+    /// same rule <see cref="RuntimeManager.GetProviderFallbackChain()"/> applies.
+    /// </summary>
+    internal bool CanRunOnnxRuntimeCuda =>
+        OnnxRuntimeCuda.DriverShortfall(CudaDriverVersionMajor, CudaDriverVersionMinor, OnnxRuntimeCuda.RequiredCudaMajorForLoadedRuntime) is null;
+
+    /// <summary>
     /// Gets the recommended execution provider for this GPU.
     /// </summary>
     public ExecutionProvider RecommendedProvider => Vendor switch
     {
-        GpuVendor.Nvidia when CudaDriverVersionMajor >= 11 => ExecutionProvider.Cuda,
+        GpuVendor.Nvidia when CanRunOnnxRuntimeCuda => ExecutionProvider.Cuda,
         GpuVendor.Apple => ExecutionProvider.CoreML,
         _ => ExecutionProvider.Cpu
     };
@@ -108,8 +115,8 @@ public sealed record GpuInfo
     {
         var providers = new List<ExecutionProvider>();
 
-        // CUDA first (if NVIDIA with sufficient driver)
-        if (Vendor == GpuVendor.Nvidia && CudaDriverVersionMajor >= 11)
+        // CUDA first (if NVIDIA with a driver that runs the ONNX Runtime GPU build)
+        if (Vendor == GpuVendor.Nvidia && CanRunOnnxRuntimeCuda)
             providers.Add(ExecutionProvider.Cuda);
 
         // CoreML (macOS/iOS)

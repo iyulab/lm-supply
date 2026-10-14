@@ -109,8 +109,8 @@ public sealed class HardwareProfile
     /// </summary>
     private static ExecutionProvider DetermineRecommendedProvider(GpuInfo gpuInfo)
     {
-        // CUDA has best performance for NVIDIA GPUs with sufficient VRAM
-        if (gpuInfo.Vendor == GpuVendor.Nvidia && gpuInfo.TotalMemoryBytes >= 4L * 1024 * 1024 * 1024)
+        // CUDA has best performance for NVIDIA GPUs with sufficient VRAM and a driver that runs the ONNX Runtime GPU build
+        if (gpuInfo.Vendor == GpuVendor.Nvidia && gpuInfo.CanRunOnnxRuntimeCuda && gpuInfo.TotalMemoryBytes >= 4L * 1024 * 1024 * 1024)
         {
             return ExecutionProvider.Cuda;
         }

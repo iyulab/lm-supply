@@ -7,6 +7,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Fixed
+- **ONNX sessions use CUDA only where the ONNX Runtime GPU build can run, and the warning says what it needs.** ONNX
+  Runtime 1.27 and later (LMSupply uses 1.30) publish their GPU build for CUDA 13, but LMSupply checked for any installed
+  CUDA, chose CUDA for any driver that reported CUDA 11 or newer, and told the user to install CUDA 12 — which cannot load
+  the provider (it depends on `cublasLt64_13.dll`). The CUDA check now looks for the CUDA 13 runtime and cuDNN 9; a driver
+  that supports only CUDA 12 keeps CUDA out of `Auto` and of the explicit-CUDA attempt, with a warning naming the driver's
+  CUDA version and the one needed; the README and every guide state the same prerequisites (driver for CUDA 13, CUDA 13
+  runtime, cuDNN 9; GGUF models need only the driver). Hosts that could run CUDA before still do.
 - **A batch embedding call runs batched inference.** `EmbedAsync(IReadOnlyList<string>)` padded the whole batch to its
   longest text and then ran the model one text at a time, so every text paid the batch's padding and nothing ran
   together — measured on CPU with bge-m3, 64 passages per call embedded at 2.2 passages/s against 3.5/s one per call.
