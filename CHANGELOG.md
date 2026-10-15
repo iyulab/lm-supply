@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [Unreleased]
+## [0.122.0] - 2026-10-15
 
 ### Fixed
 - **A relocated cache keeps its llama-server builds.** The state file recorded each build as an absolute path, so after
