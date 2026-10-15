@@ -391,8 +391,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
                     float x2 = hasBatch ? boxes[0, i, 2] : boxes[i, 2];
                     float y2 = hasBatch ? boxes[0, i, 3] : boxes[i, 3];
 
-                    var box = new BoundingBox(x1, y1, x2, y2)
-                        .Clamp(originalWidth, originalHeight);
+                    var box = BoundingBox.FromCorners(x1, y1, x2, y2)
+                        .Clip(originalWidth, originalHeight);
 
                     results.Add(new DetectionResult(
                         ClassId: classId,
@@ -434,8 +434,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
                     var w = boxes[0, i, 2] * originalWidth;
                     var h = boxes[0, i, 3] * originalHeight;
 
-                    var box = BoundingBox.FromCenterSize(cx, cy, w, h)
-                        .Clamp(originalWidth, originalHeight);
+                    var box = BoundingBox.FromCenter(cx, cy, w, h)
+                        .Clip(originalWidth, originalHeight);
 
                     results.Add(new DetectionResult(
                         ClassId: bestClass,
@@ -465,12 +465,12 @@ internal sealed class OnnxDetectorModel : IDetectorModel
                     var scaleX = originalWidth / (float)inputWidth;
                     var scaleY = originalHeight / (float)inputHeight;
 
-                    var box = new BoundingBox(
+                    var box = BoundingBox.FromCorners(
                         output[0, i, 0] * scaleX,
                         output[0, i, 1] * scaleY,
                         output[0, i, 2] * scaleX,
                         output[0, i, 3] * scaleY)
-                        .Clamp(originalWidth, originalHeight);
+                        .Clip(originalWidth, originalHeight);
 
                     results.Add(new DetectionResult(
                         ClassId: classId,
@@ -506,8 +506,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
                     var w = output[0, i, 2] * originalWidth;
                     var h = output[0, i, 3] * originalHeight;
 
-                    var box = BoundingBox.FromCenterSize(cx, cy, w, h)
-                        .Clamp(originalWidth, originalHeight);
+                    var box = BoundingBox.FromCenter(cx, cy, w, h)
+                        .Clip(originalWidth, originalHeight);
 
                     results.Add(new DetectionResult(
                         ClassId: bestClass,
@@ -566,8 +566,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
             var w = output[0, i, 2] * scaleX;
             var h = output[0, i, 3] * scaleY;
 
-            var box = BoundingBox.FromCenterSize(cx, cy, w, h)
-                .Clamp(originalWidth, originalHeight);
+            var box = BoundingBox.FromCenter(cx, cy, w, h)
+                .Clip(originalWidth, originalHeight);
 
             allDetections.Add(new DetectionResult(
                 ClassId: bestClass,
@@ -703,8 +703,8 @@ internal sealed class OnnxDetectorModel : IDetectorModel
             var w = Val(2) * scaleX;
             var h = Val(3) * scaleY;
 
-            var box = BoundingBox.FromCenterSize(cx, cy, w, h)
-                .Clamp(originalWidth, originalHeight);
+            var box = BoundingBox.FromCenter(cx, cy, w, h)
+                .Clip(originalWidth, originalHeight);
 
             // Parse keypoints: (x, y, confidence) × numKeypoints
             var keypoints = new Keypoint[KeypointCount];

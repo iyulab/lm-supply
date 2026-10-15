@@ -4,19 +4,19 @@ namespace LMSupply.Reranker.Models;
 /// Provides definitions for built-in supported models.
 /// Updated: 2025-01 based on BEIR and MS MARCO benchmarks.
 /// </summary>
-public static class DefaultModels
+public static class RerankerModels
 {
     /// <summary>
     /// Gets the default model (balanced speed and quality).
     /// </summary>
-    public static ModelInfo Default => MsMarcoMiniLML6V2;
+    public static RerankerModelInfo Default => MsMarcoMiniLML6V2;
 
     /// <summary>
     /// MS MARCO MiniLM L6 v2 - Fast and lightweight model.
     /// 22M params, 512 tokens, proven performer for English.
     /// Best speed/quality balance for most use cases.
     /// </summary>
-    public static ModelInfo MsMarcoMiniLML6V2 { get; } = new()
+    public static RerankerModelInfo MsMarcoMiniLML6V2 { get; } = new()
     {
         Id = "cross-encoder/ms-marco-MiniLM-L-6-v2",
         License = "Apache-2.0",
@@ -29,7 +29,7 @@ public static class DefaultModels
         TokenizerFile = "tokenizer.json",
         Description = "Default: Best speed/quality balance for English",
         IsMultilingual = false,
-        Architecture = ModelArchitecture.Bert,
+        Architecture = RerankerArchitecture.Bert,
         OutputShape = OutputShape.SingleLogit
     };
 
@@ -38,7 +38,7 @@ public static class DefaultModels
     /// 4.4M params, 512 tokens, fastest inference.
     /// Best for latency-critical applications.
     /// </summary>
-    public static ModelInfo MsMarcoTinyBertL2V2 { get; } = new()
+    public static RerankerModelInfo MsMarcoTinyBertL2V2 { get; } = new()
     {
         Id = "cross-encoder/ms-marco-TinyBERT-L-2-v2",
         License = "Apache-2.0",
@@ -51,7 +51,7 @@ public static class DefaultModels
         TokenizerFile = "tokenizer.json",
         Description = "Fast: Ultra-lightweight for latency-critical apps",
         IsMultilingual = false,
-        Architecture = ModelArchitecture.Bert,
+        Architecture = RerankerArchitecture.Bert,
         OutputShape = OutputShape.SingleLogit
     };
 
@@ -60,7 +60,7 @@ public static class DefaultModels
     /// 33M params, 512 tokens, better accuracy than L6.
     /// Legacy quality option, consider BGE Reranker Base for better results.
     /// </summary>
-    public static ModelInfo MsMarcoMiniLML12V2 { get; } = new()
+    public static RerankerModelInfo MsMarcoMiniLML12V2 { get; } = new()
     {
         Id = "cross-encoder/ms-marco-MiniLM-L-12-v2",
         License = "Apache-2.0",
@@ -73,7 +73,7 @@ public static class DefaultModels
         TokenizerFile = "tokenizer.json",
         Description = "Legacy quality: Better accuracy than L6, English only",
         IsMultilingual = false,
-        Architecture = ModelArchitecture.Bert,
+        Architecture = RerankerArchitecture.Bert,
         OutputShape = OutputShape.SingleLogit
     };
 
@@ -82,12 +82,12 @@ public static class DefaultModels
     /// 278M params, 512 tokens.
     /// </summary>
     /// <remarks>
-    /// The backbone (XLM-RoBERTa) tokenizes any language, which is what <see cref="ModelInfo.IsMultilingual"/>
+    /// The backbone (XLM-RoBERTa) tokenizes any language, which is what <see cref="RerankerModelInfo.IsMultilingual"/>
     /// records, but the model card lists English and Chinese as its training languages. Other languages
     /// work by transfer only; for those, use <c>multilingual</c> or the GGUF alias <c>multilingual-fast</c>.
     /// The ONNX export is fp32: the download is 1.1 GB.
     /// </remarks>
-    public static ModelInfo BgeRerankerBase { get; } = new()
+    public static RerankerModelInfo BgeRerankerBase { get; } = new()
     {
         Id = "BAAI/bge-reranker-base",
         License = "MIT",
@@ -100,7 +100,7 @@ public static class DefaultModels
         TokenizerFile = "tokenizer.json",
         Description = "Quality: higher accuracy, trained on English and Chinese",
         IsMultilingual = true,
-        Architecture = ModelArchitecture.XlmRoberta,
+        Architecture = RerankerArchitecture.XlmRoberta,
         OutputShape = OutputShape.SingleLogit
     };
 
@@ -109,7 +109,7 @@ public static class DefaultModels
     /// 560M params, 512 tokens, best quality.
     /// Best for quality-critical applications.
     /// </summary>
-    public static ModelInfo BgeRerankerLarge { get; } = new()
+    public static RerankerModelInfo BgeRerankerLarge { get; } = new()
     {
         Id = "BAAI/bge-reranker-large",
         License = "MIT",
@@ -123,7 +123,7 @@ public static class DefaultModels
         TokenizerFile = "tokenizer.json",
         Description = "Large: Highest accuracy, quality-critical apps",
         IsMultilingual = true,
-        Architecture = ModelArchitecture.XlmRoberta,
+        Architecture = RerankerArchitecture.XlmRoberta,
         OutputShape = OutputShape.SingleLogit
     };
 
@@ -137,7 +137,7 @@ public static class DefaultModels
     /// are served from the ONNX conversion of the same model, which does not carry the SentencePiece model its Unigram
     /// tokenizer needs — the tokenizer files come from the original repository.
     /// </remarks>
-    public static ModelInfo BgeRerankerV2M3 { get; } = new()
+    public static RerankerModelInfo BgeRerankerV2M3 { get; } = new()
     {
         Id = "onnx-community/bge-reranker-v2-m3-ONNX",
         License = "Apache-2.0",
@@ -152,14 +152,14 @@ public static class DefaultModels
         TokenizerRepoId = "BAAI/bge-reranker-v2-m3",
         Description = "Multilingual: 8K context, 100+ languages, long docs",
         IsMultilingual = true,
-        Architecture = ModelArchitecture.XlmRoberta,
+        Architecture = RerankerArchitecture.XlmRoberta,
         OutputShape = OutputShape.SingleLogit
     };
 
     /// <summary>
     /// Gets all built-in models.
     /// </summary>
-    public static IReadOnlyList<ModelInfo> All { get; } =
+    public static IReadOnlyList<RerankerModelInfo> All { get; } =
     [
         MsMarcoMiniLML6V2,
         MsMarcoTinyBertL2V2,

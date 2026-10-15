@@ -16,7 +16,7 @@ public sealed class ModelManagerOfflineTests : IDisposable
 {
     private readonly string _cacheDir = Path.Combine(Path.GetTempPath(), "lmsupply-reranker-offline-" + Guid.NewGuid().ToString("N"));
 
-    private static readonly ModelInfo Model = new()
+    private static readonly RerankerModelInfo Model = new()
     {
         Id = "acme/reranker-offline",
         AliasName = "offline-test",
@@ -71,7 +71,7 @@ public sealed class ModelManagerOfflineTests : IDisposable
         Assert.True(File.Exists(paths.TokenizerPath));
     }
 
-    private static readonly ModelInfo ExternalWeightsModel = Model with { OnnxFile = "onnx/model.onnx", OnnxDataFile = "onnx/model.onnx_data" };
+    private static readonly RerankerModelInfo ExternalWeightsModel = Model with { OnnxFile = "onnx/model.onnx", OnnxDataFile = "onnx/model.onnx_data" };
 
     [Fact]
     public async Task GraphAndTokenizerCached_ButDeclaredExternalWeightsMissing_IsNotACachedModel()
@@ -139,7 +139,7 @@ public sealed class ModelManagerOfflineTests : IDisposable
     public void EveryBuiltInModelOver2GB_DeclaresItsExternalWeights()
     {
         // ONNX protobuf cannot hold more than 2 GB inline, so a built-in model that size ships its weights separately.
-        Assert.All(DefaultModels.All.Where(m => m.SizeBytes >= 2_000_000_000), m => Assert.NotNull(m.OnnxDataFile));
+        Assert.All(RerankerModels.All.Where(m => m.SizeBytes >= 2_000_000_000), m => Assert.NotNull(m.OnnxDataFile));
     }
 
     private void Cache(string file, string content)

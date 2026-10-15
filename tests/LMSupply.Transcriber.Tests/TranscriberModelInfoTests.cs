@@ -108,23 +108,23 @@ public class TranscriberModelInfoTests
     [Fact]
     public void IsTranslateSupported_MultilingualModel_ShouldBeTrue()
     {
-        DefaultModels.WhisperBase.IsMultilingual.Should().BeTrue();
-        DefaultModels.WhisperBase.IsTranslateSupported.Should().BeTrue();
-        DefaultModels.WhisperLargeV3Turbo.IsTranslateSupported.Should().BeTrue();
+        TranscriberModels.WhisperBase.IsMultilingual.Should().BeTrue();
+        TranscriberModels.WhisperBase.IsTranslateSupported.Should().BeTrue();
+        TranscriberModels.WhisperLargeV3Turbo.IsTranslateSupported.Should().BeTrue();
     }
 
     [Fact]
     public void IsTranslateSupported_EnglishOnlyModel_ShouldBeFalse()
     {
-        DefaultModels.WhisperBaseEn.IsMultilingual.Should().BeFalse();
-        DefaultModels.WhisperBaseEn.IsTranslateSupported.Should().BeFalse();
-        DefaultModels.DistilWhisperLargeV3.IsTranslateSupported.Should().BeFalse();
+        TranscriberModels.WhisperBaseEn.IsMultilingual.Should().BeFalse();
+        TranscriberModels.WhisperBaseEn.IsTranslateSupported.Should().BeFalse();
+        TranscriberModels.DistilWhisperLargeV3.IsTranslateSupported.Should().BeFalse();
     }
 
     [Fact]
     public void IsTranslateSupported_ShouldTrackIsMultilingual()
     {
-        foreach (var model in DefaultModels.All)
+        foreach (var model in TranscriberModels.All)
         {
             model.IsTranslateSupported.Should().Be(
                 model.IsMultilingual,

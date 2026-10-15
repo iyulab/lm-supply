@@ -81,7 +81,7 @@ internal sealed class LcmPipeline : IAsyncDisposable
     /// </summary>
     public async Task<GeneratedImage> GenerateAsync(
         string prompt,
-        GenerationOptions options,
+        ImageGenerationOptions options,
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -187,7 +187,7 @@ internal sealed class LcmPipeline : IAsyncDisposable
     /// </summary>
     public async IAsyncEnumerable<GenerationStep> GenerateStreamingAsync(
         string prompt,
-        GenerationOptions options,
+        ImageGenerationOptions options,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

@@ -5,7 +5,7 @@ namespace LMSupply.Reranker.Models;
 /// <summary>
 /// Contains metadata and configuration for a reranker model.
 /// </summary>
-public sealed record ModelInfo : IModelInfoBase, IModelMemoryInfo
+public sealed record RerankerModelInfo : IModelInfoBase, IModelMemoryInfo
 {
     /// <summary>
     /// Gets the unique identifier for the model (e.g., "cross-encoder/ms-marco-MiniLM-L-6-v2").
@@ -85,7 +85,7 @@ public sealed record ModelInfo : IModelInfoBase, IModelMemoryInfo
     /// <summary>
     /// Gets the model architecture type.
     /// </summary>
-    public ModelArchitecture Architecture { get; init; } = ModelArchitecture.Bert;
+    public RerankerArchitecture Architecture { get; init; } = RerankerArchitecture.Bert;
 
     /// <summary>
     /// Gets the expected output tensor shape type.
@@ -112,7 +112,7 @@ public sealed record ModelInfo : IModelInfoBase, IModelMemoryInfo
 /// <summary>
 /// Model architecture types.
 /// </summary>
-public enum ModelArchitecture
+public enum RerankerArchitecture
 {
     /// <summary>
     /// BERT-based architecture with WordPiece tokenization.

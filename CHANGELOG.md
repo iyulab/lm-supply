@@ -19,6 +19,27 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   version is kept (a `b*/cuda12` directory survived while the CPU entry referenced `b*/cpu`).
 
 ### Changed
+- **Breaking** — **no two top-level public types of the LMSupply packages share a name**, so an application that imports
+  several packages' namespaces no longer hits CS0104. A test now holds this for every package. Renames — migration is the
+  new name:
+  - `ModelInfo` → `EmbedderModelInfo` (Embedder), `RerankerModelInfo` (Reranker), `CaptionerModelInfo` (Captioner) and
+    `GeneratorModelEntry` (Generator — `GeneratorModelInfo` is the loaded model's info).
+  - `DefaultModels` → `CaptionerModels`, `DetectorModels`, `ImageGeneratorModels`, `RerankerModels`, `SegmenterModels`,
+    `SynthesizerModels`, `TranscriberModels`, `TranslatorModels`.
+  - ImageGenerator `GenerationOptions` → `ImageGenerationOptions`; Reranker `ModelArchitecture` → `RerankerArchitecture`;
+    the llama-server wire `ToolDefinition` → `LlamaToolDefinition`.
+  - Generator's own `Quantization` enum is gone: the memory estimator uses `LMSupply.Core.Download.Quantization`
+    (`FP32` → `Default`, `FP16` → `Fp16`).
+- **Breaking** — **one `BoundingBox`.** The Detector (`X1`/`Y1`/`X2`/`Y2`) and OCR (`int X`/`Y`/`Width`/`Height`) boxes are
+  replaced by `LMSupply.Vision.BoundingBox` (`float X`/`Y`/`Width`/`Height`, with `Right`, `Bottom`, `IoU`, `Clip`).
+  Migration: add `using LMSupply.Vision;`; Detector `X2`/`Y2` → `Right`/`Bottom`; OCR coordinates are now `float` (cast
+  where you need whole pixels); `BoundingBox.FromPolygon` → `OcrPolygon.Bounds`.
+- **Breaking** — **`WellKnownModels.Embedder` and `WellKnownModels.Reranker` are removed from LMSupply.Generator.** The
+  Generator package cannot read the embedder and reranker registries, and its copies had drifted:
+  `WellKnownModels.Embedder.Quality` and `.Large` named other models than the registry's `quality` and `large` aliases, so
+  `LoadAsync(WellKnownModels.Embedder.Quality)` and `LoadAsync("quality")` loaded different models. Migration: use the
+  registry aliases (`"default"`, `"fast"`, `"quality"`, `"large"`) or `LocalEmbedder.Registry` / `LocalReranker.Registry`.
+
 - **Breaking** — **`LlamaServerVersionState` and `VersionEntry` record a build backend instead of a path.**
   `InstalledPath`, `PendingPath` and `VersionEntry.Path` are replaced by `InstalledBuildBackend`, `PendingBuildBackend`
   and `VersionEntry.BuildBackend` (null means the entry's `Backend`); the directory is

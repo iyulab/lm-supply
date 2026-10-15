@@ -210,7 +210,7 @@ public class TranslatorModelRegistryTests
     [Fact]
     public void RegisterAlias_ShouldBeResolvable()
     {
-        var registry = new TranslatorModelRegistry(DefaultModels.All);
+        var registry = new TranslatorModelRegistry(TranslatorModels.All);
 
         registry.RegisterAlias("my-translator", "onnx-community/opus-mt-ko-en");
 
@@ -222,7 +222,7 @@ public class TranslatorModelRegistryTests
     [Fact]
     public void RegisterAlias_SystemAliasConflict_ShouldThrow()
     {
-        var registry = new TranslatorModelRegistry(DefaultModels.All);
+        var registry = new TranslatorModelRegistry(TranslatorModels.All);
 
         var act = () => registry.RegisterAlias("default", "onnx-community/opus-mt-ko-en");
 

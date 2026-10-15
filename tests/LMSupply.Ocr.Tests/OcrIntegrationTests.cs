@@ -1,6 +1,7 @@
 using AwesomeAssertions;
 using SkiaSharp;
 using Xunit;
+using LMSupply.Vision;
 
 namespace LMSupply.Ocr.Tests;
 

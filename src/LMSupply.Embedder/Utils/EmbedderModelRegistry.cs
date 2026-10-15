@@ -5,12 +5,12 @@ namespace LMSupply.Embedder.Utils;
 /// <summary>
 /// Model registry for the Embedder domain.
 /// </summary>
-public sealed class EmbedderModelRegistry : ModelRegistryBase<ModelInfo>
+public sealed class EmbedderModelRegistry : ModelRegistryBase<EmbedderModelInfo>
 {
     /// <summary>
     /// Auto-selection candidates sorted by size descending (largest first).
     /// </summary>
-    internal static readonly ModelInfo[] AutoCandidates =
+    internal static readonly EmbedderModelInfo[] AutoCandidates =
     [
         DefaultModels.BgeM3DefaultAlias,         // 568M params, 1024 dims, 8K context, 100+ langs
         DefaultModels.MultilingualE5LargeAlias,  // 560M params, 1024 dims
@@ -34,7 +34,7 @@ public sealed class EmbedderModelRegistry : ModelRegistryBase<ModelInfo>
     /// Initializes a new registry with the specified system models.
     /// </summary>
     /// <param name="systemModels">Models to register as system defaults.</param>
-    public EmbedderModelRegistry(IEnumerable<ModelInfo> systemModels)
+    public EmbedderModelRegistry(IEnumerable<EmbedderModelInfo> systemModels)
         : base(systemModels) { }
 
     /// <summary>
@@ -42,7 +42,7 @@ public sealed class EmbedderModelRegistry : ModelRegistryBase<ModelInfo>
     /// Selects the largest model that fits in available GPU memory,
     /// falling back to the smallest model if none fit.
     /// </summary>
-    protected override ModelInfo GetAutoModel()
+    protected override EmbedderModelInfo GetAutoModel()
     {
         return SelectLargestFitting(AutoCandidates) with { AliasName = "auto" };
     }
@@ -50,11 +50,11 @@ public sealed class EmbedderModelRegistry : ModelRegistryBase<ModelInfo>
     /// <summary>
     /// Creates a fallback model info for unknown model IDs (HuggingFace repos or local paths).
     /// </summary>
-    protected override ModelInfo CreateFallbackModelInfo(string modelId)
+    protected override EmbedderModelInfo CreateFallbackModelInfo(string modelId)
     {
         Trace.TraceInformation($"[EmbedderModelRegistry] Creating fallback model info for: {modelId}");
 
-        return new ModelInfo
+        return new EmbedderModelInfo
         {
             RepoId = modelId,
             AliasName = modelId,

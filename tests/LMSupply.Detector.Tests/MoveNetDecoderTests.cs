@@ -113,10 +113,10 @@ public class MoveNetDecoderTests
 
         var person = MoveNetDecoder.DecodeSinglePose(output, frame, 0f, Label).Single();
 
-        person.Box.X1.Should().BeApproximately(20f, 1e-3f);
-        person.Box.Y1.Should().BeApproximately(10f, 1e-3f);
-        person.Box.X2.Should().Be(100f, "the box is clamped to the image");
-        person.Box.Y2.Should().BeApproximately(90f, 1e-3f);
+        person.Box.X.Should().BeApproximately(20f, 1e-3f);
+        person.Box.Y.Should().BeApproximately(10f, 1e-3f);
+        person.Box.Right.Should().Be(100f, "the box is clamped to the image");
+        person.Box.Bottom.Should().BeApproximately(90f, 1e-3f);
         person.Keypoints![2].X.Should().BeApproximately(120f, 1e-3f, "a keypoint is an estimate and is not moved onto the border");
     }
 
@@ -152,10 +152,10 @@ public class MoveNetDecoderTests
         var person = MoveNetDecoder.DecodeMultiPose(output, frame, 0.25f, Label).Should().ContainSingle().Subject;
 
         person.Confidence.Should().Be(0.7f);
-        person.Box.X1.Should().BeApproximately(200f, 1e-2f);
-        person.Box.Y1.Should().BeApproximately(100f, 1e-2f);
-        person.Box.X2.Should().BeApproximately(400f, 1e-2f);
-        person.Box.Y2.Should().BeApproximately(600f, 1e-2f);
+        person.Box.X.Should().BeApproximately(200f, 1e-2f);
+        person.Box.Y.Should().BeApproximately(100f, 1e-2f);
+        person.Box.Right.Should().BeApproximately(400f, 1e-2f);
+        person.Box.Bottom.Should().BeApproximately(600f, 1e-2f);
         person.Keypoints.Should().HaveCount(PoseSkeleton.Count);
         person.Keypoints![PoseSkeleton.RightAnkle].X.Should().BeApproximately(360f, 1e-2f);
         person.Keypoints[PoseSkeleton.RightAnkle].Y.Should().BeApproximately(100f, 1e-2f);
@@ -219,10 +219,10 @@ public class MoveNetDecoderTests
         foreach (var (person, expected) in people.Zip(fixture.Expected))
         {
             person.Confidence.Should().BeApproximately(expected.Score, 1e-3f);
-            person.Box.X1.Should().BeApproximately(expected.Box[0], 0.05f);
-            person.Box.Y1.Should().BeApproximately(expected.Box[1], 0.05f);
-            person.Box.X2.Should().BeApproximately(expected.Box[2], 0.05f);
-            person.Box.Y2.Should().BeApproximately(expected.Box[3], 0.05f);
+            person.Box.X.Should().BeApproximately(expected.Box[0], 0.05f);
+            person.Box.Y.Should().BeApproximately(expected.Box[1], 0.05f);
+            person.Box.Right.Should().BeApproximately(expected.Box[2], 0.05f);
+            person.Box.Bottom.Should().BeApproximately(expected.Box[3], 0.05f);
             person.Keypoints.Should().HaveCount(PoseSkeleton.Count);
         }
     }

@@ -256,7 +256,7 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
     }
 
     /// <inheritdoc />
-    public ModelInfo? GetModelInfo() => new()
+    public RerankerModelInfo? GetModelInfo() => new()
     {
         Id = ModelId,
         AliasName = "gguf",

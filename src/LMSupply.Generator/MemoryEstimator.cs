@@ -1,4 +1,5 @@
 using LMSupply.Generator.Gguf;
+using LMSupply.Core.Download;
 
 namespace LMSupply.Generator;
 
@@ -65,8 +66,8 @@ public static class MemoryEstimator
     {
         var bytesPerParam = quantization switch
         {
-            Quantization.FP32 => 4.0,
-            Quantization.FP16 => 2.0,
+            Quantization.Default => 4.0,
+            Quantization.Fp16 => 2.0,
             Quantization.Quant8 => 1.0,
             Quantization.Quant4 => 0.5,
             _ => 2.0 // Default to FP16
@@ -575,21 +576,6 @@ public enum EstimationConfidence
     /// High confidence - using exact model metadata.
     /// </summary>
     High
-}
-
-/// <summary>
-/// Model quantization levels.
-/// </summary>
-public enum Quantization
-{
-    /// <summary>32-bit floating point (4 bytes per parameter).</summary>
-    FP32,
-    /// <summary>16-bit floating point (2 bytes per parameter).</summary>
-    FP16,
-    /// <summary>8-bit quantization (1 byte per parameter).</summary>
-    Quant8,
-    /// <summary>4-bit quantization (0.5 bytes per parameter).</summary>
-    Quant4
 }
 
 /// <summary>

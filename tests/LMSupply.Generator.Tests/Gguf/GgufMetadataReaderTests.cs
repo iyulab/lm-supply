@@ -3,6 +3,7 @@ using AwesomeAssertions;
 using LMSupply.Generator.Gguf;
 using LMSupply.Llama.Gguf;
 using Xunit;
+using LMSupply.Core.Download;
 
 namespace LMSupply.Generator.Tests.Gguf;
 

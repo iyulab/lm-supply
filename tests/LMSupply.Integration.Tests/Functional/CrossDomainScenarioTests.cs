@@ -238,7 +238,7 @@ public class CrossDomainScenarioTests
 
         // 2. Generate new image from caption
         await using var generator = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
-        var generated = await generator.GenerateAsync(originalCaption.Caption, new ImageGenerator.GenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
+        var generated = await generator.GenerateAsync(originalCaption.Caption, new ImageGenerator.ImageGenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
 
         generated.ImageData.Should().NotBeEmpty();
 

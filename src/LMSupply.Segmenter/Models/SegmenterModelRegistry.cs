@@ -12,9 +12,9 @@ public sealed class SegmenterModelRegistry : ModelRegistryBase<SegmenterModelInf
     /// </summary>
     private static readonly SegmenterModelInfo[] AutoCandidates =
     [
-        DefaultModels.MaskFormerResNet50,  // 44M params, 178MB
-        DefaultModels.SegFormerB0,          // 3.7M params, 15MB
-        DefaultModels.MediaPipeSelfie,      // 0.7M params, 3MB
+        SegmenterModels.MaskFormerResNet50,  // 44M params, 178MB
+        SegmenterModels.SegFormerB0,          // 3.7M params, 15MB
+        SegmenterModels.MediaPipeSelfie,      // 0.7M params, 3MB
     ];
 
     /// <summary>
@@ -27,7 +27,7 @@ public sealed class SegmenterModelRegistry : ModelRegistryBase<SegmenterModelInf
     /// ~/.lmsupply/aliases.json "segmenter" section (fail-soft).
     /// </summary>
     internal static SegmenterModelRegistry CreateDefault()
-        => AliasConfiguration.ApplyDomain(new SegmenterModelRegistry(DefaultModels.All), AliasConfiguration.Domains.Segmenter);
+        => AliasConfiguration.ApplyDomain(new SegmenterModelRegistry(SegmenterModels.All), AliasConfiguration.Domains.Segmenter);
 
     /// <summary>
     /// Initializes a new registry with the specified system models.

@@ -105,7 +105,7 @@ public class ImageGeneratorFunctionalTests
     {
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.GenerateAsync("A red circle on white background", new GenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
+        var result = await model.GenerateAsync("A red circle on white background", new ImageGenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result.ImageData.Should().NotBeEmpty();
@@ -121,7 +121,7 @@ public class ImageGeneratorFunctionalTests
     {
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.GenerateAsync("sunset", new GenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
+        var result = await model.GenerateAsync("sunset", new ImageGenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
 
         result.GenerationTime.Should().BeGreaterThan(TimeSpan.Zero);
     }
@@ -132,7 +132,7 @@ public class ImageGeneratorFunctionalTests
     {
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var results = await model.GenerateBatchAsync("mountains", count: 2, new GenerationOptions { Steps = 2, Seed = 100 }, cancellationToken: TestContext.Current.CancellationToken);
+        var results = await model.GenerateBatchAsync("mountains", count: 2, new ImageGenerationOptions { Steps = 2, Seed = 100 }, cancellationToken: TestContext.Current.CancellationToken);
 
         results.Should().HaveCount(2);
         results[0].ImageData.Should().NotBeEmpty();
@@ -149,7 +149,7 @@ public class ImageGeneratorFunctionalTests
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var steps = new List<GenerationStep>();
-        await foreach (var step in model.GenerateStreamingAsync("forest", new GenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken))
+        await foreach (var step in model.GenerateStreamingAsync("forest", new ImageGenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken))
         {
             steps.Add(step);
         }
@@ -170,7 +170,7 @@ public class ImageGeneratorFunctionalTests
     {
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.GenerateAsync("A beautiful landscape", new GenerationOptions
+        var result = await model.GenerateAsync("A beautiful landscape", new ImageGenerationOptions
             {
                 Steps = 2,
                 Seed = 42,
@@ -190,7 +190,7 @@ public class ImageGeneratorFunctionalTests
     {
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.GenerateAsync("test image", new GenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
+        var result = await model.GenerateAsync("test image", new ImageGenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
 
         // PNG signature: 137 80 78 71 13 10 26 10
         result.ImageData.Length.Should().BeGreaterThan(8);
@@ -206,7 +206,7 @@ public class ImageGeneratorFunctionalTests
     {
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var options = new GenerationOptions { Steps = 2, Seed = 42 };
+        var options = new ImageGenerationOptions { Steps = 2, Seed = 42 };
         var result1 = await model.GenerateAsync("cat", options, TestContext.Current.CancellationToken);
         var result2 = await model.GenerateAsync("cat", options, TestContext.Current.CancellationToken);
 
@@ -222,7 +222,7 @@ public class ImageGeneratorFunctionalTests
     {
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.GenerateAsync("test", new GenerationOptions
+        var result = await model.GenerateAsync("test", new ImageGenerationOptions
             {
                 Width = 256,
                 Height = 256,
@@ -241,7 +241,7 @@ public class ImageGeneratorFunctionalTests
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var progressValues = new List<float>();
-        await foreach (var step in model.GenerateStreamingAsync("sunset", new GenerationOptions { Steps = 4, Seed = 42 }, TestContext.Current.CancellationToken))
+        await foreach (var step in model.GenerateStreamingAsync("sunset", new ImageGenerationOptions { Steps = 4, Seed = 42 }, TestContext.Current.CancellationToken))
         {
             progressValues.Add(step.Progress);
         }
@@ -259,7 +259,7 @@ public class ImageGeneratorFunctionalTests
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = async () => await model.GenerateAsync("test",
-            new GenerationOptions { Width = 511, Steps = 2 });
+            new ImageGenerationOptions { Width = 511, Steps = 2 });
 
         await act.Should().ThrowAsync<ArgumentException>()
             .WithMessage("*Width*multiple of 8*");
@@ -272,7 +272,7 @@ public class ImageGeneratorFunctionalTests
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = async () => await model.GenerateAsync("test",
-            new GenerationOptions { Height = 513, Steps = 2 });
+            new ImageGenerationOptions { Height = 513, Steps = 2 });
 
         await act.Should().ThrowAsync<ArgumentException>()
             .WithMessage("*Height*multiple of 8*");
@@ -285,7 +285,7 @@ public class ImageGeneratorFunctionalTests
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = async () => await model.GenerateAsync("test",
-            new GenerationOptions { Steps = 0 });
+            new ImageGenerationOptions { Steps = 0 });
 
         await act.Should().ThrowAsync<ArgumentException>()
             .WithMessage("*Steps*between 1 and 50*");
@@ -298,7 +298,7 @@ public class ImageGeneratorFunctionalTests
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = async () => await model.GenerateAsync("test",
-            new GenerationOptions { GuidanceScale = -1.0f, Steps = 2 });
+            new ImageGenerationOptions { GuidanceScale = -1.0f, Steps = 2 });
 
         await act.Should().ThrowAsync<ArgumentException>()
             .WithMessage("*GuidanceScale*non-negative*");
@@ -314,7 +314,7 @@ public class ImageGeneratorFunctionalTests
         // depending on model behavior — should NOT crash
         try
         {
-            var result = await model.GenerateAsync("", new GenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
+            var result = await model.GenerateAsync("", new ImageGenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
             result.Should().NotBeNull();
         }
         catch (ArgumentException)
@@ -329,7 +329,7 @@ public class ImageGeneratorFunctionalTests
     {
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.GenerateAsync("🎨 Abstract art with 日本語 text!", new GenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
+        var result = await model.GenerateAsync("🎨 Abstract art with 日本語 text!", new ImageGenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result.ImageData.Should().NotBeEmpty();
@@ -343,7 +343,7 @@ public class ImageGeneratorFunctionalTests
 
         var longPrompt = string.Join(", ", Enumerable.Repeat("beautiful mountain landscape", 50));
 
-        var result = await model.GenerateAsync(longPrompt, new GenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
+        var result = await model.GenerateAsync(longPrompt, new ImageGenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNull();
         result.ImageData.Should().NotBeEmpty();
@@ -369,7 +369,7 @@ public class ImageGeneratorFunctionalTests
     {
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.GenerateAsync("test", new GenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
+        var result = await model.GenerateAsync("test", new ImageGenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
 
         var tempPath = Path.Combine(Path.GetTempPath(), $"lmsupply_test_{Guid.NewGuid()}.png");
         try
@@ -391,7 +391,7 @@ public class ImageGeneratorFunctionalTests
     {
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.GenerateAsync("test", new GenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
+        var result = await model.GenerateAsync("test", new ImageGenerationOptions { Steps = 2, Seed = 42 }, TestContext.Current.CancellationToken);
 
         using var stream = result.ToStream();
         stream.CanRead.Should().BeTrue();
@@ -417,7 +417,7 @@ public class ImageGeneratorFunctionalTests
     [Trait("Axis", "Quality")]
     public void Q_GenerationOptions_Defaults_AreReasonable()
     {
-        var opts = new GenerationOptions();
+        var opts = new ImageGenerationOptions();
 
         opts.Steps.Should().BeGreaterThan(0, "default steps should be positive");
         opts.Width.Should().Be(512, "default width should be 512");
@@ -429,7 +429,7 @@ public class ImageGeneratorFunctionalTests
     [Trait("Axis", "Quality")]
     public void Q_GenerationOptions_AllDefaults_AreDocumented()
     {
-        var opts = new GenerationOptions();
+        var opts = new ImageGenerationOptions();
 
         opts.NegativePrompt.Should().BeNull("default negative prompt should be null");
         opts.Width.Should().Be(512, "default width should be 512");
@@ -514,7 +514,7 @@ public class ImageGeneratorFunctionalTests
     {
         await using var model = await LocalImageGenerator.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var options = new GenerationOptions { Steps = 2, Seed = 42 };
+        var options = new ImageGenerationOptions { Steps = 2, Seed = 42 };
         var result1 = await model.GenerateAsync("a red ball on a green field", options, TestContext.Current.CancellationToken);
         var result2 = await model.GenerateAsync("a blue fish in the ocean", options, TestContext.Current.CancellationToken);
 

@@ -1,4 +1,5 @@
 using LMSupply.Hardware;
+using LMSupply.Core.Download;
 
 namespace LMSupply.Generator.Gguf;
 

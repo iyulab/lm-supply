@@ -19,7 +19,7 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
     private readonly RecoverableOnnxSession _encoder;
     private readonly RecoverableOnnxSession _decoder;
     private readonly ITextTokenizer _tokenizer;
-    private readonly ModelInfo _modelInfo;
+    private readonly CaptionerModelInfo _modelInfo;
     private readonly CaptionerOptions _options;
     private readonly ImagePreprocessor _preprocessor;
     private readonly string _modelDir;
@@ -32,7 +32,7 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
         RecoverableOnnxSession encoder,
         RecoverableOnnxSession decoder,
         ITextTokenizer tokenizer,
-        ModelInfo modelInfo,
+        CaptionerModelInfo modelInfo,
         CaptionerOptions options,
         string modelDir)
     {
@@ -75,7 +75,7 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
     }
 
     /// <inheritdoc />
-    public ModelInfo? GetModelInfo() => _modelInfo;
+    public CaptionerModelInfo? GetModelInfo() => _modelInfo;
 
     /// <summary>
     /// Creates a new VitGpt2Captioner instance.
@@ -88,7 +88,7 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<VitGpt2Captioner> CreateAsync(
         string modelDir,
-        ModelInfo modelInfo,
+        CaptionerModelInfo modelInfo,
         CaptionerOptions options,
         string? tokenizerDir,
         IProgress<DownloadProgress>? progress,

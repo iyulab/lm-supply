@@ -5,7 +5,7 @@ namespace LMSupply.Embedder.Tests;
 
 /// <summary>
 /// Tests for IEmbeddingModel.EmbedAsync/EmbedQueryAsync/EmbedPassageAsync —
-/// default interface methods that apply ModelInfo.DefaultPrefix/QueryPrefix/PassagePrefix automatically
+/// default interface methods that apply EmbedderModelInfo.DefaultPrefix/QueryPrefix/PassagePrefix automatically
 /// over the implementor's EmbedRawAsync.
 /// Uses a minimal fake implementor to isolate the default-method prefix logic from any real
 /// tokenizer/model/GPU dependency. Default interface method bodies are only reachable through
@@ -17,7 +17,7 @@ public class EmbeddingQueryPassagePrefixTests
     [Fact]
     public async Task EmbedQueryAsync_AppliesQueryPrefix_WhenModelHasOne()
     {
-        var recorder = new RecordingEmbeddingModel(new ModelInfo
+        var recorder = new RecordingEmbeddingModel(new EmbedderModelInfo
         {
             RepoId = "intfloat/multilingual-e5-base",
             Dimensions = 768,
@@ -37,7 +37,7 @@ public class EmbeddingQueryPassagePrefixTests
     [Fact]
     public async Task EmbedPassageAsync_AppliesPassagePrefix_WhenModelHasOne()
     {
-        var recorder = new RecordingEmbeddingModel(new ModelInfo
+        var recorder = new RecordingEmbeddingModel(new EmbedderModelInfo
         {
             RepoId = "intfloat/multilingual-e5-base",
             Dimensions = 768,
@@ -57,7 +57,7 @@ public class EmbeddingQueryPassagePrefixTests
     [Fact]
     public async Task EmbedQueryAsync_IsNoOpPassthrough_WhenModelHasNoPrefix()
     {
-        var recorder = new RecordingEmbeddingModel(new ModelInfo
+        var recorder = new RecordingEmbeddingModel(new EmbedderModelInfo
         {
             RepoId = "BAAI/bge-m3",
             Dimensions = 1024,
@@ -88,7 +88,7 @@ public class EmbeddingQueryPassagePrefixTests
     [Fact]
     public async Task EmbedQueryAsync_Batch_AppliesPrefixToEachText()
     {
-        var recorder = new RecordingEmbeddingModel(new ModelInfo
+        var recorder = new RecordingEmbeddingModel(new EmbedderModelInfo
         {
             RepoId = "intfloat/multilingual-e5-base",
             Dimensions = 768,
@@ -108,7 +108,7 @@ public class EmbeddingQueryPassagePrefixTests
     [Fact]
     public async Task EmbedPassageAsync_WithDimensions_AppliesPrefixAndForwardsDimensions()
     {
-        var recorder = new RecordingEmbeddingModel(new ModelInfo
+        var recorder = new RecordingEmbeddingModel(new EmbedderModelInfo
         {
             RepoId = "nomic-ai/nomic-embed-text-v1.5",
             Dimensions = 768,
@@ -126,7 +126,7 @@ public class EmbeddingQueryPassagePrefixTests
         recorder.LastDimensions.Should().Be(256);
     }
 
-    private static ModelInfo E5Info() => new()
+    private static EmbedderModelInfo E5Info() => new()
     {
         RepoId = "intfloat/multilingual-e5-base",
         Dimensions = 768,
@@ -188,7 +188,7 @@ public class EmbeddingQueryPassagePrefixTests
     /// methods (EmbedAsync/EmbedQueryAsync/EmbedPassageAsync) forwarded to EmbedRawAsync, instead of running
     /// real inference.
     /// </summary>
-    private sealed class RecordingEmbeddingModel(ModelInfo? modelInfo) : IEmbeddingModel
+    private sealed class RecordingEmbeddingModel(EmbedderModelInfo? modelInfo) : IEmbeddingModel
     {
         public string? LastEmbeddedText { get; private set; }
         public IReadOnlyList<string>? LastEmbeddedBatch { get; private set; }
@@ -228,7 +228,7 @@ public class EmbeddingQueryPassagePrefixTests
         }
 
         public Task WarmupAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public ModelInfo? GetModelInfo() => modelInfo;
+        public EmbedderModelInfo? GetModelInfo() => modelInfo;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

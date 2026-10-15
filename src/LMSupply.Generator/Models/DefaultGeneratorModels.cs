@@ -1,3 +1,4 @@
+using LMSupply.Core.Download;
 namespace LMSupply.Generator;
 
 /// <summary>
@@ -9,12 +10,12 @@ public static class DefaultGeneratorModels
     /// <summary>
     /// Gets the default model (MIT license, best balance).
     /// </summary>
-    public static ModelInfo Default => Phi4Mini;
+    public static GeneratorModelEntry Default => Phi4Mini;
 
     /// <summary>
     /// Gets the fast model. Currently same as Default since Phi4Mini is the smallest FC-capable ONNX model.
     /// </summary>
-    public static ModelInfo Fast => Phi4Mini;
+    public static GeneratorModelEntry Fast => Phi4Mini;
 
     // ===== Tier 1: MIT License - No restrictions =====
 
@@ -23,7 +24,7 @@ public static class DefaultGeneratorModels
     /// 3.8B parameters, 16K context, excellent reasoning for its size.
     /// Released: 2025-01, successor to Phi-3.5 Mini.
     /// </summary>
-    public static ModelInfo Phi4Mini { get; } = new()
+    public static GeneratorModelEntry Phi4Mini { get; } = new()
     {
         ModelId = "microsoft/Phi-4-mini-instruct-onnx",
         AliasName = "phi-4-mini",
@@ -44,7 +45,7 @@ public static class DefaultGeneratorModels
     /// Microsoft Phi-3.5 Mini - Legacy MIT model.
     /// 3.8B parameters, 128K context support, predecessor to Phi-4 Mini.
     /// </summary>
-    public static ModelInfo Phi35Mini { get; } = new()
+    public static GeneratorModelEntry Phi35Mini { get; } = new()
     {
         ModelId = "microsoft/Phi-3.5-mini-instruct-onnx",
         AliasName = "phi-3.5-mini",
@@ -66,7 +67,7 @@ public static class DefaultGeneratorModels
     /// 14B parameters, 16K context, highest quality reasoning.
     /// Released: 2024-12, state-of-the-art for its size.
     /// </summary>
-    public static ModelInfo Phi4 { get; } = new()
+    public static GeneratorModelEntry Phi4 { get; } = new()
     {
         ModelId = "microsoft/phi-4-onnx",
         AliasName = "quality",
@@ -86,7 +87,7 @@ public static class DefaultGeneratorModels
     /// <summary>
     /// Gets all built-in ONNX models. Only FC-capable Phi-4 series models are included.
     /// </summary>
-    public static IReadOnlyList<ModelInfo> All { get; } =
+    public static IReadOnlyList<GeneratorModelEntry> All { get; } =
     [
         Phi4Mini,   // default
         Phi35Mini,  // phi-3.5-mini (legacy)

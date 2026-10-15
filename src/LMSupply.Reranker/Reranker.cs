@@ -166,7 +166,7 @@ public sealed class Reranker : IRerankerModel
     }
 
     /// <inheritdoc />
-    public ModelInfo? GetModelInfo()
+    public RerankerModelInfo? GetModelInfo()
     {
         return _state?.ModelInfo;
     }
@@ -312,7 +312,7 @@ public sealed class Reranker : IRerankerModel
     /// Internal state holding initialized components.
     /// </summary>
     private sealed record RerankerState(
-        ModelInfo ModelInfo,
+        RerankerModelInfo ModelInfo,
         IPairTokenizer Tokenizer,
         CrossEncoderInference Inference);
 }

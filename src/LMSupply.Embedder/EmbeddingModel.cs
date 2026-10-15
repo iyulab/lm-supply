@@ -16,7 +16,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
     private readonly ISequenceTokenizer _tokenizer;
     private readonly IPoolingStrategy _poolingStrategy;
     private readonly EmbedderOptions _options;
-    private readonly ModelInfo? _modelInfo;
+    private readonly EmbedderModelInfo? _modelInfo;
     private readonly string? _modelPath;
     private readonly VectorSpaceDescriptor? _vectorSpace;
     private bool _disposed;
@@ -64,7 +64,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         ISequenceTokenizer tokenizer,
         IPoolingStrategy poolingStrategy,
         EmbedderOptions options,
-        ModelInfo? modelInfo = null,
+        EmbedderModelInfo? modelInfo = null,
         string? modelPath = null,
         VectorSpaceDescriptor? vectorSpace = null)
     {
@@ -257,7 +257,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
         _warmedUp = true;
     }
 
-    public ModelInfo? GetModelInfo() => _modelInfo;
+    public EmbedderModelInfo? GetModelInfo() => _modelInfo;
 
     public async ValueTask DisposeAsync()
     {

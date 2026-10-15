@@ -1034,7 +1034,7 @@ public sealed class ChatCompletionOptions
     /// Tool definitions available for the model.
     /// When provided, the model may respond with tool_calls.
     /// </summary>
-    public IReadOnlyList<ToolDefinition>? Tools { get; init; }
+    public IReadOnlyList<LlamaToolDefinition>? Tools { get; init; }
 
     /// <summary>
     /// Controls whether/which tool the model must call. Null = auto (model decides). Only
@@ -1129,7 +1129,7 @@ internal sealed class ChatCompletionRequest
     /// <summary>
     /// Tool definitions (OpenAI-compatible).
     /// </summary>
-    public List<ToolDefinition>? Tools { get; set; }
+    public List<LlamaToolDefinition>? Tools { get; set; }
 
     /// <summary>
     /// OpenAI-compatible <c>tool_choice</c> — a bare string (<c>"none"</c>/<c>"required"</c>) or
@@ -1397,7 +1397,7 @@ public sealed class FunctionCallMessage
 /// <summary>
 /// Tool definition for the request (OpenAI format).
 /// </summary>
-public sealed class ToolDefinition
+public sealed class LlamaToolDefinition
 {
     [JsonPropertyName("type")]
     public string Type { get; set; } = "function";

@@ -8,7 +8,7 @@ public class GenerationOptionsTests
     public void Validate_WithDefaultOptions_Succeeds()
     {
         // Arrange
-        var options = new GenerationOptions();
+        var options = new ImageGenerationOptions();
 
         // Act & Assert
         var act = () => options.Validate();
@@ -23,7 +23,7 @@ public class GenerationOptionsTests
     public void Validate_WithValidDimensions_Succeeds(int width, int height)
     {
         // Arrange
-        var options = new GenerationOptions
+        var options = new ImageGenerationOptions
         {
             Width = width,
             Height = height
@@ -41,7 +41,7 @@ public class GenerationOptionsTests
     public void Validate_WithInvalidWidth_ThrowsException(int width)
     {
         // Arrange
-        var options = new GenerationOptions { Width = width };
+        var options = new ImageGenerationOptions { Width = width };
 
         // Act & Assert
         var act = () => options.Validate();
@@ -55,7 +55,7 @@ public class GenerationOptionsTests
     public void Validate_WithInvalidHeight_ThrowsException(int height)
     {
         // Arrange
-        var options = new GenerationOptions { Height = height };
+        var options = new ImageGenerationOptions { Height = height };
 
         // Act & Assert
         var act = () => options.Validate();
@@ -69,7 +69,7 @@ public class GenerationOptionsTests
     public void Validate_WithNonMultipleOf8Width_ThrowsException(int width)
     {
         // Arrange
-        var options = new GenerationOptions { Width = width };
+        var options = new ImageGenerationOptions { Width = width };
 
         // Act & Assert
         var act = () => options.Validate();
@@ -83,7 +83,7 @@ public class GenerationOptionsTests
     public void Validate_WithInvalidSteps_ThrowsException(int steps)
     {
         // Arrange
-        var options = new GenerationOptions { Steps = steps };
+        var options = new ImageGenerationOptions { Steps = steps };
 
         // Act & Assert
         var act = () => options.Validate();
@@ -97,7 +97,7 @@ public class GenerationOptionsTests
     public void Validate_WithValidSteps_Succeeds(int steps)
     {
         // Arrange
-        var options = new GenerationOptions { Steps = steps };
+        var options = new ImageGenerationOptions { Steps = steps };
 
         // Act & Assert
         var act = () => options.Validate();
@@ -108,7 +108,7 @@ public class GenerationOptionsTests
     public void Validate_WithNegativeGuidanceScale_ThrowsException()
     {
         // Arrange
-        var options = new GenerationOptions { GuidanceScale = -1.0f };
+        var options = new ImageGenerationOptions { GuidanceScale = -1.0f };
 
         // Act & Assert
         var act = () => options.Validate();
@@ -119,7 +119,7 @@ public class GenerationOptionsTests
     public void WithSeed_CreatesNewInstanceWithSeed()
     {
         // Arrange
-        var original = new GenerationOptions
+        var original = new ImageGenerationOptions
         {
             Width = 768,
             Height = 768,
@@ -144,7 +144,7 @@ public class GenerationOptionsTests
     public void WithSeed_DoesNotModifyOriginal()
     {
         // Arrange
-        var original = new GenerationOptions { Seed = 100 };
+        var original = new ImageGenerationOptions { Seed = 100 };
 
         // Act
         _ = original.WithSeed(42);

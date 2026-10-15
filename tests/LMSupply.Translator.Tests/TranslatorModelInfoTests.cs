@@ -150,7 +150,7 @@ public class TranslatorModelInfoTests
     [Fact]
     public void DefaultModels_OpusMtKoEn_ShouldHaveCorrectValues()
     {
-        var model = DefaultModels.OpusMtKoEn;
+        var model = TranslatorModels.OpusMtKoEn;
 
         // Uses onnx-community repo with pre-converted ONNX files
         model.Id.Should().Be("onnx-community/opus-mt-ko-en");
@@ -164,19 +164,19 @@ public class TranslatorModelInfoTests
     [Fact]
     public void DefaultModels_All_ShouldContainExpectedCount()
     {
-        DefaultModels.All.Should().HaveCountGreaterThanOrEqualTo(4);
+        TranslatorModels.All.Should().HaveCountGreaterThanOrEqualTo(4);
     }
 
     [Fact]
     public void DefaultModels_All_ShouldContainKoEnModel()
     {
-        DefaultModels.All.Should().Contain(m => m.AliasName == "ko-en");
+        TranslatorModels.All.Should().Contain(m => m.AliasName == "ko-en");
     }
 
     // "en-ko" pointed at a repository that does not exist; no load of it could ever succeed.
     [Fact]
     public void DefaultModels_All_HasNoEnKoAlias()
     {
-        DefaultModels.All.Should().NotContain(m => m.AliasName == "en-ko");
+        TranslatorModels.All.Should().NotContain(m => m.AliasName == "en-ko");
     }
 }

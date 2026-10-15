@@ -1,16 +1,17 @@
 using System.Diagnostics;
+using LMSupply.Core.Download;
 
 namespace LMSupply.Generator;
 
 /// <summary>
 /// Model registry for the Generator domain.
 /// </summary>
-public sealed class GeneratorModelRegistry : ModelRegistryBase<ModelInfo>
+public sealed class GeneratorModelRegistry : ModelRegistryBase<GeneratorModelEntry>
 {
     /// <summary>
     /// Auto-selection candidates sorted by size descending (largest first).
     /// </summary>
-    private static readonly ModelInfo[] AutoCandidates =
+    private static readonly GeneratorModelEntry[] AutoCandidates =
     [
         DefaultGeneratorModels.Phi4,      // 14B params
         DefaultGeneratorModels.Phi4Mini,  // 3.8B params
@@ -34,10 +35,10 @@ public sealed class GeneratorModelRegistry : ModelRegistryBase<ModelInfo>
     /// since it is the smallest FC-capable ONNX model.
     /// </summary>
     /// <param name="systemModels">Models to register as system defaults.</param>
-    public GeneratorModelRegistry(IEnumerable<ModelInfo> systemModels)
+    public GeneratorModelRegistry(IEnumerable<GeneratorModelEntry> systemModels)
         : base(AppendFastAlias(systemModels)) { }
 
-    private static IEnumerable<ModelInfo> AppendFastAlias(IEnumerable<ModelInfo> models)
+    private static IEnumerable<GeneratorModelEntry> AppendFastAlias(IEnumerable<GeneratorModelEntry> models)
     {
         foreach (var model in models)
             yield return model;
@@ -52,7 +53,7 @@ public sealed class GeneratorModelRegistry : ModelRegistryBase<ModelInfo>
     /// falling back to the smallest model if none fit.
     /// All models are MIT-licensed Phi-4 series with function calling support.
     /// </summary>
-    protected override ModelInfo GetAutoModel()
+    protected override GeneratorModelEntry GetAutoModel()
     {
         return SelectLargestFitting(AutoCandidates) with { AliasName = "auto" };
     }
@@ -60,14 +61,14 @@ public sealed class GeneratorModelRegistry : ModelRegistryBase<ModelInfo>
     /// <summary>
     /// Creates a fallback model info for unknown model IDs (HuggingFace repos or local paths).
     /// </summary>
-    protected override ModelInfo CreateFallbackModelInfo(string modelId)
+    protected override GeneratorModelEntry CreateFallbackModelInfo(string modelId)
     {
         Trace.TraceInformation($"[GeneratorModelRegistry] Creating fallback model info for: {modelId}");
 
         var parts = modelId.Split('/');
         var name = parts.Length > 1 ? parts[1] : modelId;
 
-        return new ModelInfo
+        return new GeneratorModelEntry
         {
             ModelId = modelId,
             AliasName = modelId,

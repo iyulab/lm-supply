@@ -1,3 +1,4 @@
+using LMSupply.Vision;
 namespace LMSupply.Detector.Core;
 
 /// <summary>
@@ -117,12 +118,12 @@ internal static class YuNetDecoder
             var width = MathF.Exp(branch.Bbox[b + 2]) * stride;
             var height = MathF.Exp(branch.Bbox[b + 3]) * stride;
 
-            var box = new BoundingBox(
+            var box = BoundingBox.FromCorners(
                     (centerX - width / 2) * scaleX,
                     (centerY - height / 2) * scaleY,
                     (centerX + width / 2) * scaleX,
                     (centerY + height / 2) * scaleY)
-                .Clamp(originalWidth, originalHeight);
+                .Clip(originalWidth, originalHeight);
 
             // YuNet publishes no per-landmark confidence, so the detection's own score is carried across
             // rather than inventing a number that would read as independent evidence.

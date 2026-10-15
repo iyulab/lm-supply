@@ -1,3 +1,4 @@
+using LMSupply.Vision;
 namespace LMSupply.Detector.Core;
 
 /// <summary>
@@ -61,10 +62,10 @@ internal static class MoveNetDecoder
         if (confidence < confidenceThreshold)
             return [];
 
-        var box = new BoundingBox(
+        var box = BoundingBox.FromCorners(
                 keypoints.Min(k => k.X), keypoints.Min(k => k.Y),
                 keypoints.Max(k => k.X), keypoints.Max(k => k.Y))
-            .Clamp(frame.OriginalWidth, frame.OriginalHeight);
+            .Clip(frame.OriginalWidth, frame.OriginalHeight);
 
         return [new DetectionResult(ClassId: 0, Label: label, Confidence: confidence, Box: box, Keypoints: keypoints)];
     }
@@ -102,10 +103,10 @@ internal static class MoveNetDecoder
             if (score < confidenceThreshold)
                 continue;
 
-            var box = new BoundingBox(
+            var box = BoundingBox.FromCorners(
                     frame.ToOriginalX(output[b + 1]), frame.ToOriginalY(output[b]),
                     frame.ToOriginalX(output[b + 3]), frame.ToOriginalY(output[b + 2]))
-                .Clamp(frame.OriginalWidth, frame.OriginalHeight);
+                .Clip(frame.OriginalWidth, frame.OriginalHeight);
 
             results.Add(new DetectionResult(
                 ClassId: 0,

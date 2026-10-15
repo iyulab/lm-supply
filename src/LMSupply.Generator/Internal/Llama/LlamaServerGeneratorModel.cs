@@ -1288,7 +1288,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             StopSequences = MergeStopSequences(options.StopSequences),
             Grammar = options.Grammar,
             JsonSchema = options.JsonSchema,
-            Tools = options.Tools?.Select(t => new LMSupply.Llama.Server.ToolDefinition
+            Tools = options.Tools?.Select(t => new LMSupply.Llama.Server.LlamaToolDefinition
             {
                 Type = "function",
                 Function = new LMSupply.Llama.Server.FunctionDefinition

@@ -4,7 +4,7 @@ namespace LMSupply.Segmenter.Models;
 /// Default segmentation model configurations.
 /// All models use MIT/Apache-2.0 compatible licenses for commercial use.
 /// </summary>
-public static class DefaultModels
+public static class SegmenterModels
 {
     /// <summary>
     /// SegFormer-B0 - Default lightweight model.

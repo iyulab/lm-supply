@@ -548,17 +548,6 @@ public class RerankerFunctionalTests
     }
 
     [Fact]
-    [Trait("Axis", "Loading")]
-    public void L_WellKnownModels_Reranker_HasValidConstants()
-    {
-        WellKnownModels.Reranker.Default.Should().Contain("ms-marco-MiniLM-L-6");
-        WellKnownModels.Reranker.Fast.Should().Contain("TinyBERT");
-        WellKnownModels.Reranker.Quality.Should().Contain("bge-reranker-base");
-        WellKnownModels.Reranker.Large.Should().Contain("bge-reranker-large");
-        WellKnownModels.Reranker.Multilingual.Should().Contain("bge-reranker-v2-m3");
-    }
-
-    [Fact]
     [Trait("Axis", "Quality")]
     public void Q_RerankerOptions_Clone_IsIndependentCopy()
     {

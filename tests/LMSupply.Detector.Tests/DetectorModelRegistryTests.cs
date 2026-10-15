@@ -160,7 +160,7 @@ public class DetectorModelRegistryTests
     [Fact]
     public void RegisterAlias_ShouldBeResolvable()
     {
-        var registry = new DetectorModelRegistry(DefaultModels.All);
+        var registry = new DetectorModelRegistry(DetectorModels.All);
 
         registry.RegisterAlias("my-detector", "xnorpx/rt-detr2-onnx:m");
 
@@ -172,7 +172,7 @@ public class DetectorModelRegistryTests
     [Fact]
     public void RegisterAlias_SystemAliasConflict_ShouldThrow()
     {
-        var registry = new DetectorModelRegistry(DefaultModels.All);
+        var registry = new DetectorModelRegistry(DetectorModels.All);
 
         var act = () => registry.RegisterAlias("default", "xnorpx/rt-detr2-onnx:m");
 

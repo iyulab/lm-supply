@@ -14,9 +14,9 @@ public sealed class SynthesizerModelRegistry : ModelRegistryBase<SynthesizerMode
     /// </summary>
     private static readonly SynthesizerModelInfo[] AutoCandidates =
     [
-        DefaultModels.EnUsAmy,     // 64MB - quality
-        DefaultModels.EnUsLessac,  // 63MB - default
-        DefaultModels.EnUsRyan,    // 16MB - fast
+        SynthesizerModels.EnUsAmy,     // 64MB - quality
+        SynthesizerModels.EnUsLessac,  // 63MB - default
+        SynthesizerModels.EnUsRyan,    // 16MB - fast
     ];
 
     /// <summary>
@@ -29,7 +29,7 @@ public sealed class SynthesizerModelRegistry : ModelRegistryBase<SynthesizerMode
     /// ~/.lmsupply/aliases.json "synthesizer" section (fail-soft).
     /// </summary>
     internal static SynthesizerModelRegistry CreateDefault()
-        => AliasConfiguration.ApplyDomain(new SynthesizerModelRegistry(DefaultModels.All), AliasConfiguration.Domains.Synthesizer);
+        => AliasConfiguration.ApplyDomain(new SynthesizerModelRegistry(SynthesizerModels.All), AliasConfiguration.Domains.Synthesizer);
 
     /// <summary>
     /// Initializes a new registry with the specified system models.

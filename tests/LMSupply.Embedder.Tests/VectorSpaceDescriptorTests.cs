@@ -163,7 +163,7 @@ public sealed class VectorSpaceDescriptorTests
         public ValueTask<float[]> EmbedRawAsync(string text, int dimensions, CancellationToken cancellationToken = default) => new([1f]);
         public ValueTask<float[][]> EmbedRawAsync(IReadOnlyList<string> texts, int dimensions, CancellationToken cancellationToken = default) => new([[1f]]);
         public Task WarmupAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Utils.ModelInfo? GetModelInfo() => null;
+        public Utils.EmbedderModelInfo? GetModelInfo() => null;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

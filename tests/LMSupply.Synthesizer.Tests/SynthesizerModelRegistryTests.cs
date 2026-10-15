@@ -46,7 +46,7 @@ public class SynthesizerModelRegistryTests
 
         // Assert
         found.Should().BeTrue();
-        model.Should().Be(DefaultModels.EnUsLjSpeech);
+        model.Should().Be(SynthesizerModels.EnUsLjSpeech);
     }
 
     [Theory]
@@ -138,7 +138,7 @@ public class SynthesizerModelRegistryTests
         var aliases = SynthesizerModelRegistry.Default.GetAliases();
 
         // Assert
-        DefaultModels.All.Should().AllSatisfy(voice =>
+        SynthesizerModels.All.Should().AllSatisfy(voice =>
             aliases.Should().Contain(new AliasInfo(voice.AliasName, voice.CatalogKey, AliasKind.System)));
     }
 
@@ -180,18 +180,18 @@ public class SynthesizerModelRegistryTests
     [Fact]
     public void RegisterAlias_ShouldBeResolvable()
     {
-        var registry = new SynthesizerModelRegistry(DefaultModels.All);
+        var registry = new SynthesizerModelRegistry(SynthesizerModels.All);
 
         registry.RegisterAlias("my-voice", "rhasspy/piper-voices:ko/ko_KR/kss/medium");
 
         var model = registry.Resolve("my-voice");
-        model.Should().Be(DefaultModels.KoKr);
+        model.Should().Be(SynthesizerModels.KoKr);
     }
 
     [Fact]
     public void RegisterAlias_SystemAliasConflict_ShouldThrow()
     {
-        var registry = new SynthesizerModelRegistry(DefaultModels.All);
+        var registry = new SynthesizerModelRegistry(SynthesizerModels.All);
 
         var act = () => registry.RegisterAlias("default", "rhasspy/piper-voices");
 
@@ -214,17 +214,17 @@ public class DefaultModelsTests
     [Fact]
     public void EnUsLjSpeech_IsDefaultModel_AndPublicDomain()
     {
-        DefaultModels.EnUsLjSpeech.AliasName.Should().Be("default");
-        DefaultModels.EnUsLjSpeech.Language.Should().Be("en-US");
-        DefaultModels.EnUsLjSpeech.VoiceName.Should().Be("en/en_US/ljspeech/medium");
-        DefaultModels.EnUsLjSpeech.License.Should().Be("Public-Domain");
+        SynthesizerModels.EnUsLjSpeech.AliasName.Should().Be("default");
+        SynthesizerModels.EnUsLjSpeech.Language.Should().Be("en-US");
+        SynthesizerModels.EnUsLjSpeech.VoiceName.Should().Be("en/en_US/ljspeech/medium");
+        SynthesizerModels.EnUsLjSpeech.License.Should().Be("Public-Domain");
     }
 
     [Fact]
     public void EnUsLessac_KeepsItsVoiceUnderItsOwnAlias()
     {
-        DefaultModels.EnUsLessac.AliasName.Should().Be("lessac");
-        DefaultModels.EnUsLessac.VoiceName.Should().Be("en/en_US/lessac/medium");
+        SynthesizerModels.EnUsLessac.AliasName.Should().Be("lessac");
+        SynthesizerModels.EnUsLessac.VoiceName.Should().Be("en/en_US/lessac/medium");
     }
 
     // Piper's code is MIT; its voices are licensed by their recordings, and most are non-commercial. Every entry states the
@@ -232,70 +232,70 @@ public class DefaultModelsTests
     [Fact]
     public void NoVoiceIsLabelledWithTheEnginesLicense()
     {
-        DefaultModels.All.Should().NotContain(m => m.License == "MIT");
+        SynthesizerModels.All.Should().NotContain(m => m.License == "MIT");
     }
 
     [Fact]
     public void EnUsRyan_IsFastModel()
     {
         // Assert
-        DefaultModels.EnUsRyan.AliasName.Should().Be("fast");
-        DefaultModels.EnUsRyan.Language.Should().Be("en-US");
-        DefaultModels.EnUsRyan.SampleRate.Should().Be(16000);
+        SynthesizerModels.EnUsRyan.AliasName.Should().Be("fast");
+        SynthesizerModels.EnUsRyan.Language.Should().Be("en-US");
+        SynthesizerModels.EnUsRyan.SampleRate.Should().Be(16000);
     }
 
     [Fact]
     public void EnUsAmy_IsQualityModel()
     {
         // Assert
-        DefaultModels.EnUsAmy.AliasName.Should().Be("quality");
-        DefaultModels.EnUsAmy.Language.Should().Be("en-US");
-        DefaultModels.EnUsAmy.SampleRate.Should().Be(22050);
+        SynthesizerModels.EnUsAmy.AliasName.Should().Be("quality");
+        SynthesizerModels.EnUsAmy.Language.Should().Be("en-US");
+        SynthesizerModels.EnUsAmy.SampleRate.Should().Be(22050);
     }
 
     [Fact]
     public void EnGbSemaine_IsBritishModel()
     {
         // Assert
-        DefaultModels.EnGbSemaine.AliasName.Should().Be("british");
-        DefaultModels.EnGbSemaine.Language.Should().Be("en-GB");
+        SynthesizerModels.EnGbSemaine.AliasName.Should().Be("british");
+        SynthesizerModels.EnGbSemaine.Language.Should().Be("en-GB");
     }
 
     [Fact]
     public void KoKr_IsKoreanModel()
     {
         // Assert
-        DefaultModels.KoKr.AliasName.Should().Be("korean");
-        DefaultModels.KoKr.Language.Should().Be("ko-KR");
+        SynthesizerModels.KoKr.AliasName.Should().Be("korean");
+        SynthesizerModels.KoKr.Language.Should().Be("ko-KR");
     }
 
     [Fact]
     public void ZhCn_IsChineseModel()
     {
         // Assert
-        DefaultModels.ZhCn.AliasName.Should().Be("chinese");
-        DefaultModels.ZhCn.Language.Should().Be("zh-CN");
+        SynthesizerModels.ZhCn.AliasName.Should().Be("chinese");
+        SynthesizerModels.ZhCn.Language.Should().Be("zh-CN");
     }
 
     [Fact]
     public void All_ContainsAllDefaultModels()
     {
         // Assert
-        DefaultModels.All.Should().HaveCount(7);
-        DefaultModels.All.Should().Contain(DefaultModels.EnUsLjSpeech);
-        DefaultModels.All.Should().Contain(DefaultModels.EnUsLessac);
-        DefaultModels.All.Should().Contain(DefaultModels.EnUsRyan);
-        DefaultModels.All.Should().Contain(DefaultModels.EnUsAmy);
-        DefaultModels.All.Should().Contain(DefaultModels.EnGbSemaine);
-        DefaultModels.All.Should().Contain(DefaultModels.KoKr);
-        DefaultModels.All.Should().Contain(DefaultModels.ZhCn);
+        SynthesizerModels.All.Should().HaveCount(7);
+        SynthesizerModels.All.Should().Contain(SynthesizerModels.EnUsLjSpeech);
+        SynthesizerModels.All.Should().Contain(SynthesizerModels.EnUsLessac);
+        SynthesizerModels.All.Should().Contain(SynthesizerModels.EnUsRyan);
+        SynthesizerModels.All.Should().Contain(SynthesizerModels.EnUsAmy);
+        SynthesizerModels.All.Should().Contain(SynthesizerModels.EnGbSemaine);
+        SynthesizerModels.All.Should().Contain(SynthesizerModels.KoKr);
+        SynthesizerModels.All.Should().Contain(SynthesizerModels.ZhCn);
     }
 
     [Fact]
     public void AllModels_HaveRequiredFields()
     {
         // Assert
-        DefaultModels.All.Should().AllSatisfy(m =>
+        SynthesizerModels.All.Should().AllSatisfy(m =>
         {
             m.Id.Should().NotBeNullOrEmpty();
             m.AliasName.Should().NotBeNullOrEmpty();
@@ -313,15 +313,15 @@ public class DefaultModelsTests
     public void EveryVoice_HasItsOwnCatalogKey()
     {
         // Assert
-        DefaultModels.All.Select(m => m.CatalogKey).Should().OnlyHaveUniqueItems();
-        DefaultModels.EnUsLessac.CatalogKey.Should().Be("rhasspy/piper-voices:en/en_US/lessac/medium");
+        SynthesizerModels.All.Select(m => m.CatalogKey).Should().OnlyHaveUniqueItems();
+        SynthesizerModels.EnUsLessac.CatalogKey.Should().Be("rhasspy/piper-voices:en/en_US/lessac/medium");
     }
 
     [Fact]
     public void AllModels_UsePiperVoicesRepo()
     {
         // Assert
-        DefaultModels.All.Should().AllSatisfy(m =>
+        SynthesizerModels.All.Should().AllSatisfy(m =>
         {
             m.Id.Should().Be("rhasspy/piper-voices");
         });

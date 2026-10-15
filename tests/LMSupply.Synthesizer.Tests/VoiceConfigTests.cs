@@ -35,7 +35,7 @@ public class VoiceConfigTests
     [Fact]
     public void TheConfigsSampleRateAndSpeakerCount_WinOverTheCatalogEntrys()
     {
-        var catalog = DefaultModels.EnUsLjSpeech with { SampleRate = 22050, NumSpeakers = 1 };
+        var catalog = SynthesizerModels.EnUsLjSpeech with { SampleRate = 22050, NumSpeakers = 1 };
 
         var voice = VoiceFixture.Minimal("\"audio\": {\"sample_rate\": 16000}, \"num_speakers\": 4", catalog: catalog);
         var reported = voice.Reconcile(catalog);
@@ -50,7 +50,7 @@ public class VoiceConfigTests
     [Fact]
     public void WhatAConfigLeavesOut_ComesFromTheCatalogEntryOrPipersDefaults()
     {
-        var catalog = DefaultModels.EnUsLjSpeech with { SampleRate = 16000, Language = "en-GB" };
+        var catalog = SynthesizerModels.EnUsLjSpeech with { SampleRate = 16000, Language = "en-GB" };
 
         var voice = VoiceFixture.Minimal(catalog: catalog);
 
@@ -146,7 +146,7 @@ public class VoiceConfigTests
     [InlineData("{\"phoneme_id_map\": {}}")]
     public void AConfigWithoutPhonemeIds_FailsTheLoad(string json)
     {
-        var act = () => VoiceConfig.Parse(json, DefaultModels.EnUsLjSpeech);
+        var act = () => VoiceConfig.Parse(json, SynthesizerModels.EnUsLjSpeech);
 
         act.Should().Throw<ModelLoadException>().WithMessage("*no phoneme_id_map*");
     }
@@ -157,7 +157,7 @@ public class VoiceConfigTests
     [InlineData("\"_\": [0], \"^\": [1]", "'$'")]
     public void AConfigWithoutThePadStartOrEndSymbol_FailsTheLoad(string idMap, string missing)
     {
-        var act = () => VoiceConfig.Parse("{\"phoneme_id_map\": {" + idMap + ", \"a\": [3]}}", DefaultModels.EnUsLjSpeech);
+        var act = () => VoiceConfig.Parse("{\"phoneme_id_map\": {" + idMap + ", \"a\": [3]}}", SynthesizerModels.EnUsLjSpeech);
 
         act.Should().Throw<ModelLoadException>().WithMessage($"*no id for {missing}*");
     }
@@ -165,7 +165,7 @@ public class VoiceConfigTests
     [Fact]
     public void AConfigThatIsNotJson_FailsTheLoad()
     {
-        var act = () => VoiceConfig.Parse("not json", DefaultModels.EnUsLjSpeech);
+        var act = () => VoiceConfig.Parse("not json", SynthesizerModels.EnUsLjSpeech);
 
         act.Should().Throw<ModelLoadException>().WithMessage("*not valid JSON*");
     }

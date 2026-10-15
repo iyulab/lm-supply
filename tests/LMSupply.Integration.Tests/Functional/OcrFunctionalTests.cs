@@ -1,6 +1,7 @@
 using LMSupply.Integration.Tests.Helpers;
 using LMSupply.Ocr;
 using LMSupply.Ocr.Models;
+using LMSupply.Vision;
 
 namespace LMSupply.Integration.Tests.Functional;
 

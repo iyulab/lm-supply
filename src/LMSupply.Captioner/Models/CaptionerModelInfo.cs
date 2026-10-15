@@ -17,7 +17,7 @@ namespace LMSupply.Captioner.Models;
 /// <param name="BosTokenId">Beginning of sequence token ID.</param>
 /// <param name="EosTokenId">End of sequence token ID.</param>
 /// <param name="PadTokenId">Padding token ID.</param>
-public record ModelInfo(
+public record CaptionerModelInfo(
     string RepoId,
     string AliasName,
     string DisplayName,

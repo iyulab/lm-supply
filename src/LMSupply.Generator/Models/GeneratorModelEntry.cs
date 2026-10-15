@@ -1,4 +1,5 @@
 using LMSupply.Hardware;
+using LMSupply.Core.Download;
 
 namespace LMSupply.Generator;
 
@@ -20,7 +21,7 @@ public enum LicenseTier
 /// <summary>
 /// Model metadata and configuration.
 /// </summary>
-public sealed record ModelInfo : IModelInfoBase, IModelMemoryInfo
+public sealed record GeneratorModelEntry : IModelInfoBase, IModelMemoryInfo
 {
     /// <summary>
     /// Unique model identifier (HuggingFace format: org/model-name).

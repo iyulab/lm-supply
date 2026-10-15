@@ -12,10 +12,10 @@ public sealed class TranscriberModelRegistry : ModelRegistryBase<TranscriberMode
     /// </summary>
     private static readonly TranscriberModelInfo[] AutoCandidates =
     [
-        DefaultModels.WhisperLargeV3Turbo,  // 809M params, ~3.2GB
-        DefaultModels.WhisperSmall,          // 244M params, ~970MB
-        DefaultModels.WhisperBase,           // 74M params, ~290MB
-        DefaultModels.WhisperTiny,           // 39M params, ~150MB
+        TranscriberModels.WhisperLargeV3Turbo,  // 809M params, ~3.2GB
+        TranscriberModels.WhisperSmall,          // 244M params, ~970MB
+        TranscriberModels.WhisperBase,           // 74M params, ~290MB
+        TranscriberModels.WhisperTiny,           // 39M params, ~150MB
     ];
 
     /// <summary>
@@ -28,7 +28,7 @@ public sealed class TranscriberModelRegistry : ModelRegistryBase<TranscriberMode
     /// ~/.lmsupply/aliases.json "transcriber" section (fail-soft).
     /// </summary>
     internal static TranscriberModelRegistry CreateDefault()
-        => AliasConfiguration.ApplyDomain(new TranscriberModelRegistry(DefaultModels.All), AliasConfiguration.Domains.Transcriber);
+        => AliasConfiguration.ApplyDomain(new TranscriberModelRegistry(TranscriberModels.All), AliasConfiguration.Domains.Transcriber);
 
     /// <summary>
     /// Initializes a new registry with the specified system models.

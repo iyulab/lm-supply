@@ -6,7 +6,7 @@ namespace LMSupply.ImageGenerator.Models;
 /// Provides definitions for built-in supported image generation models.
 /// All models use Latent Consistency Model (LCM) for fast inference (2-8 steps).
 /// </summary>
-public static class DefaultModels
+public static class ImageGeneratorModels
 {
     /// <summary>
     /// Gets the default model (balanced speed and quality).

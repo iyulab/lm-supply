@@ -43,7 +43,7 @@ public interface ICaptionerModel : IAsyncDisposable
     /// Gets information about the loaded model.
     /// </summary>
     /// <returns>Model information or null if not available.</returns>
-    ModelInfo? GetModelInfo();
+    CaptionerModelInfo? GetModelInfo();
 
     /// <summary>
     /// Gets whether this model supports visual question answering.

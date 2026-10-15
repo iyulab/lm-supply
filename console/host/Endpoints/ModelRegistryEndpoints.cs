@@ -2,7 +2,9 @@ using LMSupply.Console.Host.Infrastructure;
 using LMSupply.Console.Host.Services;
 using LMSupply.Captioner;
 using LMSupply.Detector;
+using LMSupply.Embedder;
 using LMSupply.Ocr;
+using LMSupply.Reranker;
 using LMSupply.Segmenter;
 using LMSupply.Synthesizer;
 using LMSupply.Transcriber;
@@ -132,36 +134,11 @@ public static class ModelRegistryEndpoints
         ]
     };
 
-    private static ModelTypeInfo CreateEmbedderModels(HashSet<string> cachedRepoIds) => new()
-    {
-        Type = "embedder",
-        DisplayName = "Text Embedder",
-        Description = "Text embedding models for semantic search",
-        Models =
-        [
-            new ModelAliasInfo { AliasName = "default", RepoId = WellKnownModels.Embedder.Default, Description = "BGE-M3 (568M, 1024 dims, 100+ languages)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Default) },
-            new ModelAliasInfo { AliasName = "fast", RepoId = WellKnownModels.Embedder.Fast, Description = "multilingual-e5-small (118M, 384 dims, 100+ languages)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Fast) },
-            new ModelAliasInfo { AliasName = "quality", RepoId = WellKnownModels.Embedder.Quality, Description = "GTE Large EN v1.5 (434M, 1024 dims, 8K context)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Quality) },
-            new ModelAliasInfo { AliasName = "large", RepoId = WellKnownModels.Embedder.Large, Description = "Nomic Embed v1.5 (137M, 8K context)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Large) },
-            new ModelAliasInfo { AliasName = "multilingual", RepoId = WellKnownModels.Embedder.Multilingual, Description = "E5 Base (278M, 100+ languages)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.Multilingual) },
-            new ModelAliasInfo { AliasName = "multilingual-large", RepoId = WellKnownModels.Embedder.MultilingualLarge, Description = "BGE M3 (568M, best multilingual)", IsCached = cachedRepoIds.Contains(WellKnownModels.Embedder.MultilingualLarge) },
-        ]
-    };
+    private static ModelTypeInfo CreateEmbedderModels(HashSet<string> cachedRepoIds) => FromRegistry(
+        "embedder", "Text Embedder", "Text embedding models for semantic search", LocalEmbedder.Registry.GetAvailableModels(), cachedRepoIds);
 
-    private static ModelTypeInfo CreateRerankerModels(HashSet<string> cachedRepoIds) => new()
-    {
-        Type = "reranker",
-        DisplayName = "Reranker",
-        Description = "Cross-encoder reranking models",
-        Models =
-        [
-            new ModelAliasInfo { AliasName = "default", RepoId = WellKnownModels.Reranker.Default, Description = "MS MARCO MiniLM L6 (22M)", IsCached = cachedRepoIds.Contains(WellKnownModels.Reranker.Default) },
-            new ModelAliasInfo { AliasName = "fast", RepoId = WellKnownModels.Reranker.Fast, Description = "TinyBERT L2 (4.4M, ultra-fast)", IsCached = cachedRepoIds.Contains(WellKnownModels.Reranker.Fast) },
-            new ModelAliasInfo { AliasName = "quality", RepoId = WellKnownModels.Reranker.Quality, Description = "BGE Reranker Base (278M)", IsCached = cachedRepoIds.Contains(WellKnownModels.Reranker.Quality) },
-            new ModelAliasInfo { AliasName = "large", RepoId = WellKnownModels.Reranker.Large, Description = "BGE Reranker Large (560M)", IsCached = cachedRepoIds.Contains(WellKnownModels.Reranker.Large) },
-            new ModelAliasInfo { AliasName = "multilingual", RepoId = WellKnownModels.Reranker.Multilingual, Description = "BGE Reranker v2 M3 (8K context)", IsCached = cachedRepoIds.Contains(WellKnownModels.Reranker.Multilingual) },
-        ]
-    };
+    private static ModelTypeInfo CreateRerankerModels(HashSet<string> cachedRepoIds) => FromRegistry(
+        "reranker", "Reranker", "Cross-encoder reranking models", LocalReranker.Registry.GetAvailableModels(), cachedRepoIds);
 
     // The domains below list their registry, so the console names exactly what each Local* loads. They used to be
     // hand-written lists that had drifted: OCR named Tesseract, the detector YOLOv8, the segmenter SAM ViT and the

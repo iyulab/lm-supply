@@ -294,39 +294,39 @@ public class InteractiveSegmentationTests
 
     #endregion
 
-    #region DefaultModels MobileSAM Tests
+    #region SegmenterModels MobileSAM Tests
 
     [Fact]
     public void MobileSAM_ShouldBeInteractive()
     {
-        DefaultModels.MobileSAM.IsInteractive.Should().BeTrue();
+        SegmenterModels.MobileSAM.IsInteractive.Should().BeTrue();
     }
 
     [Fact]
     public void MobileSAM_ShouldHaveCorrectInputSize()
     {
-        DefaultModels.MobileSAM.InputSize.Should().Be(1024);
+        SegmenterModels.MobileSAM.InputSize.Should().Be(1024);
     }
 
     [Fact]
     public void MobileSAM_ShouldHaveBinarySegmentation()
     {
-        DefaultModels.MobileSAM.NumClasses.Should().Be(1);
+        SegmenterModels.MobileSAM.NumClasses.Should().Be(1);
     }
 
     [Fact]
     public void MobileSAM_ShouldHaveSA1BDataset()
     {
-        DefaultModels.MobileSAM.Dataset.Should().Be("SA-1B");
+        SegmenterModels.MobileSAM.Dataset.Should().Be("SA-1B");
     }
 
     [Fact]
     public void NonInteractiveModels_ShouldNotBeInteractive()
     {
-        DefaultModels.SegFormerB0.IsInteractive.Should().BeFalse();
-        DefaultModels.MediaPipeSelfie.IsInteractive.Should().BeFalse();
-        DefaultModels.MaskFormerResNet50.IsInteractive.Should().BeFalse();
-        DefaultModels.SegFormerB0Large.IsInteractive.Should().BeFalse();
+        SegmenterModels.SegFormerB0.IsInteractive.Should().BeFalse();
+        SegmenterModels.MediaPipeSelfie.IsInteractive.Should().BeFalse();
+        SegmenterModels.MaskFormerResNet50.IsInteractive.Should().BeFalse();
+        SegmenterModels.SegFormerB0Large.IsInteractive.Should().BeFalse();
     }
 
     #endregion

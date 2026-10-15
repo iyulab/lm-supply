@@ -143,21 +143,21 @@ public class TranscriberModelRegistryTests
     [Fact]
     public void RegisterAlias_ShouldBeResolvable()
     {
-        var registry = new TranscriberModelRegistry(DefaultModels.All);
+        var registry = new TranscriberModelRegistry(TranscriberModels.All);
 
-        registry.RegisterAlias("my-whisper", DefaultModels.WhisperBase.Id);
+        registry.RegisterAlias("my-whisper", TranscriberModels.WhisperBase.Id);
 
         var model = registry.Resolve("my-whisper");
         model.Should().NotBeNull();
-        model.Id.Should().Be(DefaultModels.WhisperBase.Id);
+        model.Id.Should().Be(TranscriberModels.WhisperBase.Id);
     }
 
     [Fact]
     public void RegisterAlias_SystemAliasConflict_ShouldThrow()
     {
-        var registry = new TranscriberModelRegistry(DefaultModels.All);
+        var registry = new TranscriberModelRegistry(TranscriberModels.All);
 
-        var act = () => registry.RegisterAlias("default", DefaultModels.WhisperBase.Id);
+        var act = () => registry.RegisterAlias("default", TranscriberModels.WhisperBase.Id);
 
         act.Should().Throw<AliasConflictException>();
     }
@@ -205,7 +205,7 @@ public class TranscriberModelRegistryTests
     [Fact]
     public void RegisterAlias_LargeKoConflict_ShouldThrow()
     {
-        var registry = new TranscriberModelRegistry(DefaultModels.All);
+        var registry = new TranscriberModelRegistry(TranscriberModels.All);
 
         var act = () => registry.RegisterAlias("large-ko", "some/other-model");
 

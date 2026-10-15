@@ -314,7 +314,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
     }
 
     /// <inheritdoc />
-    public ModelInfo? GetModelInfo() => new()
+    public EmbedderModelInfo? GetModelInfo() => new()
     {
         RepoId = ModelId,
         Dimensions = Dimensions,

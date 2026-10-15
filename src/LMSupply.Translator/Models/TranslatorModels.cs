@@ -5,7 +5,7 @@ namespace LMSupply.Translator.Models;
 /// All models use Apache-2.0 or CC-BY-4.0 compatible licenses for commercial use.
 /// Models use onnx-community repos with auto-discovery enabled for ONNX files.
 /// </summary>
-public static class DefaultModels
+public static class TranslatorModels
 {
     /// <summary>
     /// OPUS-MT Korean to English - Default model.

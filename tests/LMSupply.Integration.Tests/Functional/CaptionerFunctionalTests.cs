@@ -168,7 +168,7 @@ public class CaptionerFunctionalTests
         // visible through GetAllModels.
         var models = LocalCaptioner.GetAllModels().ToList();
 
-        models.Should().Contain(m => m.RepoId == DefaultModels.VitGpt2.RepoId,
+        models.Should().Contain(m => m.RepoId == CaptionerModels.VitGpt2.RepoId,
             "default alias maps to the ViT-GPT2 model");
     }
 
@@ -228,7 +228,7 @@ public class CaptionerFunctionalTests
         var models = LocalCaptioner.GetAvailableModels().ToList();
 
         // "auto" + the built-in aliases (default, fast); a user's ~/.lmsupply/aliases.json may add more
-        models.Count.Should().BeGreaterThanOrEqualTo(1 + DefaultModels.All.Count,
+        models.Count.Should().BeGreaterThanOrEqualTo(1 + CaptionerModels.All.Count,
             "registry lists the auto alias plus every built-in alias");
     }
 
@@ -239,7 +239,7 @@ public class CaptionerFunctionalTests
         var models = LocalCaptioner.GetAvailableModels().ToList();
 
         models.Should().Contain("auto");
-        foreach (var builtIn in DefaultModels.All)
+        foreach (var builtIn in CaptionerModels.All)
         {
             models.Should().Contain(builtIn.AliasName);
         }

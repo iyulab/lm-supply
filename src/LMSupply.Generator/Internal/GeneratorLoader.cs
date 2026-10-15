@@ -1,5 +1,6 @@
 using LMSupply.Generator.Abstractions;
 using LMSupply.Pool;
+using LMSupply.Core.Download;
 
 namespace LMSupply.Generator.Internal;
 

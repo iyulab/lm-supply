@@ -16,6 +16,6 @@ internal sealed record PromptPrefixes(string? Query, string? Passage, string? De
     /// <summary>Whether any role has a prefix.</summary>
     public bool Any => Query is not null || Passage is not null || Default is not null;
 
-    /// <summary>The prefixes a catalog or loaded <see cref="ModelInfo"/> carries.</summary>
-    public static PromptPrefixes Of(ModelInfo info) => new(info.QueryPrefix, info.PassagePrefix, info.DefaultPrefix);
+    /// <summary>The prefixes a catalog or loaded <see cref="EmbedderModelInfo"/> carries.</summary>
+    public static PromptPrefixes Of(EmbedderModelInfo info) => new(info.QueryPrefix, info.PassagePrefix, info.DefaultPrefix);
 }

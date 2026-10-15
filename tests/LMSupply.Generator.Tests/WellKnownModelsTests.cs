@@ -71,18 +71,4 @@ public class WellKnownModelsTests
                 $"GetUnrestrictedModels should only contain MIT-licensed entries but '{modelId}' was flagged as restricted");
         }
     }
-
-    [Fact]
-    public void Embedder_Default_IsNotEmpty()
-    {
-        // Assert
-        WellKnownModels.Embedder.Default.Should().NotBeNullOrEmpty();
-    }
-
-    [Fact]
-    public void Reranker_Default_IsNotEmpty()
-    {
-        // Assert
-        WellKnownModels.Reranker.Default.Should().NotBeNullOrEmpty();
-    }
 }

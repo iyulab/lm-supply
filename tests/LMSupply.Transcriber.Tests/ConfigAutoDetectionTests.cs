@@ -14,7 +14,7 @@ public class ConfigAutoDetectionTests
     public void FallbackModel_HasAliasNameEqualToId()
     {
         // The pipeline identifies fallback models by AliasName == Id
-        var registry = new TranscriberModelRegistry(DefaultModels.All);
+        var registry = new TranscriberModelRegistry(TranscriberModels.All);
         var model = registry.Resolve("custom-org/whisper-large-v3-custom-finetuned");
 
         model.AliasName.Should().Be(model.Id, "fallback models should have AliasName == Id");
@@ -34,7 +34,7 @@ public class ConfigAutoDetectionTests
     public void FallbackModel_DefaultValues_AreIncorrectForLargeV3()
     {
         // This demonstrates the problem the auto-detection solves
-        var registry = new TranscriberModelRegistry(DefaultModels.All);
+        var registry = new TranscriberModelRegistry(TranscriberModels.All);
         var model = registry.Resolve("custom-org/whisper-large-v3-custom-finetuned");
 
         // Default fallback values are wrong for large-v3 models
@@ -46,7 +46,7 @@ public class ConfigAutoDetectionTests
     public void FallbackModel_WithConfigOverrides_FixesLargeV3Parameters()
     {
         // Simulate what the load pipeline does after downloading
-        var registry = new TranscriberModelRegistry(DefaultModels.All);
+        var registry = new TranscriberModelRegistry(TranscriberModels.All);
         var model = registry.Resolve("custom-org/whisper-large-v3-custom-finetuned");
 
         // Simulate reading config.json
@@ -72,7 +72,7 @@ public class ConfigAutoDetectionTests
     public void FallbackModel_WithConfigOverrides_TinyModel_PreservesDefaults()
     {
         // For tiny models, config values match the defaults
-        var registry = new TranscriberModelRegistry(DefaultModels.All);
+        var registry = new TranscriberModelRegistry(TranscriberModels.All);
         var model = registry.Resolve("some-org/whisper-tiny-custom");
 
         var configJson = """
@@ -103,7 +103,7 @@ public class ConfigAutoDetectionTests
     public void Pipeline_OnlyOverridesFallbackModels()
     {
         // Verify that the AliasName == Id check correctly identifies fallback vs system models
-        var registry = new TranscriberModelRegistry(DefaultModels.All);
+        var registry = new TranscriberModelRegistry(TranscriberModels.All);
 
         // System model: AliasName != Id
         var systemModel = registry.Resolve("default");
@@ -120,7 +120,7 @@ public class ConfigAutoDetectionTests
     public void Pipeline_SmallModel_ConfigOverrides()
     {
         // Whisper Small: 80 mel bins, d_model=768
-        var registry = new TranscriberModelRegistry(DefaultModels.All);
+        var registry = new TranscriberModelRegistry(TranscriberModels.All);
         var model = registry.Resolve("custom-org/whisper-small-finetuned");
 
         var configJson = """
@@ -141,7 +141,7 @@ public class ConfigAutoDetectionTests
     public void Pipeline_MediumModel_ConfigOverrides()
     {
         // Whisper Medium: 80 mel bins, d_model=1024
-        var registry = new TranscriberModelRegistry(DefaultModels.All);
+        var registry = new TranscriberModelRegistry(TranscriberModels.All);
         var model = registry.Resolve("custom-org/whisper-medium-finetuned");
 
         var configJson = """

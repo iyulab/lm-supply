@@ -34,7 +34,7 @@ await result.SaveAsync("output.png");
 ## Generation Options
 
 ```csharp
-var options = new GenerationOptions
+var options = new ImageGenerationOptions
 {
     Width = 512,           // Image width (must be divisible by 8)
     Height = 512,          // Image height (must be divisible by 8)

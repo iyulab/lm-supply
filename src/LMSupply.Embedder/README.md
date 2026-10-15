@@ -27,7 +27,7 @@ Console.WriteLine($"Dimensions: {embedding.Length}");
 Some models (the E5 family, Nomic) are fine-tuned with a text-prefix convention — query embeddings
 and document/passage embeddings need different prefixes for accurate retrieval, and text with no
 retrieval role (similarity, clustering) takes a third. Every entry point applies the model's own
-convention from its `ModelInfo` (a no-op for models that don't need one):
+convention from its `EmbedderModelInfo` (a no-op for models that don't need one):
 
 | Method | Prefix applied | E5 | Nomic |
 |---|---|---|---|

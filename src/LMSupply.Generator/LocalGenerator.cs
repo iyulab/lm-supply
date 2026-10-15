@@ -14,7 +14,7 @@ public static class LocalGenerator
     /// Gets the model registry for the Generator domain.
     /// Provides access to model resolution, alias management, and model enumeration.
     /// </summary>
-    public static IModelRegistry<ModelInfo> Registry => GeneratorModelRegistry.Default;
+    public static IModelRegistry<GeneratorModelEntry> Registry => GeneratorModelRegistry.Default;
 
     /// <summary>
     /// Shared pool for named model management. Supports GetOrLoadAsync / UnloadAsync by model ID.

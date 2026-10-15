@@ -110,10 +110,10 @@ public class LpdYuNetDecoderTests
         foreach (var (actual, expected) in decoded.Zip(Recorded.ExpectedBeforeNms))
         {
             actual.Confidence.Should().BeApproximately(expected.Score, 1e-4f);
-            actual.Box.X1.Should().BeApproximately(expected.X1, 0.05f);
-            actual.Box.Y1.Should().BeApproximately(expected.Y1, 0.05f);
-            actual.Box.X2.Should().BeApproximately(expected.X2, 0.05f);
-            actual.Box.Y2.Should().BeApproximately(expected.Y2, 0.05f);
+            actual.Box.X.Should().BeApproximately(expected.X1, 0.05f);
+            actual.Box.Y.Should().BeApproximately(expected.Y1, 0.05f);
+            actual.Box.Right.Should().BeApproximately(expected.X2, 0.05f);
+            actual.Box.Bottom.Should().BeApproximately(expected.Y2, 0.05f);
         }
     }
 
@@ -125,10 +125,10 @@ public class LpdYuNetDecoderTests
 
         top.Label.Should().Be("plate");
         top.Confidence.Should().BeApproximately(0.9136f, 1e-3f);
-        top.Box.X1.Should().BeApproximately(449.0f, 0.5f);
-        top.Box.Y1.Should().BeApproximately(476.5f, 0.5f);
-        top.Box.X2.Should().BeApproximately(513.9f, 0.5f);
-        top.Box.Y2.Should().BeApproximately(496.9f, 0.5f);
+        top.Box.X.Should().BeApproximately(449.0f, 0.5f);
+        top.Box.Y.Should().BeApproximately(476.5f, 0.5f);
+        top.Box.Right.Should().BeApproximately(513.9f, 0.5f);
+        top.Box.Bottom.Should().BeApproximately(496.9f, 0.5f);
     }
 
     [Fact]
@@ -157,10 +157,10 @@ public class LpdYuNetDecoderTests
             var xs = detection.Keypoints!.Select(k => k.X).ToList();
             var ys = detection.Keypoints!.Select(k => k.Y).ToList();
 
-            detection.Box.X1.Should().BeApproximately(xs.Min(), 0.01f);
-            detection.Box.Y1.Should().BeApproximately(ys.Min(), 0.01f);
-            detection.Box.X2.Should().BeApproximately(xs.Max(), 0.01f);
-            detection.Box.Y2.Should().BeApproximately(ys.Max(), 0.01f);
+            detection.Box.X.Should().BeApproximately(xs.Min(), 0.01f);
+            detection.Box.Y.Should().BeApproximately(ys.Min(), 0.01f);
+            detection.Box.Right.Should().BeApproximately(xs.Max(), 0.01f);
+            detection.Box.Bottom.Should().BeApproximately(ys.Max(), 0.01f);
         }
     }
 

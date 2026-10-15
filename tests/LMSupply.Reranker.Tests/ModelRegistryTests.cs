@@ -103,7 +103,7 @@ public class ModelRegistryTests
     {
         // A registry of its own: GgufAliasTests (a parallel class) registers user aliases on the shared Default,
         // and "every alias is a system alias" only holds for a registry nobody else writes to.
-        var aliases = new RerankerModelRegistry(DefaultModels.All).GetAliases();
+        var aliases = new RerankerModelRegistry(RerankerModels.All).GetAliases();
 
         var aliasNames = aliases.Select(a => a.Name).ToList();
         aliasNames.Should().Contain(["auto", "default", "quality", "fast", "multilingual", "large"]);
@@ -113,7 +113,7 @@ public class ModelRegistryTests
     [Fact]
     public void RegisterAlias_ShouldBeResolvable()
     {
-        var registry = new RerankerModelRegistry(DefaultModels.All);
+        var registry = new RerankerModelRegistry(RerankerModels.All);
 
         registry.RegisterAlias("my-model", "BAAI/bge-reranker-base");
 
@@ -125,7 +125,7 @@ public class ModelRegistryTests
     [Fact]
     public void RegisterAlias_SystemAliasConflict_ShouldThrow()
     {
-        var registry = new RerankerModelRegistry(DefaultModels.All);
+        var registry = new RerankerModelRegistry(RerankerModels.All);
 
         var act = () => registry.RegisterAlias("default", "BAAI/bge-reranker-base");
 
@@ -135,7 +135,7 @@ public class ModelRegistryTests
     [Fact]
     public void RemoveAlias_UserAlias_ShouldSucceed()
     {
-        var registry = new RerankerModelRegistry(DefaultModels.All);
+        var registry = new RerankerModelRegistry(RerankerModels.All);
         registry.RegisterAlias("temp-alias", "BAAI/bge-reranker-base");
 
         var removed = registry.RemoveAlias("temp-alias");
@@ -148,7 +148,7 @@ public class ModelRegistryTests
     [Fact]
     public void RemoveAlias_SystemAlias_ShouldReturnFalse()
     {
-        var registry = new RerankerModelRegistry(DefaultModels.All);
+        var registry = new RerankerModelRegistry(RerankerModels.All);
 
         var removed = registry.RemoveAlias("default");
 
@@ -158,7 +158,7 @@ public class ModelRegistryTests
     [Fact]
     public void GetAliases_WithUserAlias_ShouldIncludeBoth()
     {
-        var registry = new RerankerModelRegistry(DefaultModels.All);
+        var registry = new RerankerModelRegistry(RerankerModels.All);
         registry.RegisterAlias("custom", "BAAI/bge-reranker-large");
 
         var aliases = registry.GetAliases();
@@ -195,7 +195,7 @@ public class ModelRegistryTests
         var registry = LocalReranker.Registry;
 
         registry.Should().NotBeNull();
-        registry.Should().BeAssignableTo<IModelRegistry<ModelInfo>>();
+        registry.Should().BeAssignableTo<IModelRegistry<RerankerModelInfo>>();
     }
 
     [Fact]

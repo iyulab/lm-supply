@@ -4,7 +4,7 @@ namespace LMSupply.Synthesizer.Models;
 /// Default TTS model configurations.
 /// Uses Piper VITS models which are optimized for ONNX Runtime.
 /// </summary>
-public static class DefaultModels
+public static class SynthesizerModels
 {
     /// <summary>
     /// English US (LJSpeech) - the default voice: the only one here whose recordings are public domain, so an application

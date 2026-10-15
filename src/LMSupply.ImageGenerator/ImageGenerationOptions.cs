@@ -3,7 +3,7 @@ namespace LMSupply.ImageGenerator;
 /// <summary>
 /// Options for a single image generation request.
 /// </summary>
-public sealed class GenerationOptions
+public sealed class ImageGenerationOptions
 {
     /// <summary>
     /// Negative prompt to specify what to avoid in the generated image.
@@ -67,7 +67,7 @@ public sealed class GenerationOptions
     /// <summary>
     /// Creates a copy of these options with a specific seed.
     /// </summary>
-    internal GenerationOptions WithSeed(int seed) => new()
+    internal ImageGenerationOptions WithSeed(int seed) => new()
     {
         NegativePrompt = NegativePrompt,
         Width = Width,

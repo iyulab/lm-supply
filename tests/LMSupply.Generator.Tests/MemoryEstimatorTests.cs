@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using LMSupply.Core.Download;
 
 namespace LMSupply.Generator.Tests;
 
@@ -24,7 +25,7 @@ public class MemoryEstimatorTests
         var paramCount = 1_000_000_000L;
 
         // Act
-        var memoryBytes = MemoryEstimator.CalculateModelMemory(paramCount, Quantization.FP16);
+        var memoryBytes = MemoryEstimator.CalculateModelMemory(paramCount, Quantization.Fp16);
 
         // Assert
         memoryBytes.Should().Be(2_000_000_000L); // 1B * 2 bytes
@@ -105,7 +106,7 @@ public class MemoryEstimatorTests
             NumLayers = 40,
             HiddenSize = 5120,
             ContextLength = 8192,
-            Quantization = Quantization.FP16 // Large model in FP16
+            Quantization = Quantization.Fp16 // Large model in FP16
         };
 
         var availableMemory = 4L * 1024 * 1024 * 1024; // 4GB

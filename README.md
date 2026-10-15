@@ -141,7 +141,7 @@ can report it in the same shape with `DownloadProgressTracker`: call `Start()`, 
 bytesDownloaded, totalBytes)` on each chunk. It returns a `DownloadProgress` with a smoothed speed and an ETA.
 
 Every built-in Embedder, Reranker, Captioner and OCR model carries the licence of its weights on its registry entry
-(`ModelInfo.License`; `OcrModelInfo.License` for a detection + recognition pair). For an ONNX conversion it is the licence
+(`EmbedderModelInfo` / `RerankerModelInfo` / `CaptionerModelInfo` `.License`; `OcrModelInfo.License` for a detection + recognition pair). For an ONNX conversion it is the licence
 of the model it converts, which the conversion's own card often leaves out.
 
 A loaded model is also a Microsoft.Extensions.AI `IEmbeddingGenerator<string, Embedding<float>>`, so a library that takes

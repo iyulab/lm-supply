@@ -1,3 +1,4 @@
+using LMSupply.Vision;
 namespace LMSupply.Detector.Core;
 
 /// <summary>
@@ -174,7 +175,7 @@ internal static class LpdYuNetDecoder
                 ClassId: 0,
                 Label: label,
                 Confidence: score,
-                Box: new BoundingBox(minX, minY, maxX, maxY).Clamp(originalWidth, originalHeight),
+                Box: BoundingBox.FromCorners(minX, minY, maxX, maxY).Clip(originalWidth, originalHeight),
                 Keypoints: corners));
         }
 

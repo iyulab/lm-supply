@@ -6,7 +6,7 @@ namespace LMSupply.Detector.Models;
 /// YuNet for faces (MIT) and licence plates (Apache-2.0), and Google's MoveNet (Apache-2.0) for human pose.
 /// YOLO models are AGPL-3.0 and require Ultralytics license for commercial use, so no alias resolves to one.
 /// </summary>
-public static class DefaultModels
+public static class DetectorModels
 {
     /// <summary>
     /// RT-DETR v2 Small - Default balanced model.

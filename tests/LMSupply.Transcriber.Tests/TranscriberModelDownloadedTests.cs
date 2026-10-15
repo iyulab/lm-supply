@@ -34,11 +34,11 @@ public sealed class TranscriberModelDownloadedTests : IDisposable
         ("preprocessor_config.json", 30),
     ];
 
-    private string SnapshotDir => CacheManager.GetModelDirectory(_cache, DefaultModels.WhisperBase.Id);
+    private string SnapshotDir => CacheManager.GetModelDirectory(_cache, TranscriberModels.WhisperBase.Id);
 
     // The listing cache: models--{org}--{name}/.lmsupply/listings/{revision}.json
     private string ListingPath => Path.Combine(
-        _cache, "models--" + DefaultModels.WhisperBase.Id.Replace("/", "--"), ".lmsupply", "listings", "main.json");
+        _cache, "models--" + TranscriberModels.WhisperBase.Id.Replace("/", "--"), ".lmsupply", "listings", "main.json");
 
     private void SeedListing()
     {
@@ -150,7 +150,7 @@ public sealed class TranscriberModelDownloadedTests : IDisposable
 
     private const string Commit = "3c1a0f7e9b2d4c6a8e0f1b3d5c7a9e1f2b4d6c8a";
 
-    private string RepoDir => Path.Combine(_cache, "models--" + DefaultModels.WhisperBase.Id.Replace("/", "--"));
+    private string RepoDir => Path.Combine(_cache, "models--" + TranscriberModels.WhisperBase.Id.Replace("/", "--"));
 
     // What another Hugging Face tool's snapshot download leaves: refs/main names the commit, snapshots/{commit} holds the files.
     private string SeedHubSnapshot()
@@ -203,7 +203,7 @@ public sealed class TranscriberModelDownloadedTests : IDisposable
         var snapshot = SeedHubSnapshot();
         using var downloader = new HuggingFaceDownloader(_cache, localFilesOnly: true);
 
-        var (dir, _) = await downloader.DownloadWithDiscoveryAsync(DefaultModels.WhisperBase.Id, cancellationToken: Ct);
+        var (dir, _) = await downloader.DownloadWithDiscoveryAsync(TranscriberModels.WhisperBase.Id, cancellationToken: Ct);
 
         dir.Should().Be(snapshot);
         Directory.Exists(SnapshotDir).Should().BeFalse();

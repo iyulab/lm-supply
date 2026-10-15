@@ -17,7 +17,7 @@ public class LlamaServerClientChatPromptTokensTests
     {
         Tools =
         [
-            new ToolDefinition
+            new LlamaToolDefinition
             {
                 Function = new FunctionDefinition { Name = "read_file", Description = "Read a file." },
             },

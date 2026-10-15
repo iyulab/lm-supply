@@ -48,7 +48,7 @@ public static class ImageEndpoints
                 var imageDataList = new List<GeneratedImageData>();
                 for (int i = 0; i < n; i++)
                 {
-                    var options = new GenerationOptions
+                    var options = new ImageGenerationOptions
                     {
                         Width = width,
                         Height = height,
@@ -124,7 +124,7 @@ public static class ImageEndpoints
                 var modelId = request.Model ?? "default";
                 await using var scope = await manager.GetImageGeneratorAsync(modelId, ct);
 
-                var options = new GenerationOptions
+                var options = new ImageGenerationOptions
                 {
                     Width = width,
                     Height = height,
@@ -190,7 +190,7 @@ public static class ImageEndpoints
 
                 await using var scope = await manager.GetImageGeneratorAsync(modelId, ct);
 
-                var options = new GenerationOptions
+                var options = new ImageGenerationOptions
                 {
                     Width = width,
                     Height = height,
@@ -254,7 +254,7 @@ public static class ImageEndpoints
 
                 await using var scope = await manager.GetImageGeneratorAsync(modelId, ct);
 
-                var options = new GenerationOptions
+                var options = new ImageGenerationOptions
                 {
                     Width = width,
                     Height = height,

@@ -20,7 +20,7 @@ public class AutoSelectionTests
     [InlineData(4_000, "BAAI/bge-m3")]
     public void Auto_FollowsTheBudget(long budgetMb, string expected)
     {
-        var selected = ModelRegistryBase<ModelInfo>.SelectLargestFitting(EmbedderModelRegistry.AutoCandidates, budgetMb * Mb, out _);
+        var selected = ModelRegistryBase<EmbedderModelInfo>.SelectLargestFitting(EmbedderModelRegistry.AutoCandidates, budgetMb * Mb, out _);
 
         selected.RepoId.Should().Be(expected);
     }

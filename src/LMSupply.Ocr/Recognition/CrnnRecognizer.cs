@@ -151,11 +151,11 @@ internal sealed class CrnnRecognizer : IDisposable
     {
         var box = region.BoundingBox;
 
-        // Clamp coordinates to image bounds
-        var x = Math.Max(0, box.X);
-        var y = Math.Max(0, box.Y);
-        var width = Math.Min(box.Width, image.Width - x);
-        var height = Math.Min(box.Height, image.Height - y);
+        // Whole pixels covering the box, clamped to the image
+        var x = Math.Max(0, (int)MathF.Floor(box.X));
+        var y = Math.Max(0, (int)MathF.Floor(box.Y));
+        var width = Math.Min((int)MathF.Ceiling(box.Right) - x, image.Width - x);
+        var height = Math.Min((int)MathF.Ceiling(box.Bottom) - y, image.Height - y);
 
         if (width <= 0 || height <= 0)
         {

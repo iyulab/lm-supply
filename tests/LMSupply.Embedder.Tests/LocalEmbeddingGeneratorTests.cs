@@ -128,7 +128,7 @@ public sealed class LocalEmbeddingGeneratorTests
         public ExecutionProvider RequestedProvider => ExecutionProvider.Cpu;
         public long? EstimatedMemoryBytes => null;
 
-        public ModelInfo GetModelInfo() => new()
+        public EmbedderModelInfo GetModelInfo() => new()
         {
             RepoId = "test/e5",
             Dimensions = 4,

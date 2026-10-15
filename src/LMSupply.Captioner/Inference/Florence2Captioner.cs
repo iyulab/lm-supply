@@ -15,7 +15,7 @@ namespace LMSupply.Captioner.Inference;
 /// </summary>
 /// <remarks>
 /// Generation follows the model's <c>generation_config.json</c> except for the beam width: the decoder starts from
-/// <see cref="ModelInfo.DecoderStartTokenId"/>, the first generated token is forced to <see cref="ModelInfo.BosTokenId"/>,
+/// <see cref="CaptionerModelInfo.DecoderStartTokenId"/>, the first generated token is forced to <see cref="CaptionerModelInfo.BosTokenId"/>,
 /// and no 3-gram repeats. Decoding is greedy by default rather than the config's three beams — measured on everyday
 /// photos, greedy named the same subjects at a third of the cost; <see cref="CaptionerOptions.NumBeams"/> runs the
 /// beam search, <see cref="CaptionerOptions.Temperature"/> samples.
@@ -36,7 +36,7 @@ internal sealed class Florence2Captioner : ICaptionerModel
     private readonly RecoverableOnnxSession _encoder;
     private readonly RecoverableOnnxSession _decoder;
     private readonly ITextTokenizer _tokenizer;
-    private readonly ModelInfo _modelInfo;
+    private readonly CaptionerModelInfo _modelInfo;
     private readonly CaptionerOptions _options;
     private readonly long[] _promptIds;
     private readonly string[] _modelFiles;
@@ -48,7 +48,7 @@ internal sealed class Florence2Captioner : ICaptionerModel
         RecoverableOnnxSession encoder,
         RecoverableOnnxSession decoder,
         ITextTokenizer tokenizer,
-        ModelInfo modelInfo,
+        CaptionerModelInfo modelInfo,
         CaptionerOptions options,
         string[] modelFiles)
     {
@@ -77,7 +77,7 @@ internal sealed class Florence2Captioner : ICaptionerModel
     };
 
     /// <summary>&lt;s&gt; + the task prompt's tokens + &lt;/s&gt;, as the processor's tokenizer produces them.</summary>
-    internal static long[] BuildPromptIds(ITextTokenizer tokenizer, ModelInfo modelInfo, CaptionDetail detail)
+    internal static long[] BuildPromptIds(ITextTokenizer tokenizer, CaptionerModelInfo modelInfo, CaptionDetail detail)
     {
         var text = tokenizer.Encode(TaskPrompt(detail), addSpecialTokens: false);
         var ids = new long[text.Length + 2];
@@ -112,7 +112,7 @@ internal sealed class Florence2Captioner : ICaptionerModel
     public Task WarmupAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     /// <inheritdoc />
-    public ModelInfo? GetModelInfo() => _modelInfo;
+    public CaptionerModelInfo? GetModelInfo() => _modelInfo;
 
     /// <summary>
     /// Opens the four graphs. <paramref name="files"/> are the vision encoder, token embedding, text encoder and merged
@@ -121,7 +121,7 @@ internal sealed class Florence2Captioner : ICaptionerModel
     public static async Task<Florence2Captioner> CreateAsync(
         string modelDir,
         IReadOnlyList<string> files,
-        ModelInfo modelInfo,
+        CaptionerModelInfo modelInfo,
         CaptionerOptions options,
         string? tokenizerDir,
         IProgress<DownloadProgress>? progress,

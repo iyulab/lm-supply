@@ -18,7 +18,7 @@ public sealed class ImageGeneratorModelRegistry : ModelRegistryBase<ImageGenerat
     /// ~/.lmsupply/aliases.json "imagegenerator" section (fail-soft).
     /// </summary>
     internal static ImageGeneratorModelRegistry CreateDefault()
-        => AliasConfiguration.ApplyDomain(new ImageGeneratorModelRegistry(DefaultModels.All), AliasConfiguration.Domains.ImageGenerator);
+        => AliasConfiguration.ApplyDomain(new ImageGeneratorModelRegistry(ImageGeneratorModels.All), AliasConfiguration.Domains.ImageGenerator);
 
     /// <summary>
     /// Initializes a new registry with the specified system models.
@@ -45,9 +45,9 @@ public sealed class ImageGeneratorModelRegistry : ModelRegistryBase<ImageGenerat
 
         var model = tier switch
         {
-            PerformanceTier.Ultra or PerformanceTier.High => DefaultModels.LcmDreamshaperV7Quality,
-            PerformanceTier.Medium => DefaultModels.LcmDreamshaperV7,
-            _ => DefaultModels.LcmDreamshaperV7Fast
+            PerformanceTier.Ultra or PerformanceTier.High => ImageGeneratorModels.LcmDreamshaperV7Quality,
+            PerformanceTier.Medium => ImageGeneratorModels.LcmDreamshaperV7,
+            _ => ImageGeneratorModels.LcmDreamshaperV7Fast
         };
 
         return new ImageGeneratorModelInfo

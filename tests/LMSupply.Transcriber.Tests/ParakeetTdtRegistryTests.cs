@@ -27,8 +27,8 @@ public sealed class ParakeetTdtRegistryTests
     [Fact]
     public void EveryOtherBuiltInEntry_IsStillWhisper()
     {
-        DefaultModels.All.Where(m => !TranscriberArchitectures.IsParakeetTdt(m.Architecture))
-            .Should().HaveCount(DefaultModels.All.Count - 1)
+        TranscriberModels.All.Where(m => !TranscriberArchitectures.IsParakeetTdt(m.Architecture))
+            .Should().HaveCount(TranscriberModels.All.Count - 1)
             .And.OnlyContain(m => m.Architecture == TranscriberArchitectures.Whisper);
     }
 

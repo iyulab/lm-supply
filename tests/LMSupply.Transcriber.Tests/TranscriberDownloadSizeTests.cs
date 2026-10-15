@@ -39,7 +39,7 @@ public sealed class TranscriberDownloadSizeTests : IDisposable
             ("preprocessor_config.json", 300),
         };
         // The listing cache: models--{org}--{name}/.lmsupply/listings/{revision}.json
-        var path = Path.Combine(_cache, "models--" + DefaultModels.WhisperBase.Id.Replace("/", "--"), ".lmsupply", "listings", "main.json");
+        var path = Path.Combine(_cache, "models--" + TranscriberModels.WhisperBase.Id.Replace("/", "--"), ".lmsupply", "listings", "main.json");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(
             path,
@@ -58,7 +58,7 @@ public sealed class TranscriberDownloadSizeTests : IDisposable
 
         size.Should().BeGreaterThanOrEqualTo(pair).And.BeLessThanOrEqualTo(pair + Shared);
         if (hint == "int8")
-            size.Should().BeLessThan(DefaultModels.WhisperBase.SizeBytes / 2, "the int8 download is a fraction of the registry's full-precision size");
+            size.Should().BeLessThan(TranscriberModels.WhisperBase.SizeBytes / 2, "the int8 download is a fraction of the registry's full-precision size");
     }
 
     [Fact]

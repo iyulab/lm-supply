@@ -71,7 +71,7 @@ internal sealed class DbNetPostProcessor
                 .ToList();
 
             // Create bounding box
-            var boundingBox = BoundingBox.FromPolygon(scaledPolygon);
+            var boundingBox = OcrPolygon.Bounds(scaledPolygon);
 
             // Filter by minimum area
             if (boundingBox.Area < _minBoxArea) continue;

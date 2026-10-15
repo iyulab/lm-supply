@@ -1,5 +1,6 @@
 using LMSupply.Ocr.PostProcessing;
 using Xunit;
+using LMSupply.Vision;
 
 namespace LMSupply.Ocr.Tests.PostProcessing;
 

@@ -227,7 +227,7 @@ public static class LocalTranscriber
         if (Directory.Exists(options.ModelId)
             && Internal.NemoConfigReader.ReadConfig(options.ModelId) is { IsTdt: true } config)
         {
-            var template = DefaultModels.ParakeetTdt06BV3;
+            var template = TranscriberModels.ParakeetTdt06BV3;
             return new ParakeetTdtTranscriberModel(options, new TranscriberModelInfo
             {
                 Id = options.ModelId,

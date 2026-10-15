@@ -15,7 +15,7 @@ public static class LocalCaptioner
     /// Gets the model registry for the Captioner domain.
     /// Provides access to model resolution, alias management, and model enumeration.
     /// </summary>
-    public static IModelRegistry<ModelInfo> Registry => CaptionerModelRegistry.Default;
+    public static IModelRegistry<CaptionerModelInfo> Registry => CaptionerModelRegistry.Default;
 
     /// <summary>
     /// Shared pool for named model management. Supports GetOrLoadAsync / UnloadAsync by model ID.
@@ -29,7 +29,7 @@ public static class LocalCaptioner
     /// <param name="modelIdOrPath">
     /// Either a model ID (e.g., "default", "quality") for auto-download, a HuggingFace repository id,
     /// or a local path to a model directory. A <c>:variant</c> qualifier (e.g. <c>"quality:fp16"</c>) picks the
-    /// quantized files of a model published in several (see <see cref="ModelInfo.HasQuantizationVariants"/>).
+    /// quantized files of a model published in several (see <see cref="CaptionerModelInfo.HasQuantizationVariants"/>).
     /// </param>
     /// <param name="options">
     /// Optional configuration options. With <see cref="CaptionerOptions.DisableAutoDownload"/> set, a model
@@ -62,7 +62,7 @@ public static class LocalCaptioner
         modelIdOrPath = baseId;
         options.QuantizationHint ??= qualifier;
 
-        ModelInfo? modelInfo = null;
+        CaptionerModelInfo? modelInfo = null;
         string modelDir;
         string? tokenizerDir = null; // Separate tokenizer directory for HuggingFace repos with subfolders
         var variantSuffix = "";
@@ -246,12 +246,12 @@ public static class LocalCaptioner
     /// same model (e.g. "default" and "fast") contribute one entry. Use <see cref="GetAvailableModels"/>
     /// for the alias names themselves.
     /// </summary>
-    public static IEnumerable<ModelInfo> GetAllModels() =>
+    public static IEnumerable<CaptionerModelInfo> GetAllModels() =>
         CaptionerModelRegistry.Default.GetAvailableModels();
 
     private static async Task<ICaptionerModel> CreateCaptionerAsync(
         string modelDir,
-        ModelInfo modelInfo,
+        CaptionerModelInfo modelInfo,
         string variantSuffix,
         CaptionerOptions options,
         string? tokenizerDir,
@@ -269,7 +269,7 @@ public static class LocalCaptioner
     /// <summary>
     /// Refuses an option the model would otherwise ignore — before anything is downloaded.
     /// </summary>
-    internal static void EnsureOptionsSupported(ModelInfo modelInfo, CaptionerOptions options)
+    internal static void EnsureOptionsSupported(CaptionerModelInfo modelInfo, CaptionerOptions options)
     {
         if (options.NumBeams < 1)
             throw new NotSupportedException($"CaptionerOptions.NumBeams must be at least 1; it is {options.NumBeams}.");
@@ -298,10 +298,10 @@ public static class LocalCaptioner
     /// published at one precision, otherwise the variant the quantization hint or the provider's hardware tier ranks
     /// first.
     /// </summary>
-    internal static string SelectVariantSuffix(ModelInfo modelInfo, CaptionerOptions options)
+    internal static string SelectVariantSuffix(CaptionerModelInfo modelInfo, CaptionerOptions options)
         => SelectVariantSuffix(modelInfo, options.Provider, options.QuantizationHint);
 
-    private static string SelectVariantSuffix(ModelInfo modelInfo, ExecutionProvider provider, string? hint)
+    private static string SelectVariantSuffix(CaptionerModelInfo modelInfo, ExecutionProvider provider, string? hint)
     {
         if (!modelInfo.HasQuantizationVariants)
             return "";
@@ -340,7 +340,7 @@ public static class LocalCaptioner
     /// The ONNX files a load opens, in the order the model's captioner takes them, with the variant suffix applied.
     /// For Florence-2: vision encoder, token embedding, text encoder, decoder.
     /// </summary>
-    internal static IReadOnlyList<string> OnnxFiles(ModelInfo modelInfo, string variantSuffix)
+    internal static IReadOnlyList<string> OnnxFiles(CaptionerModelInfo modelInfo, string variantSuffix)
     {
         static string WithSuffix(string file, string suffix)
             => suffix.Length == 0 ? file : $"{Path.GetFileNameWithoutExtension(file)}{suffix}{Path.GetExtension(file)}";
@@ -357,7 +357,7 @@ public static class LocalCaptioner
     /// Does NOT create fallback for unknown HuggingFace repos, preserving the
     /// auto-discovery download path for truly unknown models.
     /// </summary>
-    private static bool TryResolveKnownModel(string modelIdOrAlias, out ModelInfo? modelInfo)
+    private static bool TryResolveKnownModel(string modelIdOrAlias, out CaptionerModelInfo? modelInfo)
     {
         var registry = CaptionerModelRegistry.Default;
 
@@ -392,13 +392,13 @@ public static class LocalCaptioner
     /// <param name="variantSuffix">The variant suffix of the files found (empty for full precision).</param>
     /// <returns>True if model info was successfully inferred.</returns>
     internal static bool TryInferModelInfo(
-        string onnxDir, string baseDir, CaptionerOptions options, out ModelInfo? modelInfo, out string variantSuffix)
+        string onnxDir, string baseDir, CaptionerOptions options, out CaptionerModelInfo? modelInfo, out string variantSuffix)
     {
         variantSuffix = "";
         var hasVocab = File.Exists(Path.Combine(baseDir, "vocab.json")) || File.Exists(Path.Combine(onnxDir, "vocab.json"));
 
         // Florence-2: the four graphs, at the variant the options prefer when several are present.
-        var florence = DefaultModels.Florence2Base;
+        var florence = CaptionerModels.Florence2Base;
         var preferred = SelectVariantSuffix(florence, options);
         foreach (var suffix in new[] { preferred, "", "_fp16", "_quantized", "_q4" }.Distinct())
         {
@@ -420,7 +420,7 @@ public static class LocalCaptioner
             && File.Exists(Path.Combine(onnxDir, "decoder_model_merged.onnx")))
         {
             // The model this layout belongs to — not "default", which names Florence-2 since 0.104.0.
-            modelInfo = DefaultModels.VitGpt2;
+            modelInfo = CaptionerModels.VitGpt2;
             return true;
         }
 
@@ -431,7 +431,7 @@ public static class LocalCaptioner
     /// <summary>
     /// Gets the list of required files for a model at the given variant.
     /// </summary>
-    internal static IEnumerable<string> GetRequiredFiles(ModelInfo modelInfo, string variantSuffix)
+    internal static IEnumerable<string> GetRequiredFiles(CaptionerModelInfo modelInfo, string variantSuffix)
     {
         // ONNX model files
         foreach (var file in OnnxFiles(modelInfo, variantSuffix))

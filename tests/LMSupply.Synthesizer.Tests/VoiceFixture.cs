@@ -13,7 +13,7 @@ internal static class VoiceFixture
     public static string LjSpeechJson { get; } =
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "en_US-ljspeech-medium.onnx.json"));
 
-    public static VoiceConfig LjSpeech() => VoiceConfig.Parse(LjSpeechJson, DefaultModels.EnUsLjSpeech);
+    public static VoiceConfig LjSpeech() => VoiceConfig.Parse(LjSpeechJson, SynthesizerModels.EnUsLjSpeech);
 
     /// <summary>A config with the given top-level members and a minimal id map: pad 0, start 1, end 2, a 3, b 4.</summary>
     public static VoiceConfig Minimal(string members = "", string extraPhonemes = "", SynthesizerModelInfo? catalog = null)
@@ -21,6 +21,6 @@ internal static class VoiceFixture
         var json = "{" + (members.Length > 0 ? members + "," : "")
             + "\"phoneme_id_map\": {\"_\": [0], \"^\": [1], \"$\": [2], \"a\": [3], \"b\": [4]"
             + (extraPhonemes.Length > 0 ? ", " + extraPhonemes : "") + "}}";
-        return VoiceConfig.Parse(json, catalog ?? DefaultModels.EnUsLjSpeech);
+        return VoiceConfig.Parse(json, catalog ?? SynthesizerModels.EnUsLjSpeech);
     }
 }

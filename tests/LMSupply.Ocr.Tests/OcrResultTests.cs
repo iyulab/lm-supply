@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using LMSupply.Ocr;
+using LMSupply.Vision;
 
 namespace LMSupply.Ocr.Tests;
 
@@ -71,8 +72,8 @@ public class OcrResultTests
         var box = new BoundingBox(10, 20, 100, 50);
 
         // Assert
-        box.Center.X.Should().Be(60);
-        box.Center.Y.Should().Be(45);
+        box.CenterX.Should().Be(60);
+        box.CenterY.Should().Be(45);
     }
 
     [Fact]
@@ -101,7 +102,7 @@ public class OcrResultTests
         };
 
         // Act
-        var box = BoundingBox.FromPolygon(polygon);
+        var box = OcrPolygon.Bounds(polygon);
 
         // Assert
         box.X.Should().Be(5);
@@ -117,7 +118,7 @@ public class OcrResultTests
         var polygon = new List<Point>();
 
         // Act
-        var box = BoundingBox.FromPolygon(polygon);
+        var box = OcrPolygon.Bounds(polygon);
 
         // Assert
         box.X.Should().Be(0);

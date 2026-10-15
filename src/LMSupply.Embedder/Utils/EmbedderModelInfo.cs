@@ -5,7 +5,7 @@ namespace LMSupply.Embedder.Utils;
 /// <summary>
 /// Configuration information for a pre-configured embedding model.
 /// </summary>
-public sealed record ModelInfo : IModelInfoBase, IModelMemoryInfo
+public sealed record EmbedderModelInfo : IModelInfoBase, IModelMemoryInfo
 {
     /// <summary>
     /// Gets the unique identifier for this model (HuggingFace repository ID).

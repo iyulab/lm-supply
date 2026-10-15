@@ -24,7 +24,7 @@ public static class LocalEmbedder
     /// Gets the model registry for embedding models.
     /// Supports system aliases, user aliases, and model resolution.
     /// </summary>
-    public static IModelRegistry<ModelInfo> Registry => EmbedderModelRegistry.Default;
+    public static IModelRegistry<EmbedderModelInfo> Registry => EmbedderModelRegistry.Default;
 
     /// <summary>
     /// Shared pool for named model management. Supports GetOrLoadAsync / UnloadAsync by model ID.
@@ -94,7 +94,7 @@ public static class LocalEmbedder
         // without a catalog entry gets one built from its own files, so GetModelInfo() is never null and
         // the prompt prefixes it declares are applied.
         var loadedModelInfo = sources.CatalogInfo is null
-            ? new ModelInfo
+            ? new EmbedderModelInfo
             {
                 RepoId = sources.RepoIdForInfo,
                 AliasName = sources.ModelId,
@@ -374,7 +374,7 @@ public static class LocalEmbedder
         string? ModelRootDir,
         string? Subfolder,
         string RepoIdForInfo,
-        ModelInfo? CatalogInfo,
+        EmbedderModelInfo? CatalogInfo,
         int MaxSequenceLength,
         PoolingMode PoolingMode,
         PromptPrefixes Prompts);
@@ -394,7 +394,7 @@ public static class LocalEmbedder
         string? tokenizerFallbackDir;
         string modelId;
 
-        ModelInfo? loadedModelInfo = null;
+        EmbedderModelInfo? loadedModelInfo = null;
         int? catalogMaxSequenceLength = null;
         PoolingMode? catalogPoolingMode = null;
         // The repository root: where a sentence-transformers model keeps 1_Pooling/ and
@@ -772,7 +772,7 @@ public static class LocalEmbedder
     /// <summary>
     /// Gets all registered model information (deduplicated by RepoId).
     /// </summary>
-    public static IEnumerable<ModelInfo> GetAllModels()
+    public static IEnumerable<EmbedderModelInfo> GetAllModels()
         => EmbedderModelRegistry.Default.GetAvailableModels();
 
     /// <summary>
@@ -947,7 +947,7 @@ public static class LocalEmbedder
     /// The catalog entry of the model a GGUF repository was converted from: "&lt;org&gt;/&lt;model&gt;-GGUF" →
     /// "&lt;org&gt;/&lt;model&gt;". False for a local file or a model the catalog does not know.
     /// </summary>
-    internal static bool TryResolveGgufSourceModel(string repoIdOrPath, out ModelInfo? info)
+    internal static bool TryResolveGgufSourceModel(string repoIdOrPath, out EmbedderModelInfo? info)
     {
         info = null;
         if (!repoIdOrPath.Contains('/') || File.Exists(repoIdOrPath))

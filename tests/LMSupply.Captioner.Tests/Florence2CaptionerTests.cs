@@ -47,7 +47,7 @@ public sealed class Florence2CaptionerTests : IDisposable
     [InlineData("fp32", "")]
     public void QuantizationHint_PicksTheVariantFiles(string hint, string suffix)
     {
-        var model = DefaultModels.Florence2Base;
+        var model = CaptionerModels.Florence2Base;
 
         LocalCaptioner.SelectVariantSuffix(model, new CaptionerOptions { QuantizationHint = hint }).Should().Be(suffix);
         LocalCaptioner.OnnxFiles(model, suffix).Should().Equal(
@@ -58,14 +58,14 @@ public sealed class Florence2CaptionerTests : IDisposable
     public void ModelPublishedAtOnePrecision_IgnoresTheHint()
     {
         // ViT-GPT2's registry entry names its files outright; a hint must not invent names the repository lacks.
-        LocalCaptioner.SelectVariantSuffix(DefaultModels.VitGpt2, new CaptionerOptions { QuantizationHint = "q4" })
+        LocalCaptioner.SelectVariantSuffix(CaptionerModels.VitGpt2, new CaptionerOptions { QuantizationHint = "q4" })
             .Should().BeEmpty();
     }
 
     [Fact]
     public void RequiredFiles_IncludeTheTokenizer()
     {
-        LocalCaptioner.GetRequiredFiles(DefaultModels.Florence2Base, "_quantized")
+        LocalCaptioner.GetRequiredFiles(CaptionerModels.Florence2Base, "_quantized")
             .Should().Contain(["vision_encoder_quantized.onnx", "vocab.json", "merges.txt"]);
     }
 
@@ -95,7 +95,7 @@ public sealed class Florence2CaptionerTests : IDisposable
     {
         Directory.CreateDirectory(_dir);
         File.WriteAllText(Path.Combine(_dir, "vocab.json"), "{}");
-        foreach (var file in LocalCaptioner.OnnxFiles(DefaultModels.Florence2Base, "_q4"))
+        foreach (var file in LocalCaptioner.OnnxFiles(CaptionerModels.Florence2Base, "_q4"))
             File.WriteAllBytes(Path.Combine(_dir, file), []);
 
         LocalCaptioner.TryInferModelInfo(_dir, _dir, new CaptionerOptions { QuantizationHint = "fp16" }, out var model, out var suffix)
@@ -110,7 +110,7 @@ public sealed class Florence2CaptionerTests : IDisposable
     {
         Directory.CreateDirectory(_dir);
         File.WriteAllText(Path.Combine(_dir, "vocab.json"), "{}");
-        foreach (var file in LocalCaptioner.OnnxFiles(DefaultModels.Florence2Base, "").Skip(1))
+        foreach (var file in LocalCaptioner.OnnxFiles(CaptionerModels.Florence2Base, "").Skip(1))
             File.WriteAllBytes(Path.Combine(_dir, file), []);
 
         LocalCaptioner.TryInferModelInfo(_dir, _dir, new CaptionerOptions(), out var model, out _).Should().BeFalse();

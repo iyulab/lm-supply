@@ -146,7 +146,7 @@ public class SegmenterModelRegistryTests
     [Fact]
     public void RegisterAlias_ShouldBeResolvable()
     {
-        var registry = new SegmenterModelRegistry(DefaultModels.All);
+        var registry = new SegmenterModelRegistry(SegmenterModels.All);
 
         registry.RegisterAlias("my-segmenter", "optimum/segformer-b0-finetuned-ade-512-512");
 
@@ -158,7 +158,7 @@ public class SegmenterModelRegistryTests
     [Fact]
     public void RegisterAlias_SystemAliasConflict_ShouldThrow()
     {
-        var registry = new SegmenterModelRegistry(DefaultModels.All);
+        var registry = new SegmenterModelRegistry(SegmenterModels.All);
 
         var act = () => registry.RegisterAlias("default", "optimum/segformer-b0-finetuned-ade-512-512");
 

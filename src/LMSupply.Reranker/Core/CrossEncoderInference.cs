@@ -59,7 +59,7 @@ internal sealed class CrossEncoderInference : IDisposable
     /// <returns>Configured inference engine.</returns>
     public static async Task<CrossEncoderInference> CreateAsync(
         string modelPath,
-        ModelInfo modelInfo,
+        RerankerModelInfo modelInfo,
         ExecutionProvider provider,
         LMSupplyOptionsBase? options,
         IProgress<DownloadProgress>? progress,
@@ -103,7 +103,7 @@ internal sealed class CrossEncoderInference : IDisposable
     /// <returns>Configured inference engine.</returns>
     public static CrossEncoderInference Create(
         string modelPath,
-        ModelInfo modelInfo,
+        RerankerModelInfo modelInfo,
         ExecutionProvider provider = ExecutionProvider.Auto,
         LMSupplyOptionsBase? options = null)
     {
@@ -136,7 +136,7 @@ internal sealed class CrossEncoderInference : IDisposable
         }
     }
 
-    private static CrossEncoderInference CreateFromSession(RecoverableOnnxSession session, ModelInfo modelInfo)
+    private static CrossEncoderInference CreateFromSession(RecoverableOnnxSession session, RerankerModelInfo modelInfo)
     {
         var hasTokenTypeIds = session.Session.InputMetadata.ContainsKey("token_type_ids");
         var outputName = session.Session.OutputMetadata.Keys.First();

@@ -134,7 +134,7 @@ public class ModelRegistryTests
     public void RegisterAlias_ShouldCreateNewMapping()
     {
         // Arrange
-        var registry = new CaptionerModelRegistry(DefaultModels.All);
+        var registry = new CaptionerModelRegistry(CaptionerModels.All);
 
         // Act
         registry.RegisterAlias("my-custom", "Xenova/vit-gpt2-image-captioning");
@@ -149,7 +149,7 @@ public class ModelRegistryTests
     public void RegisterAlias_WithSystemAliasName_ShouldThrow()
     {
         // Arrange
-        var registry = new CaptionerModelRegistry(DefaultModels.All);
+        var registry = new CaptionerModelRegistry(CaptionerModels.All);
 
         // Act
         var act = () => registry.RegisterAlias("default", "Xenova/vit-gpt2-image-captioning");
@@ -190,19 +190,19 @@ public class ModelRegistryTests
     public void DefaultModels_All_ShouldContainAllModels()
     {
         // Assert
-        DefaultModels.All.Should().HaveCount(3);
-        DefaultModels.All.Should().Contain(DefaultModels.Florence2Base);
-        DefaultModels.All.Should().Contain(DefaultModels.VitGpt2);
-        DefaultModels.All.Should().Contain(DefaultModels.Florence2Default);
-        DefaultModels.All.Select(m => m.AliasName).Should().OnlyHaveUniqueItems();
+        CaptionerModels.All.Should().HaveCount(3);
+        CaptionerModels.All.Should().Contain(CaptionerModels.Florence2Base);
+        CaptionerModels.All.Should().Contain(CaptionerModels.VitGpt2);
+        CaptionerModels.All.Should().Contain(CaptionerModels.Florence2Default);
+        CaptionerModels.All.Select(m => m.AliasName).Should().OnlyHaveUniqueItems();
     }
 
     [Fact]
     public void DefaultModels_Default_ShouldBeFlorence2()
     {
         // Assert
-        DefaultModels.Default.Should().Be(DefaultModels.Florence2Default);
-        DefaultModels.Default.RepoId.Should().Be(DefaultModels.Florence2Base.RepoId);
+        CaptionerModels.Default.Should().Be(CaptionerModels.Florence2Default);
+        CaptionerModels.Default.RepoId.Should().Be(CaptionerModels.Florence2Base.RepoId);
     }
 
     [Fact]

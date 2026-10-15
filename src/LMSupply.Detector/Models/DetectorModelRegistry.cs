@@ -12,10 +12,10 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
     /// </summary>
     private static readonly DetectorModelInfo[] AutoCandidates =
     [
-        DefaultModels.RtDetrV2L,   // 42M params, 169MB
-        DefaultModels.RtDetrV2M,   // 36M params, 133MB
-        DefaultModels.RtDetrV2S,   // 20M params, 80MB
-        DefaultModels.RtDetrV2MS,  // 15M params, 126MB
+        DetectorModels.RtDetrV2L,   // 42M params, 169MB
+        DetectorModels.RtDetrV2M,   // 36M params, 133MB
+        DetectorModels.RtDetrV2S,   // 20M params, 80MB
+        DetectorModels.RtDetrV2MS,  // 15M params, 126MB
     ];
 
     /// <summary>
@@ -28,7 +28,7 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
     /// ~/.lmsupply/aliases.json "detector" section (fail-soft).
     /// </summary>
     internal static DetectorModelRegistry CreateDefault()
-        => AliasConfiguration.ApplyDomain(new DetectorModelRegistry(DefaultModels.All), AliasConfiguration.Domains.Detector);
+        => AliasConfiguration.ApplyDomain(new DetectorModelRegistry(DetectorModels.All), AliasConfiguration.Domains.Detector);
 
     /// <summary>
     /// Initializes a new registry with the specified system models.

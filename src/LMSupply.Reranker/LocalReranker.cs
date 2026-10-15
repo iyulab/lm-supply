@@ -70,7 +70,7 @@ public static class LocalReranker
     /// Gets the model registry for the Reranker domain.
     /// Provides access to model resolution, alias management, and model enumeration.
     /// </summary>
-    public static IModelRegistry<ModelInfo> Registry => RerankerModelRegistry.Default;
+    public static IModelRegistry<RerankerModelInfo> Registry => RerankerModelRegistry.Default;
 
     /// <summary>
     /// Shared pool for named model management. Supports GetOrLoadAsync / UnloadAsync by model ID.
@@ -330,7 +330,7 @@ public static class LocalReranker
 
         // Resolve alias to model info
         var registry = RerankerModelRegistry.Default;
-        ModelInfo modelInfo;
+        RerankerModelInfo modelInfo;
         try
         {
             modelInfo = registry.Resolve(modelId);
@@ -399,7 +399,7 @@ public static class LocalReranker
             return;
         }
 
-        ModelInfo modelInfo;
+        RerankerModelInfo modelInfo;
         try
         {
             modelInfo = registry.Resolve(options.ModelId);
@@ -512,7 +512,7 @@ public static class LocalReranker
         if (File.Exists(baseId) || Directory.Exists(baseId))
             return [];
 
-        ModelInfo modelInfo;
+        RerankerModelInfo modelInfo;
         try
         {
             modelInfo = RerankerModelRegistry.Default.Resolve(options.ModelId);
@@ -577,7 +577,7 @@ public static class LocalReranker
     /// Gets all registered model information.
     /// </summary>
     /// <returns>Collection of model information.</returns>
-    public static IEnumerable<ModelInfo> GetAllModels()
+    public static IEnumerable<RerankerModelInfo> GetAllModels()
     {
         return RerankerModelRegistry.Default.GetAvailableModels();
     }

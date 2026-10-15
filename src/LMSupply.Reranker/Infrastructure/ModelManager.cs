@@ -42,7 +42,7 @@ internal sealed class ModelManager : IDisposable
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Paths to the model and tokenizer files.</returns>
     public async Task<ModelPaths> EnsureModelAsync(
-        ModelInfo modelInfo,
+        RerankerModelInfo modelInfo,
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -154,7 +154,7 @@ internal sealed class ModelManager : IDisposable
     /// </summary>
     /// <param name="modelInfo">Model information.</param>
     /// <returns>Model paths if cached, null otherwise.</returns>
-    public ModelPaths? GetCachedModel(ModelInfo modelInfo)
+    public ModelPaths? GetCachedModel(RerankerModelInfo modelInfo)
     {
         ArgumentNullException.ThrowIfNull(modelInfo);
 
@@ -183,7 +183,7 @@ internal sealed class ModelManager : IDisposable
     /// those list. A file a repository does not have is left out, as the download skips it. Empty for a model on local
     /// disk.
     /// </summary>
-    public async Task<IReadOnlyList<DownloadPlan>> PlanDownloadsAsync(ModelInfo modelInfo, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DownloadPlan>> PlanDownloadsAsync(RerankerModelInfo modelInfo, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(modelInfo);
         if (IsLocalPath(modelInfo.Id))
@@ -208,7 +208,7 @@ internal sealed class ModelManager : IDisposable
     /// both come from one repository). Each falls back to the snapshot named after the revision.
     /// See <see cref="CacheManager.FindSnapshotDirectory"/>.
     /// </summary>
-    private (string ModelDir, string TokenizerDir) ResolveDirectories(ModelInfo modelInfo)
+    private (string ModelDir, string TokenizerDir) ResolveDirectories(RerankerModelInfo modelInfo)
     {
         var tokenizerRepo = modelInfo.TokenizerRepoId ?? modelInfo.Id;
         string[] weights = modelInfo.OnnxDataFile is null ? [modelInfo.OnnxFile] : [modelInfo.OnnxFile, modelInfo.OnnxDataFile];
@@ -253,7 +253,7 @@ internal sealed class ModelManager : IDisposable
                path.StartsWith("..\\", StringComparison.Ordinal);
     }
 
-    private static ModelPaths GetLocalModelPaths(ModelInfo modelInfo)
+    private static ModelPaths GetLocalModelPaths(RerankerModelInfo modelInfo)
     {
         var modelPath = Path.GetFullPath(modelInfo.Id);
         var directory = Path.GetDirectoryName(modelPath) ?? ".";

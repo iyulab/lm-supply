@@ -118,7 +118,7 @@ internal sealed class FakeEmbeddingModel : IEmbeddingModel
     }
 
     public Task WarmupAsync(CancellationToken ct = default) => Task.CompletedTask;
-    public ModelInfo? GetModelInfo() => null;
+    public EmbedderModelInfo? GetModelInfo() => null;
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
     private static void NormalizeL2(float[] v)

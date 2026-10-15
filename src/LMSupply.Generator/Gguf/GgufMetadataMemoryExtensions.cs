@@ -1,3 +1,4 @@
+using LMSupply.Core.Download;
 namespace LMSupply.Generator.Gguf;
 
 /// <summary>
@@ -44,9 +45,9 @@ public static class GgufMetadataMemoryExtensions
             if (qt.Contains("Q8") || qt.Contains("INT8"))
                 return Quantization.Quant8;
             if (qt.Contains("F16") || qt.Contains("FP16"))
-                return Quantization.FP16;
+                return Quantization.Fp16;
             if (qt.Contains("F32") || qt.Contains("FP32"))
-                return Quantization.FP32;
+                return Quantization.Default;
         }
 
         // Infer from GGUF file type enum
@@ -56,8 +57,8 @@ public static class GgufMetadataMemoryExtensions
             // 0: F32, 1: F16, 2-6: Q4_X, 7-8: Q8_X, etc.
             return metadata.FileType.Value switch
             {
-                0 => Quantization.FP32,
-                1 => Quantization.FP16,
+                0 => Quantization.Default,
+                1 => Quantization.Fp16,
                 >= 2 and <= 6 => Quantization.Quant4,
                 >= 7 and <= 8 => Quantization.Quant8,
                 _ => Quantization.Quant4 // Default to Quant4 for quantized models

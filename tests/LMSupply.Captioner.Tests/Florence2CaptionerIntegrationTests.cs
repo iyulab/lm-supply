@@ -63,7 +63,7 @@ public sealed class Florence2CaptionerIntegrationTests
             Path.Combine(LMSupply.Download.CacheManager.GetDefaultCacheDirectory()), "vision_encoder*.onnx", SearchOption.AllDirectories)
             .First(p => p.Contains("Florence-2-base-ft", StringComparison.Ordinal)))!;
 
-        var ids = Florence2Captioner.BuildPromptIds(TokenizerFactory.CreateGpt2(modelDir), DefaultModels.Florence2Base, CaptionDetail.Brief);
+        var ids = Florence2Captioner.BuildPromptIds(TokenizerFactory.CreateGpt2(modelDir), CaptionerModels.Florence2Base, CaptionDetail.Brief);
 
         ids.Should().Equal(0, 2264, 473, 5, 2274, 6190, 116, 2);
     }

@@ -7,7 +7,7 @@ namespace LMSupply.Captioner.Models;
 /// <summary>
 /// Model registry for the Captioner domain.
 /// </summary>
-public sealed class CaptionerModelRegistry : ModelRegistryBase<ModelInfo>
+public sealed class CaptionerModelRegistry : ModelRegistryBase<CaptionerModelInfo>
 {
     /// <summary>
     /// Gets the default registry instance with built-in models.
@@ -19,29 +19,29 @@ public sealed class CaptionerModelRegistry : ModelRegistryBase<ModelInfo>
     /// ~/.lmsupply/aliases.json "captioner" section (fail-soft).
     /// </summary>
     internal static CaptionerModelRegistry CreateDefault()
-        => AliasConfiguration.ApplyDomain(new CaptionerModelRegistry(DefaultModels.All), AliasConfiguration.Domains.Captioner);
+        => AliasConfiguration.ApplyDomain(new CaptionerModelRegistry(CaptionerModels.All), AliasConfiguration.Domains.Captioner);
 
     /// <summary>
     /// Initializes a new registry with the specified system models.
     /// </summary>
     /// <param name="systemModels">Models to register as system defaults.</param>
-    public CaptionerModelRegistry(IEnumerable<ModelInfo> systemModels)
+    public CaptionerModelRegistry(IEnumerable<CaptionerModelInfo> systemModels)
         : base(systemModels) { }
 
     /// <summary>
     /// The model <c>auto</c> loads: Florence-2 base on every hardware tier — its int8 variant (chosen on CPU-only tiers)
     /// is smaller than ViT-GPT2 and names the subject far more often.
     /// </summary>
-    protected override ModelInfo GetAutoModel()
+    protected override CaptionerModelInfo GetAutoModel()
     {
         Trace.TraceInformation("[CaptionerModelRegistry] Auto-selecting default captioning model");
-        return DefaultModels.Florence2Base with { AliasName = "auto" };
+        return CaptionerModels.Florence2Base with { AliasName = "auto" };
     }
 
     /// <summary>
     /// Creates a fallback model info for unknown model IDs (HuggingFace repos or local paths).
     /// </summary>
-    protected override ModelInfo CreateFallbackModelInfo(string modelId)
+    protected override CaptionerModelInfo CreateFallbackModelInfo(string modelId)
     {
         Trace.TraceInformation($"[CaptionerModelRegistry] Creating fallback model info for: {modelId}");
 
@@ -49,7 +49,7 @@ public sealed class CaptionerModelRegistry : ModelRegistryBase<ModelInfo>
         var name = parts.Length > 1 ? parts[1] : modelId;
 
         // Default to ViT-GPT2-compatible settings for unknown models
-        return new ModelInfo(
+        return new CaptionerModelInfo(
             RepoId: modelId,
             AliasName: modelId,
             DisplayName: name,

@@ -66,7 +66,7 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
         if (_warmedUp) return;
 
         // Run a small test generation to warm up the model
-        var warmupOptions = new GenerationOptions
+        var warmupOptions = new ImageGenerationOptions
         {
             Width = 64,
             Height = 64,
@@ -108,13 +108,13 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
 
     public async Task<GeneratedImage> GenerateAsync(
         string prompt,
-        GenerationOptions? options = null,
+        ImageGenerationOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
 
-        options ??= new GenerationOptions();
+        options ??= new ImageGenerationOptions();
         options.Validate();
 
         // Apply model-specific defaults
@@ -126,14 +126,14 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
     public async Task<GeneratedImage[]> GenerateBatchAsync(
         string prompt,
         int count,
-        GenerationOptions? options = null,
+        ImageGenerationOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
         ArgumentOutOfRangeException.ThrowIfLessThan(count, 1);
 
-        options ??= new GenerationOptions();
+        options ??= new ImageGenerationOptions();
         options.Validate();
 
         var results = new GeneratedImage[count];
@@ -153,13 +153,13 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
 
     public async IAsyncEnumerable<GenerationStep> GenerateStreamingAsync(
         string prompt,
-        GenerationOptions? options = null,
+        ImageGenerationOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
 
-        options ??= new GenerationOptions();
+        options ??= new ImageGenerationOptions();
         options.Validate();
 
         var effectiveOptions = ApplyModelDefaults(options);
@@ -170,10 +170,10 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
         }
     }
 
-    private GenerationOptions ApplyModelDefaults(GenerationOptions options)
+    private ImageGenerationOptions ApplyModelDefaults(ImageGenerationOptions options)
     {
         // Use model's recommended values if not explicitly set
-        return new GenerationOptions
+        return new ImageGenerationOptions
         {
             NegativePrompt = options.NegativePrompt,
             Width = options.Width,

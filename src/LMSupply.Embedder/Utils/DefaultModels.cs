@@ -21,7 +21,7 @@ internal static class DefaultModels
     /// Default: BGE-M3, 568M params, 100+ languages, 8K context, SOTA multilingual dense retrieval.
     /// Uses CLS pooling; instruction prefix not required.
     /// </summary>
-    public static ModelInfo BgeM3DefaultAlias { get; } = new()
+    public static EmbedderModelInfo BgeM3DefaultAlias { get; } = new()
     {
         RepoId = "BAAI/bge-m3",
         SizeBytes = 2_267_545_531,
@@ -39,7 +39,7 @@ internal static class DefaultModels
     /// <summary>
     /// Fast: multilingual-e5-small, 118M params, 100+ languages, lightweight.
     /// </summary>
-    public static ModelInfo MultilingualE5SmallAlias { get; } = new()
+    public static EmbedderModelInfo MultilingualE5SmallAlias { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-small",
         SizeBytes = 470_268_510,
@@ -61,7 +61,7 @@ internal static class DefaultModels
     /// Quality: BGE-M3, 568M params, 100+ languages, 8K context, SOTA multilingual, dense+sparse.
     /// Same model as 'default'; exposed separately for pipelines that explicitly request quality tier.
     /// </summary>
-    public static ModelInfo BgeM3QualityAlias { get; } = new()
+    public static EmbedderModelInfo BgeM3QualityAlias { get; } = new()
     {
         RepoId = "BAAI/bge-m3",
         SizeBytes = 2_267_545_531,
@@ -80,7 +80,7 @@ internal static class DefaultModels
     /// Large: multilingual-e5-large, 560M params, 100+ languages, highest dense quality.
     /// Note: 512-token context limit. Use BGE-M3 (default) for long-document retrieval.
     /// </summary>
-    public static ModelInfo MultilingualE5LargeAlias { get; } = new()
+    public static EmbedderModelInfo MultilingualE5LargeAlias { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-large",
         SizeBytes = 2_235_909_178,
@@ -103,9 +103,9 @@ internal static class DefaultModels
     /// <summary>
     /// nomic-embed-text-v1.5, 137M params, English-first, Matryoshka 64–768d, 8K context.
     /// Recommended for English-only RAG pipelines; instruction prefixes applied automatically
-    /// via <see cref="ModelInfo.QueryPrefix"/>/<see cref="ModelInfo.PassagePrefix"/>/<see cref="ModelInfo.DefaultPrefix"/>.
+    /// via <see cref="EmbedderModelInfo.QueryPrefix"/>/<see cref="EmbedderModelInfo.PassagePrefix"/>/<see cref="EmbedderModelInfo.DefaultPrefix"/>.
     /// </summary>
-    public static ModelInfo NomicEmbedTextV15 { get; } = new()
+    public static EmbedderModelInfo NomicEmbedTextV15 { get; } = new()
     {
         RepoId = "nomic-ai/nomic-embed-text-v1.5",
         SizeBytes = 547_310_275,
@@ -126,7 +126,7 @@ internal static class DefaultModels
     /// <summary>
     /// all-mpnet-base-v2, 110M params, legacy quality model, English.
     /// </summary>
-    public static ModelInfo AllMpnetBaseV2 { get; } = new()
+    public static EmbedderModelInfo AllMpnetBaseV2 { get; } = new()
     {
         RepoId = "sentence-transformers/all-mpnet-base-v2",
         SizeBytes = 435_826_548,
@@ -149,9 +149,9 @@ internal static class DefaultModels
 
     /// <summary>
     /// bge-base-en-v1.5, 110M params, excellent quality, English. Retrieval queries take the card's instruction
-    /// (<see cref="ModelInfo.QueryPrefix"/>).
+    /// (<see cref="EmbedderModelInfo.QueryPrefix"/>).
     /// </summary>
-    public static ModelInfo BgeBaseEnV15 { get; } = new()
+    public static EmbedderModelInfo BgeBaseEnV15 { get; } = new()
     {
         RepoId = "BAAI/bge-base-en-v1.5",
         SizeBytes = 435_811_539,
@@ -169,9 +169,9 @@ internal static class DefaultModels
 
     /// <summary>
     /// bge-large-en-v1.5, 335M params, highest accuracy BGE, English. Retrieval queries take the card's instruction
-    /// (<see cref="ModelInfo.QueryPrefix"/>).
+    /// (<see cref="EmbedderModelInfo.QueryPrefix"/>).
     /// </summary>
-    public static ModelInfo BgeLargeEnV15 { get; } = new()
+    public static EmbedderModelInfo BgeLargeEnV15 { get; } = new()
     {
         RepoId = "BAAI/bge-large-en-v1.5",
         SizeBytes = 1_336_854_281,
@@ -190,9 +190,9 @@ internal static class DefaultModels
     /// <summary>
     /// e5-small-v2, 33M params, English. Requires the query/passage prefix convention like the
     /// rest of the E5 family (see intfloat/e5-small-v2's model card) — applied automatically via
-    /// <see cref="ModelInfo.QueryPrefix"/>/<see cref="ModelInfo.PassagePrefix"/>.
+    /// <see cref="EmbedderModelInfo.QueryPrefix"/>/<see cref="EmbedderModelInfo.PassagePrefix"/>.
     /// </summary>
-    public static ModelInfo E5SmallV2 { get; } = new()
+    public static EmbedderModelInfo E5SmallV2 { get; } = new()
     {
         RepoId = "intfloat/e5-small-v2",
         SizeBytes = 133_093_468,
@@ -213,7 +213,7 @@ internal static class DefaultModels
     /// <summary>
     /// e5-base-v2, 110M params, excellent retrieval, English.
     /// </summary>
-    public static ModelInfo E5BaseV2 { get; } = new()
+    public static EmbedderModelInfo E5BaseV2 { get; } = new()
     {
         RepoId = "intfloat/e5-base-v2",
         SizeBytes = 435_811_516,
@@ -234,7 +234,7 @@ internal static class DefaultModels
     /// <summary>
     /// multilingual-e5-small, 118M params, 100+ languages, compact.
     /// </summary>
-    public static ModelInfo MultilingualE5Small { get; } = new()
+    public static EmbedderModelInfo MultilingualE5Small { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-small",
         SizeBytes = 470_268_510,
@@ -255,7 +255,7 @@ internal static class DefaultModels
     /// <summary>
     /// multilingual-e5-base, 278M params, 100+ languages, quality.
     /// </summary>
-    public static ModelInfo MultilingualE5Base { get; } = new()
+    public static EmbedderModelInfo MultilingualE5Base { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-base",
         SizeBytes = 1_110_059_084,
@@ -276,7 +276,7 @@ internal static class DefaultModels
     /// <summary>
     /// multilingual-e5-large, 560M params, 100+ languages, highest quality.
     /// </summary>
-    public static ModelInfo MultilingualE5Large { get; } = new()
+    public static EmbedderModelInfo MultilingualE5Large { get; } = new()
     {
         RepoId = "intfloat/multilingual-e5-large",
         SizeBytes = 2_235_909_178,
@@ -297,7 +297,7 @@ internal static class DefaultModels
     /// <summary>
     /// gte-large-en-v1.5, 434M params, 8K context, highest accuracy GTE.
     /// </summary>
-    public static ModelInfo GteLargeEnV15 { get; } = new()
+    public static EmbedderModelInfo GteLargeEnV15 { get; } = new()
     {
         RepoId = "Alibaba-NLP/gte-large-en-v1.5",
         SizeBytes = 1_745_599_590,
@@ -315,7 +315,7 @@ internal static class DefaultModels
     /// <summary>
     /// Gets all built-in models.
     /// </summary>
-    public static IReadOnlyList<ModelInfo> All { get; } =
+    public static IReadOnlyList<EmbedderModelInfo> All { get; } =
     [
         // Alias models (4 standard aliases)
         BgeM3DefaultAlias,              // default

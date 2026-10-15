@@ -13,8 +13,8 @@ namespace LMSupply.Integration.Tests;
 /// <remarks>
 /// Each guide compiles as a whole (<see cref="SnippetCompiler.CompileDocument"/>): a type one block declares is visible to
 /// the next, each block's statements run in a method of their own, and a block that restates a library type is checked
-/// against the real type (<see cref="SnippetCompiler.CheckListings"/>). A guide's blocks mostly show no usings, so the
-/// namespaces of the package a guide is about are in scope (<see cref="DocumentPackages"/>), with the stand-ins below for
+/// against the real type (<see cref="SnippetCompiler.CheckListings"/>). A guide's blocks mostly show no usings, so every
+/// package's namespaces are in scope — no two packages share a public type name (PublicTypeNameUniquenessTests) — with the stand-ins below for
 /// values the surrounding text gives the reader. A section that is deliberately not a program is in <see cref="Fragments"/> with the reason. A document with a C#
 /// block is in <see cref="Checked"/>, in <see cref="Historical"/> or in <see cref="NotYetChecked"/> with the reason — never
 /// silently in none.
@@ -88,34 +88,9 @@ public class DocsSnippetCompileTests
         "System.Threading.Tasks",
     ];
 
-    // Every guide is read with the shared packages' namespaces (LMSupply.Core, LMSupply.Text.Core, LMSupply.Vision.Core).
-    private static readonly string[] SharedAssemblies = ["LMSupply.Core", "LMSupply.Text.Core", "LMSupply.Vision.Core"];
-
     // A package guide is read with every namespace its package exports, as a reader who referenced that package has them;
     // the cross-package guides with the packages' root namespaces only, since two packages can export a type of the same
     // name (ModelInfo, GenerationOptions).
-    private static readonly Dictionary<string, string[]> DocumentPackages = new(StringComparer.Ordinal)
-    {
-        ["docs/captioner.md"] = ["LMSupply.Captioner"],
-        ["docs/detector.md"] = ["LMSupply.Detector"],
-        ["docs/embedder.md"] = ["LMSupply.Embedder"],
-        ["docs/generator.md"] = ["LMSupply.Generator", "LMSupply.Generator.Onnx"],
-        ["docs/llama.md"] = ["LMSupply.Llama", "LMSupply.Generator"],
-        ["docs/ocr.md"] = ["LMSupply.Ocr"],
-        ["docs/reranker.md"] = ["LMSupply.Reranker"],
-        ["docs/segmenter.md"] = ["LMSupply.Segmenter"],
-        ["docs/synthesizer.md"] = ["LMSupply.Synthesizer"],
-        ["docs/transcriber.md"] = ["LMSupply.Transcriber"],
-        ["docs/translator.md"] = ["LMSupply.Translator"],
-    };
-
-    private static readonly string[] CrossPackageUsings =
-    [
-        "LMSupply.Embedder", "LMSupply.Reranker", "LMSupply.Generator", "LMSupply.Generator.Abstractions",
-        "LMSupply.Generator.Models", "LMSupply.Translator", "LMSupply.Transcriber", "LMSupply.Synthesizer", "LMSupply.Llama",
-        "LMSupply.Captioner", "LMSupply.Ocr", "LMSupply.Detector", "LMSupply.Segmenter",
-    ];
-
     // Values the guides' running text gives the reader, typed as the API takes them.
     private static readonly Dictionary<string, string> StandIns = new(StringComparer.Ordinal)
     {
@@ -135,7 +110,7 @@ public class DocsSnippetCompileTests
             ["imageWidth"] = "int imageWidth = 640;",
             ["imageHeight"] = "int imageHeight = 480;",
             // Qualified: LMSupply.Vision exports a BoundingBox of another shape.
-            ["otherBox"] = "LMSupply.Detector.BoundingBox otherBox = default;",
+            ["otherBox"] = "LMSupply.Vision.BoundingBox otherBox = default;",
         },
         ["docs/embedder.md"] = new()
         {
@@ -223,8 +198,8 @@ public class DocsSnippetCompileTests
         Usings =
         [
             .. CommonUsings,
-            .. ExportedNamespaces(SharedAssemblies),
-            .. DocumentPackages.TryGetValue(document, out var packages) ? ExportedNamespaces(packages) : CrossPackageUsings,
+            // The packages' own namespaces; a namespace they extend (Microsoft.Extensions.AI) is the reader's import.
+            .. ExportedNamespaces(AssembliesToLoad).Where(n => n.StartsWith("LMSupply", StringComparison.Ordinal)),
         ],
         StandIns = DocumentStandIns.TryGetValue(document, out var own)
             ? StandIns.Concat(own).ToDictionary(StringComparer.Ordinal)

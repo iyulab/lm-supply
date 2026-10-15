@@ -100,11 +100,11 @@ public interface IEmbeddingModel : IAsyncDisposable
     /// Gets information about the loaded model.
     /// </summary>
     /// <returns>Model information, or null if not available.</returns>
-    ModelInfo? GetModelInfo();
+    EmbedderModelInfo? GetModelInfo();
 
     /// <summary>
     /// Generates an embedding for text with no retrieval role — semantic similarity, clustering, features — applying
-    /// the model's <see cref="ModelInfo.DefaultPrefix"/> when it has one (e.g. the E5 family's "query: ", which its
+    /// the model's <see cref="EmbedderModelInfo.DefaultPrefix"/> when it has one (e.g. the E5 family's "query: ", which its
     /// model card prescribes for every task other than retrieval). For a model without one this is
     /// <see cref="EmbedRawAsync(string, CancellationToken)"/>. For retrieval, embed the two sides with
     /// <see cref="EmbedQueryAsync(string, CancellationToken)"/> and <see cref="EmbedPassageAsync(string, CancellationToken)"/>.
@@ -138,10 +138,10 @@ public interface IEmbeddingModel : IAsyncDisposable
         EmbedRawAsync(WithPrefix(texts, GetModelInfo()?.DefaultPrefix), dimensions, cancellationToken);
 
     /// <summary>
-    /// Generates a query embedding, applying the model's <see cref="ModelInfo.QueryPrefix"/>
+    /// Generates a query embedding, applying the model's <see cref="EmbedderModelInfo.QueryPrefix"/>
     /// automatically when it has one (e.g. the E5 family's "query: " convention); the same as
     /// <see cref="EmbedRawAsync(string, CancellationToken)"/> when the model has no query prefix or no
-    /// <see cref="ModelInfo"/> at all.
+    /// <see cref="EmbedderModelInfo"/> at all.
     /// </summary>
     ValueTask<float[]> EmbedQueryAsync(string text, CancellationToken cancellationToken = default) =>
         EmbedRawAsync(WithPrefix(text, GetModelInfo()?.QueryPrefix), cancellationToken);
@@ -166,10 +166,10 @@ public interface IEmbeddingModel : IAsyncDisposable
 
     /// <summary>
     /// Generates a passage/document embedding, applying the model's
-    /// <see cref="ModelInfo.PassagePrefix"/> automatically when it has one (e.g. the E5 family's
+    /// <see cref="EmbedderModelInfo.PassagePrefix"/> automatically when it has one (e.g. the E5 family's
     /// "passage: " convention); the same as
     /// <see cref="EmbedRawAsync(string, CancellationToken)"/> when the model has no passage prefix or no
-    /// <see cref="ModelInfo"/> at all.
+    /// <see cref="EmbedderModelInfo"/> at all.
     /// </summary>
     ValueTask<float[]> EmbedPassageAsync(string text, CancellationToken cancellationToken = default) =>
         EmbedRawAsync(WithPrefix(text, GetModelInfo()?.PassagePrefix), cancellationToken);

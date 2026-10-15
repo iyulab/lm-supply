@@ -99,10 +99,10 @@ public class YuNetDecoderTests
         foreach (var (actual, expected) in decoded.Zip(Recorded.ExpectedBeforeNms))
         {
             actual.Confidence.Should().BeApproximately(expected.Score, 1e-4f);
-            actual.Box.X1.Should().BeApproximately(expected.X1, 0.05f);
-            actual.Box.Y1.Should().BeApproximately(expected.Y1, 0.05f);
-            actual.Box.X2.Should().BeApproximately(expected.X2, 0.05f);
-            actual.Box.Y2.Should().BeApproximately(expected.Y2, 0.05f);
+            actual.Box.X.Should().BeApproximately(expected.X1, 0.05f);
+            actual.Box.Y.Should().BeApproximately(expected.Y1, 0.05f);
+            actual.Box.Right.Should().BeApproximately(expected.X2, 0.05f);
+            actual.Box.Bottom.Should().BeApproximately(expected.Y2, 0.05f);
         }
     }
 
@@ -116,8 +116,8 @@ public class YuNetDecoderTests
         top.Label.Should().Be("face");
         top.ClassId.Should().Be(0);
         top.Confidence.Should().BeApproximately(0.7438f, 1e-3f);
-        top.Box.X1.Should().BeApproximately(581.4f, 0.5f);
-        top.Box.Y1.Should().BeApproximately(876.5f, 0.5f);
+        top.Box.X.Should().BeApproximately(581.4f, 0.5f);
+        top.Box.Y.Should().BeApproximately(876.5f, 0.5f);
         top.Box.Width.Should().BeApproximately(22.8f, 0.5f);
         top.Box.Height.Should().BeApproximately(27.2f, 0.5f);
     }
@@ -133,7 +133,7 @@ public class YuNetDecoderTests
         var suppressed = DetectionNms.Apply(decoded, Recorded.IouThreshold);
 
         suppressed.Should().HaveCount(Recorded.ExpectedAfterNms.Count);
-        suppressed.MaxBy(d => d.Confidence).Box.X1
+        suppressed.MaxBy(d => d.Confidence).Box.X
             .Should().BeApproximately(Recorded.ExpectedAfterNms[0].X1, 0.05f);
     }
 

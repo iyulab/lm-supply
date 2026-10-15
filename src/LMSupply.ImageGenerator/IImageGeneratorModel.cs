@@ -39,7 +39,7 @@ public interface IImageGeneratorModel : IAsyncDisposable
     /// <returns>Generated image result.</returns>
     Task<GeneratedImage> GenerateAsync(
         string prompt,
-        GenerationOptions? options = null,
+        ImageGenerationOptions? options = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -53,7 +53,7 @@ public interface IImageGeneratorModel : IAsyncDisposable
     Task<GeneratedImage[]> GenerateBatchAsync(
         string prompt,
         int count,
-        GenerationOptions? options = null,
+        ImageGenerationOptions? options = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -65,6 +65,6 @@ public interface IImageGeneratorModel : IAsyncDisposable
     /// <returns>Async enumerable of generation steps with optional previews.</returns>
     IAsyncEnumerable<GenerationStep> GenerateStreamingAsync(
         string prompt,
-        GenerationOptions? options = null,
+        ImageGenerationOptions? options = null,
         CancellationToken cancellationToken = default);
 }

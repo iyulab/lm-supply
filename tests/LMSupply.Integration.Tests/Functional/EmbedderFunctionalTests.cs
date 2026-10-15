@@ -712,17 +712,15 @@ public class EmbedderFunctionalTests
     /// this suite does not. What is kept here is only the part that suite cannot express: that the
     /// tiers are distinct models rather than the same one under three names.
     /// </summary>
+    private static readonly string[] TierAliases = ["default", "fast", "quality", "large"];
+
     [Fact]
     [Trait("Axis", "Loading")]
-    public void L_WellKnownModels_Embedder_TiersAreDistinct()
+    public void L_RegistryTierAliases_AreDistinctModels()
     {
-        var tiers = new[]
-        {
-            WellKnownModels.Embedder.Fast,
-            WellKnownModels.Embedder.Quality,
-            WellKnownModels.Embedder.Large,
-            WellKnownModels.Embedder.Multilingual
-        };
+        var tiers = TierAliases
+            .Select(alias => LocalEmbedder.Registry.TryResolve(alias, out var model) ? model!.RepoId : null)
+            .ToArray();
 
         tiers.Should().OnlyHaveUniqueItems();
         tiers.Should().AllSatisfy(t => t.Should().NotBeNullOrWhiteSpace());

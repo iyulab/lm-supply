@@ -87,5 +87,5 @@ public interface IRerankerModel : IAsyncDisposable
     /// Gets information about the loaded model.
     /// </summary>
     /// <returns>Model information, or null if not yet loaded.</returns>
-    ModelInfo? GetModelInfo();
+    RerankerModelInfo? GetModelInfo();
 }

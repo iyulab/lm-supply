@@ -51,7 +51,7 @@ public static class DetectEndpoints
                         results,
                         r => r.Label,
                         r => r.Confidence,
-                        r => (r.Box.X1, r.Box.Y1, r.Box.Width, r.Box.Height)
+                        r => (r.Box.X, r.Box.Y, r.Box.Width, r.Box.Height)
                     );
                     return Results.Ok(cocoResult);
                 }
@@ -66,8 +66,8 @@ public static class DetectEndpoints
                         Confidence = r.Confidence,
                         BoundingBox = new Models.OpenAI.BoundingBox
                         {
-                            X = r.Box.X1,
-                            Y = r.Box.Y1,
+                            X = r.Box.X,
+                            Y = r.Box.Y,
                             Width = r.Box.Width,
                             Height = r.Box.Height
                         }

@@ -12,7 +12,7 @@ namespace LMSupply.Transcriber.Models;
 ///   <item><term>Language-specific tier</term><description>{tier}-{lang} using ISO 639-1 codes — e.g., large-ko, fast-ja</description></item>
 /// </list>
 /// </remarks>
-public static class DefaultModels
+public static class TranscriberModels
 {
     /// <summary>
     /// Whisper Tiny - Ultra-fast, smallest model.

@@ -6,15 +6,15 @@ namespace LMSupply.Embedder;
 public enum EmbeddingTextKind
 {
     /// <summary>
-    /// Text with no retrieval role — similarity, clustering, features: the model's <see cref="Utils.ModelInfo.DefaultPrefix"/>
+    /// Text with no retrieval role — similarity, clustering, features: the model's <see cref="Utils.EmbedderModelInfo.DefaultPrefix"/>
     /// is applied (<see cref="IEmbeddingModel.EmbedAsync(IReadOnlyList{string}, CancellationToken)"/>).
     /// </summary>
     Default = 0,
 
-    /// <summary>A search query: the model's <see cref="Utils.ModelInfo.QueryPrefix"/> is applied (<see cref="IEmbeddingModel.EmbedQueryAsync(IReadOnlyList{string}, CancellationToken)"/>).</summary>
+    /// <summary>A search query: the model's <see cref="Utils.EmbedderModelInfo.QueryPrefix"/> is applied (<see cref="IEmbeddingModel.EmbedQueryAsync(IReadOnlyList{string}, CancellationToken)"/>).</summary>
     Query = 1,
 
-    /// <summary>A stored passage or document: the model's <see cref="Utils.ModelInfo.PassagePrefix"/> is applied (<see cref="IEmbeddingModel.EmbedPassageAsync(IReadOnlyList{string}, CancellationToken)"/>).</summary>
+    /// <summary>A stored passage or document: the model's <see cref="Utils.EmbedderModelInfo.PassagePrefix"/> is applied (<see cref="IEmbeddingModel.EmbedPassageAsync(IReadOnlyList{string}, CancellationToken)"/>).</summary>
     Passage = 2,
 
     /// <summary>

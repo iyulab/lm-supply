@@ -17,7 +17,7 @@ public sealed class TranslatorModelRegistry : ModelRegistryBase<TranslatorModelI
     /// ~/.lmsupply/aliases.json "translator" section (fail-soft).
     /// </summary>
     internal static TranslatorModelRegistry CreateDefault()
-        => AliasConfiguration.ApplyDomain(new TranslatorModelRegistry(DefaultModels.All), AliasConfiguration.Domains.Translator);
+        => AliasConfiguration.ApplyDomain(new TranslatorModelRegistry(TranslatorModels.All), AliasConfiguration.Domains.Translator);
 
     /// <summary>
     /// Initializes a new registry with the specified system models.
@@ -34,7 +34,7 @@ public sealed class TranslatorModelRegistry : ModelRegistryBase<TranslatorModelI
     {
         Trace.TraceInformation("[TranslatorModelRegistry] Auto-selecting default translation model");
 
-        var model = DefaultModels.OpusMtKoEn;
+        var model = TranslatorModels.OpusMtKoEn;
 
         return new TranslatorModelInfo
         {

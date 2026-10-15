@@ -131,7 +131,7 @@ public class WellKnownImageModelsTests
     public void RegisterAlias_ShouldCreateNewMapping()
     {
         // Arrange
-        var registry = new ImageGeneratorModelRegistry(DefaultModels.All);
+        var registry = new ImageGeneratorModelRegistry(ImageGeneratorModels.All);
 
         // Act
         registry.RegisterAlias("my-gen", "TheyCallMeHex/LCM-Dreamshaper-V7-ONNX");
@@ -146,19 +146,19 @@ public class WellKnownImageModelsTests
     public void DefaultModels_All_ShouldContainAllModels()
     {
         // Assert
-        DefaultModels.All.Should().HaveCount(5);
-        DefaultModels.All.Should().Contain(DefaultModels.LcmDreamshaperV7);
-        DefaultModels.All.Should().Contain(DefaultModels.LcmDreamshaperV7Fast);
-        DefaultModels.All.Should().Contain(DefaultModels.LcmDreamshaperV7Quality);
-        DefaultModels.All.Should().Contain(DefaultModels.LcmDreamshaperV7Direct);
-        DefaultModels.All.Should().Contain(DefaultModels.LcmSsd1B);
+        ImageGeneratorModels.All.Should().HaveCount(5);
+        ImageGeneratorModels.All.Should().Contain(ImageGeneratorModels.LcmDreamshaperV7);
+        ImageGeneratorModels.All.Should().Contain(ImageGeneratorModels.LcmDreamshaperV7Fast);
+        ImageGeneratorModels.All.Should().Contain(ImageGeneratorModels.LcmDreamshaperV7Quality);
+        ImageGeneratorModels.All.Should().Contain(ImageGeneratorModels.LcmDreamshaperV7Direct);
+        ImageGeneratorModels.All.Should().Contain(ImageGeneratorModels.LcmSsd1B);
     }
 
     [Fact]
     public void DefaultModels_Default_ShouldBeLcmDreamshaperV7()
     {
         // Assert
-        DefaultModels.Default.Should().Be(DefaultModels.LcmDreamshaperV7);
+        ImageGeneratorModels.Default.Should().Be(ImageGeneratorModels.LcmDreamshaperV7);
     }
 
     [Fact]
@@ -176,7 +176,7 @@ public class WellKnownImageModelsTests
     public void ToModelDefinition_ConvertsCorrectly()
     {
         // Arrange
-        var info = DefaultModels.LcmDreamshaperV7;
+        var info = ImageGeneratorModels.LcmDreamshaperV7;
 
         // Act
         var def = ImageGeneratorModelRegistry.ToModelDefinition(info);

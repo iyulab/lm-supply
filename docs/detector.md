@@ -29,7 +29,7 @@ var results = await detector.DetectAsync("photo.jpg");
 foreach (var detection in results)
 {
     Console.WriteLine($"{detection.Label}: {detection.Confidence:P1}");
-    Console.WriteLine($"  Box: [{detection.Box.X1:F0}, {detection.Box.Y1:F0}] - [{detection.Box.X2:F0}, {detection.Box.Y2:F0}]");
+    Console.WriteLine($"  Box: [{detection.Box.X:F0}, {detection.Box.Y:F0}] - [{detection.Box.Right:F0}, {detection.Box.Bottom:F0}]");
 }
 // Output:
 // person: 95.2%
@@ -71,7 +71,7 @@ foreach (var face in await detector.DetectAsync("photo.jpg"))
 {
     // face.Label is "face"; face.Keypoints holds the two eyes, the nose tip and the two mouth corners,
     // each carrying the detection's own score - YuNet publishes no per-landmark confidence.
-    Console.WriteLine($"{face.Box.X1:F0},{face.Box.Y1:F0} {face.Box.Width:F0}x{face.Box.Height:F0}");
+    Console.WriteLine($"{face.Box.X:F0},{face.Box.Y:F0} {face.Box.Width:F0}x{face.Box.Height:F0}");
 }
 ```
 
@@ -147,7 +147,7 @@ of which about 2 ms is JPEG decoding. On a machine busy with other work, capping
 than the model choice: the default of one thread per core measured several times slower under contention.
 
 **Licence.** The MoveNet weights are released by Google under Apache-2.0; the ONNX files are a community
-conversion of them, published under Apache-2.0 (repository revisions are recorded in `DefaultModels`).
+conversion of them, published under Apache-2.0 (repository revisions are recorded in `DetectorModels`).
 Google trained MoveNet on COCO and on its own internal dataset. The registry names the float32 build of each
 repository; the int8 builds published beside it are not used, because on a test photograph they placed the
 keypoints off the person. Pose models trained on datasets with non-commercial terms - AI Challenger,
@@ -233,8 +233,8 @@ foreach (var det in results)
     // Scale to different dimensions
     var scaledBox = box.Scale(0.5f, 0.5f);
 
-    // Clamp to image boundaries
-    var clampedBox = box.Clamp(imageWidth, imageHeight);
+    // Clip to image boundaries
+    var clippedBox = box.Clip(imageWidth, imageHeight);
 
     // Calculate IoU with another box
     float iou = box.IoU(otherBox);

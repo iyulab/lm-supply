@@ -1,5 +1,6 @@
 using LMSupply.Detector;
 using LMSupply.Integration.Tests.Helpers;
+using LMSupply.Vision;
 
 namespace LMSupply.Integration.Tests.Functional;
 
@@ -244,10 +245,10 @@ public class DetectorFunctionalTests
 
         foreach (var d in detections)
         {
-            d.Box.X1.Should().BeGreaterThanOrEqualTo(-1f, "X1 should be >= 0 (with tolerance)");
-            d.Box.Y1.Should().BeGreaterThanOrEqualTo(-1f, "Y1 should be >= 0 (with tolerance)");
-            d.Box.X2.Should().BeLessThanOrEqualTo(width + 1, "X2 should be <= image width");
-            d.Box.Y2.Should().BeLessThanOrEqualTo(height + 1, "Y2 should be <= image height");
+            d.Box.X.Should().BeGreaterThanOrEqualTo(-1f, "X1 should be >= 0 (with tolerance)");
+            d.Box.Y.Should().BeGreaterThanOrEqualTo(-1f, "Y1 should be >= 0 (with tolerance)");
+            d.Box.Right.Should().BeLessThanOrEqualTo(width + 1, "X2 should be <= image width");
+            d.Box.Bottom.Should().BeLessThanOrEqualTo(height + 1, "Y2 should be <= image height");
         }
     }
 
