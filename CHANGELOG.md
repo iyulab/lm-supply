@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Removed
+- **Breaking** — `LMSupply.Generator.Models.ToolDefinition`, a second public spelling of `ChatToolDefinition` (with
+  implicit conversions both ways). Migration: use `ChatToolDefinition`, which `GenerationOptions.Tools` already takes.
+
 ## [0.122.0] - 2026-10-15
 
 ### Fixed

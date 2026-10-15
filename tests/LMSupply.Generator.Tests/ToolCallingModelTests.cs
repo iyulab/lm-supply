@@ -97,13 +97,6 @@ public class ToolCallingModelTests
 
         chatToolCall.Id.Should().Be("id1");
         chatToolCall.FunctionName.Should().Be("func");
-
-        var parameters = TestJson.ParseElement("""{"type":"object"}""");
-        var defAlias = new Models.ToolDefinition("fn", "desc", parameters);
-        ChatToolDefinition chatToolDef = defAlias;
-
-        chatToolDef.Name.Should().Be("fn");
-        chatToolDef.Description.Should().Be("desc");
     }
 
 }
