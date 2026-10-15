@@ -253,10 +253,28 @@ public sealed class HubCacheWriteTests : IDisposable
         Directory.CreateDirectory(CommitSnapshot);
         File.WriteAllText(Path.Combine(CommitSnapshot, "config.json"), "{}");
 
+        CacheManager.HasOwnFiles(_cacheDir, Repo).Should().BeFalse("only another tool wrote this repository");
+        CacheManager.GetCachedModelsWithInfo(_cacheDir).Should().ContainSingle(m => m.RepoId == Repo).Which.HasOwnFiles.Should().BeFalse();
+
         CacheManager.DeleteModel(_cacheDir, Repo).Should().BeFalse();
 
         File.Exists(Path.Combine(CommitSnapshot, "config.json")).Should().BeTrue();
         File.Exists(Path.Combine(refs, "main")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task HasOwnFiles_IsTrueExactlyWhenDeleteModelWouldDelete()
+    {
+        CacheManager.HasOwnFiles(_cacheDir, Repo).Should().BeFalse("nothing is cached yet");
+
+        using (var downloader = new HuggingFaceDownloader(_cacheDir, new Hub()))
+            await downloader.DownloadModelAsync(Repo, ["model.onnx", "config.json"], cancellationToken: Ct);
+
+        CacheManager.HasOwnFiles(_cacheDir, Repo).Should().BeTrue();
+        CacheManager.GetCachedModelsWithInfo(_cacheDir).Should().ContainSingle(m => m.RepoId == Repo).Which.HasOwnFiles.Should().BeTrue();
+
+        CacheManager.DeleteModel(_cacheDir, Repo).Should().BeTrue();
+        CacheManager.HasOwnFiles(_cacheDir, Repo).Should().BeFalse("DeleteModel removed everything that was this library's");
     }
 
     [Fact]

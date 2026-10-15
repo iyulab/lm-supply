@@ -36,6 +36,13 @@ public sealed record CachedModelInfo
     public ModelType DetectedType { get; init; }
 
     /// <summary>
+    /// Whether this library downloaded anything of the repository — exactly when <see cref="CacheManager.DeleteModel"/>
+    /// would delete something (<see cref="CacheManager.HasOwnFiles"/>). False for a repository only other tools wrote into
+    /// the shared hub cache: a listing can offer Delete where it acts and say «downloaded by another application» elsewhere.
+    /// </summary>
+    public bool HasOwnFiles { get; init; }
+
+    /// <summary>
     /// Last modification time of the model directory.
     /// </summary>
     public DateTime LastModified { get; init; }

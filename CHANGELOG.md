@@ -6,6 +6,17 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **A cache listing can tell which repositories LMSupply downloaded.** `CacheManager.HasOwnFiles(cacheDir, repoId)` and
+  `CachedModelInfo.HasOwnFiles` are true exactly when `DeleteModel` would delete something — an own snapshot, the private
+  download state or the metadata file; false for a repository only other tools wrote into the shared hub cache.
+
+### Fixed
+- **A GGUF chat model in the cache lists as `Generator`, not `Unknown`.** `CacheManager.DetectModelType` (and so
+  `CachedModelInfo.DetectedType`) recognised a generator only by the ONNX GenAI `genai_config.json`; a repository holding
+  `*.gguf` files now reads as a generator unless its name already says embedder, reranker, transcriber or synthesizer
+  (`bge-m3-GGUF` stays an embedder).
+
 ### Removed
 - **Breaking** — `LMSupply.Generator.Models.ToolDefinition`, a second public spelling of `ChatToolDefinition` (with
   implicit conversions both ways). Migration: use `ChatToolDefinition`, which `GenerationOptions.Tools` already takes.

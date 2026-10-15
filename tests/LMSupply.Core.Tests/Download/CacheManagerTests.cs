@@ -200,6 +200,18 @@ public class CacheManagerTests
         result.Should().Be(expected);
     }
 
+    [Theory]
+    [InlineData("unsloth/Qwen3.5-2B-GGUF", "Qwen3.5-2B-Q4_K_M.gguf", ModelType.Generator)]
+    [InlineData("unsloth/gemma-4-E2B-it-GGUF", "gemma-4-E2B-it-Q4_K_M.gguf", ModelType.Generator)]
+    [InlineData("someone/uncatalogued-chat-GGUF", "model-Q8_0.gguf", ModelType.Generator)]
+    [InlineData("gpustack/bge-m3-GGUF", "bge-m3-Q4_K_M.gguf", ModelType.Embedder)]
+    [InlineData("gpustack/bge-reranker-v2-m3-GGUF", "bge-reranker-v2-m3-Q4_K_M.gguf", ModelType.Reranker)]
+    [InlineData("Qwen/Qwen3-Embedding-0.6B-GGUF", "Qwen3-Embedding-0.6B-Q8_0.gguf", ModelType.Embedder)]
+    public void DetectModelType_GgufRepository_IsAGeneratorUnlessItsNameSaysEmbedderOrReranker(string repoId, string file, ModelType expected)
+    {
+        CacheManager.DetectModelType([file, "README.md"], repoId).Should().Be(expected);
+    }
+
     [Fact]
     public void DetectModelType_Whisper_ShouldDetectTranscriber()
     {

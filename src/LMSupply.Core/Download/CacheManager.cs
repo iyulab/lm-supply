@@ -202,6 +202,29 @@ public static class CacheManager
            || DownloadManifest.ExistsForSnapshot(repoDir, snapshotDir);
 
     /// <summary>
+    /// Whether the cache holds anything of <paramref name="repoId"/> this library downloaded — exactly when
+    /// <see cref="DeleteModel"/> would delete something and return <see langword="true"/>: a snapshot of its own (a
+    /// manifest inside, or named after a branch or tag), its private download state, or its metadata file. A repository
+    /// only other tools wrote into the shared hub cache answers <see langword="false"/>.
+    /// </summary>
+    /// <param name="cacheDir">The cache directory (the hub layout, <c>models--org--name</c>).</param>
+    /// <param name="repoId">The repository id.</param>
+    public static bool HasOwnFiles(string cacheDir, string repoId)
+        => OwnFilesIn(Path.GetFullPath(GetRepositoryDirectory(cacheDir, repoId)));
+
+    private static bool OwnFilesIn(string repoDir)
+    {
+        if (!Directory.Exists(repoDir))
+            return false;
+
+        var snapshotsDir = Path.Combine(repoDir, "snapshots");
+        return (Directory.Exists(snapshotsDir) &&
+                Directory.GetDirectories(snapshotsDir).Any(s => IsOwnSnapshotDirectory(repoDir, s)))
+            || Directory.Exists(Path.Combine(repoDir, DownloadManifest.PrivateDirectoryName))
+            || File.Exists(Path.Combine(repoDir, ".metadata.json"));
+    }
+
+    /// <summary>
     /// The first snapshot directory (see <see cref="GetSnapshotDirectories"/>) for <paramref name="revision"/> that is
     /// this library's own (see <see cref="IsForeignSnapshot"/>), or <see langword="null"/> when there is none.
     /// </summary>
@@ -402,6 +425,7 @@ public static class CacheManager
     /// <returns>True if anything of this library's was found and deleted, false otherwise.</returns>
     public static bool DeleteModel(string cacheDir, string repoId)
     {
+        // HasOwnFiles answers from the same three things this method deletes; a change here changes OwnFilesIn too.
         var repoDir = Path.GetFullPath(GetRepositoryDirectory(cacheDir, repoId));
         if (!Directory.Exists(repoDir))
             return false;
@@ -875,6 +899,7 @@ public static class CacheManager
                 SizeBytes = totalSize,
                 FileCount = files.Length,
                 DetectedType = detectedType,
+                HasOwnFiles = OwnFilesIn(Path.GetFullPath(modelDir)),
                 LastModified = Directory.GetLastWriteTime(latestSnapshot),
                 Files = fileNames!,
                 Metadata = metadata
@@ -958,8 +983,11 @@ public static class CacheManager
 
         // 2. File pattern-based detection (fallback)
 
-        // Generator: genai_config.json
-        if (fileSet.Contains("genai_config.json"))
+        // Generator: genai_config.json (ONNX GenAI), or a GGUF file — the repo-name checks above already claimed the GGUF
+        // embedders, rerankers, transcribers and synthesizers («bge-m3-GGUF», «bge-reranker-…-GGUF»), so a GGUF repository
+        // that reaches here is a chat / completion model the GGUF generator would load.
+        if (fileSet.Contains("genai_config.json") ||
+            files.Any(f => f.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)))
             return ModelType.Generator;
 
         // Transcriber: encoder + decoder combination

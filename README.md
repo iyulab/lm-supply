@@ -925,6 +925,10 @@ Models are cached following HuggingFace Hub conventions:
   commit snapshot shared with another tool, only the files its manifests list), the blobs that no remaining snapshot
   links to, the refs naming a removed snapshot, and `.lmsupply/`. The repository directory is removed only when it ends
   up empty. `CacheManager.GetTotalCacheSize` counts a linked blob once.
+  `CacheManager.HasOwnFiles(cacheDir, repoId)` — and `CachedModelInfo.HasOwnFiles` on each row of
+  `GetCachedModelsWithInfo` — says whether `DeleteModel` would delete anything, so a cache listing can offer Delete
+  only on what LMSupply downloaded. `CachedModelInfo.DetectedType` reads a GGUF repository as `Generator` unless its
+  name says embedder, reranker, transcriber or synthesizer.
 
 **Reclaiming space.** A release that changes where a model's files are read from can leave the old copy
 next to the new one (0.63.0 did — see the changelog). `CacheManager.FindReclaimable(cacheDir)` lists the
