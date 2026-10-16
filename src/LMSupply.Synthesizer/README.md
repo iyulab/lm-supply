@@ -9,7 +9,7 @@ Local text-to-speech synthesis using VITS/Piper models.
   the package, offline) writes each English voice's own phonemes
 - **The voice's own contract**: phoneme ids, inference defaults, sample rate and speaker count are read from the voice's config
 - **Phoneme input and a phonemizer seam**: pass phonemes (`SynthesizePhonemesAsync`), or plug in the text-to-phoneme step (`IPhonemizer`)
-- **GPU Acceleration**: CUDA, DirectML (Windows), CoreML (macOS)
+- **GPU Acceleration**: CUDA (NVIDIA), CoreML (macOS)
 - **Licensing stated per voice**: Piper's code is MIT; each voice's own license is in `SynthesizerModelInfo.License` (the default voice is public domain)
 - **Multiple Languages**: English (text and phonemes), Korean and Chinese (phonemes, or text through your phonemizer)
 

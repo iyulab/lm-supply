@@ -5,7 +5,7 @@ Local speech-to-text transcription using Whisper models.
 ## Features
 
 - **Zero-config**: Models download automatically from HuggingFace
-- **GPU Acceleration**: CUDA, DirectML (Windows), CoreML (macOS)
+- **GPU Acceleration**: CUDA (NVIDIA), CoreML (macOS)
 - **MIT Licensed**: OpenAI Whisper models
 - **99+ Languages**: Auto-detection and multilingual support
 

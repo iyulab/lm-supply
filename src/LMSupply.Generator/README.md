@@ -5,7 +5,7 @@ Local text generation and chat via GGUF (llama-server), with an optional ONNX Ru
 ## Features
 
 - **Zero-config**: Models download automatically from HuggingFace
-- **GPU Acceleration**: CUDA, Vulkan, DirectML, CoreML, Metal
+- **GPU Acceleration**: CUDA, Vulkan, CoreML, Metal
 - **GGUF Support**: Load any GGUF model via llama-server (auto-downloaded)
 - **Server Pooling**: Reuses llama-server instances for fast model switching
 - **MIT Models**: Phi-4 and Phi-3.5 models with no usage restrictions

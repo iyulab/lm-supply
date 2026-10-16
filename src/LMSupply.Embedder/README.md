@@ -5,7 +5,7 @@ Local text embedding for .NET with automatic model downloading.
 ## Features
 
 - **Zero-config**: Models download automatically from HuggingFace
-- **GPU Acceleration**: CUDA, DirectML (Windows), CoreML (macOS)
+- **GPU Acceleration**: CUDA (NVIDIA), CoreML (macOS)
 - **Cross-platform**: Windows, Linux, macOS
 - **Simple API**: Just 2 lines of code to get started
 

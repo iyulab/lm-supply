@@ -6,7 +6,7 @@ A simple .NET library for local text-to-image generation using Latent Consistenc
 
 - **Fast Generation**: LCM enables 2-4 step inference (vs 20-50 for standard diffusion)
 - **Edge-Optimized**: ~3-4GB VRAM requirement, suitable for consumer GPUs
-- **GPU Acceleration**: CUDA, DirectML, and CoreML support via ONNX Runtime
+- **GPU Acceleration**: CUDA and CoreML support via ONNX Runtime
 - **Lazy Downloads**: Models downloaded on-demand from HuggingFace
 - **Streaming Progress**: Real-time step-by-step progress with optional previews
 
@@ -103,7 +103,6 @@ await using var generator = await LocalImageGenerator.LoadAsync("default", optio
 - GPU with 3-4GB VRAM (recommended)
 - Supported execution providers:
   - CUDA 11/12 (NVIDIA GPUs)
-  - DirectML (Windows, any DirectX 12 GPU)
   - CoreML (macOS, Apple Silicon)
   - CPU (fallback, slower)
 

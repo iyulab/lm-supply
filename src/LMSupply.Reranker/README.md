@@ -5,7 +5,7 @@ Local semantic reranking for .NET with cross-encoder models.
 ## Features
 
 - **Zero-config**: Models download automatically from HuggingFace
-- **GPU Acceleration**: CUDA, DirectML (Windows), CoreML (macOS)
+- **GPU Acceleration**: CUDA (NVIDIA), CoreML (macOS)
 - **Cross-platform**: Windows, Linux, macOS
 - **RAG Integration**: Perfect for improving retrieval quality
 - **Multi-Tokenizer Support**: Automatic detection of WordPiece, Unigram, BPE tokenizers

@@ -5,7 +5,7 @@ Local image segmentation for .NET with automatic model downloading.
 ## Features
 
 - **Zero-config**: Models download automatically from HuggingFace
-- **GPU Acceleration**: CUDA, DirectML (Windows), CoreML (macOS)
+- **GPU Acceleration**: CUDA (NVIDIA), CoreML (macOS)
 - **MIT Licensed**: SegFormer models for commercial use
 - **150 ADE20K Classes**: Indoor/outdoor scene understanding
 

@@ -5,7 +5,7 @@ Local neural machine translation for .NET with automatic model downloading.
 ## Features
 
 - **Zero-config**: Models download automatically from HuggingFace
-- **GPU Acceleration**: CUDA, DirectML (Windows), CoreML (macOS)
+- **GPU Acceleration**: CUDA (NVIDIA), CoreML (macOS)
 - **Apache-2.0 Licensed**: OPUS-MT models for commercial use
 - **Asian Languages**: Korean, Japanese, Chinese to/from English
 

@@ -7,7 +7,7 @@ A simple .NET library for local OCR (Optical Character Recognition) with automat
 - **2-Stage Pipeline**: Text detection (DBNet) followed by text recognition (CRNN with CTC decoding)
 - **Multi-language Support**: 11 script recognizers covering 50+ language codes, including English, Korean, Chinese, Japanese, Arabic, Cyrillic and most Latin-script languages
 - **Automatic Model Download**: Models are downloaded on-demand from HuggingFace (~10MB default)
-- **GPU Acceleration**: Supports CUDA, DirectML, and CoreML
+- **GPU Acceleration**: Supports CUDA and CoreML
 - **Pure C# Implementation**: No Python dependencies or external processes
 - **Polygon Support**: Precise text region boundaries for rotated or curved text
 

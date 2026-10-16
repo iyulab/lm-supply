@@ -4,7 +4,7 @@ Core components shared across all LMSupply libraries.
 
 ## Features
 
-- **ExecutionProvider**: Unified GPU/CPU selection (Auto, CUDA, DirectML, CoreML, CPU)
+- **ExecutionProvider**: Unified GPU/CPU selection (Auto, CUDA, CoreML, OpenVINO, CPU)
 - **HuggingFaceDownloader**: Model downloading with HuggingFace Hub standard caching
 - **DownloadProgress**: Detailed download progress reporting
 - **Exception Hierarchy**: Consistent error handling across libraries
