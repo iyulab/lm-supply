@@ -70,6 +70,60 @@ public class LlamaServerClientBackendErrorTests
         ex.Which.ResponseBody.Should().Be(body);
     }
 
+    [Fact]
+    public async Task GenerateEmbeddingsBatchAsync_InputLargerThanTheBatch_NamesTheLimit()
+    {
+        const string body = """{"error":{"code":500,"message":"input (12639 tokens) is too large to process. increase the physical batch size (current batch size: 8192)","type":"server_error"}}""";
+        using var httpClient = MakeFakeClient(HttpStatusCode.InternalServerError, body);
+        var client = new LlamaServerClient("http://localhost:9999", httpClient, 8192);
+
+        var act = async () => await client.GenerateEmbeddingsBatchAsync(["a very long text"]);
+
+        var ex = await act.Should().ThrowAsync<ContextLengthExceededException>();
+        ex.Which.TokenCount.Should().Be(12639);
+        ex.Which.MaxContextLength.Should().Be(8192);
+    }
+
+    [Fact]
+    public async Task GenerateEmbeddingsBatchAsync_OtherServerError_ThrowsWithStatusCodeAndBody()
+    {
+        const string body = "{\"error\":{\"message\":\"model is not loaded\"}}";
+        using var httpClient = MakeFakeClient(HttpStatusCode.ServiceUnavailable, body);
+        var client = new LlamaServerClient("http://localhost:9999", httpClient, 8192);
+
+        var act = async () => await client.GenerateEmbeddingsBatchAsync(["text"]);
+
+        var ex = await act.Should().ThrowAsync<InferenceBackendException>();
+        ex.Which.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        ex.Which.Message.Should().Contain(body);
+    }
+
+    [Fact]
+    public async Task RerankAsync_ServerError_ThrowsWithStatusCodeAndBody()
+    {
+        const string body = "{\"error\":{\"message\":\"pooling type is not rank\"}}";
+        using var httpClient = MakeFakeClient(HttpStatusCode.InternalServerError, body);
+        var client = new LlamaServerClient("http://localhost:9999", httpClient, 8192);
+
+        var act = async () => await client.RerankAsync("query", ["doc"]);
+
+        var ex = await act.Should().ThrowAsync<InferenceBackendException>();
+        ex.Which.ResponseBody.Should().Be(body);
+    }
+
+    [Fact]
+    public async Task CountTokensAsync_ServerError_ThrowsWithStatusCodeAndBody()
+    {
+        const string body = "{\"error\":{\"message\":\"tokenizer unavailable\"}}";
+        using var httpClient = MakeFakeClient(HttpStatusCode.InternalServerError, body);
+        var client = new LlamaServerClient("http://localhost:9999", httpClient, 8192);
+
+        var act = async () => await client.CountTokensAsync("text");
+
+        var ex = await act.Should().ThrowAsync<InferenceBackendException>();
+        ex.Which.ResponseBody.Should().Be(body);
+    }
+
     private sealed class FakeHandler(HttpStatusCode status, string body) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(

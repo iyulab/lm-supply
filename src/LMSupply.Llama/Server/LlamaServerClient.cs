@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using LMSupply.Exceptions;
 using LMSupply.Json;
 
@@ -14,7 +15,7 @@ namespace LMSupply.Llama.Server;
 /// <summary>
 /// OpenAI-compatible HTTP client for llama-server.
 /// </summary>
-public sealed class LlamaServerClient : IDisposable
+public sealed partial class LlamaServerClient : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly string _baseUrl;
@@ -517,7 +518,7 @@ public sealed class LlamaServerClient : IDisposable
             content,
             cancellationToken);
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowContextExceptionAsync(response, _maxContextLength, cancellationToken);
 
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
         var result = JsonSerializer.Deserialize(responseJson, JsonOptions.TypeInfo<TokenizeResponse>());
@@ -596,7 +597,7 @@ public sealed class LlamaServerClient : IDisposable
             content,
             cancellationToken);
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowContextExceptionAsync(response, _maxContextLength, cancellationToken);
 
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
         var embeddingResponse = JsonSerializer.Deserialize(responseJson, JsonOptions.TypeInfo<EmbeddingResponse>());
@@ -642,7 +643,7 @@ public sealed class LlamaServerClient : IDisposable
             content,
             cancellationToken);
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessOrThrowContextExceptionAsync(response, _maxContextLength, cancellationToken);
 
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
         var rerankResponse = JsonSerializer.Deserialize(responseJson, JsonOptions.TypeInfo<RerankResponse>());
@@ -673,6 +674,11 @@ public sealed class LlamaServerClient : IDisposable
             var (promptTokens, serverContext) = ReadOverflowCounts(errorBody);
             throw new ContextLengthExceededException(promptTokens, serverContext ?? maxContextLength);
         }
+
+        // An embedding or rerank input longer than the physical batch is refused with a 500. The embedders size that
+        // batch to the model's sequence length, so it is the input limit the caller has to stay under.
+        if (ReadPhysicalBatchOverflow(errorBody) is { } overflow)
+            throw new ContextLengthExceededException(overflow.InputTokens, overflow.BatchSize ?? maxContextLength);
 
         // Not a recognized context-overflow shape — surface the body we already read instead
         // of discarding it and falling through to EnsureSuccessStatusCode()'s generic message.
@@ -709,6 +715,24 @@ public sealed class LlamaServerClient : IDisposable
                 ? number
                 : null;
     }
+
+    /// <summary>
+    /// The input's token count and the physical batch size from llama-server's refusal of an input that does not fit one
+    /// batch — «input (N tokens) is too large to process. increase the physical batch size (current batch size: M)» —
+    /// which a non-causal model (an embedder, a reranker) must process whole. Null when the body is not that refusal.
+    /// </summary>
+    internal static (int InputTokens, int? BatchSize)? ReadPhysicalBatchOverflow(string errorBody)
+    {
+        var match = PhysicalBatchOverflow().Match(errorBody);
+        if (!match.Success || !int.TryParse(match.Groups["tokens"].ValueSpan, out var tokens))
+            return null;
+
+        int? batch = int.TryParse(match.Groups["batch"].ValueSpan, out var size) && size > 0 ? size : null;
+        return (tokens, batch);
+    }
+
+    [GeneratedRegex(@"input \((?<tokens>\d+) tokens\) is too large to process(?:.*?current batch size: (?<batch>\d+))?", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex PhysicalBatchOverflow();
 
     private static bool IsContextOverflowError(string errorBody)
     {

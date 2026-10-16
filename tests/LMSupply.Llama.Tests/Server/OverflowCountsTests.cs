@@ -24,4 +24,21 @@ public class OverflowCountsTests
     [InlineData("""{"error":"context length exceeded"}""")]
     public void WithoutCounts_ReadsNothing(string body) =>
         Assert.Equal(((int?)null, (int?)null), LlamaServerClient.ReadOverflowCounts(body));
+
+    [Fact]
+    public void PhysicalBatchRefusal_ReadsTheInputTokensAndTheBatchSize()
+    {
+        // llama-server's answer when an embedding input does not fit the physical batch (measured, b-series server).
+        const string body = """
+            {"error":{"code":500,"message":"input (12639 tokens) is too large to process. increase the physical batch size (current batch size: 8192)","type":"server_error"}}
+            """;
+
+        Assert.Equal((12639, (int?)8192), LlamaServerClient.ReadPhysicalBatchOverflow(body));
+    }
+
+    [Theory]
+    [InlineData("""{"error":{"code":500,"message":"internal server error"}}""")]
+    [InlineData("the prompt is too long")]
+    public void OtherErrors_AreNotAPhysicalBatchRefusal(string body) =>
+        Assert.Null(LlamaServerClient.ReadPhysicalBatchOverflow(body));
 }

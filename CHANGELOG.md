@@ -17,6 +17,16 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `*.gguf` files now reads as a generator unless its name already says embedder, reranker, transcriber or synthesizer
   (`bge-m3-GGUF` stays an embedder).
 
+### Changed
+- **Breaking** — **a GGUF embedder, reranker or token count that llama-server refuses now says why.** These calls threw
+  `HttpRequestException` («Response status code does not indicate success: 500») and dropped the server's answer. An input
+  longer than the embedder's batch (which the embedders size to the model's sequence length) now throws
+  `ContextLengthExceededException` with `TokenCount` and `MaxContextLength` — e.g. 12,639 tokens against 8,192 — and any
+  other refusal throws `InferenceBackendException` carrying the status code and the server's body, as chat calls already
+  did. Migration: catch `ContextLengthExceededException` / `InferenceBackendException` (both `InferenceException`) where you
+  caught `HttpRequestException` around `EmbedAsync`, `RerankAsync` or a GGUF token count. A connection failure is still an
+  `HttpRequestException` (or `InferenceBackendExitedException` when the server process exited).
+
 ### Removed
 - **Breaking** — `LMSupply.Generator.Models.ToolDefinition`, a second public spelling of `ChatToolDefinition` (with
   implicit conversions both ways). Migration: use `ChatToolDefinition`, which `GenerationOptions.Tools` already takes.
