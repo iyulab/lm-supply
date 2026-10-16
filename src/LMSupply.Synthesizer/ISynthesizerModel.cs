@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using LMSupply.Synthesizer.Models;
 
 namespace LMSupply.Synthesizer;
@@ -7,10 +6,10 @@ namespace LMSupply.Synthesizer;
 /// Interface for text-to-speech synthesis models.
 /// </summary>
 /// <remarks>
-/// Experimental: the package has no phonemizer for the voices in its catalog, so text is spoken only through an
-/// <see cref="IPhonemizer"/> the caller supplies — see <see cref="SynthesizerDiagnostics.ExperimentalId"/>.
+/// Text is turned into the voice's phonemes by <see cref="SynthesizerOptions.Phonemizer"/> when one is set, and otherwise
+/// by the package: the built-in English phonemizer for the English voices, the text itself for a voice whose phonemes are
+/// its text. A voice in another language needs a phonemizer, or phonemes (<see cref="SynthesizePhonemesAsync"/>).
 /// </remarks>
-[Experimental(SynthesizerDiagnostics.ExperimentalId, UrlFormat = SynthesizerDiagnostics.ExperimentalUrl)]
 public interface ISynthesizerModel : IAsyncDisposable
 {
     /// <summary>
@@ -69,14 +68,15 @@ public interface ISynthesizerModel : IAsyncDisposable
 
     /// <summary>
     /// Synthesizes speech from text. The text is turned into phonemes by <see cref="SynthesizerOptions.Phonemizer"/>, or
-    /// by the package itself for a voice whose phonemes are its text.
+    /// by the package itself for an English voice and for a voice whose phonemes are its text.
     /// </summary>
     /// <param name="text">The text to synthesize.</param>
     /// <param name="options">Optional synthesis options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The synthesis result containing audio data.</returns>
     /// <exception cref="NotSupportedException">
-    /// The voice needs a phonemizer and none was supplied. No audio is produced. This holds for every method that takes text.
+    /// The voice needs a phonemizer and none was supplied (a voice in a language other than English), or an English voice
+    /// lacks a phoneme the built-in phonemizer writes. No audio is produced. This holds for every method that takes text.
     /// </exception>
     Task<SynthesisResult> SynthesizeAsync(
         string text,

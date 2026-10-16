@@ -1,8 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <!-- LMSUPPLY001: The console exposes the synthesizer on purpose (its endpoint answers 501 for text it has no phonemizer for). Only this id; removed when the synthesizer leaves [Experimental]. -->
-    <NoWarn>$(NoWarn);LMSUPPLY001</NoWarn>
     <RootNamespace>LMSupply.Console.Host</RootNamespace>
     <IsPackable>false</IsPackable>
     <AssemblyName>lm-supply</AssemblyName>

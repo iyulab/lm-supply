@@ -12,7 +12,6 @@ namespace LMSupply.Synthesizer.Core;
 /// <summary>
 /// ONNX-based implementation of VITS/Piper TTS model.
 /// </summary>
-[System.Diagnostics.CodeAnalysis.Experimental(SynthesizerDiagnostics.ExperimentalId, UrlFormat = SynthesizerDiagnostics.ExperimentalUrl)]
 internal sealed class OnnxSynthesizerModel : ISynthesizerModel
 {
     private readonly SynthesizerOptions _options;

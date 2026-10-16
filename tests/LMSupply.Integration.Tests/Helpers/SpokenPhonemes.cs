@@ -4,8 +4,8 @@ namespace LMSupply.Integration.Tests.Helpers;
 
 /// <summary>
 /// Hand-written phonemes for the English voices, in the form eSpeak NG writes them (IPA with stress and length marks,
-/// one string per sentence). The synthesizer has no phonemizer of its own for these voices, so a test that needs one to
-/// say something passes these, directly or through <see cref="Phonemizer"/>.
+/// one string per sentence). A test that must not depend on the built-in English phonemizer passes these, directly or
+/// through <see cref="Phonemizer"/>.
 /// </summary>
 internal static class SpokenPhonemes
 {

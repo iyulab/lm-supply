@@ -2,20 +2,25 @@
 
 Text-to-speech synthesis using VITS/Piper models with ONNX Runtime.
 
-> **Known issue — text needs a phonemizer the package does not ship yet.** A voice is run by the contract its own config declares, so phonemes (`SynthesizePhonemesAsync`), or text through an `IPhonemizer` you set in `SynthesizerOptions.Phonemizer`, come out as real speech: a Whisper transcript of "The weather is beautiful today." spoken from its phonemes reads back word for word. But every voice in the catalog was trained on eSpeak NG phonemes, and the package has no text-to-phoneme step for them, so `SynthesizeAsync(text)` with one of those voices throws `NotSupportedException` unless you supply a phonemizer — it does not return audio. Everything else (loading, voices, WAV output, streaming) works. Every use of `LocalSynthesizer` / `ISynthesizerModel` reports `LMSUPPLY001` (`[Experimental]`, an error by default) until a phonemizer ships with the package; suppress that one id to use the package on those terms.
+English text is spoken out of the box. Every voice in the catalog was trained on eSpeak NG phonemes, and for the
+English voices the package writes those phonemes itself, with a built-in English phonemizer — a pronunciation dictionary
+and letter-to-sound rules, in pure .NET, offline, with no extra download (see [English text](#english-text)). Spoken by
+each English voice and transcribed by Whisper, a set of ordinary sentences, sentences with figures and sentences with
+words the dictionary does not have reads back at a word error rate of 1-8% (at most 3% on the plain sentences and
+figures; most errors are unusual names spelled another way).
+
+A voice in another language (the Korean and Chinese voices) speaks phonemes (`SynthesizePhonemesAsync`), or text
+through an `IPhonemizer` you set; given text alone it throws `NotSupportedException` — it never speaks text as noise.
 
 ## Quick Start
 
 ```csharp
 using LMSupply.Synthesizer;
 
-#pragma warning disable LMSUPPLY001 // the known issue above — opt in knowingly
-
 // Load the default model (English US LJSpeech, public domain)
 var synthesizer = await LocalSynthesizer.LoadAsync("default");
 
-// Synthesize speech from phonemes of the voice's scheme (eSpeak NG's IPA for this voice): one string per sentence
-var result = await synthesizer.SynthesizePhonemesAsync(["ðə wˈɛðəɹ ɪz bjˈuːtifəl tədˈeɪ."]);
+var result = await synthesizer.SynthesizeAsync("The weather is beautiful today.");
 Console.WriteLine($"Duration: {result.DurationSeconds:F2}s");
 Console.WriteLine($"Real-time factor: {result.RealTimeFactor:F1}x");
 
@@ -23,7 +28,7 @@ Console.WriteLine($"Real-time factor: {result.RealTimeFactor:F1}x");
 await File.WriteAllBytesAsync("output.wav", result.ToWavBytes());
 ```
 
-To synthesize from text, set a phonemizer — see [Phonemes and phonemizers](#phonemes-and-phonemizers).
+For the other languages, pass phonemes or set a phonemizer — see [Phonemes and phonemizers](#phonemes-and-phonemizers).
 
 ## Installation
 
@@ -35,8 +40,9 @@ dotnet add package LMSupply.Synthesizer
 
 - **VITS Models**: High-quality neural TTS using Piper voices
 - **The voice's own contract**: phoneme ids, inference defaults, sample rate and speaker count are read from the voice's config
+- **English text out of the box**: a built-in English phonemizer that writes each English voice's own phonemes
 - **Phoneme input and a phonemizer seam**: pass phonemes, or plug in the text-to-phoneme step a voice needs
-- **Multiple Languages**: English, Korean, Chinese
+- **Multiple Languages**: English (text and phonemes), Korean and Chinese (phonemes, or text through your phonemizer)
 - **Fast Inference**: Optimized ONNX models for real-time synthesis
 - **Streaming**: Generate audio sentence by sentence
 - **Multiple Formats**: WAV, raw PCM16, and float32 output
@@ -55,7 +61,55 @@ dotnet add package LMSupply.Synthesizer
 | `chinese` | Huayan | zh-CN | 22050 Hz | ~64MB | `espeak` / `cmn` | Mandarin Chinese female |
 
 The Phonemes column is what each voice's config declares (`phoneme_type` / `espeak.voice`); a loaded model reports it
-as `PhonemeScheme`.
+as `PhonemeScheme`. The five English voices speak text through the built-in English phonemizer; the Korean and Chinese
+voices need phonemes or a phonemizer of yours.
+
+## English text
+
+The built-in English phonemizer is used for a voice of the `espeak` type whose phonemizer voice is `en`, `en-us`,
+`en-gb` or `en-gb-x-rp` (or, when the config names none, whose language is English), unless
+`SynthesizerOptions.Phonemizer` is set. It runs in three steps:
+
+1. **Reading the text.** Letters are folded to plain ASCII (`café` is read as `cafe`), the text is split into sentences
+   at `. ? !` and pauses are kept at `, ; :` (and at dashes and brackets). Figures are read as words: whole numbers and
+   decimals (`12.5` «twelve point five»), thousands separators (`2,500`), ordinals (`21st`), a four-digit number from
+   1100 to 2099 as a year (`1999` «nineteen ninety nine», `2023` «twenty twenty three»), times of day (`4:30`, `7:00`
+   «seven o'clock»), dollar amounts (`$3.50` «three dollars and fifty cents», `$5 million`), percentages and a leading
+   minus. A small closed set of abbreviations is expanded: `Mr. Mrs. Ms. Dr. Prof. St. vs. No. Jr. Sr. Inc. Ltd. Co. etc.
+   e.g. i.e.`; a word written in capitals is spelled out letter by letter unless the dictionary reads it as a word
+   (`NASA`).
+2. **Pronouncing each word.** A word is looked up in the [CMU Pronouncing Dictionary](https://github.com/cmusphinx/cmudict)
+   (about 126,000 words), with its stress. A word it does not have is tried as a regular ending on a word it has
+   (`-s`, `-'s`, `-ed`, `-ing`, `-ly`) and as two words written as one (`smartwatch`); anything else is read by the
+   letter-to-sound rules of NRL Report 7948 with a stress rule of its own. A word with two readings gets the dictionary's
+   first one, whatever the sentence (`read` is always the present tense, `live` the verb); stress is each word's own,
+   and the common function words (`the`, `of`, `to`, `a`, ...) are unstressed.
+3. **Writing the voice's phonemes.** The dictionary is American. For `en-us` its phonemes are written directly, with
+   the flapped t of «water». For the British-style `en` (the default voice) and `en-gb-x-rp` they are converted by rule:
+   r is said only before a vowel (in the word, or at the start of the next one), vowels before a dropped r become long
+   vowels or centring diphthongs («here» `hˈɪə`), the vowel of «lot» is told from the one of «father» by the spelling,
+   and t, d and n keep the glide before a u («tune» `tjˈuːn`). What no rule can tell is left as American: the broad a of
+   «bath» stays short.
+
+Not handled, and read as the characters they are written with: dates (`2024-01-05`, `5/1`), fractions, ranges, units
+(`5 km` is «five k m»), currencies other than the dollar, Roman numerals, and letters of other scripts (dropped).
+Homographs are not told apart by the sentence, and names the dictionary lacks are only as good as letter-to-sound rules
+are.
+
+**Symbols the voice does not have.** The phonemizer writes only symbols the voice's own `phoneme_id_map` has an id for,
+so `SynthesisResult.UnknownPhonemes` stays empty. Where a voice lacks a symbol, a fixed substitute is written: the ASCII
+`g` for `ɡ`, `t` for the flap `ɾ`, `ə` for `ɚ` and for the reduced article vowel `ɐ`. Stress and length marks and pause
+punctuation the voice lacks are left out. A voice that lacks any other phoneme of its accent is not guessed at: text for
+it throws `NotSupportedException`, naming the missing symbols (every catalog voice has them all).
+
+**Where the dictionary lives.** It is embedded in the `LMSupply.Synthesizer` assembly, gzip-compressed (about 0.9 MB
+of the package; 3.6 MB uncompressed), so text works with no network and no cache, the moment the package is installed.
+It is read on the first text a process speaks (a few hundred milliseconds) and then kept in memory (about 3 MB), shared
+by every loaded voice.
+
+**Licences.** The CMU Pronouncing Dictionary is © Carnegie Mellon University under a 2-clause BSD-style licence; its
+licence text ships in the package (`licenses/cmudict/LICENSE` and `THIRD-PARTY-NOTICES.md`). The letter-to-sound rules
+are from NRL Report 7948 (Naval Research Laboratory, 1976), in the public domain. No eSpeak NG code or data is used.
 
 ## Phonemes and phonemizers
 
@@ -94,7 +148,6 @@ if (result.UnknownPhonemes.Length > 0)
 phonemes in the same form `SynthesizePhonemesAsync` takes. Set it when loading the model:
 
 ```csharp
-#pragma warning disable LMSUPPLY001
 var options = new SynthesizerOptions { Phonemizer = new LexiconPhonemizer() };
 var synthesizer = await LocalSynthesizer.LoadAsync("default", options);
 
@@ -128,17 +181,19 @@ public sealed class LexiconPhonemizer : IPhonemizer
 }
 ```
 
-Without a phonemizer:
+A phonemizer you set is used for every voice, the English ones included. Without one:
 
-| The voice's phoneme type | `SynthesizeAsync(text)` |
-|--------------------------|-------------------------|
+| The voice | `SynthesizeAsync(text)` |
+|-----------|-------------------------|
+| `espeak`, English (`default`, `lessac`, `fast`, `quality`, `british`) | Works, through the built-in English phonemizer ([English text](#english-text)). |
 | `text` | Works. The phonemes are the characters of the text, lower-cased and decomposed (NFD), as one sentence. |
-| `espeak` (every catalog voice) | Throws `NotSupportedException`, naming the voice's phoneme type and language. No audio is returned. |
+| `espeak`, another language (`korean`, `chinese`) | Throws `NotSupportedException`, naming the voice's phoneme type and language. No audio is returned. |
 
 ## API Usage
 
-The examples below pass phonemes; with a phonemizer set, the text methods (`SynthesizeAsync`,
-`SynthesizeToFileAsync`, `SynthesizeToStreamAsync`, `SynthesizeStreamingAsync`) work the same way.
+The examples below pass phonemes, which every voice takes; for an English voice, or with a phonemizer set, the text
+methods (`SynthesizeAsync`, `SynthesizeToFileAsync`, `SynthesizeToStreamAsync`, `SynthesizeStreamingAsync`) work the
+same way.
 
 ### Basic Synthesis
 
@@ -158,14 +213,14 @@ byte[] pcmBytes = result.ToPcm16Bytes();    // Raw 16-bit PCM
 ### Save to File
 
 ```csharp
-// With a phonemizer set: save directly to WAV file
+// Text, for an English voice or with a phonemizer set: save directly to WAV file
 await synthesizer.SynthesizeToFileAsync("Hello, world!", "output.wav");
 ```
 
 ### Write to Stream
 
 ```csharp
-// With a phonemizer set
+// Text, for an English voice or with a phonemizer set
 using var stream = new MemoryStream();
 await synthesizer.SynthesizeToStreamAsync("Hello, world!", stream);
 
@@ -219,7 +274,6 @@ var options = new SynthesizerOptions
     Phonemizer = null                   // the text-to-phoneme step, for voices that need one
 };
 
-#pragma warning disable LMSUPPLY001
 var synthesizer = await LocalSynthesizer.LoadAsync("quality", options);
 ```
 
@@ -280,7 +334,6 @@ await foreach (var chunk in synthesizer.SynthesizePhonemesStreamingAsync(sentenc
 ### Query Available Models
 
 ```csharp
-#pragma warning disable LMSUPPLY001
 // List available aliases
 foreach (var alias in LocalSynthesizer.GetAvailableModels())
 {
@@ -308,7 +361,6 @@ The catalog's voices all live in one HuggingFace repository, `rhasspy/piper-voic
 (`VoiceName`).
 
 ```csharp
-#pragma warning disable LMSUPPLY001
 // The Lessac voice by its key, which is what the alias "lessac" resolves to
 var synthesizer = await LocalSynthesizer.LoadAsync("rhasspy/piper-voices:en/en_US/lessac/medium");
 
@@ -346,7 +398,6 @@ the config is used and `GetModelInfo()` returns the config's values.
 ### Model Selection
 
 ```csharp
-#pragma warning disable LMSUPPLY001
 // For real-time applications (fastest)
 var realTime = await LocalSynthesizer.LoadAsync("fast");
 
@@ -368,7 +419,6 @@ var coreMl = new SynthesizerOptions { Provider = ExecutionProvider.CoreML };   /
 ### Memory Management
 
 ```csharp
-#pragma warning disable LMSUPPLY001
 // Dispose when done
 await using var synthesizer = await LocalSynthesizer.LoadAsync("default");
 var result = await synthesizer.SynthesizePhonemesAsync(["həlˈəʊ!"]);

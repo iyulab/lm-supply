@@ -304,41 +304,45 @@ await foreach (var segment in transcriber.TranscribeStreamingAsync("audio.wav"))
 
 ### Text-to-Speech (Synthesizer)
 
-> **Known issue — text needs a phonemizer the package does not ship yet.** A voice is run by the contract its own config declares, so phonemes (`SynthesizePhonemesAsync`), or text through an `IPhonemizer` you set in `SynthesizerOptions.Phonemizer`, come out as real speech: a Whisper transcript of "The weather is beautiful today." spoken from its phonemes reads back word for word. But every voice in the catalog was trained on eSpeak NG phonemes, and the package has no text-to-phoneme step for them, so `SynthesizeAsync(text)` with one of those voices throws `NotSupportedException` unless you supply a phonemizer — it does not return audio. Loading, voice selection and the audio API work. Every use of `LocalSynthesizer` / `ISynthesizerModel` reports `LMSUPPLY001` (`[Experimental]`, an error by default) until a phonemizer ships with the package; suppress that one id to use the package on those terms.
+English text is spoken out of the box: the package turns it into the phonemes each English voice was trained on, with a
+built-in English phonemizer (a pronunciation dictionary and letter-to-sound rules, offline, no extra download). A voice in
+another language (Korean, Chinese) speaks phonemes, or text through an `IPhonemizer` you supply; given text alone it throws
+`NotSupportedException` rather than producing noise.
 
 ```csharp
 using LMSupply.Synthesizer;
 
-#pragma warning disable LMSUPPLY001 // the known issue above — opt in knowingly
 await using var synthesizer = await LocalSynthesizer.LoadAsync("default");
 
-// Phonemes of the voice's scheme (eSpeak NG's IPA for this voice), one string per sentence
-var result = await synthesizer.SynthesizePhonemesAsync(["ðə wˈɛðəɹ ɪz bjˈuːtifəl tədˈeɪ."]);
+var result = await synthesizer.SynthesizeAsync("The weather is beautiful today.");
 await File.WriteAllBytesAsync("output.wav", result.ToWavBytes());
 
 Console.WriteLine($"Duration: {result.DurationSeconds:F2}s");
 Console.WriteLine($"Real-time factor: {result.RealTimeFactor:F1}x");
 ```
 
-Text goes through the phonemizer you set; the model asks it for the phonemes its voice declares (`PhonemeScheme`):
+Phonemes of the voice's scheme can be passed directly, and a phonemizer you set replaces the built-in one for any voice;
+the model asks it for the phonemes its voice declares (`PhonemeScheme`):
 
 ```csharp
 using LMSupply.Synthesizer;
 
-#pragma warning disable LMSUPPLY001 // the known issue above — opt in knowingly
-var options = new SynthesizerOptions { Phonemizer = new MyPhonemizer() };
-await using var synthesizer = await LocalSynthesizer.LoadAsync("default", options);
+// Phonemes (eSpeak NG's IPA for this voice), one string per sentence
+await using var synthesizer = await LocalSynthesizer.LoadAsync("default");
+var result = await synthesizer.SynthesizePhonemesAsync(["ðə wˈɛðəɹ ɪz bjˈuːtifəl tədˈeɪ."]);
 
-await synthesizer.SynthesizeToFileAsync("Hello, world!", "output.wav");
+// Your own text-to-phoneme step, for a language the package does not cover
+var options = new SynthesizerOptions { Phonemizer = new MyPhonemizer() };
+await using var korean = await LocalSynthesizer.LoadAsync("korean", options);
 
 sealed class MyPhonemizer : IPhonemizer
 {
     public ValueTask<IReadOnlyList<string>> PhonemizeAsync(
         string text, PhonemeScheme scheme, CancellationToken cancellationToken = default)
     {
-        // scheme.Type is "espeak" and scheme.Voice "en" for the default voice. Return one string per sentence;
+        // scheme.Type is "espeak" and scheme.Voice "ko" for the Korean voice. Return one string per sentence;
         // every code point is a phoneme, spaces and clause punctuation included.
-        IReadOnlyList<string> sentences = ["həlˈəʊ, wˈɜːld!"];
+        IReadOnlyList<string> sentences = [/* your text-to-phoneme step's output */];
         return new(sentences);
     }
 }

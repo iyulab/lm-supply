@@ -2,28 +2,26 @@
 
 Local text-to-speech synthesis using VITS/Piper models.
 
-> **Known issue — text needs a phonemizer the package does not ship yet.** A voice is run by the contract its own config declares, so phonemes (`SynthesizePhonemesAsync`), or text through an `IPhonemizer` you set in `SynthesizerOptions.Phonemizer`, come out as real speech. But every voice in the catalog was trained on eSpeak NG phonemes, and the package has no text-to-phoneme step for them, so `SynthesizeAsync(text)` with one of those voices throws `NotSupportedException` unless you supply a phonemizer — it does not return audio.
-
 ## Features
 
 - **Zero-config**: Models download automatically from HuggingFace
+- **English text out of the box**: a built-in English phonemizer (pronunciation dictionary + letter-to-sound rules, in
+  the package, offline) writes each English voice's own phonemes
 - **The voice's own contract**: phoneme ids, inference defaults, sample rate and speaker count are read from the voice's config
 - **Phoneme input and a phonemizer seam**: pass phonemes (`SynthesizePhonemesAsync`), or plug in the text-to-phoneme step (`IPhonemizer`)
 - **GPU Acceleration**: CUDA, DirectML (Windows), CoreML (macOS)
 - **Licensing stated per voice**: Piper's code is MIT; each voice's own license is in `SynthesizerModelInfo.License` (the default voice is public domain)
-- **Multiple Languages**: English, Korean, Chinese
+- **Multiple Languages**: English (text and phonemes), Korean and Chinese (phonemes, or text through your phonemizer)
 
 ## Quick Start
 
 ```csharp
 using LMSupply.Synthesizer;
 
-#pragma warning disable LMSUPPLY001 // text needs a phonemizer the package does not ship yet — see the known issue above
 // Load the default model
 await using var synthesizer = await LocalSynthesizer.LoadAsync("default");
 
-// Synthesize speech from phonemes of the voice's scheme (eSpeak NG's IPA for this voice), one string per sentence
-var result = await synthesizer.SynthesizePhonemesAsync(["ðə wˈɛðəɹ ɪz bjˈuːtifəl tədˈeɪ."]);
+var result = await synthesizer.SynthesizeAsync("The weather is beautiful today.");
 
 Console.WriteLine($"Duration: {result.DurationSeconds:F2}s");
 Console.WriteLine($"Real-time factor: {result.RealTimeFactor:F1}x");
@@ -34,32 +32,41 @@ await File.WriteAllBytesAsync("output.wav", result.ToWavBytes());
 
 ## Text
 
-Text is turned into phonemes by the `IPhonemizer` set in `SynthesizerOptions.Phonemizer`; the model passes it the
-phonemes its voice declares (`ISynthesizerModel.PhonemeScheme`: the type, the phonemizer voice and the language).
+Text for the English voices is turned into phonemes by the package: numbers, a few common abbreviations and the
+punctuation that makes pauses are read, each word is pronounced from the CMU Pronouncing Dictionary or, if it is not
+there, by letter-to-sound rules, and the result is written in the voice's own accent (American for `en-us`, British-style
+for the default voice's `en` and for `en-gb-x-rp`). A word with two readings gets its most common one. See the
+[synthesizer guide](https://github.com/iyulab/lm-supply/blob/main/docs/synthesizer.md#english-text) for what is and is
+not handled.
+
+For any other voice, set an `IPhonemizer` in `SynthesizerOptions.Phonemizer` (it replaces the built-in one for every
+voice); the model passes it the phonemes its voice declares (`ISynthesizerModel.PhonemeScheme`: the type, the phonemizer
+voice and the language).
 
 ```csharp
 using LMSupply.Synthesizer;
 
-#pragma warning disable LMSUPPLY001
 var options = new SynthesizerOptions { Phonemizer = new MyPhonemizer() };
-await using var synthesizer = await LocalSynthesizer.LoadAsync("default", options);
+await using var synthesizer = await LocalSynthesizer.LoadAsync("korean", options);
 
-await synthesizer.SynthesizeToFileAsync("Hello, world!", "output.wav");
+var text = File.ReadAllText("input.txt"); // Korean text
+await synthesizer.SynthesizeToFileAsync(text, "output.wav");
 
 sealed class MyPhonemizer : IPhonemizer
 {
     public ValueTask<IReadOnlyList<string>> PhonemizeAsync(
         string text, PhonemeScheme scheme, CancellationToken cancellationToken = default)
     {
-        // One string per sentence; every code point is a phoneme, spaces and clause punctuation included.
-        IReadOnlyList<string> sentences = ["həlˈəʊ, wˈɜːld!"];
+        // One string per sentence, in the voice's scheme (here "espeak" / "ko"); every code point is a phoneme,
+        // spaces and clause punctuation included.
+        IReadOnlyList<string> sentences = [/* your text-to-phoneme step's output */];
         return new(sentences);
     }
 }
 ```
 
-Without a phonemizer, text works only for a voice whose phoneme type is `text` (its phonemes are its characters). For
-any other voice it throws `NotSupportedException`.
+Without a phonemizer, text for a voice that is neither English nor of the `text` phoneme type (the Korean and Chinese
+voices) throws `NotSupportedException`; it is never spoken as noise.
 
 ## Available Models
 

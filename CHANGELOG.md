@@ -10,6 +10,18 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 - **A cache listing can tell which repositories LMSupply downloaded.** `CacheManager.HasOwnFiles(cacheDir, repoId)` and
   `CachedModelInfo.HasOwnFiles` are true exactly when `DeleteModel` would delete something — an own snapshot, the private
   download state or the metadata file; false for a repository only other tools wrote into the shared hub cache.
+- **The synthesizer speaks English text out of the box.** `SynthesizeAsync` and the other text methods work for the
+  English voices of the catalog (`default`, `lessac`, `fast`, `quality`, `british`) with no phonemizer set: a built-in
+  English phonemizer reads the text (numbers, years, times of day, dollar amounts, percentages, a closed set of
+  abbreviations, pause punctuation), pronounces each word from the CMU Pronouncing Dictionary — or, for a word it does not
+  have, from its regular endings, as a compound, or by the letter-to-sound rules of NRL Report 7948 — and writes the
+  phonemes in the voice's own accent: American for `en-us`, British-style (non-rhotic, with the British vowels the
+  spelling decides) for `en` and `en-gb-x-rp`. It writes only symbols the voice's `phoneme_id_map` has; for a few it has
+  a fixed substitute, and a voice that lacks any other phoneme of its accent throws `NotSupportedException` for text.
+  Spoken by each English voice and transcribed by Whisper, a set of plain sentences, sentences with figures and words not
+  in the dictionary reads back at a word error rate of 0.01-0.08 (at most 0.03 on the plain sentences and figures). The dictionary is embedded in the assembly (about
+  0.9 MB), so text works offline from the first use; its licence ships in the package (`THIRD-PARTY-NOTICES.md`,
+  `licenses/cmudict/LICENSE`). A phonemizer set in `SynthesizerOptions.Phonemizer` still replaces it for any voice.
 
 ### Fixed
 - **A GGUF chat model in the cache lists as `Generator`, not `Unknown`.** `CacheManager.DetectModelType` (and so
@@ -26,10 +38,16 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   did. Migration: catch `ContextLengthExceededException` / `InferenceBackendException` (both `InferenceException`) where you
   caught `HttpRequestException` around `EmbedAsync`, `RerankAsync` or a GGUF token count. A connection failure is still an
   `HttpRequestException` (or `InferenceBackendExitedException` when the server process exited).
+- **Text for a voice in a language other than English still throws `NotSupportedException`**, now saying that the
+  built-in phonemizer covers English voices only (the Korean and Chinese voices need phonemes or a phonemizer of yours).
 
 ### Removed
 - **Breaking** — `LMSupply.Generator.Models.ToolDefinition`, a second public spelling of `ChatToolDefinition` (with
   implicit conversions both ways). Migration: use `ChatToolDefinition`, which `GenerationOptions.Tools` already takes.
+- **Breaking** — the synthesizer is no longer `[Experimental]`: `LocalSynthesizer` and `ISynthesizerModel` no longer
+  report `LMSUPPLY001`, and `SynthesizerDiagnostics` (its `ExperimentalId` and `ExperimentalUrl` constants) is removed.
+  Migration: delete `LMSUPPLY001` from `NoWarn` and `#pragma warning disable` lines, and any reference to
+  `SynthesizerDiagnostics`.
 
 ## [0.122.0] - 2026-10-15
 

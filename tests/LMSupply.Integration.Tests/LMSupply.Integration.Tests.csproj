@@ -1,8 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- LMSUPPLY001: These tests exercise the experimental synthesizer: speech from phonemes, and the refusal of text it has no phonemizer for. Only this id; removed when the synthesizer leaves [Experimental]. -->
-    <NoWarn>$(NoWarn);LMSUPPLY001</NoWarn>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

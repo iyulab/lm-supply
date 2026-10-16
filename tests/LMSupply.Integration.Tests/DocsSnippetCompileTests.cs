@@ -151,8 +151,7 @@ public class DocsSnippetCompileTests
         ["docs/segmenter.md"] = new() { ["segmenter"] = "ISegmenterModel segmenter = null!;" },
         ["docs/synthesizer.md"] = new()
         {
-            // The guide's reader has opted in to the experimental synthesizer, as its known-issue note says to.
-            ["synthesizer"] = "#pragma warning disable LMSUPPLY001\nISynthesizerModel synthesizer = null!;",
+            ["synthesizer"] = "ISynthesizerModel synthesizer = null!;",
             ["result"] = "SynthesisResult result = null!;",
             ["sentences"] = "IReadOnlyList<string> sentences = [];",
             // The reader's own audio sink.

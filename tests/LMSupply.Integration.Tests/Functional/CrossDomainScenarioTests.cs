@@ -253,23 +253,27 @@ public class CrossDomainScenarioTests
 
     // ── Scenario: Translate → Synthesize ─────────────────────────────
     // The translator runs into English only (no English→Korean ONNX export is published), so the pipeline starts with it.
-    // It stops at the synthesizer: a translation is free text, and the package has no phonemizer for its English voices.
-    // When one ships, this scenario goes on to transcribe the speech back to text.
+    // A translation is free text; the synthesizer's built-in English phonemizer speaks it, and the transcriber hears it.
 
     [Fact]
     [Trait("Scenario", "Translate-Synthesize")]
-    public async Task Scenario_TranslateSynthesize_TheTranslationIsRefusedWithoutAPhonemizer()
+    public async Task Scenario_TranslateSynthesize_TheTranslationIsSpokenAndHeard()
     {
         // 1. Translate Korean into English
         await using var translator = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
         var translation = await translator.TranslateAsync("오늘 날씨가 좋습니다.", TestContext.Current.CancellationToken);
         translation.TranslatedText.Should().NotBeNullOrEmpty("the translator should produce English text");
 
-        // 2. Speaking free text needs a phonemizer the synthesizer does not have
+        // 2. Speak the translation with no phonemizer set
         await using var synthesizer = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
-        var speak = () => synthesizer.SynthesizeAsync(translation.TranslatedText, cancellationToken: TestContext.Current.CancellationToken);
+        var speech = await synthesizer.SynthesizeAsync(translation.TranslatedText, cancellationToken: TestContext.Current.CancellationToken);
+        speech.AudioSamples.Should().NotBeEmpty();
+        speech.UnknownPhonemes.Should().BeEmpty();
 
-        await speak.Should().ThrowAsync<NotSupportedException>().WithMessage("*SynthesizerOptions.Phonemizer*");
+        // 3. Transcribe it back; how well it is heard is SynthesizerEnglishAcceptanceTests' question
+        await using var transcriber = await LocalTranscriber.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
+        var heard = await transcriber.TranscribeAsync(speech.ToWavBytes(), new TranscribeOptions { Language = "en" }, TestContext.Current.CancellationToken);
+        heard.Text.Should().NotBeNullOrWhiteSpace();
     }
 
     // ── Scenario: Generate → Embed → similarity check ────────────────

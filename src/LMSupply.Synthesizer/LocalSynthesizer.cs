@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using LMSupply.Synthesizer.Core;
 using LMSupply.Synthesizer.Models;
 
@@ -8,13 +7,11 @@ namespace LMSupply.Synthesizer;
 /// Main entry point for loading and using text-to-speech synthesis models.
 /// </summary>
 /// <remarks>
-/// Known issue: the package has no text-to-phoneme (G2P) step of its own for the voices in its catalog. A voice is run by
-/// the contract its config declares, so phonemes (<see cref="ISynthesizerModel.SynthesizePhonemesAsync"/>) and text spoken
-/// through a caller's <see cref="SynthesizerOptions.Phonemizer"/> come out as real speech; text without a phonemizer throws
-/// <see cref="NotSupportedException"/>. See the package README. Every use reports
-/// <see cref="SynthesizerDiagnostics.ExperimentalId"/> until a phonemizer ships with the package.
+/// A voice is run by the contract its config declares. Text for an English voice is turned into its phonemes by the
+/// package's built-in English phonemizer; for a voice in another language it needs a caller's
+/// <see cref="SynthesizerOptions.Phonemizer"/>, and throws <see cref="NotSupportedException"/> without one. Phonemes
+/// (<see cref="ISynthesizerModel.SynthesizePhonemesAsync"/>) work for every voice. See the package README.
 /// </remarks>
-[Experimental(SynthesizerDiagnostics.ExperimentalId, UrlFormat = SynthesizerDiagnostics.ExperimentalUrl)]
 public static class LocalSynthesizer
 {
     /// <summary>
