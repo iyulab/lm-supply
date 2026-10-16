@@ -24,6 +24,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `licenses/cmudict/LICENSE`). A phonemizer set in `SynthesizerOptions.Phonemizer` still replaces it for any voice.
 
 ### Fixed
+- **Package READMEs no longer name DirectML as a GPU provider.** It was removed in 0.67.0; the feature lists of the
+  Detector, Embedder, Reranker, Segmenter, Synthesizer, Transcriber and Translator packages, and the provider lists of
+  Core, Generator, Generator.Onnx, ImageGenerator and Ocr, still named it.
 - **A GGUF chat model in the cache lists as `Generator`, not `Unknown`.** `CacheManager.DetectModelType` (and so
   `CachedModelInfo.DetectedType`) recognised a generator only by the ONNX GenAI `genai_config.json`; a repository holding
   `*.gguf` files now reads as a generator unless its name already says embedder, reranker, transcriber or synthesizer
