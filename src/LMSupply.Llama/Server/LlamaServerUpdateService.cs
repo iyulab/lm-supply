@@ -92,21 +92,55 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
     /// <see cref="LlamaServerUpdateOptions.UpdateOnWarmup"/> it first checks for a newer build and
     /// applies it (<see cref="CheckAndApplyUpdateAsync"/>).
     /// </summary>
-    public async Task<LlamaServerUpdateResult> GetServerPathAsync(
+    public Task<LlamaServerUpdateResult> GetServerPathAsync(
         LlamaServerBackend backend,
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
+        => GetServerPathAsync(backend, localFilesOnly: false, progress, cancellationToken);
+
+    /// <summary>
+    /// The llama-server a model load runs: acquired as <see cref="GetServerPathAsync(LlamaServerBackend, IProgress{DownloadProgress}?, CancellationToken)"/>
+    /// does, or — with <paramref name="localFilesOnly"/> — from the external binary, the pinned version's cache or the cached
+    /// installation only: no download, no update check (also not in the background), no CUDA runtime fetch, so a load
+    /// with downloads disabled (<c>DisableAutoDownload</c>) makes no network request at all.
+    /// </summary>
+    /// <exception cref="LMSupply.Exceptions.ModelNotFoundException"><paramref name="localFilesOnly"/> and no server is cached (<c>ModelId</c> <c>"llama-server"</c>).</exception>
+    /// <exception cref="InvalidOperationException">The server could not be acquired.</exception>
+    public async Task<LlamaServerInstallation> AcquireServerAsync(
+        LlamaServerBackend backend,
+        bool localFilesOnly,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await GetServerPathAsync(backend, localFilesOnly, progress, cancellationToken);
+        if (result.Success)
+            return new LlamaServerInstallation(result.ServerPath, result.Backend, result.NewVersion ?? result.PreviousVersion);
+        if (result.NotCached)
+            throw new LMSupply.Exceptions.ModelNotFoundException(result.Error!, "llama-server");
+        throw new InvalidOperationException($"Failed to get llama-server: {result.Error}");
+    }
+
+    private async Task<LlamaServerUpdateResult> GetServerPathAsync(
+        LlamaServerBackend backend,
+        bool localFilesOnly,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
     {
         progress = RuntimeDownloadProgress.Wrap(progress);
-        if (_options.UpdateOnWarmup && !IsPinned)
+        if (_options.UpdateOnWarmup && !IsPinned && !localFilesOnly)
         {
             var updated = await CheckAndApplyUpdateAsync(backend, progress, cancellationToken);
             await EnsureCudaRuntimeAsync(updated, progress, cancellationToken);
             return updated;
         }
 
-        return await AcquireAsync(backend, progress, cancellationToken);
+        return await AcquireAsync(backend, progress, localFilesOnly, cancellationToken);
     }
+
+    private string NotCachedMessage(LlamaServerBackend backend, string? version) =>
+        $"llama-server ({backend.ToString().ToLowerInvariant()}{(version is null ? "" : $", {version}")}) is not in the cache '{_downloader.CacheDirectory}', " +
+        "and downloads are disabled (DisableAutoDownload). Download the model while downloads are allowed, or point " +
+        "LlamaServerUpdateOptions.ServerBinaryPath at a server shipped with the application.";
 
     // A pinned or externally supplied installation never checks for, or applies, a newer version.
     private bool IsPinned => !string.IsNullOrEmpty(_options.ServerBinaryPath) || !string.IsNullOrEmpty(_options.PinnedVersion);
@@ -118,6 +152,7 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
     private async Task<LlamaServerUpdateResult> AcquireAsync(
         LlamaServerBackend backend,
         IProgress<DownloadProgress>? progress,
+        bool localFilesOnly,
         CancellationToken cancellationToken)
     {
         if (!string.IsNullOrEmpty(_options.ServerBinaryPath))
@@ -139,8 +174,9 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
             return LlamaServerUpdateResult.NoUpdate(_options.ServerBinaryPath, backend, version);
         }
 
-        var result = await GetServerPathCoreAsync(backend, progress, cancellationToken);
-        await EnsureCudaRuntimeAsync(result, progress, cancellationToken);
+        var result = await GetServerPathCoreAsync(backend, progress, localFilesOnly, cancellationToken);
+        if (!localFilesOnly)
+            await EnsureCudaRuntimeAsync(result, progress, cancellationToken);
         return result;
     }
 
@@ -167,15 +203,16 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
 
     private async Task<LlamaServerUpdateResult> GetServerPathCoreAsync(
         LlamaServerBackend backend,
-        IProgress<DownloadProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        IProgress<DownloadProgress>? progress,
+        bool localFilesOnly,
+        CancellationToken cancellationToken)
     {
         if (!string.IsNullOrEmpty(_options.PinnedVersion))
         {
             // A pinned version bypasses the state/rollback machinery entirely: it never
             // participates in auto-update tracking, so there is nothing to reconcile against a
             // previously-recorded "latest" installation.
-            return await GetPinnedVersionResultAsync(_options.PinnedVersion, backend, progress, cancellationToken);
+            return await GetPinnedVersionResultAsync(_options.PinnedVersion, backend, progress, localFilesOnly, cancellationToken);
         }
 
         var platform = GetCurrentPlatform();
@@ -199,7 +236,8 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
                     if (activatedState != null)
                     {
                         await CleanupSupersededBestEffortAsync(cancellationToken);
-                        TriggerBackgroundCheck(backend);
+                        if (!localFilesOnly)
+                            TriggerBackgroundCheck(backend);
                         return LlamaServerUpdateResult.WithUpdate(
                             serverExe, backend, state.InstalledVersion, activatedState.InstalledVersion);
                     }
@@ -210,7 +248,8 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
             var existingExe = ResolveInstalledServer(state);
             if (existingExe != null)
             {
-                TriggerBackgroundCheck(backend);
+                if (!localFilesOnly)
+                    TriggerBackgroundCheck(backend);
                 return LlamaServerUpdateResult.NoUpdate(existingExe, backend, state.InstalledVersion);
             }
         }
@@ -227,10 +266,14 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
                 await _stateManager.CreateInitialStateAsync(
                     backendStr, platform, cachedVersion, BuildBackendOf(cachedPath), cancellationToken);
 
-                TriggerBackgroundCheck(backend);
+                if (!localFilesOnly)
+                    TriggerBackgroundCheck(backend);
                 return LlamaServerUpdateResult.NoUpdate(cachedPath, backend, cachedVersion);
             }
         }
+
+        if (localFilesOnly)
+            return LlamaServerUpdateResult.NotInCache(backend, NotCachedMessage(backend, version: null));
 
         // No cached version found, download latest
         progress?.Report(new DownloadProgress
@@ -267,11 +310,14 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         string pinnedVersion,
         LlamaServerBackend backend,
         IProgress<DownloadProgress>? progress,
+        bool localFilesOnly,
         CancellationToken cancellationToken)
     {
         var cachedPath = _downloader.GetCachedServerPath(pinnedVersion, backend);
         if (cachedPath != null)
             return LlamaServerUpdateResult.NoUpdate(cachedPath, backend, pinnedVersion);
+        if (localFilesOnly)
+            return LlamaServerUpdateResult.NotInCache(backend, NotCachedMessage(backend, pinnedVersion));
 
         progress?.Report(new DownloadProgress
         {
@@ -289,7 +335,7 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Checks for updates and applies them immediately if available. <see cref="GetServerPathAsync"/>
+    /// Checks for updates and applies them immediately if available. <see cref="GetServerPathAsync(LlamaServerBackend, IProgress{DownloadProgress}?, CancellationToken)"/>
     /// calls it when <see cref="LlamaServerUpdateOptions.UpdateOnWarmup"/> is set; the generator calls it
     /// when the cached build is too old for a model.
     /// </summary>
@@ -305,7 +351,7 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         // ServerBinaryPath). Route straight to the pinned/external resolution instead.
         if (IsPinned)
         {
-            return await AcquireAsync(backend, progress, cancellationToken);
+            return await AcquireAsync(backend, progress, localFilesOnly: false, cancellationToken);
         }
 
         await _updateLock.WaitAsync(cancellationToken);
@@ -320,7 +366,7 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
             // (adopts a cached build or downloads), then the next check updates it
             var installedExe = state is null ? null : ResolveInstalledServer(state);
             if (state is null || installedExe is null)
-                return await AcquireAsync(backend, progress, cancellationToken);
+                return await AcquireAsync(backend, progress, localFilesOnly: false, cancellationToken);
 
             // Check for new version
             var latestVersion = await _downloader.GetLatestVersionAsync(cancellationToken);

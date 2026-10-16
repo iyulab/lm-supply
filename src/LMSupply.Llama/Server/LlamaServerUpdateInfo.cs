@@ -59,6 +59,12 @@ public sealed record LlamaServerUpdateInfo
     }
 }
 
+/// <summary>The llama-server a load runs: its executable, its backend and, when known, its build.</summary>
+/// <param name="ServerPath">Path to the llama-server executable.</param>
+/// <param name="Backend">The backend the build serves.</param>
+/// <param name="Version">The build (for example <c>b7898</c>), or null when it could not be read.</param>
+public sealed record LlamaServerInstallation(string ServerPath, LlamaServerBackend Backend, string? Version);
+
 /// <summary>
 /// Result of an update check or apply operation.
 /// </summary>
@@ -132,6 +138,12 @@ public sealed record LlamaServerUpdateResult
     /// <summary>
     /// Creates a failed result.
     /// </summary>
+    // A local-only acquisition found no server in the cache (LlamaServerUpdateService.AcquireServerAsync throws ModelNotFoundException for it).
+    internal bool NotCached { get; init; }
+
+    internal static LlamaServerUpdateResult NotInCache(LlamaServerBackend backend, string error)
+        => Failed(string.Empty, backend, error) with { NotCached = true };
+
     public static LlamaServerUpdateResult Failed(string serverPath, LlamaServerBackend backend, string error)
         => new()
         {

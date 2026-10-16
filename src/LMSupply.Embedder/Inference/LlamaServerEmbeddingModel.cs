@@ -75,19 +75,15 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
         var preferredBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(
             options.Provider, Hardware.HardwareProfile.For(options.Provider).GpuInfo);
         var updateService = LlamaServerUpdateService.Resolve(options.ServerUpdateOptions);
-        var updateResult = await updateService.GetServerPathAsync(
+        // With downloads disabled the server comes from the cache only, with no update check: the load makes no request.
+        var installation = await updateService.AcquireServerAsync(
             preferredBackend,
+            options.DisableAutoDownload,
             progress,
             cancellationToken);
 
-        if (!updateResult.Success)
-        {
-            throw new InvalidOperationException(
-                $"Failed to get llama-server: {updateResult.Error}");
-        }
-
-        var serverPath = updateResult.ServerPath;
-        var backend = updateResult.Backend;
+        var serverPath = installation.ServerPath;
+        var backend = installation.Backend;
 
         // 2. Configure server for embedding mode. The pool reports Loading when it starts a server.
         // Pooling and length come from the file when the options leave them unset: a GGUF embedder records the pooling
@@ -114,7 +110,7 @@ internal sealed class LlamaServerEmbeddingModel : IEmbeddingModel
             Parallel = 1,
             Mode = ServerMode.Embedding,
             Pooling = poolingType,
-            ServerVersion = updateResult.NewVersion ?? updateResult.PreviousVersion,
+            ServerVersion = installation.Version,
             ShutdownTimeout = TimeSpan.FromSeconds(10)
         };
 

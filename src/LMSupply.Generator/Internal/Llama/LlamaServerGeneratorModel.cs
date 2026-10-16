@@ -111,20 +111,16 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         var preferredBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(
             options.Provider, Hardware.HardwareProfile.For(options.Provider).GpuInfo);
         var updateService = LlamaServerUpdateService.Resolve(options.ServerUpdateOptions);
-        var updateResult = await updateService.GetServerPathAsync(
+        // With downloads disabled the server comes from the cache only, with no update check: the load makes no request.
+        var installation = await updateService.AcquireServerAsync(
             preferredBackend,
+            options.DisableAutoDownload,
             progress,
             cancellationToken);
 
-        if (!updateResult.Success)
-        {
-            throw new InvalidOperationException(
-                $"Failed to get llama-server: {updateResult.Error}");
-        }
-
-        var serverPath = updateResult.ServerPath;
-        var backend = updateResult.Backend;
-        var serverVersion = updateResult.NewVersion ?? updateResult.PreviousVersion;
+        var serverPath = installation.ServerPath;
+        var backend = installation.Backend;
+        var serverVersion = installation.Version;
 
         // 1b. Validate server version meets model requirements.
         // If the cached version is too old, trigger an immediate update and retry once
@@ -132,7 +128,9 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         // pins a version, CheckAndApplyUpdateAsync intentionally short-circuits to the same pinned
         // binary (a pin must never be silently exceeded), so this retry is a no-op and Validate below
         // still throws — correctly, since the pin genuinely doesn't meet the requirement.
-        if (!LlamaServerVersionRequirements.MeetsMinimum(serverVersion, chatFormatter.FormatName))
+        // With downloads disabled no newer build is fetched: Validate below says the cached one is too old.
+        if (!options.DisableAutoDownload
+            && !LlamaServerVersionRequirements.MeetsMinimum(serverVersion, chatFormatter.FormatName))
         {
             var retryResult = await updateService.CheckAndApplyUpdateAsync(
                 preferredBackend, progress, cancellationToken);
@@ -306,19 +304,29 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
 
                 // Re-acquire the CPU server binary and switch the backend. CPU is RAM-bound, so the
                 // full requested context is kept (EstimateSafeContextLength returns it for GpuLayerCount=0).
-                var cpuResult = await updateService.GetServerPathAsync(LlamaServerBackend.Cpu, progress, cancellationToken);
-                if (cpuResult.Success)
+                LlamaServerInstallation? cpu = null;
+                string? cpuError = null;
+                try
                 {
-                    serverPath = cpuResult.ServerPath;
+                    cpu = await updateService.AcquireServerAsync(LlamaServerBackend.Cpu, options.DisableAutoDownload, progress, cancellationToken);
+                }
+                catch (Exception ex) when (ex is ModelNotFoundException or InvalidOperationException)
+                {
+                    cpuError = ex.Message;
+                }
+
+                if (cpu is not null)
+                {
+                    serverPath = cpu.ServerPath;
                     backend = LlamaServerBackend.Cpu;
-                    serverVersion = cpuResult.NewVersion ?? cpuResult.PreviousVersion ?? serverVersion;
+                    serverVersion = cpu.Version ?? serverVersion;
                     llamaOpts = CloneLlamaOptionsForCpuFallback(llamaOpts);
                 }
                 else
                 {
                     // CPU binary unavailable — degrade to the floored context rather than fail the load.
                     Trace.TraceWarning(
-                        $"[LlamaServerGeneratorModel] CPU fallback unavailable ({cpuResult.Error}); " +
+                        $"[LlamaServerGeneratorModel] CPU fallback unavailable ({cpuError}); " +
                         $"using floored {safeContext}-token context.");
                     contextLength = safeContext;
                 }

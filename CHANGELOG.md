@@ -6,6 +6,18 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Changed
+- **Breaking: `DisableAutoDownload` keeps a GGUF load off the network entirely.** It covered model files only, so a GGUF
+  generator, embedder or reranker loaded with it still downloaded llama-server when none was cached, and a cached server
+  still ran the background update check — «downloads disabled» was not «no request». Now the server comes from the
+  llama-server cache, an external `ServerBinaryPath` or a cached `PinnedVersion` only; a missing server throws
+  `ModelNotFoundException` (`ModelId` `"llama-server"`), and no update check runs at load or in the background. A cached server
+  older than the model needs is reported (`LlamaServerVersionRequirements`) instead of updated. Migration: download the
+  model once with downloads allowed (its server is cached with it), or point `LlamaServerUpdateOptions.ServerBinaryPath` at a
+  bundled server. `LlamaServerUpdateService.AcquireServerAsync(backend, localFilesOnly, …)` is the acquisition a load makes
+  (a `LlamaServerInstallation`; throws instead of returning a failed result). The ONNX Runtime keeps its process-wide switch
+  (`RuntimeManagerOptions.DisableAutoDownload`).
+
 ### Added
 - **A GGUF model reports the log probability of each token it generates.** `GenerationOptions.TopLogprobs` (null by
   default) asks for them: 0 for each generated token's own value, n for the n most likely candidates at each position

@@ -600,6 +600,9 @@ public sealed class LlamaServerDownloader : IDisposable
 
         return false;
     }
+    /// <summary>The directory llama-server builds are cached in.</summary>
+    public string CacheDirectory => _cacheDirectory;
+
 
     /// <summary>
     /// Gets the path to a cached llama-server version, or null if not cached.

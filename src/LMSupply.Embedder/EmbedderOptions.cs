@@ -50,8 +50,10 @@ public sealed class EmbedderOptions : LMSupplyOptionsBase
     /// Gets or sets whether to disable automatic model download.
     /// When true, loading uses only the local cache and throws <see cref="LMSupply.Exceptions.ModelNotFoundException"/>
     /// if a model file is not there, writing nothing to the cache.
-    /// This covers model files only. The native ONNX Runtime an ONNX model runs on is provisioned separately; to keep
-    /// it off the network too, see <see cref="LMSupply.Runtime.RuntimeManager.Configure"/>.
+    /// It covers the llama-server a GGUF model runs on too: the server comes from the cache (or an external or pinned
+    /// build), a missing one throws <see cref="LMSupply.Exceptions.ModelNotFoundException"/>, and no update check runs.
+    /// The native ONNX Runtime an ONNX model runs on is process-wide and provisioned separately; to keep it off the
+    /// network too, see <see cref="LMSupply.Runtime.RuntimeManager.Configure"/>.
     /// <para>Default: false</para>
     /// </summary>
     public bool DisableAutoDownload { get; set; }

@@ -57,19 +57,15 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
         var preferredBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(
             options.Provider, Hardware.HardwareProfile.For(options.Provider).GpuInfo);
         var updateService = LlamaServerUpdateService.Resolve(options.ServerUpdateOptions);
-        var updateResult = await updateService.GetServerPathAsync(
+        // With downloads disabled the server comes from the cache only, with no update check: the load makes no request.
+        var installation = await updateService.AcquireServerAsync(
             preferredBackend,
+            options.DisableAutoDownload,
             progress,
             cancellationToken);
 
-        if (!updateResult.Success)
-        {
-            throw new InvalidOperationException(
-                $"Failed to get llama-server: {updateResult.Error}");
-        }
-
-        var serverPath = updateResult.ServerPath;
-        var backend = updateResult.Backend;
+        var serverPath = installation.ServerPath;
+        var backend = installation.Backend;
 
         // 2. Configure server for reranking mode (embedding + rank pooling). The pool reports Loading when it
         // starts a server.
@@ -85,7 +81,7 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
             Parallel = 1,
             Mode = ServerMode.Reranking, // Enables --embedding and --pooling rank
             Pooling = PoolingType.Rank,
-            ServerVersion = updateResult.NewVersion ?? updateResult.PreviousVersion,
+            ServerVersion = installation.Version,
             ShutdownTimeout = TimeSpan.FromSeconds(10)
         };
 

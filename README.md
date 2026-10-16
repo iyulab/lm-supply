@@ -957,7 +957,13 @@ The same mode is available directly as `new HuggingFaceDownloader(cacheDir, loca
 `new ModelPathResolver(cacheDir, localFilesOnly: true)` (the `local_files_only` mode of `huggingface_hub`).
 Populate the cache once on a connected machine (e.g. `LocalReranker.DownloadModelAsync`) and copy it over.
 
-`DisableAutoDownload` on a model's options covers **model files only**. ONNX models (Embedder, Reranker, Transcriber,
+`DisableAutoDownload` also covers the **llama-server** a GGUF model (Generator, Embedder, Reranker) runs on: the server comes
+from the llama-server cache, an external `LlamaServerUpdateOptions.ServerBinaryPath` or a cached `PinnedVersion`; a server that
+is not there throws `ModelNotFoundException` (`ModelId` `"llama-server"`), and no update check runs — not at load, not in the
+background. A cached server older than a model needs is reported rather than updated. Download a GGUF model once with
+downloads allowed and its server is cached with it.
+
+It does not cover the native ONNX Runtime. ONNX models (Embedder, Reranker, Transcriber,
 OCR, …) also need the native ONNX Runtime, which LMSupply provisions from nuget.org into its runtime cache on first
 use. The package reference deliberately leaves the native files out, so they are not in your build output. To keep the
 runtime off the network too, configure the process-wide runtime manager once, before the first model load:
