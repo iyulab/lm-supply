@@ -17,12 +17,10 @@ public class GeneratorIntegrationTests
     private const string Phi4Model = "microsoft/Phi-4-mini-instruct-onnx";
     private const string TestPrompt = "What is 2+2? Answer with just the number.";
 
-    // Cached model paths (for direct path loading)
-    private static readonly string Phi4CachedPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".cache", "huggingface", "hub",
-        "models--microsoft--Phi-4-mini-instruct-onnx",
-        "snapshots", "main");
+    // The directory LoadFromPathAsync is given: the one a load of the repository with the same options would
+    // use, downloaded first when the cache lacks it — so these facts run on any machine the others run on.
+    private static Task<string> Phi4PathAsync(GeneratorOptions options) =>
+        LocalGenerator.DownloadModelAsync(Phi4Model, options, cancellationToken: TestContext.Current.CancellationToken);
 
     #region Phi-3.5 Tests
 
@@ -316,14 +314,11 @@ public class GeneratorIntegrationTests
 
     #endregion
 
-    #region Direct Path Loading Tests (Using Cached Models)
+    #region Direct Path Loading Tests
 
     [Fact]
     public async Task Phi4_FromPath_Cuda_LoadAndGenerate_ShouldWork()
     {
-        // Require cached model
-        Assert.True(Directory.Exists(Phi4CachedPath), $"Phi-4 model not cached at {Phi4CachedPath}. Run `huggingface-cli download microsoft/Phi-4-mini-instruct-onnx` first.");
-
         // Arrange
         var options = new GeneratorOptions
         {
@@ -331,7 +326,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act - Load directly from path
-        await using var model = await LocalGenerator.LoadFromPathAsync(Phi4CachedPath, options, cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalGenerator.LoadFromPathAsync(await Phi4PathAsync(options), options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - Load
         model.Should().NotBeNull();
@@ -350,9 +345,6 @@ public class GeneratorIntegrationTests
     [Fact]
     public async Task Phi4_FromPath_CPU_LoadAndGenerate_ShouldWork()
     {
-        // Require cached model
-        Assert.True(Directory.Exists(Phi4CachedPath), $"Phi-4 model not cached at {Phi4CachedPath}. Run `huggingface-cli download microsoft/Phi-4-mini-instruct-onnx` first.");
-
         // Arrange
         var options = new GeneratorOptions
         {
@@ -360,7 +352,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act - Load directly from path
-        await using var model = await LocalGenerator.LoadFromPathAsync(Phi4CachedPath, options, cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalGenerator.LoadFromPathAsync(await Phi4PathAsync(options), options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - Load
         model.Should().NotBeNull();
@@ -378,9 +370,6 @@ public class GeneratorIntegrationTests
     [Fact]
     public async Task Phi4_FromPath_Cuda_WarmupAsync_ShouldNotThrow()
     {
-        // Require cached model
-        Assert.True(Directory.Exists(Phi4CachedPath), $"Phi-4 model not cached at {Phi4CachedPath}. Run `huggingface-cli download microsoft/Phi-4-mini-instruct-onnx` first.");
-
         // Arrange
         var options = new GeneratorOptions
         {
@@ -388,7 +377,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act
-        await using var model = await LocalGenerator.LoadFromPathAsync(Phi4CachedPath, options, cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalGenerator.LoadFromPathAsync(await Phi4PathAsync(options), options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         var warmupAction = () => model.WarmupAsync();
@@ -398,9 +387,6 @@ public class GeneratorIntegrationTests
     [Fact]
     public async Task Phi4_FromPath_CPU_WarmupAsync_ShouldNotThrow()
     {
-        // Require cached model
-        Assert.True(Directory.Exists(Phi4CachedPath), $"Phi-4 model not cached at {Phi4CachedPath}. Run `huggingface-cli download microsoft/Phi-4-mini-instruct-onnx` first.");
-
         // Arrange
         var options = new GeneratorOptions
         {
@@ -408,7 +394,7 @@ public class GeneratorIntegrationTests
         };
 
         // Act
-        await using var model = await LocalGenerator.LoadFromPathAsync(Phi4CachedPath, options, cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalGenerator.LoadFromPathAsync(await Phi4PathAsync(options), options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         var warmupAction = () => model.WarmupAsync();
