@@ -34,6 +34,11 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `NoRepeatNgramSize`; `GenerateChatWithReasoningAsync` and `GenerateWithReasoningAsync` likewise dropped `Thinking`,
   `Seed`, `MinP`, the penalties, `Grammar`, `JsonSchema` and `Tools`. Both now copy every option. The reasoning helpers
   return text only, so they throw `NotSupportedException` when `TopLogprobs` is set.
+- **`SpeculativeDecoder` gives the draft model every option the caller set.** Its copies of `GenerationOptions` listed
+  the options they carried, so the draft model was not given `Seed`, `MinP`, `Thinking`, the frequency and presence
+  penalties, `Grammar`,
+  `JsonSchema` or `Tools`, and drafted tokens the target then had to reject. Only the draft's temperature and the
+  length of each speculation now differ from what the caller set.
 
 ### Changed
 - **Breaking** — `IGeneratorModel` has a new member, `TokenizeAsync(string, CancellationToken)`. Migration: an

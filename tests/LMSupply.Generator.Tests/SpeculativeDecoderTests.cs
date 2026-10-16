@@ -1,3 +1,4 @@
+using System.Reflection;
 using AwesomeAssertions;
 using LMSupply.Generator.Abstractions;
 using LMSupply.Generator.Models;
@@ -195,6 +196,61 @@ public class SpeculativeDecoderTests
         };
 
         await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task TheDraftModel_IsGivenEveryOptionTheCallerSet_ButItsTemperatureAndLength()
+    {
+        // Every settable option of a value type or string gets a value other than its default, so an option a copy
+        // leaves out — one added after the copy was written included — shows as a difference.
+        var options = new GenerationOptions();
+        var set = new List<string>();
+        foreach (var property in typeof(GenerationOptions).GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite && p.GetSetMethod() is not null))
+        {
+            if (property.Name == nameof(GenerationOptions.TopLogprobs))
+            {
+                continue; // refused by speculative decoding
+            }
+
+            var type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            object? value = type == typeof(bool) ? !(bool)(property.GetValue(options) ?? false)
+                : type == typeof(int) ? 7
+                : type == typeof(long) ? 7L
+                : type == typeof(float) ? 0.37f
+                : type == typeof(double) ? 0.37
+                : type == typeof(string) ? "x"
+                : type.IsEnum ? Enum.GetValues(type).Cast<object>().First(v => !Equals(v, property.GetValue(options)))
+                : null;
+            if (value is not null)
+            {
+                property.SetValue(options, value);
+                set.Add(property.Name);
+            }
+        }
+
+        options.StopSequences = ["</s>"];
+        set.Should().Contain(["Seed", "MinP", "Thinking"]);
+
+        var draftModel = Substitute.For<IGeneratorModel>();
+        var targetModel = Substitute.For<IGeneratorModel>();
+        var draftSeen = new List<GenerationOptions>();
+        draftModel.GenerateAsync(Arg.Any<string>(), Arg.Do<GenerationOptions>(o => draftSeen.Add(o)), Arg.Any<CancellationToken>())
+            .Returns(CreateAsyncEnumerable("a"));
+        targetModel.GenerateAsync(Arg.Any<string>(), Arg.Any<GenerationOptions>(), Arg.Any<CancellationToken>())
+            .Returns(CreateAsyncEnumerable("a"));
+        using var decoder = new SpeculativeDecoder(draftModel, targetModel);
+
+        await foreach (var _ in decoder.GenerateAsync("Test", options, TestContext.Current.CancellationToken))
+        {
+        }
+
+        var draft = draftSeen.Should().NotBeEmpty().And.Subject.First();
+        foreach (var property in typeof(GenerationOptions).GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanRead && p.Name is not nameof(GenerationOptions.Temperature) and not nameof(GenerationOptions.MaxTokens)))
+        {
+            property.GetValue(draft).Should().Be(property.GetValue(options), $"the draft model is given {property.Name} as the caller set it");
+        }
+
+        draft.Should().NotBeSameAs(options, "the caller's options are not changed");
     }
 
     private static async IAsyncEnumerable<string> CreateAsyncEnumerable(params string[] items)

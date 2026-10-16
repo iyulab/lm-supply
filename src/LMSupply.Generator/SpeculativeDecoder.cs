@@ -185,36 +185,17 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
         // Use lower temperature for draft model for more predictable tokens
         var draftTemp = _options.DraftTemperature ?? Math.Max(0.1f, opts.Temperature - 0.2f);
 
-        return new GenerationOptions
-        {
-            MaxTokens = opts.MaxTokens,
-            Temperature = draftTemp,
-            TopP = opts.TopP,
-            TopK = opts.TopK,
-            RepetitionPenalty = opts.RepetitionPenalty,
-            StopSequences = opts.StopSequences,
-            DoSample = opts.DoSample,
-            NumBeams = opts.NumBeams,
-            PastPresentShareBuffer = opts.PastPresentShareBuffer,
-            MaxNewTokens = opts.MaxNewTokens
-        };
+        // Every option the caller set goes to the draft model as well; only its temperature differs.
+        var draft = opts.Clone();
+        draft.Temperature = draftTemp;
+        return draft;
     }
 
     private static GenerationOptions CloneWithMaxTokens(GenerationOptions source, int maxTokens)
     {
-        return new GenerationOptions
-        {
-            MaxTokens = maxTokens,
-            Temperature = source.Temperature,
-            TopP = source.TopP,
-            TopK = source.TopK,
-            RepetitionPenalty = source.RepetitionPenalty,
-            StopSequences = source.StopSequences,
-            DoSample = source.DoSample,
-            NumBeams = source.NumBeams,
-            PastPresentShareBuffer = source.PastPresentShareBuffer,
-            MaxNewTokens = source.MaxNewTokens
-        };
+        var copy = source.Clone();
+        copy.MaxTokens = maxTokens;
+        return copy;
     }
 
     private async Task<(List<string> verified, bool rejected)> VerifyTokensAsync(
