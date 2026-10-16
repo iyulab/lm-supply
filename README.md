@@ -1028,6 +1028,28 @@ await using var model = await LocalGenerator.LoadAsync("gguf:default", new Gener
 «Available offline» is exactly what a load with `DisableAutoDownload` needs, so that load then makes no network request.
 `GetRemainingDownloadBytesAsync` counts model files only (llama-server is a shared runtime of a few hundred MB, fetched once).
 
+A host that shows several models to a user keeps them in one `ModelLifecycle`: each model's status (`Missing`, `Downloading`
+with progress, `Ready`, or `Failed` with the exception), a stream of every change for the UI, downloads that two callers share
+and any caller can cancel (`CancelDownload` — partial files stay and resume). It never downloads on its own; a status read looks
+at the cache only.
+
+```csharp
+using LMSupply.Embedder;
+using LMSupply.Generator;
+using LMSupply.Lifecycle;
+
+var models = new ModelLifecycle([new GeneratorArtifacts(), new EmbedderArtifacts()]);
+
+var status = await models.GetStatusAsync("generator", "gguf:default");       // Missing / Downloading / Ready / Failed
+_ = Task.Run(async () =>
+{
+    await foreach (var change in models.WatchAsync())
+        Console.WriteLine($"{change.Kind} {change.ModelId}: {change.State} {change.Progress?.PercentComplete:F0}");
+});
+
+await models.DownloadAsync("generator", "gguf:default");                   // on the user's consent
+```
+
 ### Behind a proxy
 
 Every download LMSupply makes — models, ONNX runtime packages, llama-server builds — uses the .NET default proxy, so

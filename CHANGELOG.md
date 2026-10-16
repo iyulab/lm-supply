@@ -25,6 +25,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   the model files and, for a GGUF model, llama-server; `GetRemainingDownloadBytesAsync` gives the model-file bytes still to
   fetch; `DownloadAsync` fetches the files and, for GGUF, llama-server, so the model is available offline afterwards
   (`DownloadModelAsync` alone does not fetch the server).
+- **`ModelLifecycle` keeps the models a host manages, across calls.** Over the providers of the model kinds it uses: each
+  model's status (`Missing`, `Downloading` with the latest `DownloadProgress`, `Ready`, `Failed` with the exception the download
+  threw), `WatchAsync` — a stream of every change — and `DownloadAsync`, shared by every caller asking for the same model and
+  cancellable by any caller with `CancelDownload` (a caller's own token only stops its wait). It never downloads on its own.
 - **A GGUF model reports the log probability of each token it generates.** `GenerationOptions.TopLogprobs` (null by
   default) asks for them: 0 for each generated token's own value, n for the n most likely candidates at each position
   as well. They arrive as `TokenLogprob` entries (`TokenId`, `Token`, `Logprob`, `Bytes`, `TopLogprobs` — the shape of
