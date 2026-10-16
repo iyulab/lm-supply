@@ -18,6 +18,15 @@ public static class SynthesizeEndpoints
         ["shimmer"] = "default"
     };
 
+    /// <summary>
+    /// The synthesizer model a speech request asks for: an OpenAI voice name sent as <c>voice</c> picks the
+    /// model it maps to; otherwise <c>model</c> names it, and <c>default</c> when neither is sent.
+    /// </summary>
+    internal static string ResolveModelId(SpeechRequest request) =>
+        request.Voice is { } voice && VoiceMap.TryGetValue(voice, out var mapped)
+            ? mapped
+            : string.IsNullOrWhiteSpace(request.Model) ? "default" : request.Model;
+
     public static void MapSynthesizeEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/v1/audio").WithTags("Audio");
@@ -30,10 +39,7 @@ public static class SynthesizeEndpoints
                 if (string.IsNullOrWhiteSpace(request.Input))
                     return ApiHelper.Error("'input' field is required");
 
-                // Map OpenAI voice name to model alias; fall back to request.Model or "default"
-                var modelId = VoiceMap.TryGetValue(request.Voice ?? "", out var voiceModel)
-                    ? voiceModel
-                    : (request.Model ?? "default");
+                var modelId = ResolveModelId(request);
                 await using var scope = await manager.GetSynthesizerAsync(modelId, ct);
 
                 var synthesizeOptions = new SynthesizeOptions

@@ -60,9 +60,10 @@ public sealed record SpeechRequest
     public required string Input { get; init; }
 
     /// <summary>
-    /// Voice to use (alloy, echo, fable, onyx, nova, shimmer)
+    /// Voice to use (alloy, echo, fable, onyx, nova, shimmer). One of these names picks the default
+    /// voice; when no voice is sent, <see cref="Model"/> names the synthesizer model.
     /// </summary>
-    public string Voice { get; init; } = "alloy";
+    public string? Voice { get; init; }
 
     /// <summary>
     /// Response format: mp3, opus, aac, flac, wav, pcm

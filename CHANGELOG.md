@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Fixed
+- **The console host's `POST /v1/audio/speech` uses the `model` a request names.** `voice` defaulted to `alloy`,
+  which maps to the default voice, so a request that named a synthesizer model and no voice was spoken by the default
+  voice. An OpenAI voice name sent as `voice` still picks the default voice, as before.
+
 ## [0.123.0] - 2026-10-16
 
 ### Added
