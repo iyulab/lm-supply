@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using LMSupply.Inference;
+using LMSupply.Synthesizer.Core.English;
 using LMSupply.Synthesizer.Models;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
@@ -22,6 +23,10 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
     private RecoverableOnnxSession? _session;
     private SynthesizerModelInfo? _modelInfo;
     private VoiceConfig? _voice;
+
+    // Resolved on the first text, once: a refusal is the same every time, and the English phonemizer checks the voice's
+    // symbols when it is made.
+    private Lazy<IPhonemizer>? _phonemizer;
     private bool _isInitialized;
     private bool _isDisposed;
 
@@ -139,28 +144,32 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
             yield return chunk;
     }
 
-    // Text becomes phonemes through the caller's phonemizer, or the built-in one for a voice whose phonemes are its
-    // text. A voice with neither gets no audio: ids made up for its text would come out as noise.
+    // Text becomes phonemes through the caller's phonemizer, or a built-in one: the text itself for a voice whose phonemes
+    // are its text, the English phonemizer for an English voice. A voice with none of them gets no audio: ids made up for
+    // its text would come out as noise.
     private async Task<IReadOnlyList<string>> PhonemizeAsync(string text, CancellationToken cancellationToken)
     {
-        var scheme = _voice!.Scheme;
-        var phonemizer = ResolvePhonemizer(_options.Phonemizer, scheme, _modelInfo!.AliasName);
-
-        return await phonemizer.PhonemizeAsync(text, scheme, cancellationToken)
+        var phonemizer = _phonemizer!.Value;
+        return await phonemizer.PhonemizeAsync(text, _voice!.Scheme, cancellationToken)
             ?? throw new InvalidOperationException($"{phonemizer.GetType().Name}.PhonemizeAsync returned null.");
     }
 
-    internal static IPhonemizer ResolvePhonemizer(IPhonemizer? callers, PhonemeScheme scheme, string voiceName)
+    internal static IPhonemizer ResolvePhonemizer(IPhonemizer? callers, VoiceConfig voice, string voiceName)
     {
         if (callers is not null)
             return callers;
 
+        var scheme = voice.Scheme;
         if (string.Equals(scheme.Type, VoiceConfig.TextType, StringComparison.OrdinalIgnoreCase))
             return CodepointPhonemizer.Instance;
 
+        if (EnglishPhonemizer.TryGetAccent(scheme, out var accent))
+            return new EnglishPhonemizer(accent, voice.Encoder.Has, voiceName);
+
         throw new NotSupportedException(
             $"The voice '{voiceName}' takes '{scheme.Type}' phonemes (phonemizer voice '{scheme.Voice ?? "unspecified"}', " +
-            $"language '{scheme.Language ?? "unspecified"}'), and this package has no phonemizer that turns text into them. " +
+            $"language '{scheme.Language ?? "unspecified"}'), and this package has no phonemizer that turns text into them " +
+            "(its own covers English voices only). " +
             "Set SynthesizerOptions.Phonemizer to an IPhonemizer that produces them, or pass phonemes to SynthesizePhonemesAsync.");
     }
 
@@ -310,6 +319,8 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
 
             _voice = VoiceConfig.Parse(await File.ReadAllTextAsync(configPath, cancellationToken), _modelInfo);
             _modelInfo = _voice.Reconcile(_modelInfo);
+            var (voice, voiceName) = (_voice, _modelInfo.AliasName);
+            _phonemizer = new Lazy<IPhonemizer>(() => ResolvePhonemizer(_options.Phonemizer, voice, voiceName));
 
             // Load model
             var modelFilePath = Path.Combine(modelPath, _modelInfo.ModelFile);

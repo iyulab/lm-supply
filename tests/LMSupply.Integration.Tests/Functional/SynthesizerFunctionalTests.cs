@@ -11,8 +11,9 @@ namespace LMSupply.Integration.Tests.Functional;
 /// Requires GPU + network access. Run locally only.
 /// </summary>
 /// <remarks>
-/// The package has no phonemizer for these voices, so the facts pass phonemes (<see cref="SpokenPhonemes"/>), or text
-/// through a phonemizer set in the options; text on its own is refused (<see cref="E_TextWithoutAPhonemizer_IsRefused"/>).
+/// Most facts pass phonemes (<see cref="SpokenPhonemes"/>), or text through a phonemizer set in the options, so that what
+/// they test does not depend on the built-in English phonemizer; text on its own goes through that phonemizer
+/// (<see cref="E_TextWithoutAPhonemizer_IsSpokenByTheBuiltInOne"/>).
 /// </remarks>
 [Trait("Category", "Functional")]
 [Trait("Category", "LocalOnly")]
@@ -129,13 +130,15 @@ public class SynthesizerFunctionalTests
 
     [Fact]
     [Trait("Axis", "EdgeCase")]
-    public async Task E_TextWithoutAPhonemizer_IsRefused()
+    public async Task E_TextWithoutAPhonemizer_IsSpokenByTheBuiltInOne()
     {
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var act = () => model.SynthesizeAsync("2024 January 1st, $100.00", cancellationToken: TestContext.Current.CancellationToken);
+        var result = await model.SynthesizeAsync("2024 January 1st, $100.00", cancellationToken: TestContext.Current.CancellationToken);
 
-        await act.Should().ThrowAsync<NotSupportedException>().WithMessage("*'espeak'*");
+        result.AudioSamples.Should().NotBeEmpty();
+        result.Phonemes.Should().ContainSingle().Which.Should().StartWith("twˈɛnti twˈɛnti fˈɔːɹ dʒˈænjuːˌɛɹi fˈɜːst,");
+        result.UnknownPhonemes.Should().BeEmpty("the built-in phonemizer writes only symbols the voice has");
     }
 
     [Fact]

@@ -48,7 +48,7 @@ public static class SynthesizeEndpoints
                 }
                 catch (NotSupportedException ex)
                 {
-                    // The voice needs a phonemizer the host does not have. The library's message says what the voice
+                    // The voice needs a phonemizer the host does not have (a voice not in English). The library's message says what the voice
                     // takes; it is the answer the caller needs, not an internal detail.
                     return ApiHelper.Error(ex.Message, type: "not_supported_error", statusCode: 501);
                 }
@@ -79,7 +79,7 @@ public static class SynthesizeEndpoints
         .WithName("CreateSpeech")
         .WithSummary("Generate audio from text (OpenAI compatible)")
         .WithDescription("Supports wav, pcm, mp3 (fallback wav for unsupported formats). Uses chunked transfer encoding. " +
-            "Returns 501 for a voice whose text needs a phonemizer the host does not have (every catalog voice today).")
+            "Returns 501 for a voice whose text needs a phonemizer the host does not have (the catalog's Korean and Chinese voices).")
         .Produces(200, contentType: "audio/wav")
         .Produces<ErrorResponse>(400)
         .Produces<ErrorResponse>(404)

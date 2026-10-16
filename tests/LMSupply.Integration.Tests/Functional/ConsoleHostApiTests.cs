@@ -784,18 +784,32 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Category", "Integration")]
     public async Task POST_Speech_ForAVoiceThatNeedsAPhonemizer_Returns501WithTheReason()
     {
-        // The host has no phonemizer for the catalog's voices, so it cannot speak text: it says so instead of
+        // The host has no phonemizer for the Korean voice, so it cannot speak its text: it says so instead of
         // answering with noise or an opaque 500.
         var content = JsonContent.Create(new
         {
-            input = "Hello, this is a test.",
-            model = "fast"
+            input = "안녕하세요.",
+            model = "korean",
+            voice = "korean" // the OpenAI voice names map to the default voice; any other voice leaves the model to decide
         });
         var response = await _client.PostAsync("/v1/audio/speech", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotImplemented);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         json.GetProperty("error").GetProperty("message").GetString().Should().Contain("'espeak'").And.Contain("phonemizer");
+    }
+
+    [Fact]
+    [Trait("Axis", "API-Inference")]
+    [Trait("Category", "Integration")]
+    public async Task POST_Speech_EnglishText_ReturnsAudio()
+    {
+        var content = JsonContent.Create(new { input = "Hello, this is a test.", model = "fast", voice = "fast" });
+        var response = await _client.PostAsync("/v1/audio/speech", content, TestContext.Current.CancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var audio = await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken);
+        audio.Length.Should().BeGreaterThan(44, "more than a WAV header");
     }
 
     [Fact]

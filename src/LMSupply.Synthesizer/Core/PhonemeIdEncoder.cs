@@ -52,6 +52,9 @@ internal sealed class PhonemeIdEncoder
                 catalog.Id);
     }
 
+    /// <summary>Whether the voice has an id for <paramref name="codePoint"/>.</summary>
+    public bool Has(int codePoint) => _ids.ContainsKey(codePoint);
+
     /// <summary>
     /// Encodes one sentence. The phonemes are decomposed first (NFD), as Piper does to its phonemizer's output: a voice
     /// has ids for a base letter and its combining mark, not for every precomposed letter. A phoneme the voice has no id

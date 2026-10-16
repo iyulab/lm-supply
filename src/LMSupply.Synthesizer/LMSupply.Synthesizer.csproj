@@ -11,6 +11,14 @@
     <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
+  <!-- The built-in English phonemizer's pronunciation dictionary (CMUdict), embedded so that text is spoken with no file
+       and no network. Its licence ships beside it in the package, with the repository's third-party notices. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Data\cmudict\cmudict.dict.gz" LogicalName="LMSupply.Synthesizer.cmudict.dict.gz" />
+    <None Include="Data\cmudict\LICENSE" Pack="true" PackagePath="licenses\cmudict" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="" Link="THIRD-PARTY-NOTICES.md" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\LMSupply.Core\LMSupply.Core.csproj" />
   </ItemGroup>
