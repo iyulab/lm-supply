@@ -6,10 +6,38 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **A GGUF model reports the log probability of each token it generates.** `GenerationOptions.TopLogprobs` (null by
+  default) asks for them: 0 for each generated token's own value, n for the n most likely candidates at each position
+  as well. They arrive as `TokenLogprob` entries (`TokenId`, `Token`, `Logprob`, `Bytes`, `TopLogprobs` — the shape of
+  OpenAI's `logprobs.content`) on `GenerationResult.Logprobs` (raw prompt and chat), `ChatCompletionResult.Logprobs` and,
+  token by token, `ChatStreamChunk.Logprobs`; reasoning tokens are included. The values are the model's raw next-token
+  distribution, taken before sampling, so temperature, top-k/top-p/min-p, penalties, logit bias, a grammar and a JSON
+  schema do not change them, and the same prompt gives the same values whatever the seed. llama-server cannot combine
+  them with tools on a streamed completion, so that combination throws `ArgumentException` before the request is sent
+  (`GenerateChatWithToolsAsync`, which is not streamed, returns them). The ONNX backend and `SpeculativeDecoder` throw
+  `NotSupportedException` when `TopLogprobs` is set. On `LlamaServerClient`, `ChatCompletionOptions.TopLogprobs` and
+  `CompletionOptions.TopLogprobs` do the same, and `ChatStreamData`, `CompletionStreamData` and
+  `ChatCompletionFullChoice` carry `LlamaTokenLogprob` entries.
+- **A model's token ids for a text.** `IGeneratorModel.TokenizeAsync(text)` returns them — on a GGUF model through
+  llama-server's `/tokenize`, without the tokens the model adds around a whole prompt, and with text that spells a
+  special token (such as `<think>`) read as that token; on an ONNX model through its tokenizer. Use it to find the id of
+  the token whose log probability you read: ids differ between models, and `"B"` and `" B"` are different tokens.
+  `LlamaServerClient.TokenizeAsync(text, addSpecial)` is the client-level call.
+
 ### Fixed
 - **The console host's `POST /v1/audio/speech` uses the `model` a request names.** `voice` defaulted to `alloy`,
   which maps to the default voice, so a request that named a synthesizer model and no voice was spoken by the default
   voice. An OpenAI voice name sent as `voice` still picks the default voice, as before.
+- **The ONNX chat path keeps `NoRepeatNgramSize`, and the reasoning helpers keep every option.** Merging the chat
+  formatter's stop sequences built a new `GenerationOptions` that listed the options it carried and dropped
+  `NoRepeatNgramSize`; `GenerateChatWithReasoningAsync` and `GenerateWithReasoningAsync` likewise dropped `Thinking`,
+  `Seed`, `MinP`, the penalties, `Grammar`, `JsonSchema` and `Tools`. Both now copy every option. The reasoning helpers
+  return text only, so they throw `NotSupportedException` when `TopLogprobs` is set.
+
+### Changed
+- **Breaking** — `IGeneratorModel` has a new member, `TokenizeAsync(string, CancellationToken)`. Migration: an
+  implementation of your own (a wrapper or a test double) adds it — a wrapper delegates to the model it wraps.
 
 ## [0.123.0] - 2026-10-16
 

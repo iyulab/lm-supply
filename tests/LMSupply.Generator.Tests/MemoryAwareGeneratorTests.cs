@@ -46,6 +46,18 @@ public class MemoryAwareGeneratorTests
     }
 
     [Fact]
+    public async Task TokenizeAsync_ReturnsInnerTokenIds()
+    {
+        var inner = Substitute.For<IGeneratorModel>();
+        inner.TokenizeAsync("B", Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<int>>([33]));
+        var wrapper = new MemoryAwareGenerator(inner);
+
+        var ids = await wrapper.TokenizeAsync("B", TestContext.Current.CancellationToken);
+
+        ids.Should().Equal(33);
+    }
+
+    [Fact]
     public void GetCurrentMemoryUsage_ReturnsPositiveValue()
     {
         // Arrange

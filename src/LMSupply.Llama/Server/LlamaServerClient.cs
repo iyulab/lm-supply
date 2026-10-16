@@ -273,9 +273,11 @@ public sealed partial class LlamaServerClient : IDisposable
             if (choice is null)
                 continue;
 
+            var logprobs = ShapeLogprobs(choice.Logprobs?.Content, options.TopLogprobs);
             if (choice.Delta?.Content is not null ||
                 choice.Delta?.ReasoningContent is not null ||
                 choice.Delta?.ToolCalls is { Count: > 0 } ||
+                logprobs is not null ||
                 choice.FinishReason is not null)
             {
                 yield return new ChatStreamData
@@ -283,6 +285,7 @@ public sealed partial class LlamaServerClient : IDisposable
                     TextDelta = choice.Delta?.Content,
                     ReasoningDelta = choice.Delta?.ReasoningContent,
                     ToolCallDeltas = choice.Delta?.ToolCalls,
+                    Logprobs = logprobs,
                     FinishReason = choice.FinishReason
                 };
             }
@@ -345,6 +348,12 @@ public sealed partial class LlamaServerClient : IDisposable
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
         var result = JsonSerializer.Deserialize(responseJson, JsonOptions.TypeInfo<ChatCompletionFullResponse>());
 
+        foreach (var choice in result?.Choices ?? [])
+        {
+            if (choice.Logprobs is { } logprobs)
+                logprobs.Content = ShapeLogprobs(logprobs.Content, options.TopLogprobs);
+        }
+
         return result ?? new ChatCompletionFullResponse();
     }
 
@@ -395,7 +404,8 @@ public sealed partial class LlamaServerClient : IDisposable
             Stream = true,
             Stop = options.StopSequences?.ToList(),
             Grammar = options.Grammar,
-            JsonSchema = ParseStructuredSchema(options.Grammar, options.JsonSchema)
+            JsonSchema = ParseStructuredSchema(options.Grammar, options.JsonSchema),
+            NProbs = WireTopLogprobs(options.TopLogprobs)
         };
 
         var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
@@ -440,12 +450,15 @@ public sealed partial class LlamaServerClient : IDisposable
             if (chunk is null)
                 continue;
 
+            var logprobs = ShapeLogprobs(chunk.CompletionProbabilities, options.TopLogprobs);
+
             if (chunk.Stop)
             {
                 // The final chunk carries why generation ended (and, on some builds, a last piece of text).
                 yield return new CompletionStreamData
                 {
                     TextDelta = string.IsNullOrEmpty(chunk.Content) ? null : chunk.Content,
+                    Logprobs = logprobs,
                     FinishReason = MapStopType(chunk.StopType),
                     PromptTokens = chunk.TokensEvaluated,
                     CompletionTokens = chunk.TokensPredicted,
@@ -454,9 +467,13 @@ public sealed partial class LlamaServerClient : IDisposable
                 break;
             }
 
-            if (!string.IsNullOrEmpty(chunk.Content))
+            if (!string.IsNullOrEmpty(chunk.Content) || logprobs is not null)
             {
-                yield return new CompletionStreamData { TextDelta = chunk.Content };
+                yield return new CompletionStreamData
+                {
+                    TextDelta = string.IsNullOrEmpty(chunk.Content) ? null : chunk.Content,
+                    Logprobs = logprobs
+                };
             }
         }
     }
@@ -472,6 +489,38 @@ public sealed partial class LlamaServerClient : IDisposable
         "eos" or "word" => "stop",
         _ => null,
     };
+
+    /// <summary>
+    /// The candidate count to ask llama-server for, from <c>TopLogprobs</c>; null asks for no log probabilities. The
+    /// server computes them only for a count above zero (<c>n_probs</c>, which <c>top_logprobs</c> maps to), so 0 —
+    /// the sampled token's own log probability — asks for one candidate, which <see cref="ShapeLogprobs"/> drops.
+    /// </summary>
+    internal static int? WireTopLogprobs(int? topLogprobs) => topLogprobs switch
+    {
+        null => null,
+        < 0 => throw new ArgumentOutOfRangeException(
+            nameof(topLogprobs), topLogprobs, "TopLogprobs must be 0 or greater, or null to request no log probabilities."),
+        0 => 1,
+        { } count => count,
+    };
+
+    /// <summary>
+    /// The per-token log probabilities a response carries, as the caller asked for them: null when it carries none,
+    /// and with every candidate list emptied when <paramref name="topLogprobs"/> is 0 (see <see cref="WireTopLogprobs"/>).
+    /// </summary>
+    internal static List<LlamaTokenLogprob>? ShapeLogprobs(List<LlamaTokenLogprob>? content, int? topLogprobs)
+    {
+        if (content is not { Count: > 0 })
+            return null;
+
+        if (topLogprobs == 0)
+        {
+            foreach (var token in content)
+                token.TopLogprobs = [];
+        }
+
+        return content;
+    }
 
     /// <summary>
     /// Checks if the server is healthy.
@@ -504,10 +553,21 @@ public sealed partial class LlamaServerClient : IDisposable
         => TokenizeCountAsync(text, addSpecial: false, cancellationToken);
 
     /// <summary>
-    /// Tokenizes <paramref name="text"/> on the server. With <paramref name="addSpecial"/>, the tokens the model adds
-    /// around a prompt (a BOS token, for models that use one) are counted too — as generation counts a prompt.
+    /// Counts the tokens of <paramref name="text"/> on the server. With <paramref name="addSpecial"/>, the tokens the
+    /// model adds around a prompt (a BOS token, for models that use one) are counted too — as generation counts a prompt.
     /// </summary>
     private async Task<int> TokenizeCountAsync(string text, bool addSpecial, CancellationToken cancellationToken)
+        => (await TokenizeCoreAsync(text, addSpecial, cancellationToken)).Count;
+
+    /// <summary>
+    /// The token ids the model's tokenizer gives <paramref name="text"/>, using the server's <c>/tokenize</c>. Text that
+    /// spells a special token of the model (such as <c>&lt;think&gt;</c>) becomes that token, as in a prompt. With
+    /// <paramref name="addSpecial"/>, the tokens the model adds around a whole prompt (a BOS token, for models that use
+    /// one) are included; without it — the default — only the text's own tokens are, which is what a single token's id
+    /// needs: the same text can be a different token with a leading space (<c>"B"</c> and <c>" B"</c>), and the ids differ
+    /// between models.
+    /// </summary>
+    private async Task<IReadOnlyList<int>> TokenizeCoreAsync(string text, bool addSpecial, CancellationToken cancellationToken)
     {
         var request = new TokenizeRequest { Content = text, AddSpecial = addSpecial ? true : null };
         var json = JsonSerializer.Serialize(request, JsonOptions.TypeInfoOf(request));
@@ -523,7 +583,7 @@ public sealed partial class LlamaServerClient : IDisposable
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
         var result = JsonSerializer.Deserialize(responseJson, JsonOptions.TypeInfo<TokenizeResponse>());
 
-        return result?.Tokens?.Count ?? 0;
+        return result?.Tokens ?? [];
     }
 
     /// <summary>
@@ -857,6 +917,10 @@ public sealed partial class LlamaServerClient : IDisposable
     public Task<int> CountTokensAsync(string text, CancellationToken cancellationToken = default) =>
         GuardAsync(() => CountTokensCoreAsync(text, cancellationToken));
 
+    /// <inheritdoc cref="TokenizeCoreAsync"/>
+    public Task<IReadOnlyList<int>> TokenizeAsync(string text, bool addSpecial = false, CancellationToken cancellationToken = default) =>
+        GuardAsync(() => TokenizeCoreAsync(text, addSpecial, cancellationToken));
+
     /// <inheritdoc cref="CountChatPromptTokensCoreAsync"/>
     public Task<int?> CountChatPromptTokensAsync(
         IEnumerable<ChatCompletionMessage> messages,
@@ -895,6 +959,12 @@ public sealed partial class LlamaServerClient : IDisposable
         ChatCompletionOptions options,
         bool stream)
     {
+        var topLogprobs = WireTopLogprobs(options.TopLogprobs);
+        if (topLogprobs is not null && stream && options.Tools is { Count: > 0 })
+            throw new ArgumentException(
+                "TopLogprobs cannot be combined with Tools on a streamed chat completion: llama-server rejects a " +
+                "streamed request that asks for log probabilities and offers tools. Use a non-streamed completion.");
+
         return new ChatCompletionRequest
         {
             Messages = messages.ToList(),
@@ -922,7 +992,10 @@ public sealed partial class LlamaServerClient : IDisposable
             ToolChoice = BuildToolChoiceNode(options.ToolChoice),
             ChatTemplateKwargs = options.EnableThinking is { } enableThinking
                 ? new Dictionary<string, object> { ["enable_thinking"] = enableThinking }
-                : null
+                : null,
+            // The server refuses top_logprobs without logprobs: true.
+            Logprobs = topLogprobs is not null ? true : null,
+            TopLogprobs = topLogprobs
         };
     }
 
@@ -1073,6 +1146,16 @@ public sealed class ChatCompletionOptions
     /// which is where the template runs — the raw /completion path has no template to control.
     /// </summary>
     public bool? EnableThinking { get; init; }
+
+    /// <summary>
+    /// Per-token log probabilities to return: null (the default) returns none; 0 returns each generated token's own log
+    /// probability; n returns it with the n most likely candidates at that position. The values are the model's raw
+    /// next-token distribution (a softmax over the logits), taken before sampling: temperature, top-k/top-p/min-p,
+    /// penalties, <c>logit_bias</c> and a grammar or JSON schema do not change them, though they still decide which
+    /// token is sampled. Sent as <c>logprobs</c>/<c>top_logprobs</c>; cannot be combined with <see cref="Tools"/> on
+    /// a streamed completion.
+    /// </summary>
+    public int? TopLogprobs { get; init; }
 }
 
 /// <summary>
@@ -1109,6 +1192,15 @@ public sealed class CompletionOptions
     /// When set, output will be constrained to match this schema.
     /// </summary>
     public string? JsonSchema { get; init; }
+
+    /// <summary>
+    /// Per-token log probabilities to return: null (the default) returns none; 0 returns each generated token's own log
+    /// probability; n returns it with the n most likely candidates at that position. The values are the model's raw
+    /// next-token distribution (a softmax over the logits), taken before sampling: temperature, top-k/top-p/min-p,
+    /// penalties, <c>logit_bias</c> and a grammar or JSON schema do not change them, though they still decide which
+    /// token is sampled. Sent as <c>n_probs</c>.
+    /// </summary>
+    public int? TopLogprobs { get; init; }
 }
 
 internal sealed class ChatCompletionRequest
@@ -1176,6 +1268,15 @@ internal sealed class ChatCompletionRequest
     /// default applies). Unknown to older llama-server builds, which ignore unrecognized fields.
     /// </summary>
     public Dictionary<string, object>? ChatTemplateKwargs { get; set; }
+
+    /// <summary>Whether to return per-token log probabilities (OpenAI-compatible). Null -> omitted.</summary>
+    public bool? Logprobs { get; set; }
+
+    /// <summary>
+    /// Candidates per token (OpenAI-compatible). llama-server maps it to <c>n_probs</c> and computes the values before
+    /// sampling — its default <c>post_sampling_probs: false</c>, which is left unsent.
+    /// </summary>
+    public int? TopLogprobs { get; set; }
 }
 
 internal sealed class CompletionRequest
@@ -1214,6 +1315,12 @@ internal sealed class CompletionRequest
     /// <see cref="LlamaServerClient.ParseStructuredSchema"/> before assignment.
     /// </summary>
     public JsonNode? JsonSchema { get; set; }
+
+    /// <summary>
+    /// Candidates per token whose log probabilities to return (<c>n_probs</c>); null or 0 returns none. Computed before
+    /// sampling — the server's default <c>post_sampling_probs: false</c>, which is left unsent.
+    /// </summary>
+    public int? NProbs { get; set; }
 
     /// <summary>
     /// Re-use KV cache from previous request if possible.
@@ -1304,6 +1411,9 @@ internal sealed class ChatCompletionChoice
 {
     public ChatCompletionDelta? Delta { get; set; }
     public string? FinishReason { get; set; }
+
+    /// <summary>The log probabilities of the tokens this chunk carries, beside the delta (not inside it).</summary>
+    public LlamaChoiceLogprobs? Logprobs { get; set; }
 }
 
 internal sealed class ChatCompletionDelta
@@ -1363,6 +1473,9 @@ internal sealed class CompletionChunk
 
     /// <summary>On the final chunk: llama.cpp's timings.</summary>
     public LlamaServerTimings? Timings { get; set; }
+
+    /// <summary>The log probabilities of the tokens this chunk carries, when <c>n_probs</c> asked for them.</summary>
+    public List<LlamaTokenLogprob>? CompletionProbabilities { get; set; }
 }
 
 /// <summary>
@@ -1389,6 +1502,12 @@ public sealed class CompletionStreamData
 
     /// <summary>The server's timings for the whole completion (final chunk), or null when it did not send them.</summary>
     public LlamaServerTimings? Timings { get; init; }
+
+    /// <summary>
+    /// The log probabilities of the tokens this chunk carries, when <see cref="CompletionOptions.TopLogprobs"/> asked
+    /// for them; null otherwise.
+    /// </summary>
+    public IReadOnlyList<LlamaTokenLogprob>? Logprobs { get; init; }
 }
 
 /// <summary>
@@ -1531,6 +1650,12 @@ public sealed class ChatStreamData
     /// The server's timings for the whole completion, on the chunk that carries them. Null on builds that do not send them.
     /// </summary>
     public LlamaServerTimings? Timings { get; init; }
+
+    /// <summary>
+    /// The log probabilities of the tokens this chunk carries — reasoning tokens included — when
+    /// <see cref="ChatCompletionOptions.TopLogprobs"/> asked for them; null otherwise.
+    /// </summary>
+    public IReadOnlyList<LlamaTokenLogprob>? Logprobs { get; init; }
 }
 
 /// <summary>
@@ -1575,6 +1700,53 @@ public sealed class ChatCompletionFullChoice
 
     [JsonPropertyName("finish_reason")]
     public string? FinishReason { get; set; }
+
+    /// <summary>
+    /// The log probabilities of the generated tokens — reasoning tokens included — when
+    /// <see cref="ChatCompletionOptions.TopLogprobs"/> asked for them; null otherwise.
+    /// </summary>
+    [JsonPropertyName("logprobs")]
+    public LlamaChoiceLogprobs? Logprobs { get; set; }
+}
+
+/// <summary>
+/// The OpenAI-compatible <c>logprobs</c> object of a chat completion choice.
+/// </summary>
+public sealed class LlamaChoiceLogprobs
+{
+    /// <summary>One entry per generated token, in order.</summary>
+    [JsonPropertyName("content")]
+    public List<LlamaTokenLogprob>? Content { get; set; }
+}
+
+/// <summary>
+/// A token's log probability as llama-server reports it: an entry of the OpenAI-compatible <c>logprobs.content</c>, or
+/// of the native <c>completion_probabilities</c>, which has the same shape. The value is the natural log of the
+/// token's probability in the model's raw next-token distribution, before sampling.
+/// </summary>
+public sealed class LlamaTokenLogprob
+{
+    /// <summary>The token's id in the model's vocabulary; null when the server does not send it.</summary>
+    [JsonPropertyName("id")]
+    public int? Id { get; set; }
+
+    /// <summary>The token's text. Empty for a token with no text, such as an end-of-generation token.</summary>
+    [JsonPropertyName("token")]
+    public string? Token { get; set; }
+
+    /// <summary>The token's UTF-8 bytes. A token can hold part of a character, which <see cref="Token"/> cannot show.</summary>
+    [JsonPropertyName("bytes")]
+    public List<int>? Bytes { get; set; }
+
+    /// <summary>The natural log of the token's probability.</summary>
+    [JsonPropertyName("logprob")]
+    public double Logprob { get; set; }
+
+    /// <summary>
+    /// The most likely tokens at this position, most likely first. Null on a candidate, which has no list of its own.
+    /// </summary>
+    [JsonPropertyName("top_logprobs")]
+    public List<LlamaTokenLogprob>? TopLogprobs { get; set; }
 }
 
 /// <summary>

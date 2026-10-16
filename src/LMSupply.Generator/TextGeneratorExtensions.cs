@@ -10,6 +10,15 @@ namespace LMSupply.Generator;
 /// </summary>
 public static class TextGeneratorExtensions
 {
+    /// <summary>A <see cref="ReasoningResult"/> holds text only; log probabilities asked for here would be dropped.</summary>
+    private static void ThrowIfTopLogprobsRequested(GenerationOptions options)
+    {
+        if (options.TopLogprobs is not null)
+            throw new NotSupportedException(
+                "The reasoning helpers return text only and cannot report per-token log probabilities. Use " +
+                "GenerateChatCompleteResultAsync or GenerateChatStreamAsync with TopLogprobs, or leave it null here.");
+    }
+
     /// <summary>
     /// Generates chat response with reasoning content extracted separately.
     /// Useful for DeepSeek R1 and other reasoning models.
@@ -26,23 +35,12 @@ public static class TextGeneratorExtensions
         CancellationToken cancellationToken = default)
     {
         options ??= GenerationOptions.Default;
+        ThrowIfTopLogprobsRequested(options);
 
         // Create options with reasoning extraction enabled
-        var extractOptions = new GenerationOptions
-        {
-            MaxTokens = options.MaxTokens,
-            Temperature = options.Temperature,
-            TopP = options.TopP,
-            TopK = options.TopK,
-            RepetitionPenalty = options.RepetitionPenalty,
-            StopSequences = options.StopSequences,
-            DoSample = options.DoSample,
-            NumBeams = options.NumBeams,
-            PastPresentShareBuffer = options.PastPresentShareBuffer,
-            MaxNewTokens = options.MaxNewTokens,
-            FilterReasoningTokens = true,
-            ExtractReasoningTokens = true
-        };
+        var extractOptions = options.Clone();
+        extractOptions.FilterReasoningTokens = true;
+        extractOptions.ExtractReasoningTokens = true;
 
         // Use our own filter to capture reasoning
         var filter = new ReasoningTokenFilter(extractReasoning: true);
@@ -93,22 +91,11 @@ public static class TextGeneratorExtensions
         CancellationToken cancellationToken = default)
     {
         options ??= GenerationOptions.Default;
+        ThrowIfTopLogprobsRequested(options);
 
-        var extractOptions = new GenerationOptions
-        {
-            MaxTokens = options.MaxTokens,
-            Temperature = options.Temperature,
-            TopP = options.TopP,
-            TopK = options.TopK,
-            RepetitionPenalty = options.RepetitionPenalty,
-            StopSequences = options.StopSequences,
-            DoSample = options.DoSample,
-            NumBeams = options.NumBeams,
-            PastPresentShareBuffer = options.PastPresentShareBuffer,
-            MaxNewTokens = options.MaxNewTokens,
-            FilterReasoningTokens = true,
-            ExtractReasoningTokens = true
-        };
+        var extractOptions = options.Clone();
+        extractOptions.FilterReasoningTokens = true;
+        extractOptions.ExtractReasoningTokens = true;
 
         var filter = new ReasoningTokenFilter(extractReasoning: true);
         var responseBuilder = new StringBuilder();

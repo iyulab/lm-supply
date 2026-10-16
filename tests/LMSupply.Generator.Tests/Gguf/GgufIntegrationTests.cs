@@ -104,6 +104,55 @@ public class GgufIntegrationTests
     }
 
     /// <summary>
+    /// Per-token log probabilities reach every llama-server result path, and they are the distribution before
+    /// sampling: a near-greedy request reports the same values as a hot one. The label's id comes from
+    /// <c>TokenizeAsync</c> — for this model's tokenizer <c>"B"</c> is the single token 33.
+    /// </summary>
+    [Fact]
+    public async Task TopLogprobs_WithGgufModel_ReportTheDistributionBeforeSampling()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", cancellationToken: ct);
+        ChatMessage[] question =
+        [
+            ChatMessage.User("Which planet is known as the Red Planet?\nA) Venus\nB) Mars\nC) Jupiter\nD) Saturn\nAnswer with a single letter."),
+        ];
+
+        var b = await model.TokenizeAsync("B", ct);
+        b.Should().Equal(33);
+
+        var hot = await model.GenerateChatCompleteResultAsync(
+            question, new GenerationOptions { MaxTokens = 1, Temperature = 1.5f, Thinking = ThinkingMode.Off, TopLogprobs = 5 }, ct);
+        var token = hot.Logprobs.Should().ContainSingle().Subject;
+        token.TopLogprobs.Should().HaveCount(5);
+        token.TopLogprobs.Select(c => c.Logprob).Should().BeInDescendingOrder().And.OnlyContain(l => l <= 0);
+        var answer = token.TopLogprobs.Should().ContainSingle(c => c.TokenId == 33).Subject;
+        answer.Token.Should().Be("B");
+        answer.Bytes.Should().Equal((byte)'B');
+
+        var cold = await model.GenerateChatCompleteResultAsync(
+            question, new GenerationOptions { MaxTokens = 1, Temperature = 0.1f, TopK = 1, Thinking = ThinkingMode.Off, TopLogprobs = 5 }, ct);
+        cold.Logprobs!.Single().TopLogprobs.Select(c => c.TokenId).Should().Equal(token.TopLogprobs.Select(c => c.TokenId));
+        cold.Logprobs!.Single().TopLogprobs[0].Logprob.Should().BeApproximately(token.TopLogprobs[0].Logprob, 1e-3,
+            "sampling settings do not change the values");
+
+        var tools = await model.GenerateChatWithToolsAsync(
+            question, new GenerationOptions { MaxTokens = 1, Thinking = ThinkingMode.Off, TopLogprobs = 0 }, ct);
+        tools.Logprobs.Should().ContainSingle().Which.TopLogprobs.Should().BeEmpty("0 asks for the sampled token alone");
+
+        var streamed = new List<TokenLogprob>();
+        await foreach (var chunk in model.GenerateChatStreamAsync(
+            question, new GenerationOptions { MaxTokens = 1, Thinking = ThinkingMode.Off, TopLogprobs = 2 }, ct))
+            streamed.AddRange(chunk.Logprobs ?? []);
+        streamed.Should().ContainSingle().Which.TopLogprobs.Should().HaveCount(2);
+
+        var raw = await model.GenerateCompleteResultAsync(
+            "One, two, three,", new GenerationOptions { MaxTokens = 2, TopLogprobs = 2 }, ct);
+        raw.Logprobs.Should().HaveCount(2);
+        raw.Logprobs!.Should().OnlyContain(t => t.TopLogprobs.Count == 2 && t.TokenId != null);
+    }
+
+    /// <summary>
     /// Every llama-server result path carries the server's own timings: the raw prompt result, the chat result, the
     /// chat-with-tools result and the last chunk of the chat stream. A rate taken from the visible text cannot stand
     /// in for them, since a reasoning model generates tokens the text never shows.

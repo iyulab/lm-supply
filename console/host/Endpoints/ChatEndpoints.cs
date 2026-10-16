@@ -406,6 +406,9 @@ public static class ChatEndpoints
         public Task<int> CountTokensAsync(string text, CancellationToken ct = default)
             => inner.CountTokensAsync(text, ct);
 
+        public Task<IReadOnlyList<int>> TokenizeAsync(string text, CancellationToken ct = default)
+            => inner.TokenizeAsync(text, ct);
+
         public Task<int> CountTokensAsync(IEnumerable<ChatMessage> messages, CancellationToken ct = default)
             => inner.CountTokensAsync(messages, ct);
 

@@ -54,6 +54,8 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
+        // The text is merged from two models' outputs, so no one distribution produced its tokens.
+        options?.ThrowIfTopLogprobsUnsupported("Speculative decoding");
 
         var sw = Stopwatch.StartNew();
         var totalTokens = 0;

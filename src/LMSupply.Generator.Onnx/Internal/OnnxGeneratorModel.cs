@@ -146,6 +146,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
     {
         ThrowIfDisposed();
         options ??= GenerationOptions.Default;
+        options.ThrowIfTopLogprobsUnsupported("The ONNX backend");
 
         // Acquire concurrency slot
         await _concurrencyLimiter.WaitAsync(cancellationToken);
@@ -591,6 +592,18 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
     }
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<int>> TokenizeAsync(string text, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+
+        if (string.IsNullOrEmpty(text))
+            return Task.FromResult<IReadOnlyList<int>>([]);
+
+        using var sequences = _tokenizer.Encode(text);
+        return Task.FromResult<IReadOnlyList<int>>(sequences[0].ToArray());
+    }
+
+    /// <inheritdoc />
     public Task<int> CountTokensAsync(IEnumerable<ChatMessage> messages, CancellationToken cancellationToken = default)
     {
         var prompt = _chatFormatter.FormatPrompt(messages);
@@ -669,19 +682,9 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
             }
         }
 
-        return new GenerationOptions
-        {
-            MaxTokens = options.MaxTokens,
-            Temperature = options.Temperature,
-            TopP = options.TopP,
-            TopK = options.TopK,
-            RepetitionPenalty = options.RepetitionPenalty,
-            StopSequences = merged,
-            DoSample = options.DoSample,
-            NumBeams = options.NumBeams,
-            PastPresentShareBuffer = options.PastPresentShareBuffer,
-            MaxNewTokens = options.MaxNewTokens
-        };
+        var withStops = options.Clone();
+        withStops.StopSequences = merged;
+        return withStops;
     }
 
     private static bool ShouldStop(string accumulatedText, IReadOnlyList<string>? stopSequences)

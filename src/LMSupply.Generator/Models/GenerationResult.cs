@@ -21,6 +21,12 @@ public readonly record struct GenerationResult(
     /// <see cref="GenerationOptions.MaxTokens"/> cut the stream client-side.
     /// </summary>
     public GenerationTimings? Timings { get; init; }
+
+    /// <summary>
+    /// The log probability of each generated token, in order — reasoning tokens included — when
+    /// <see cref="GenerationOptions.TopLogprobs"/> asked for them; null otherwise.
+    /// </summary>
+    public IReadOnlyList<TokenLogprob>? Logprobs { get; init; }
 }
 
 /// <summary>

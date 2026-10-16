@@ -255,6 +255,10 @@ public sealed class MemoryAwareGenerator : IGeneratorModel, Internal.IDiagnostic
         => _inner.CountTokensAsync(text, cancellationToken);
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<int>> TokenizeAsync(string text, CancellationToken cancellationToken = default)
+        => _inner.TokenizeAsync(text, cancellationToken);
+
+    /// <inheritdoc />
     public Task<int> CountTokensAsync(IEnumerable<ChatMessage> messages, CancellationToken cancellationToken = default)
         => _inner.CountTokensAsync(messages, cancellationToken);
 

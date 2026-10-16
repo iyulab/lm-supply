@@ -46,6 +46,12 @@ public sealed record ChatCompletionResult
     /// backend does not report timings (the ONNX path does not; llama-server does).
     /// </summary>
     public GenerationTimings? Timings { get; init; }
+
+    /// <summary>
+    /// The log probability of each generated token, in order — reasoning and tool-call tokens included — when
+    /// <see cref="GenerationOptions.TopLogprobs"/> asked for them; null otherwise.
+    /// </summary>
+    public IReadOnlyList<TokenLogprob>? Logprobs { get; init; }
 }
 
 /// <summary>

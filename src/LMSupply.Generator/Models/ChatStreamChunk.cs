@@ -42,6 +42,13 @@ public sealed record ChatStreamChunk
     /// Null under the same conditions as <see cref="Usage"/>, and on llama-server builds that do not send timings.
     /// </summary>
     public GenerationTimings? Timings { get; init; }
+
+    /// <summary>
+    /// The log probabilities of the tokens the backend sent with this chunk, when <see cref="GenerationOptions.TopLogprobs"/>
+    /// asked for them; null otherwise. They follow the generated tokens, not the text: a chunk can carry the log
+    /// probabilities of reasoning or tool-call tokens whose text it does not show, and then has no <see cref="Text"/>.
+    /// </summary>
+    public IReadOnlyList<TokenLogprob>? Logprobs { get; init; }
 }
 
 /// <summary>

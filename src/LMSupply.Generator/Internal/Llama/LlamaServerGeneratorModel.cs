@@ -554,6 +554,15 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         /// <summary>The server's timings, when it reported them; null once the client-side cap cut the stream.</summary>
         public GenerationTimings? Timings { get; set; }
 
+        /// <summary>The generated tokens' log probabilities, when the options asked for them.</summary>
+        public List<TokenLogprob>? Logprobs { get; private set; }
+
+        public void AddLogprobs(IReadOnlyList<LlamaTokenLogprob>? logprobs)
+        {
+            if (ToTokenLogprobs(logprobs) is { } converted)
+                (Logprobs ??= []).AddRange(converted);
+        }
+
         /// <summary>
         /// The server's counts where it reported them, else an estimate from the text — marked as one, since a
         /// reasoning model's hidden reasoning never appears in the text it is estimated from.
@@ -589,7 +598,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                 Seed = options.Seed,
                 StopSequences = MergeStopSequences(options.StopSequences),
                 Grammar = options.Grammar,
-                JsonSchema = options.JsonSchema
+                JsonSchema = options.JsonSchema,
+                TopLogprobs = options.TopLogprobs
             };
 
             // Client-side token limit as safety net (server enforces too, but may fail)
@@ -615,7 +625,10 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                     outcome.Timings = ToGenerationTimings(rawTimings);
 
                 if (data.TextDelta is not { } token)
+                {
+                    outcome?.AddLogprobs(data.Logprobs);
                     continue;
+                }
 
                 if (maxTokens > 0 && ++tokenCount > maxTokens)
                 {
@@ -627,6 +640,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                     }
                     break;
                 }
+
+                outcome?.AddLogprobs(data.Logprobs);
 
                 if (reasoningFilter != null)
                 {
@@ -708,7 +723,11 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
 
                 var token = data.TextDelta;
                 if (string.IsNullOrEmpty(token))
+                {
+                    // Reasoning tokens carry log probabilities on chunks with no answer text.
+                    outcome?.AddLogprobs(data.Logprobs);
                     continue;
+                }
 
                 if (maxTokens > 0 && ++tokenCount > maxTokens)
                 {
@@ -719,6 +738,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                     }
                     break;
                 }
+
+                outcome?.AddLogprobs(data.Logprobs);
 
                 if (reasoningFilter != null)
                 {
@@ -781,7 +802,11 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         }
 
         var content = sb.ToString();
-        return new GenerationResult(content, outcome.ToUsage(prompt, content), outcome.FinishReason) { Timings = outcome.Timings };
+        return new GenerationResult(content, outcome.ToUsage(prompt, content), outcome.FinishReason)
+        {
+            Timings = outcome.Timings,
+            Logprobs = outcome.Logprobs,
+        };
     }
 
     /// <inheritdoc />
@@ -820,7 +845,10 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             content,
             outcome.ToUsage(string.Concat(messageList.Select(m => m.Content)), content),
             outcome.FinishReason)
-        { Timings = outcome.Timings };
+        {
+            Timings = outcome.Timings,
+            Logprobs = outcome.Logprobs,
+        };
     }
 
     /// <summary>
@@ -933,6 +961,17 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             return 0;
 
         return await (await ClientAsync(cancellationToken)).CountTokensAsync(text, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<int>> TokenizeAsync(string text, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+
+        if (string.IsNullOrEmpty(text))
+            return [];
+
+        return await (await ClientAsync(cancellationToken)).TokenizeAsync(text, addSpecial: false, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -1081,6 +1120,10 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             IReadOnlyList<ChatToolCallDelta>? toolCallDeltas =
                 toolStreamParser is null ? serverToolCallDeltas : null;
 
+            // Log probabilities follow the generated tokens, so they leave on this chunk even when the reasoning
+            // filter or the tool-call parser holds its text back.
+            var logprobs = ToTokenLogprobs(data.Logprobs);
+
             // b8994+: reasoning_content arrives as ReasoningDelta (separate from content).
             // Route it to ChatStreamChunk.ReasoningDelta when extraction is requested;
             // silently discard when only filtering is requested (server already separates it).
@@ -1125,13 +1168,14 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             }
 
             // Yield structured chunk
-            if (text is not null || reasoningDelta is not null || toolCallDeltas is not null)
+            if (text is not null || reasoningDelta is not null || toolCallDeltas is not null || logprobs is not null)
             {
                 yield return new ChatStreamChunk
                 {
                     Text = text,
                     ReasoningDelta = reasoningDelta,
                     ToolCalls = toolCallDeltas,
+                    Logprobs = logprobs,
                 };
             }
         }
@@ -1221,7 +1265,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
                         TotalTokens = usage.TotalTokens,
                     }
                     : null,
-                Timings = response.Timings is { } timings ? ToGenerationTimings(timings) : null
+                Timings = response.Timings is { } timings ? ToGenerationTimings(timings) : null,
+                Logprobs = ToTokenLogprobs(choice?.Logprobs?.Content)
             };
         }
         finally
@@ -1239,6 +1284,32 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         CompletionDuration = t.PredictedMs is { } predictedMs ? TimeSpan.FromMilliseconds(predictedMs) : null,
         CompletionTokensPerSecond = t.PredictedPerSecond,
     };
+
+    /// <summary>
+    /// The server's per-token log probabilities as the public <see cref="TokenLogprob"/>; null when there are none.
+    /// </summary>
+    internal static IReadOnlyList<TokenLogprob>? ToTokenLogprobs(IReadOnlyList<LlamaTokenLogprob>? logprobs)
+    {
+        if (logprobs is not { Count: > 0 })
+            return null;
+
+        return logprobs.Select(t => new TokenLogprob
+        {
+            TokenId = t.Id,
+            Token = t.Token ?? string.Empty,
+            Logprob = t.Logprob,
+            Bytes = ToBytes(t.Bytes),
+            TopLogprobs = t.TopLogprobs?.Select(c => new TopLogprob
+            {
+                TokenId = c.Id,
+                Token = c.Token ?? string.Empty,
+                Logprob = c.Logprob,
+                Bytes = ToBytes(c.Bytes),
+            }).ToList() ?? [],
+        }).ToList();
+
+        static byte[]? ToBytes(List<int>? bytes) => bytes?.Select(b => (byte)b).ToArray();
+    }
 
     private static IEnumerable<ChatCompletionMessage> ConvertMessages(IEnumerable<ChatMessage> messages)
     {
@@ -1301,7 +1372,8 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
             ToolChoice = ToToolChoice(options.ToolChoice),
             // Forward thinking control to the chat template (enable_thinking). Auto -> null (omit ->
             // model default preserved); On/Off -> true/false. See ThinkingModeToEnableFlag.
-            EnableThinking = ThinkingModeToEnableFlag(options.Thinking)
+            EnableThinking = ThinkingModeToEnableFlag(options.Thinking),
+            TopLogprobs = options.TopLogprobs
         };
     }
 

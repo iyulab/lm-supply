@@ -215,6 +215,53 @@ public sealed class GenerationOptions
     /// </summary>
     public ToolChoice? ToolChoice { get; set; }
 
+    /// <summary>
+    /// Gets or sets how many per-token log probabilities to return. Null (default) returns none; 0 returns each
+    /// generated token's own log probability; n returns it with the n most likely candidates at that position. They
+    /// arrive as <see cref="GenerationResult.Logprobs"/>, <see cref="ChatCompletionResult.Logprobs"/> and
+    /// <see cref="ChatStreamChunk.Logprobs"/>, one entry per generated token — reasoning tokens included.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The values are the model's raw next-token distribution (a softmax over the logits), taken before sampling:
+    /// <see cref="Temperature"/>, <see cref="TopK"/>, <see cref="TopP"/>, <see cref="MinP"/>, the penalties, logit
+    /// bias, <see cref="Grammar"/> and <see cref="JsonSchema"/> do not change them, though they still decide which token
+    /// is sampled. So the same prompt gives the same values whatever the sampling settings and seed — the distribution
+    /// after sampling would depend on them, and under a grammar on whether the first draw happened to satisfy it.
+    /// </para>
+    /// <para>
+    /// To score a fixed set of answers with one generated token: set <see cref="Thinking"/> to
+    /// <see cref="ThinkingMode.Off"/> (a reasoning model's first token is otherwise its reasoning), find each answer's
+    /// token id with <see cref="Abstractions.IGeneratorModel.TokenizeAsync"/>, ask for enough candidates that the answers
+    /// are among them, and renormalize their probabilities over the set.
+    /// </para>
+    /// <para>
+    /// Backend support: GGUF (llama-server) models only — the ONNX backend and <see cref="SpeculativeDecoder"/> throw
+    /// <see cref="NotSupportedException"/> when it is set. llama-server cannot combine it with <see cref="Tools"/> on a
+    /// streamed completion; <see cref="Abstractions.ITextGenerator.GenerateChatWithToolsAsync"/> (not streamed) can.
+    /// A negative value throws <see cref="ArgumentOutOfRangeException"/>.
+    /// </para>
+    /// </remarks>
+    public int? TopLogprobs { get; set; }
+
+    /// <summary>
+    /// Throws <see cref="NotSupportedException"/> when <see cref="TopLogprobs"/> is set on a generation path that cannot
+    /// report log probabilities — setting it there must not be silently ignored.
+    /// </summary>
+    internal void ThrowIfTopLogprobsUnsupported(string generator)
+    {
+        if (TopLogprobs is not null)
+            throw new NotSupportedException(
+                $"{generator} cannot report per-token log probabilities. TopLogprobs is supported by GGUF (llama-server) " +
+                "models only; leave it null here.");
+    }
+
+    /// <summary>
+    /// A copy of these options to change for one call. Every option is carried — a copy that lists the options it
+    /// carries drops each one added after it was written.
+    /// </summary>
+    internal GenerationOptions Clone() => (GenerationOptions)MemberwiseClone();
+
     #region Phase 3: Grammar Constraints
 
     /// <summary>

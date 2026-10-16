@@ -55,6 +55,22 @@ public interface IGeneratorModel : ITextGenerator
     Task<int> CountTokensAsync(string text, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets the token ids the model's tokenizer gives <paramref name="text"/> — the tokens
+    /// <see cref="CountTokensAsync(string, CancellationToken)"/> counts. Use it to find the id of a token whose log
+    /// probability <see cref="GenerationOptions.TopLogprobs"/> reports: ids differ between models, and the same text can
+    /// be a different token with a leading space (<c>"B"</c> and <c>" B"</c>).
+    /// </summary>
+    /// <param name="text">The text to tokenize.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The token ids, in order; empty for empty text.</returns>
+    /// <remarks>
+    /// On a GGUF model the ids come from llama-server's <c>/tokenize</c>, without the tokens the model adds around a
+    /// whole prompt (a BOS token); text that spells one of the model's special tokens (such as <c>&lt;think&gt;</c>)
+    /// becomes that token.
+    /// </remarks>
+    Task<IReadOnlyList<int>> TokenizeAsync(string text, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Counts the exact number of tokens for formatted chat messages using the model's tokenizer.
     /// Messages are formatted using the model's chat template before tokenization. Tools are not counted — for a
     /// request that passes <see cref="GenerationOptions.Tools"/>, use

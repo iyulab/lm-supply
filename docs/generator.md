@@ -886,6 +886,60 @@ when set, takes precedence as the output-only cap. A non-positive value is treat
 to the default), never as "unlimited" — generation can never be unbounded. The shared resolution is
 `GenerationOptions.ResolveMaxOutputTokens()`.
 
+#### Token log probabilities
+
+`TopLogprobs` returns the log probability of each generated token (GGUF models). `0` returns each token's own value;
+`n` adds the `n` most likely candidates at each position. To score a fixed set of answers from one generated token,
+look up each answer's token id, ask for one token with thinking off, and renormalize over the answers:
+
+```csharp
+ChatMessage[] question =
+[
+    ChatMessage.User("Which planet is known as the Red Planet?\nA) Venus\nB) Mars\nC) Jupiter\nD) Saturn\nAnswer with a single letter."),
+];
+
+// Ids differ between models, and "B" and " B" are different tokens: ask the model.
+var labels = new Dictionary<int, string>();
+foreach (var label in new[] { "A", "B", "C", "D" })
+{
+    var ids = await model.TokenizeAsync(label);
+    if (ids.Count == 1)
+        labels[ids[0]] = label;
+}
+
+var result = await model.GenerateChatCompleteResultAsync(question, new GenerationOptions
+{
+    MaxTokens = 1,
+    Thinking = ThinkingMode.Off,   // a reasoning model's first token is otherwise its reasoning
+    TopLogprobs = 20,
+});
+
+var answers = result.Logprobs![0].TopLogprobs
+    .Where(c => c.TokenId is { } id && labels.ContainsKey(id))
+    .ToList();
+var mass = answers.Sum(c => Math.Exp(c.Logprob));   // how much of the distribution the answers hold
+foreach (var c in answers)
+    Console.WriteLine($"{labels[c.TokenId!.Value]}: {Math.Exp(c.Logprob) / mass:P1}");
+```
+
+- **The values are taken before sampling.** They are the model's raw next-token distribution (a softmax over the
+  logits): `Temperature`, `TopK`, `TopP`, `MinP`, the penalties, logit bias, `Grammar` and `JsonSchema` do not change
+  them — they only decide which token is sampled — so the same prompt gives the same values whatever the seed. A
+  grammar does not hide the tokens it forbids from the candidates; filter them yourself, as above.
+- **Where they arrive.** `GenerationResult.Logprobs` (`GenerateCompleteResultAsync`, `GenerateChatCompleteResultAsync`),
+  `ChatCompletionResult.Logprobs` (`GenerateChatWithToolsAsync`) and `ChatStreamChunk.Logprobs` (one chunk per token; a
+  chunk can carry the values of a token whose text it does not show, such as reasoning). Every generated token is
+  covered, reasoning included. A non-streamed chat response also lists the end-of-generation token (empty `Token`); a
+  streamed one does not — llama-server reports it that way.
+- **A label must be one token** to be read from one position. Single letters and `yes`/`no`/`true`/`false` are one
+  token in common tokenizers; multi-digit numbers are not (`10` is `1`, `0`).
+- **Answers outside the candidates** are not reported: ask for more candidates, or check how much of the distribution
+  the answers hold (`mass` above) — a small mass means the model did not answer with a label.
+- **Limits.** llama-server cannot combine log probabilities with `Tools` on a streamed completion, so that combination
+  throws `ArgumentException` before the request is sent; `GenerateChatWithToolsAsync` (not streamed) returns them. The
+  ONNX backend and `SpeculativeDecoder` throw `NotSupportedException` when `TopLogprobs` is set. A large `TopLogprobs`
+  makes every response proportionally larger.
+
 ### Gemma 4 Thinking Mode (v0.34+)
 
 Gemma 4 models support an **extended thinking** mode activated via `GenerationOptions.Thinking`. Google recommends this for E2B/E4B models when complex function calling is required:
