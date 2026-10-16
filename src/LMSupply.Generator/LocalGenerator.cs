@@ -326,6 +326,54 @@ public static class LocalGenerator
             : IsGgufModelCached(modelId, options, cacheDir);
     }
 
+    /// <summary>
+    /// Whether <paramref name="modelId"/> loads as a GGUF model (on llama-server) rather than an ONNX one — the branch
+    /// <see cref="IsModelDownloaded"/> takes, step for step. <paramref name="options"/> is consumed (its quantization hint
+    /// may be set), so pass a copy.
+    /// </summary>
+    internal static bool IsGgufTarget(string modelId, GeneratorOptions options)
+    {
+        if (GeneratorModelRegistry.Default.TryGetUserAliasTarget(modelId, out var userAliasTarget))
+        {
+            modelId = userAliasTarget!;
+        }
+
+        if (modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ||
+            Gguf.GgufModelRegistry.IsAlias(modelId))
+        {
+            return true;
+        }
+
+        var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelId);
+        modelId = baseId;
+
+        if (modelId.Equals("default", StringComparison.OrdinalIgnoreCase) ||
+            modelId.Equals("auto", StringComparison.OrdinalIgnoreCase))
+        {
+            var selected = !string.IsNullOrEmpty(options.PreferredAutoModelId)
+                ? options.PreferredAutoModelId
+                : SelectAutoModel(options).ModelId;
+            return IsGgufTarget(selected, options);
+        }
+
+        if (GeneratorModelRegistry.Default.TryResolve(modelId, out var resolvedModel))
+        {
+            modelId = resolvedModel!.ModelId;
+        }
+
+        if (File.Exists(modelId))
+        {
+            return modelId.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (Directory.Exists(modelId))
+        {
+            return false;
+        }
+
+        return Internal.ModelFormatDetector.Detect(modelId) != Models.ModelFormat.Onnx;
+    }
+
     private static bool IsGgufModelCached(string modelId, GeneratorOptions options, string cacheDir)
     {
         using var downloader = new Gguf.GgufModelDownloader(cacheDir, localFilesOnly: true);

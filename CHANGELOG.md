@@ -19,6 +19,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   (`RuntimeManagerOptions.DisableAutoDownload`).
 
 ### Added
+- **A host can ask whether a model is ready to load offline, and download exactly that on consent:
+  `LMSupply.Lifecycle.IModelArtifacts`**, with `GeneratorArtifacts` and `EmbedderArtifacts` (built with the options the load
+  will use). `IsAvailableOfflineAsync` answers from the cache whether a load with `DisableAutoDownload` would find everything —
+  the model files and, for a GGUF model, llama-server; `GetRemainingDownloadBytesAsync` gives the model-file bytes still to
+  fetch; `DownloadAsync` fetches the files and, for GGUF, llama-server, so the model is available offline afterwards
+  (`DownloadModelAsync` alone does not fetch the server).
 - **A GGUF model reports the log probability of each token it generates.** `GenerationOptions.TopLogprobs` (null by
   default) asks for them: 0 for each generated token's own value, n for the n most likely candidates at each position
   as well. They arrive as `TokenLogprob` entries (`TokenId`, `Token`, `Logprob`, `Bytes`, `TopLogprobs` — the shape of
@@ -38,6 +44,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `LlamaServerClient.TokenizeAsync(text, addSpecial)` is the client-level call.
 
 ### Fixed
+- **`LocalEmbedder.IsModelDownloaded` and `LocalEmbedder.DownloadModelAsync` handle GGUF models.** `IsModelDownloaded` looked
+  for `model.onnx` only, so a cached GGUF embedder (`gguf:org/repo`, a `-GGUF` repository, a `.gguf` path) always read as not
+  downloaded; `DownloadModelAsync` sent a GGUF id down the ONNX discovery path. Both now take the GGUF branch the load takes:
+  the file an offline load opens counts as downloaded, and the download fetches that file.
 - **The console host's `POST /v1/audio/speech` uses the `model` a request names.** `voice` defaulted to `alloy`,
   which maps to the default voice, so a request that named a synthesizer model and no voice was spoken by the default
   voice. An OpenAI voice name sent as `voice` still picks the default voice, as before.

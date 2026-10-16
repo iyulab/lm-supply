@@ -664,6 +664,15 @@ public static class LocalEmbedder
     {
         var cacheDir = cacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
 
+        // A GGUF model counts when the file an offline load opens is cached (llama-server is not checked here).
+        if (IsGgufModel(modelId))
+        {
+            var repoIdOrPath = StripGgufPrefix(modelId);
+            return File.Exists(repoIdOrPath)
+                || (repoIdOrPath.Contains('/')
+                    && SingleFileGgufDownloader.TrySelectFromLocalCache(cacheDir, repoIdOrPath, null, GgufDownloader.LegacyTreeName) is not null);
+        }
+
         // Resolve alias to repo ID
         string repoId;
         string? subfolder = null;
@@ -721,6 +730,12 @@ public static class LocalEmbedder
         var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelId);
         modelId = baseId;
         options.QuantizationHint ??= qualifier;
+
+        // A GGUF model: the one file its load opens (the largest quantization that fits in memory).
+        if (IsGgufModel(modelId))
+        {
+            return await ResolveGgufFileAsync(modelId, options, progress, cancellationToken);
+        }
 
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
@@ -854,7 +869,7 @@ public static class LocalEmbedder
     /// <summary>
     /// Checks if the model identifier refers to a GGUF model.
     /// </summary>
-    private static bool IsGgufModel(string modelIdOrPath)
+    internal static bool IsGgufModel(string modelIdOrPath)
     {
         // Check for "gguf:" prefix
         if (modelIdOrPath.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase))
@@ -889,42 +904,40 @@ public static class LocalEmbedder
     /// <summary>
     /// Loads a GGUF embedding model.
     /// </summary>
+    /// <summary>
+    /// The GGUF file a load of <paramref name="modelIdOrPath"/> opens: a local path as-is, or the file of a Hugging Face
+    /// repository (downloaded unless cached; the largest quantization that fits in memory, docs/embedder.md).
+    /// </summary>
+    private static async Task<string> ResolveGgufFileAsync(
+        string modelIdOrPath,
+        EmbedderOptions options,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var cleanPath = StripGgufPrefix(modelIdOrPath);
+        if (File.Exists(cleanPath))
+            return cleanPath;
+        if (!cleanPath.Contains('/'))
+            throw GgufModelNotFound(modelIdOrPath);
+
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        using var downloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+        return await downloader.DownloadAsync(
+            cleanPath,
+            preferredQuantization: null,
+            progress: progress,
+            cancellationToken: cancellationToken);
+    }
+
     private static async Task<IEmbeddingModel> LoadGgufAsync(
         string modelIdOrPath,
         EmbedderOptions options,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
-        string modelPath;
-        string modelId;
-
         var cleanPath = StripGgufPrefix(modelIdOrPath);
-
-        // Check if it's a local file
-        if (File.Exists(cleanPath))
-        {
-            modelPath = cleanPath;
-            modelId = Path.GetFileNameWithoutExtension(modelPath);
-        }
-        // Check if it's a HuggingFace repo ID
-        else if (cleanPath.Contains('/'))
-        {
-            var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-
-            // Download the GGUF file from HuggingFace
-            using var downloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
-            modelPath = await downloader.DownloadAsync(
-                cleanPath,
-                preferredQuantization: null,   // the largest quantization that fits in memory (docs/embedder.md)
-                progress: progress,
-                cancellationToken: cancellationToken);
-
-            modelId = cleanPath.Split('/').Last();
-        }
-        else
-        {
-            throw GgufModelNotFound(modelIdOrPath);
-        }
+        var modelPath = await ResolveGgufFileAsync(modelIdOrPath, options, progress, cancellationToken);
+        var modelId = File.Exists(cleanPath) ? Path.GetFileNameWithoutExtension(cleanPath) : cleanPath.Split('/').Last();
 
         return await LlamaServerEmbeddingModel.LoadAsync(
             modelId,

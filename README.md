@@ -1001,6 +1001,33 @@ RuntimeManager.Configure(new RuntimeManagerOptions
 
 `Configure` throws once the runtime manager exists, which happens at the first model load. Call it at startup.
 
+### Asking whether a model is ready, and downloading it on consent
+
+A host that must not download before the user agrees asks each model package the same three questions through
+`LMSupply.Lifecycle.IModelArtifacts` — `GeneratorArtifacts(options)` and `EmbedderArtifacts(options)`, built with the options
+the later load will use:
+
+```csharp
+using LMSupply;
+using LMSupply.Generator;
+using LMSupply.Lifecycle;
+
+IModelArtifacts generators = new GeneratorArtifacts(new GeneratorOptions { DisableAutoDownload = true });
+var progress = new Progress<DownloadProgress>(p => Console.WriteLine($"{p.FileName} {p.PercentComplete:F0}%"));
+
+if (!await generators.IsAvailableOfflineAsync("gguf:default"))      // weights and, for GGUF, llama-server cached?
+{
+    var bytes = await generators.GetRemainingDownloadBytesAsync("gguf:default");   // for the consent prompt
+    // ... after the user agrees:
+    await generators.DownloadAsync("gguf:default", progress);       // weights + llama-server
+}
+
+await using var model = await LocalGenerator.LoadAsync("gguf:default", new GeneratorOptions { DisableAutoDownload = true });
+```
+
+«Available offline» is exactly what a load with `DisableAutoDownload` needs, so that load then makes no network request.
+`GetRemainingDownloadBytesAsync` counts model files only (llama-server is a shared runtime of a few hundred MB, fetched once).
+
 ### Behind a proxy
 
 Every download LMSupply makes — models, ONNX runtime packages, llama-server builds — uses the .NET default proxy, so
