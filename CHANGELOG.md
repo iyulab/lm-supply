@@ -7,6 +7,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Changed
+- **Breaking** — `IGeneratorModel` has a new member, `TokenizeAsync(string, CancellationToken)`. Migration: an
+  implementation of your own (a wrapper or a test double) adds it — a wrapper delegates to the model it wraps.
 - **Breaking: `DisableAutoDownload` keeps a GGUF load off the network entirely.** It covered model files only, so a GGUF
   generator, embedder or reranker loaded with it still downloaded llama-server when none was cached, and a cached server
   still ran the background update check — «downloads disabled» was not «no request». Now the server comes from the
@@ -87,10 +89,6 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   penalties, `Grammar`,
   `JsonSchema` or `Tools`, and drafted tokens the target then had to reject. Only the draft's temperature and the
   length of each speculation now differ from what the caller set.
-
-### Changed
-- **Breaking** — `IGeneratorModel` has a new member, `TokenizeAsync(string, CancellationToken)`. Migration: an
-  implementation of your own (a wrapper or a test double) adds it — a wrapper delegates to the model it wraps.
 
 ## [0.123.0] - 2026-10-16
 
