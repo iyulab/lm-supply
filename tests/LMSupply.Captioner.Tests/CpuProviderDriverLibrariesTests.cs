@@ -4,6 +4,11 @@ using Xunit;
 
 namespace LMSupply.Captioner.Tests;
 
+// Without parallel neighbours: another class probing the GPU while a fact runs would be counted against the code under
+// test. In a process that already probed it the facts skip, as the class remarks say.
+[CollectionDefinition(nameof(DriverLibrariesSerialGroup), DisableParallelization = true)]
+public sealed class DriverLibrariesSerialGroup;
+
 /// <summary>
 /// A captioner loaded with <see cref="ExecutionProvider.Cpu"/> does not probe the GPU. The download ranking once did (it
 /// ranked quantizations by the hardware tier, which reads NVML); LMSupply 0.78.0 fixed it on every ONNX entry point, but
@@ -14,6 +19,7 @@ namespace LMSupply.Captioner.Tests;
 /// positive control, an NVIDIA host; LocalOnly keeps it out of CI.
 /// </summary>
 [Trait("Category", "LocalOnly")]
+[Collection(nameof(DriverLibrariesSerialGroup))]
 public sealed class CpuProviderDriverLibrariesTests
 {
     private const string Alias = "fast";

@@ -4,6 +4,11 @@ using Xunit;
 
 namespace LMSupply.Embedder.Tests;
 
+// Without parallel neighbours: another class probing the GPU while a fact runs would be counted against the code under
+// test. In a process that already probed it the facts skip, as the class remarks say.
+[CollectionDefinition(nameof(DriverLibrariesSerialGroup), DisableParallelization = true)]
+public sealed class DriverLibrariesSerialGroup;
+
 /// <summary>
 /// An embedder loaded with <see cref="ExecutionProvider.Cpu"/> does not bring the NVIDIA driver libraries into the
 /// process. Observed through the module list, the way a consumer sees it. Module state is per process, so each fact is
@@ -12,6 +17,7 @@ namespace LMSupply.Embedder.Tests;
 /// positive control; LocalOnly keeps it out of CI.
 /// </summary>
 [Trait("Category", "LocalOnly")]
+[Collection(nameof(DriverLibrariesSerialGroup))]
 public sealed class CpuProviderDriverLibrariesTests
 {
     private static readonly string[] DriverLibraries = ["nvml.dll", "nvcuda.dll", "nvcuda64.dll"];
