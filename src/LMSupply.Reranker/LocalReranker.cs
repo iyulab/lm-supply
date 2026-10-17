@@ -178,6 +178,9 @@ public static class LocalReranker
         return false;
     }
 
+    /// <summary>Whether a load of <paramref name="modelId"/> takes the GGUF backend — the user alias followed first, as the load does.</summary>
+    internal static bool LoadsAsGguf(string modelId) => IsGgufModel(FollowUserAlias(modelId));
+
     private static string StripGgufPrefix(string modelIdOrPath)
         => modelIdOrPath.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase)
             ? modelIdOrPath[5..]
@@ -345,6 +348,44 @@ public static class LocalReranker
 
         using var manager = new ModelManager(cacheDir, autoDownload: false);
         return manager.GetCachedModel(modelInfo) != null;
+    }
+
+    /// <summary>
+    /// Deletes what LMSupply downloaded of <paramref name="modelId"/>'s repository from the cache, so the next load downloads
+    /// it again.
+    /// </summary>
+    /// <remarks>
+    /// The id resolves as <see cref="IsModelDownloaded"/> resolves it — a user alias first, then a GGUF id (<c>gguf:</c>
+    /// repository, a <c>*-GGUF</c> repository, a built-in GGUF alias) or a registry alias / repository id — to one repository,
+    /// and <see cref="CacheManager.DeleteModel"/> deletes this library's files of it, and nothing another tool put in the
+    /// shared cache. Not deleted: a local path (the files are yours), a registry model's separate tokenizer repository, and
+    /// llama-server, which every GGUF model shares. A file a running server or session has open cannot be deleted on
+    /// Windows; the delete then throws <see cref="IOException"/>.
+    /// </remarks>
+    /// <param name="modelId">A model id in any form <see cref="IsModelDownloaded"/> accepts.</param>
+    /// <param name="cacheDirectory">Custom cache directory, or <see langword="null"/> for default.</param>
+    /// <returns>Whether anything was deleted.</returns>
+    public static bool DeleteModel(string modelId, string? cacheDirectory = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        var cacheDir = cacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+
+        modelId = FollowUserAlias(modelId);
+        string? repoId;
+        if (IsGgufModel(modelId))
+        {
+            var ggufTarget = StripGgufPrefix(modelId);
+            repoId = !File.Exists(ggufTarget) && ggufTarget.Contains('/') ? ggufTarget : null;
+        }
+        else
+        {
+            var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelId);
+            repoId = RerankerModelRegistry.Default.TryResolve(baseId, out var modelInfo) ? modelInfo!.Id : baseId;
+            if (File.Exists(repoId) || Directory.Exists(repoId) || !repoId.Contains('/'))
+                repoId = null;
+        }
+
+        return repoId is not null && CacheManager.DeleteModel(cacheDir, repoId);
     }
 
     /// <summary>

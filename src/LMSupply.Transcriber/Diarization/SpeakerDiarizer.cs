@@ -62,6 +62,10 @@ internal sealed class SpeakerDiarizer : IAsyncDisposable
         }
     }
 
+    /// <summary>Downloads both files into the cache (a no-op for what is cached), without creating a session.</summary>
+    internal static Task DownloadAsync(string cacheDirectory, IProgress<DownloadProgress>? progress, CancellationToken cancellationToken)
+        => FetchAsync(cacheDirectory, localFilesOnly: false, progress, cancellationToken);
+
     private static async Task<(string Segmentation, string Embedding)> FetchAsync(
         string cacheDirectory, bool localFilesOnly, IProgress<DownloadProgress>? progress, CancellationToken cancellationToken)
     {

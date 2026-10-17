@@ -551,19 +551,27 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel, Diarization.IDia
             return (parentDir, null);
         }
 
-        // Download from HuggingFace using discovery for complete file set
-        var cacheDir = _options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: _options.DisableAutoDownload);
+        return await DownloadAsync(_options, _modelInfo, _downloadProgress, cancellationToken);
+    }
+
+    /// <summary>
+    /// The download a load of <paramref name="modelInfo"/> with <paramref name="options"/> makes — the same repository,
+    /// preferences and discovery — without creating a session. Shared by the load and <c>LocalTranscriber.DownloadModelAsync</c>.
+    /// </summary>
+    internal static async Task<(string ModelPath, ModelDiscoveryResult? Discovery)> DownloadAsync(
+        TranscriberOptions options, TranscriberModelInfo modelInfo, IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
 
         // Use discovery-based download to automatically find all model files
         // including external data files (*.onnx_data) for large models
-        var (modelPath, discovery) = await downloader.DownloadWithDiscoveryAsync(
-            _modelInfo.Id,
-            preferences: DownloadPreferences(_options),
-            progress: _downloadProgress,
+        return await downloader.DownloadWithDiscoveryAsync(
+            modelInfo.Id,
+            preferences: DownloadPreferences(options),
+            progress: progress,
             cancellationToken: cancellationToken);
-
-        return (modelPath, discovery);
     }
 
     /// <summary>

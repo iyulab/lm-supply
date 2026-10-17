@@ -198,6 +198,73 @@ public static class LocalTranscriber
             }));
     }
 
+    /// <summary>
+    /// Downloads what a load of <paramref name="modelIdOrPath"/> with <paramref name="options"/> needs — the files that load
+    /// picks, and the speaker-diarization pair when <see cref="TranscriberOptions.PreloadDiarization"/> is set — without
+    /// loading anything, so that a load with downloads disabled opens cached files only. Cached files are not fetched again;
+    /// a model on local disk downloads nothing.
+    /// </summary>
+    /// <param name="modelIdOrPath">A model alias, HuggingFace id or local path, as for <c>LoadAsync</c>; a <c>:variant</c> qualifier is honoured.</param>
+    /// <param name="options">The options the load will use; not modified.</param>
+    /// <param name="progress">Download progress, as a load reports it.</param>
+    /// <param name="cancellationToken">Cancellation token; a cancelled download keeps its partial file and resumes next time.</param>
+    public static async Task DownloadModelAsync(
+        string modelIdOrPath,
+        TranscriberOptions? options = null,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        options = options?.Clone() ?? new TranscriberOptions();
+        PrepareOptions(modelIdOrPath, options);
+
+        if (Registry.TryResolve(options.ModelId, out var info) && info is not null
+            && TranscriberArchitectures.IsParakeetTdt(info.Architecture))
+        {
+            if (!Directory.Exists(info.Id))
+                await ParakeetTdtTranscriberModel.DownloadAsync(options, info, progress, cancellationToken);
+        }
+        else if (!Directory.Exists(options.ModelId))
+        {
+            var modelInfo = Registry.Resolve(options.ModelId);
+            var parentDir = Path.GetDirectoryName(modelInfo.Id);
+            if (!Directory.Exists(modelInfo.Id) && !(parentDir != null && Directory.Exists(parentDir)))
+                await OnnxTranscriberModel.DownloadAsync(options, modelInfo, progress, cancellationToken);
+        }
+
+        if (options.PreloadDiarization)
+        {
+            await Diarization.SpeakerDiarizer.DownloadAsync(
+                options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory(), progress, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Deletes what LMSupply downloaded of <paramref name="modelIdOrPath"/>'s repository from the cache, so the next load
+    /// downloads it again.
+    /// </summary>
+    /// <remarks>
+    /// The id resolves as <see cref="IsModelDownloadedAsync(string, TranscriberOptions?, CancellationToken)"/> resolves it
+    /// (alias or repository id; a <c>:variant</c> qualifier names the same repository), and
+    /// <see cref="CacheManager.DeleteModel"/> deletes this library's files of it — every variant it downloaded, and nothing
+    /// another tool put in the shared cache. Not deleted: a model on local disk (the files are yours) and the
+    /// speaker-diarization pair, which every transcriber shares. A file an open session holds cannot be deleted on Windows;
+    /// the delete then throws <see cref="IOException"/>.
+    /// </remarks>
+    /// <param name="modelIdOrPath">A model alias, HuggingFace id or local path, as for <c>LoadAsync</c>.</param>
+    /// <param name="options">Only <see cref="LMSupplyOptionsBase.CacheDirectory"/> is read; null means the default cache.</param>
+    /// <returns>Whether anything was deleted.</returns>
+    public static bool DeleteModel(string modelIdOrPath, TranscriberOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
+        var repoId = Registry.TryResolve(baseId, out var info) && info is not null ? info.Id : baseId;
+        if (Directory.Exists(repoId) || File.Exists(repoId) || !repoId.Contains('/'))
+            return false;
+
+        return CacheManager.DeleteModel(options?.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory(), repoId);
+    }
+
     /// <inheritdoc cref="IsModelDownloadedAsync(string, TranscriberOptions?, CancellationToken)"/>
     /// <remarks>For <see cref="TranscriberOptions.ModelId"/> — the check that matches <see cref="LoadAsync(TranscriberOptions?, IProgress{DownloadProgress}?, CancellationToken)"/>.</remarks>
     public static Task<bool> IsModelDownloadedAsync(

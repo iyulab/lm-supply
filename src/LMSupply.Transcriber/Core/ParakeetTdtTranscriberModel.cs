@@ -347,12 +347,23 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarizati
         if (Directory.Exists(_modelInfo.Id))
             return _modelInfo.Id;
 
-        var cacheDir = _options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: _options.DisableAutoDownload);
+        return await DownloadAsync(_options, _modelInfo, _downloadProgress, cancellationToken);
+    }
+
+    /// <summary>
+    /// The download a load of <paramref name="modelInfo"/> makes — the same files — without creating a session. Shared by the
+    /// load and <c>LocalTranscriber.DownloadModelAsync</c>.
+    /// </summary>
+    internal static async Task<string> DownloadAsync(
+        TranscriberOptions options, TranscriberModelInfo modelInfo, IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
         return await downloader.DownloadModelAsync(
-            _modelInfo.Id,
-            files: DownloadFiles(_modelInfo),
-            progress: _downloadProgress,
+            modelInfo.Id,
+            files: DownloadFiles(modelInfo),
+            progress: progress,
             cancellationToken: cancellationToken);
     }
 
