@@ -37,8 +37,11 @@ public sealed class LlamaCpuOnlyConformanceTests
         log.Should().Contain("model loaded").And.Contain("listening on",
             $"the CpuOnly preset must reach a running server. The log was:\n{log}");
 
-        var reply = await generator.GenerateCompleteAsync(
-            "Say hi.", new GenerationOptions { MaxTokens = 4 }, TestContext.Current.CancellationToken);
+        // A chat turn, greedy and without reasoning: sampled, a 4-token raw prompt sometimes drew end-of-turn first ("")
+        var reply = await generator.GenerateChatCompleteAsync(
+            [ChatMessage.User("Say hi.")],
+            new GenerationOptions { MaxTokens = 4, Thinking = ThinkingMode.Off, Temperature = 0f, DoSample = false },
+            TestContext.Current.CancellationToken);
         reply.Should().NotBeNullOrWhiteSpace("a CPU-only server must still generate");
     }
 }

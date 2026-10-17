@@ -16,9 +16,10 @@ namespace LMSupply.Integration.Tests.Functional;
 public class GeneratorFunctionalTests
 {
     private const string FastModel = "gguf:gemma4-fast";
-    // Thinking off: gemma4 reasons by default, and a 30-token budget spent on reasoning returns an empty answer at random
-    // (Gemma4EmptyChatProbeTests) — these facts test generation paths, not the reasoning channel
-    private static readonly GenerationOptions ShortOutput = new() { MaxTokens = 30, Thinking = ThinkingMode.Off };
+    // Thinking off and greedy: gemma4 reasons by default, and a 30-token budget spent on reasoning returns an empty answer
+    // (Gemma4EmptyChatProbeTests); sampled, a raw prompt sometimes draws end-of-turn first and returns "" too. These facts test
+    // generation paths, so they decode deterministically and skip the reasoning channel.
+    private static readonly GenerationOptions ShortOutput = new() { MaxTokens = 30, Thinking = ThinkingMode.Off, Temperature = 0f, DoSample = false };
 
     // ── L axis: Model Loading ───────────────────────────────────────
 

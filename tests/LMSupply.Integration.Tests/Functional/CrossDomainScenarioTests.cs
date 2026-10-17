@@ -284,7 +284,7 @@ public class CrossDomainScenarioTests
     {
         // 1. Generate text about a topic
         await using var generator = await LocalGenerator.LoadAsync("gguf:gemma4-fast", cancellationToken: TestContext.Current.CancellationToken);
-        var generated = await generator.GenerateCompleteAsync("Machine learning is", new Generator.Models.GenerationOptions { MaxTokens = 30 }, TestContext.Current.CancellationToken);
+        var generated = await generator.GenerateCompleteAsync("Machine learning is", new Generator.Models.GenerationOptions { MaxTokens = 30, Temperature = 0f, DoSample = false }, TestContext.Current.CancellationToken);
 
         generated.Should().NotBeNullOrEmpty();
 
