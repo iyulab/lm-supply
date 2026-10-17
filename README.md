@@ -1025,8 +1025,8 @@ RuntimeManager.Configure(new RuntimeManagerOptions
 ### Asking whether a model is ready, and downloading it on consent
 
 A host that must not download before the user agrees asks each model package the same three questions through
-`LMSupply.Lifecycle.IModelArtifacts` — `GeneratorArtifacts(options)`, `EmbedderArtifacts(options)`, `RerankerArtifacts(options)`
-and `TranscriberArtifacts(options)`, built with the options the later load will use:
+`LMSupply.Lifecycle.IModelArtifacts` — `GeneratorArtifacts(options)`, `EmbedderArtifacts(options)`, `RerankerArtifacts(options)`,
+`TranscriberArtifacts(options)` and `CaptionerArtifacts(options)`, built with the options the later load will use:
 
 ```csharp
 using LMSupply;
@@ -1049,6 +1049,8 @@ await using var model = await LocalGenerator.LoadAsync("gguf:default", new Gener
 «Available offline» is exactly what a load with `DisableAutoDownload` needs, so that load then makes no network request.
 `GetRemainingDownloadBytesAsync` counts model files only (llama-server is a shared runtime of a few hundred MB, fetched once).
 For a transcriber whose options preload speaker diarization, its model pair is part of «available offline» and of the download.
+A host that loads from a path rather than an id finds the path after the download from the cache alone — for example
+`LocalGenerator.DownloadModelAsync(id, new GeneratorOptions { DisableAutoDownload = true })` returns it without a request.
 
 A host that shows several models to a user keeps them in one `ModelLifecycle`: each model's status (`Missing`, `Downloading`
 with progress, `Ready`, or `Failed` with the exception), a stream of every change for the UI, downloads that two callers share
@@ -1057,6 +1059,7 @@ and any caller can cancel (`CancelDownload` — partial files stay and resume), 
 is being deleted). It never downloads on its own; a status read looks at the cache only.
 
 ```csharp
+using LMSupply.Captioner;
 using LMSupply.Embedder;
 using LMSupply.Generator;
 using LMSupply.Lifecycle;
@@ -1064,7 +1067,7 @@ using LMSupply.Reranker;
 using LMSupply.Transcriber;
 
 var models = new ModelLifecycle(
-    [new GeneratorArtifacts(), new EmbedderArtifacts(), new RerankerArtifacts(), new TranscriberArtifacts()]);
+    [new GeneratorArtifacts(), new EmbedderArtifacts(), new RerankerArtifacts(), new TranscriberArtifacts(), new CaptionerArtifacts()]);
 
 var status = await models.GetStatusAsync("generator", "gguf:default");       // Missing / Downloading / Ready / Failed
 _ = Task.Run(async () =>
@@ -1082,8 +1085,8 @@ A `gguf:` registry alias deletes the file it loads on this host (every shard of 
 model per repository and deletes LMSupply's files of it. A delete removes LMSupply's own files only — another tool's snapshot
 in the shared cache, a local path and llama-server stay (a model still `Ready` after `DeleteAsync` loads from those). Without
 a lifecycle, `LocalGenerator.DeleteModel(id, options)`, `LocalEmbedder.DeleteModel(id, cacheDir)`,
-`LocalReranker.DeleteModel(id, cacheDir)` and `LocalTranscriber.DeleteModel(id, options)` resolve the id the way their
-`IsModelDownloaded`/`IsModelDownloadedAsync` does (a transcriber keeps the shared diarization pair) and call `CacheManager.DeleteModelFiles(cacheDir, repoId, files)` or `CacheManager.DeleteModel`. On Windows a file a running server has open cannot be deleted (`IOException`) — dispose the model
+`LocalReranker.DeleteModel(id, cacheDir)`, `LocalTranscriber.DeleteModel(id, options)` and `LocalCaptioner.DeleteModel(id, options)`
+resolve the id the way their `IsModelDownloaded`/`IsModelDownloadedAsync` does (a transcriber keeps the shared diarization pair) and call `CacheManager.DeleteModelFiles(cacheDir, repoId, files)` or `CacheManager.DeleteModel`. On Windows a file a running server has open cannot be deleted (`IOException`) — dispose the model
 first.
 
 ### Behind a proxy

@@ -13,13 +13,15 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   role — is the system prompt, and `function` is read like `tool`. Migration: send one of those roles.
 
 ### Added
-- **A host manages rerankers and transcribers like generators and embedders: `RerankerArtifacts` and
-  `TranscriberArtifacts`** (`IModelArtifacts`, so a `ModelLifecycle` takes them). Each answers whether a load with downloads
+- **A host manages rerankers, transcribers and captioners like generators and embedders: `RerankerArtifacts`,
+  `TranscriberArtifacts` and `CaptionerArtifacts`** (`IModelArtifacts`, so a `ModelLifecycle` takes them). Each answers whether a load with downloads
   disabled finds everything in the cache — for a GGUF reranker its llama-server too, for a transcriber that preloads speaker
   diarization its model pair too — the bytes still to fetch, the download that makes it so, and the delete.
-  `LocalTranscriber.DownloadModelAsync(id, options, progress)` downloads what a load needs without loading it (the load and
-  this share one download path), and `LocalReranker.DeleteModel(id, cacheDir)` / `LocalTranscriber.DeleteModel(id, options)`
-  delete LMSupply's files of the model the id resolves to — never a local path, llama-server, a reranker's separate tokenizer
+  `LocalTranscriber.DownloadModelAsync(id, options, progress)` and `LocalCaptioner.DownloadModelAsync(id, options, progress)`
+  download what a load needs without loading it (each load and its download share one path),
+  `LocalCaptioner.IsModelDownloadedAsync(id, options)` answers from the cache whether that load would make no request, and
+  `LocalReranker.DeleteModel(id, cacheDir)` / `LocalTranscriber.DeleteModel(id, options)` / `LocalCaptioner.DeleteModel(id,
+  options)` delete LMSupply's files of the model the id resolves to — never a local path, llama-server, a reranker's separate tokenizer
   repository or the shared diarization pair.
 - **`LMSupply.Decider`: typed decisions from a local model.** `LocalDecider.LoadAsync` loads a GGUF model and
   `IDeciderModel.DecideAsync` answers named questions about a state — `DecisionQuestion.Choice` (your options, optionally

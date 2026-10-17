@@ -89,28 +89,13 @@ public static class LocalCaptioner
             EnsureOptionsSupported(modelInfo!, options);
             variantSuffix = SelectVariantSuffix(modelInfo!, options);
 
-            // Download model from HuggingFace
-            var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-            using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
-
-            modelDir = await downloader.DownloadModelAsync(
-                modelInfo!.RepoId,
-                files: GetRequiredFiles(modelInfo, variantSuffix),
-                subfolder: modelInfo.Subfolder,
-                progress: progress,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+            modelDir = await DownloadKnownAsync(modelInfo!, variantSuffix, options, progress, cancellationToken).ConfigureAwait(false);
         }
         // Check if it's a HuggingFace repo ID
         else if (modelIdOrPath.Contains('/'))
         {
-            var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-            using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
-
-            var (downloadedDir, discovery) = await downloader.DownloadWithDiscoveryAsync(
-                modelIdOrPath,
-                preferences: DiscoveryPreferences(options),
-                progress: progress,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+            var (downloadedDir, discovery) = await DownloadDiscoveredAsync(modelIdOrPath, options, progress, cancellationToken)
+                .ConfigureAwait(false);
 
             // Use discovery result to get correct ONNX directory (handles subfolder structures)
             var onnxDir = discovery.GetOnnxDirectory(downloadedDir);
@@ -197,6 +182,137 @@ public static class LocalCaptioner
         var plans = await PlanDownloadsAsync(modelIdOrPath, options, cancellationToken).ConfigureAwait(false);
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         return plans.Sum(p => p.GetRemainingBytes(cacheDir));
+    }
+
+    /// <summary>
+    /// Whether a load of <paramref name="modelIdOrPath"/> with <paramref name="options"/> would open cached files only — every
+    /// file that load picks (the same variant as <see cref="GetDownloadSizeBytesAsync"/>) is in the cache at the length the
+    /// repository lists. Makes no network request and loads nothing; a model on local disk answers <see langword="true"/>.
+    /// </summary>
+    /// <remarks>
+    /// The answer never errs toward <see langword="true"/>: a repository this cache never listed, a missing or partial file,
+    /// or a Git LFS pointer answers <see langword="false"/>.
+    /// </remarks>
+    /// <param name="modelIdOrPath">Anything <see cref="LoadAsync"/> accepts; a <c>:variant</c> qualifier is honoured.</param>
+    /// <param name="options">The options the load will use; not modified.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static async Task<bool> IsModelDownloadedAsync(
+        string modelIdOrPath,
+        CaptionerOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        options = options?.Clone() ?? new CaptionerOptions();
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+        // Plan from the cached listing only: the check must not reach the network.
+        options.DisableAutoDownload = true;
+
+        IReadOnlyList<DownloadPlan> plans;
+        try
+        {
+            plans = await PlanDownloadsAsync(modelIdOrPath, options, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is ModelNotFoundException or ModelDownloadException)
+        {
+            return false;
+        }
+
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        return plans.All(p => p.GetRemainingBytes(cacheDir) == 0);
+    }
+
+    /// <summary>
+    /// Downloads the files a load of <paramref name="modelIdOrPath"/> with <paramref name="options"/> opens, without loading
+    /// anything, so that a load with downloads disabled opens cached files only. Cached files are not fetched again; a model on
+    /// local disk downloads nothing. The load downloads through the same path.
+    /// </summary>
+    /// <param name="modelIdOrPath">Anything <see cref="LoadAsync"/> accepts; a <c>:variant</c> qualifier is honoured.</param>
+    /// <param name="options">The options the load will use; not modified.</param>
+    /// <param name="progress">Download progress, as a load reports it.</param>
+    /// <param name="cancellationToken">Cancellation token; a cancelled download keeps its partial file and resumes next time.</param>
+    /// <exception cref="ModelNotFoundException">The model is unknown, or (downloads disabled) not cached.</exception>
+    public static async Task DownloadModelAsync(
+        string modelIdOrPath,
+        CaptionerOptions? options = null,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        options = options?.Clone() ?? new CaptionerOptions();
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+        var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
+        options.QuantizationHint ??= qualifier;
+
+        if (Directory.Exists(baseId))
+            return;
+        if (TryResolveKnownModel(baseId, out var modelInfo))
+        {
+            await DownloadKnownAsync(modelInfo!, SelectVariantSuffix(modelInfo!, options), options, progress, cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+        if (baseId.Contains('/'))
+        {
+            await DownloadDiscoveredAsync(baseId, options, progress, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        throw new ModelNotFoundException(
+            $"Unknown model '{baseId}'. Use a known model ID (e.g., 'default', 'quality'), a HuggingFace repo ID, " +
+            "or a local path to a model directory.",
+            baseId);
+    }
+
+    /// <summary>
+    /// Deletes what LMSupply downloaded of <paramref name="modelIdOrPath"/>'s repository from the cache, so the next load
+    /// downloads it again.
+    /// </summary>
+    /// <remarks>
+    /// The id resolves as <see cref="LoadAsync"/> resolves it (alias or repository id; a <c>:variant</c> qualifier names the
+    /// same repository), and <see cref="CacheManager.DeleteModel"/> deletes this library's files of it — every variant it
+    /// downloaded, and nothing another tool put in the shared cache. A model on local disk is not deleted. A file an open
+    /// session holds cannot be deleted on Windows; the delete then throws <see cref="IOException"/>.
+    /// </remarks>
+    /// <param name="modelIdOrPath">Anything <see cref="LoadAsync"/> accepts.</param>
+    /// <param name="options">Only <see cref="LMSupplyOptionsBase.CacheDirectory"/> is read; null means the default cache.</param>
+    /// <returns>Whether anything was deleted.</returns>
+    public static bool DeleteModel(string modelIdOrPath, CaptionerOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
+        var repoId = TryResolveKnownModel(baseId, out var modelInfo) ? modelInfo!.RepoId : baseId;
+        if (Directory.Exists(repoId) || File.Exists(repoId) || !repoId.Contains('/'))
+            return false;
+
+        return CacheManager.DeleteModel(options?.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory(), repoId);
+    }
+
+    // The download of a registered model: the files of the chosen variant. Shared by the load and DownloadModelAsync.
+    private static async Task<string> DownloadKnownAsync(
+        CaptionerModelInfo modelInfo, string variantSuffix, CaptionerOptions options, IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+        return await downloader.DownloadModelAsync(
+            modelInfo.RepoId,
+            files: GetRequiredFiles(modelInfo, variantSuffix),
+            subfolder: modelInfo.Subfolder,
+            progress: progress,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    // The download of a Hugging Face repository by discovery. Shared by the load and DownloadModelAsync.
+    private static async Task<(string LocalPath, ModelDiscoveryResult Discovery)> DownloadDiscoveredAsync(
+        string repoId, CaptionerOptions options, IProgress<DownloadProgress>? progress, CancellationToken cancellationToken)
+    {
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+        return await downloader.DownloadWithDiscoveryAsync(
+            repoId,
+            preferences: DiscoveryPreferences(options),
+            progress: progress,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     // The plans a load with these options fetches; empty for a model on local disk. Shared by the total and the
