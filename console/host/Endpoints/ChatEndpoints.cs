@@ -34,6 +34,24 @@ public static class ChatEndpoints
                 return;
             }
 
+            // Log probabilities, OpenAI's rules: top_logprobs 0-20, and only with logprobs: true
+            var logprobsError = request switch
+            {
+                { TopLogprobs: not null, Logprobs: not true } => "'top_logprobs' requires 'logprobs': true",
+                { TopLogprobs: < 0 or > 20 } => "'top_logprobs' must be between 0 and 20",
+                { Logprobs: true, DraftModel: not null } => "'logprobs' is not available with 'draft_model' (speculative decoding)",
+                _ => null,
+            };
+            if (logprobsError is not null)
+            {
+                context.Response.StatusCode = 400;
+                await context.Response.WriteAsJsonAsync(new ErrorResponse
+                {
+                    Error = new ErrorDetail { Message = logprobsError, Type = "invalid_request_error" }
+                }, ct);
+                return;
+            }
+
             // Resolve max tokens
             var maxTokens = request.MaxCompletionTokens ?? request.MaxTokens ?? 2048;
 
@@ -41,6 +59,17 @@ public static class ChatEndpoints
             var toolsEnabled = ToolCallFormatter.ShouldEnableTools(request.ToolChoice, request.Tools);
             var hasImages = MultimodalHelper.HasImageContent(request.Messages);
             var isStrictJson = request.ResponseFormat?.Type == "json_schema" && request.ResponseFormat.JsonSchema?.Strict == true;
+
+            // A streamed strict-JSON answer is validated whole and sent as one piece; it has no per-token log probabilities.
+            if (request.Stream && isStrictJson && request.Logprobs == true)
+            {
+                context.Response.StatusCode = 400;
+                await context.Response.WriteAsJsonAsync(new ErrorResponse
+                {
+                    Error = new ErrorDetail { Message = "'logprobs' is not available on a streamed strict 'json_schema' response", Type = "invalid_request_error" }
+                }, ct);
+                return;
+            }
 
             // Handle streaming separately to avoid IResult after response started
             if (request.Stream)
@@ -62,6 +91,13 @@ public static class ChatEndpoints
                         var tokens = ToStringTokens(decoder.GenerateAsync(prompt, options, ct));
                         await SseHelper.StreamChatCompletionAsync(context, scope.Model.ModelId, tokens, ct);
                     }
+                    else if (request.Logprobs == true)
+                    {
+                        // The first chunk is taken before the response starts, so a backend that cannot report log
+                        // probabilities still gets a 400 rather than a broken stream.
+                        var chunks = await StartAsync(scope.Model.GenerateChatStreamAsync(messages, options, ct), ct);
+                        await SseHelper.StreamChatCompletionAsync(context, scope.Model.ModelId, chunks, ct);
+                    }
                     else if (isStrictJson)
                     {
                         // Strict JSON: buffer full response, validate, retry up to 3 times, then stream result
@@ -79,6 +115,15 @@ public static class ChatEndpoints
                     // If response hasn't started, we can still write error
                     if (!context.Response.HasStarted)
                     {
+                        if (ex is NotSupportedException && request.Logprobs == true)
+                        {
+                            context.Response.StatusCode = 400;
+                            await context.Response.WriteAsJsonAsync(new ErrorResponse
+                            {
+                                Error = new ErrorDetail { Message = ex.Message, Type = "invalid_request_error" }
+                            }, ct);
+                            return;
+                        }
                         context.Response.StatusCode = 500;
                         await context.Response.WriteAsJsonAsync(new ErrorResponse
                         {
@@ -167,7 +212,8 @@ public static class ChatEndpoints
                                 Content = content,
                                 ToolCalls = toolCalls
                             },
-                            FinishReason = finishReason
+                            FinishReason = finishReason,
+                            Logprobs = ChatCompletionLogprobs.From(result.Logprobs)
                         });
 
                         // Aggregate usage (prompt tokens only counted once for first choice)
@@ -201,6 +247,15 @@ public static class ChatEndpoints
                     Usage = aggregatedUsage
                 }, ct);
             }
+            catch (NotSupportedException ex) when (request.Logprobs == true)
+            {
+                // The model's backend cannot report log probabilities (an ONNX model).
+                context.Response.StatusCode = 400;
+                await context.Response.WriteAsJsonAsync(new ErrorResponse
+                {
+                    Error = new ErrorDetail { Message = ex.Message, Type = "invalid_request_error" }
+                }, ct);
+            }
             catch (Exception ex)
             {
                 context.Response.StatusCode = 500;
@@ -227,6 +282,7 @@ public static class ChatEndpoints
             FrequencyPenalty = request.FrequencyPenalty ?? 0f,
             PresencePenalty = request.PresencePenalty ?? 0f,
             Seed = request.Seed ?? -1,
+            TopLogprobs = request.Logprobs == true ? request.TopLogprobs ?? 0 : null,
             StopSequences = request.Stop?.ToList(),
             JsonSchema = request.ResponseFormat?.Type == "json_schema" &&
                          request.ResponseFormat.JsonSchema?.Schema.HasValue == true
@@ -252,6 +308,37 @@ public static class ChatEndpoints
             if (ResponseFormatHelper.ValidateJson(result.Content, format)) break;
         }
         yield return result.Content;
+    }
+
+    /// <summary>
+    /// Takes the first item of <paramref name="source"/> now, so that what the first step throws (a backend that cannot
+    /// honour the options) surfaces before the response starts; the returned sequence yields that item and the rest.
+    /// </summary>
+    private static async Task<IAsyncEnumerable<T>> StartAsync<T>(IAsyncEnumerable<T> source, CancellationToken ct)
+    {
+        var enumerator = source.GetAsyncEnumerator(ct);
+        try
+        {
+            var any = await enumerator.MoveNextAsync();
+            return Rest(enumerator, any);
+        }
+        catch
+        {
+            await enumerator.DisposeAsync();
+            throw;
+        }
+
+        static async IAsyncEnumerable<T> Rest(IAsyncEnumerator<T> enumerator, bool any)
+        {
+            await using (enumerator)
+            {
+                if (!any)
+                    yield break;
+                yield return enumerator.Current;
+                while (await enumerator.MoveNextAsync())
+                    yield return enumerator.Current;
+            }
+        }
     }
 
     /// <summary>

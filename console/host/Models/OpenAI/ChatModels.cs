@@ -219,6 +219,55 @@ public sealed record ChatCompletionChoice
     public required ChatCompletionResponseMessage Message { get; init; }
     [JsonPropertyName("finish_reason")]
     public string? FinishReason { get; init; }
+    /// <summary>The log probabilities of the generated tokens, when the request set <c>logprobs</c>; null otherwise.</summary>
+    public ChatCompletionLogprobs? Logprobs { get; init; }
+}
+
+/// <summary>
+/// The log probabilities of a choice's tokens (OpenAI <c>logprobs</c>).
+/// </summary>
+public sealed record ChatCompletionLogprobs
+{
+    public required IReadOnlyList<ChatCompletionTokenLogprob> Content { get; init; }
+
+    internal static ChatCompletionLogprobs? From(IReadOnlyList<LMSupply.Generator.Models.TokenLogprob>? logprobs) =>
+        logprobs is null ? null : new ChatCompletionLogprobs
+        {
+            Content = [.. logprobs.Select(t => new ChatCompletionTokenLogprob
+            {
+                Token = t.Token,
+                Logprob = t.Logprob,
+                Bytes = t.Bytes is null ? null : [.. t.Bytes.Select(b => (int)b)],
+                TopLogprobs = [.. t.TopLogprobs.Select(c => new ChatCompletionTopLogprob
+                {
+                    Token = c.Token,
+                    Logprob = c.Logprob,
+                    Bytes = c.Bytes is null ? null : [.. c.Bytes.Select(b => (int)b)],
+                })],
+            })],
+        };
+}
+
+/// <summary>
+/// One generated token and its log probability, with the most likely candidates at its position.
+/// </summary>
+public sealed record ChatCompletionTokenLogprob
+{
+    public required string Token { get; init; }
+    public double Logprob { get; init; }
+    public IReadOnlyList<int>? Bytes { get; init; }
+    [JsonPropertyName("top_logprobs")]
+    public required IReadOnlyList<ChatCompletionTopLogprob> TopLogprobs { get; init; }
+}
+
+/// <summary>
+/// A candidate token at a position and its log probability.
+/// </summary>
+public sealed record ChatCompletionTopLogprob
+{
+    public required string Token { get; init; }
+    public double Logprob { get; init; }
+    public IReadOnlyList<int>? Bytes { get; init; }
 }
 
 /// <summary>
@@ -243,6 +292,8 @@ public sealed record ChatCompletionChunkChoice
     public required ChatCompletionDelta Delta { get; init; }
     [JsonPropertyName("finish_reason")]
     public string? FinishReason { get; init; }
+    /// <summary>The log probabilities of the tokens in this chunk, when the request set <c>logprobs</c>.</summary>
+    public ChatCompletionLogprobs? Logprobs { get; init; }
 }
 
 /// <summary>

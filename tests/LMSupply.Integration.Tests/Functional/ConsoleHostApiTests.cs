@@ -1051,6 +1051,85 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             "empty messages array should not succeed");
     }
 
+    [Theory]
+    [Trait("Axis", "API-Error")]
+    [InlineData(false, 5, null, false, "requires 'logprobs': true")]
+    [InlineData(true, 21, null, false, "between 0 and 20")]
+    [InlineData(true, -1, null, false, "between 0 and 20")]
+    [InlineData(true, 2, "gguf:gemma4-fast", false, "draft_model")]
+    [InlineData(true, 2, null, true, "strict 'json_schema'")]
+    public async Task POST_ChatCompletions_LogprobsOutsideOpenAIsRules_Returns400(
+        bool logprobs, int topLogprobs, string? draftModel, bool streamedStrictJson, string message)
+    {
+        // Rejected before any model is loaded.
+        var body = new Dictionary<string, object?>
+        {
+            ["model"] = "default",
+            ["messages"] = new[] { new { role = "user", content = "Hi" } },
+            ["logprobs"] = logprobs,
+            ["top_logprobs"] = topLogprobs,
+        };
+        if (draftModel is not null) body["draft_model"] = draftModel;
+        if (streamedStrictJson)
+        {
+            body["stream"] = true;
+            body["response_format"] = new { type = "json_schema", json_schema = new { name = "x", strict = true, schema = new { type = "object" } } };
+        }
+
+        var response = await _client.PostAsync("/v1/chat/completions", JsonContent.Create(body), TestContext.Current.CancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
+        json.GetProperty("error").GetProperty("message").GetString().Should().Contain(message);
+    }
+
+    // A GGUF model reports each generated token's log probability, with the candidates asked for, streamed or not.
+    [Theory]
+    [Trait("Axis", "API-Inference")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task POST_ChatCompletions_WithLogprobs_ReturnsEachTokensLogprob(bool stream)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var content = JsonContent.Create(new
+        {
+            model = "unsloth/Qwen3.5-2B-GGUF",
+            messages = new[] { new { role = "user", content = "Answer with one letter: A or B?" } },
+            max_tokens = 3,
+            temperature = 0,
+            logprobs = true,
+            top_logprobs = 3,
+            stream,
+        });
+
+        var response = await _client.PostAsync("/v1/chat/completions", content, ct);
+        var text = await response.Content.ReadAsStringAsync(ct);
+        if (response.StatusCode == HttpStatusCode.InternalServerError && text.Contains("not in the local cache", StringComparison.Ordinal))
+            Assert.Skip("The model is not cached here.");
+        response.StatusCode.Should().Be(HttpStatusCode.OK, text);
+
+        var tokens = new List<JsonElement>();
+        if (stream)
+        {
+            foreach (var line in text.Split('\n').Where(l => l.StartsWith("data: {", StringComparison.Ordinal)))
+            {
+                var choice = JsonDocument.Parse(line["data: ".Length..]).RootElement.GetProperty("choices")[0];
+                if (choice.TryGetProperty("logprobs", out var lp))
+                    tokens.AddRange(lp.GetProperty("content").EnumerateArray());
+            }
+        }
+        else
+        {
+            var choice = JsonDocument.Parse(text).RootElement.GetProperty("choices")[0];
+            tokens.AddRange(choice.GetProperty("logprobs").GetProperty("content").EnumerateArray());
+        }
+
+        tokens.Should().NotBeEmpty(text);
+        tokens.Should().OnlyContain(t => t.GetProperty("logprob").GetDouble() <= 0
+            && t.GetProperty("top_logprobs").GetArrayLength() == 3
+            && t.GetProperty("token").ValueKind == JsonValueKind.String);
+    }
+
     [Fact]
     [Trait("Axis", "API-Error")]
     public async Task POST_ChatCompletions_InvalidRole_ReturnsError()

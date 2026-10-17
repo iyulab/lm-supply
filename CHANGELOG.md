@@ -49,6 +49,11 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `NotSupportedException` when `TopLogprobs` is set. On `LlamaServerClient`, `ChatCompletionOptions.TopLogprobs` and
   `CompletionOptions.TopLogprobs` do the same, and `ChatStreamData`, `CompletionStreamData` and
   `ChatCompletionFullChoice` carry `LlamaTokenLogprob` entries.
+- **The console host's `POST /v1/chat/completions` takes `logprobs` and `top_logprobs`** with OpenAI's meaning
+  (`top_logprobs` 0–20, only with `logprobs: true`) and returns `choices[].logprobs.content` — `token`, `logprob`,
+  `bytes`, `top_logprobs` — streamed (each chunk's tokens) and not. The fields were accepted and ignored. A request
+  outside those rules, with `draft_model`, or on a streamed strict `json_schema` response is a 400, and so is a model
+  whose backend cannot report log probabilities (ONNX).
 - **A model's token ids for a text.** `IGeneratorModel.TokenizeAsync(text)` returns them — on a GGUF model through
   llama-server's `/tokenize`, without the tokens the model adds around a whole prompt, and with text that spells a
   special token (such as `<think>`) read as that token; on an ONNX model through its tokenizer. Use it to find the id of

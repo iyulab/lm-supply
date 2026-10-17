@@ -88,6 +88,45 @@ public static class SseHelper
     }
 
     /// <summary>
+    /// Streams a chat completion from the model's chunks, carrying each chunk's log probabilities — the path a request
+    /// that sets <c>logprobs</c> takes. Reasoning deltas are not sent (the text path does not send them either).
+    /// </summary>
+    public static async Task StreamChatCompletionAsync(
+        HttpContext context,
+        string model,
+        IAsyncEnumerable<LMSupply.Generator.Models.ChatStreamChunk> chunks,
+        CancellationToken cancellationToken = default)
+    {
+        await SetSseHeadersAsync(context);
+
+        var id = $"chatcmpl-{Guid.NewGuid():N}";
+        var created = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        ChatCompletionChunk Chunk(ChatCompletionDelta delta, string? finishReason = null, ChatCompletionLogprobs? logprobs = null) => new()
+        {
+            Id = id,
+            Model = model,
+            Created = created,
+            Choices = [new ChatCompletionChunkChoice { Index = 0, Delta = delta, FinishReason = finishReason, Logprobs = logprobs }]
+        };
+
+        await WriteDataAsync(context, Chunk(new ChatCompletionDelta { Role = "assistant" }), cancellationToken);
+
+        string? finishReason = null;
+        await foreach (var chunk in chunks.WithCancellation(cancellationToken))
+        {
+            finishReason = chunk.FinishReason ?? finishReason;
+            var logprobs = ChatCompletionLogprobs.From(chunk.Logprobs);
+            if (string.IsNullOrEmpty(chunk.Text) && logprobs is null)
+                continue;
+            await WriteDataAsync(context, Chunk(new ChatCompletionDelta { Content = chunk.Text }, logprobs: logprobs), cancellationToken);
+        }
+
+        await WriteDataAsync(context, Chunk(new ChatCompletionDelta(), finishReason ?? "stop"), cancellationToken);
+        await context.Response.WriteAsync("data: [DONE]\n\n", cancellationToken);
+        await context.Response.Body.FlushAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Stream any object as SSE
     /// </summary>
     public static async Task StreamAsync<T>(
