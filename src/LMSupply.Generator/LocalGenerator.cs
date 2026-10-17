@@ -54,6 +54,7 @@ public static class LocalGenerator
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
 
         // A copy: a ":variant" qualifier below becomes the load's quantization hint, not the caller's.
@@ -421,6 +422,7 @@ public static class LocalGenerator
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         ArgumentException.ThrowIfNullOrWhiteSpace(modelPath);
 
         // Support both directory (ONNX) and file (GGUF) paths
@@ -461,6 +463,7 @@ public static class LocalGenerator
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         if (candidates is null || candidates.Count == 0)
             throw new ArgumentException("At least one candidate model ID is required.", nameof(candidates));
 
@@ -496,6 +499,7 @@ public static class LocalGenerator
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         return LoadAsync("default", options, progress, cancellationToken);
     }
 

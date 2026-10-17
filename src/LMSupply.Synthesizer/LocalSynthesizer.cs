@@ -1,5 +1,6 @@
 using LMSupply.Synthesizer.Core;
 using LMSupply.Synthesizer.Models;
+using LMSupply.Download;
 
 namespace LMSupply.Synthesizer;
 
@@ -45,6 +46,7 @@ public static class LocalSynthesizer
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         options = options?.Clone() ?? new SynthesizerOptions();
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
@@ -74,6 +76,7 @@ public static class LocalSynthesizer
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         return LoadAsync(options?.ModelId ?? "default", options, progress, cancellationToken);
     }
 

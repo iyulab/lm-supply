@@ -44,6 +44,7 @@ public static class LocalEmbedder
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         return LoadAsync(DefaultModel, options, progress, cancellationToken);
     }
 
@@ -65,6 +66,7 @@ public static class LocalEmbedder
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         options = options?.Clone() ?? new EmbedderOptions();
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);

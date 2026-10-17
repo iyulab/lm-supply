@@ -1,5 +1,6 @@
 using LMSupply.Translator.Core;
 using LMSupply.Translator.Models;
+using LMSupply.Download;
 
 namespace LMSupply.Translator;
 
@@ -38,6 +39,7 @@ public static class LocalTranslator
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         options = options?.Clone() ?? new TranslatorOptions();
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
@@ -67,6 +69,7 @@ public static class LocalTranslator
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         return LoadAsync(options?.ModelId ?? "default", options, progress, cancellationToken);
     }
 

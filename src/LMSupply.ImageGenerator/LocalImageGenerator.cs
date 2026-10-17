@@ -53,6 +53,7 @@ public static class LocalImageGenerator
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
 
         options = options?.Clone() ?? new ImageGeneratorOptions();

@@ -57,7 +57,7 @@ internal class SingleFileGgufDownloader : IDisposable
             var cached = TrySelectFromLocalCache(_cacheDirectory, repoId, preferredQuantization, _legacyTreeName)
                 ?? throw NotCached(repoId);
 
-            progress?.Report(DownloadProgress.CachedFile(Path.GetFileName(cached), cached));
+            progress?.Report(DownloadProgress.FileInPlace(Path.GetFileName(cached), cached));
             return cached;
         }
 
@@ -72,7 +72,7 @@ internal class SingleFileGgufDownloader : IDisposable
             if (!ResumableFileDownload.IsUsableCachedFile(cachePath, expectedSize, readOnly))
                 continue;
 
-            progress?.Report(DownloadProgress.CachedFile(selectedFile.Path, cachePath));
+            progress?.Report(DownloadProgress.FileInPlace(selectedFile.Path, cachePath));
             return cachePath;
         }
 
@@ -86,7 +86,7 @@ internal class SingleFileGgufDownloader : IDisposable
         // Into the hub cache layout (blobs, snapshots/{commit}, refs), where other Hugging Face tools find it. The
         // bytes land in a ".part" and take the final name only once the whole file is there, so a transfer that stops
         // half way never leaves a truncated model under a name the cache would accept.
-        return await HubCache.DownloadFileAsync(
+        var downloaded = await HubCache.DownloadFileAsync(
             _httpClient, _cacheDirectory, repoId, Revision, selectedFile.Path, expectedSize,
             HubCache.BlobIdsOf(files).GetValueOrDefault(selectedFile.Path),
             (url, destination) => new ResumableFileDownload.Request
@@ -99,6 +99,9 @@ internal class SingleFileGgufDownloader : IDisposable
                 Progress = progress,
             },
             cancellationToken);
+
+        progress?.Report(DownloadProgress.FileInPlace(selectedFile.Path, downloaded));
+        return downloaded;
     }
 
     /// <summary>

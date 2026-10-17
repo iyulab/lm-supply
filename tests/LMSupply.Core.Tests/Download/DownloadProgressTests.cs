@@ -55,7 +55,7 @@ public class DownloadProgressTests
         File.WriteAllBytes(path, new byte[1234]);
         try
         {
-            var progress = DownloadProgress.CachedFile("weights.bin", path);
+            var progress = DownloadProgress.FileInPlace("weights.bin", path);
 
             progress.Phase.Should().Be(DownloadPhase.Complete);
             progress.FileName.Should().Be("weights.bin");

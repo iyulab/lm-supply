@@ -48,6 +48,15 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `LlamaServerClient.TokenizeAsync(text, addSpecial)` is the client-level call.
 
 ### Fixed
+- **Every model file is reported `Complete` once, and a load completes its runtime once.** Two parts of the
+  progress rule («`Complete` — the file is in place, downloaded or found in the cache; once per file») held for GGUF
+  models only. Files fetched through the Hugging Face downloader (every ONNX model, and the reranker's files) ended on
+  their last `Downloading` report, and found in the cache they were not reported at all, so a warm ONNX load reported
+  `Loading` for files it never said were there. Now each such file gets one `Complete` report with its size, with the
+  multi-file figures, under the name its download and its `Loading` report use (its path in the repository, e.g.
+  `onnx/model.onnx`); a GGUF file that was downloaded gets one too. And a load that creates several runtime sessions (an
+  image generator's three, a transcriber's two) reported the cached ONNX Runtime `Complete` once per session; every
+  `LoadAsync` now reports it once. A reporter reused for the next load sees that load's runtime step again.
 - **`LocalEmbedder.IsModelDownloaded` and `LocalEmbedder.DownloadModelAsync` handle GGUF models.** `IsModelDownloaded` looked
   for `model.onnx` only, so a cached GGUF embedder (`gguf:org/repo`, a `-GGUF` repository, a `.gguf` path) always read as not
   downloaded; `DownloadModelAsync` sent a GGUF id down the ONNX discovery path. Both now take the GGUF branch the load takes:

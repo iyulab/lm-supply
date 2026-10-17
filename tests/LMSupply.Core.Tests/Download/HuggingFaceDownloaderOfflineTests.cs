@@ -45,10 +45,21 @@ public sealed class HuggingFaceDownloaderOfflineTests : IDisposable
         var hub = new CountingHub();
         using var downloader = new HuggingFaceDownloader(_cacheDir, hub, localFilesOnly: true);
 
-        var result = await downloader.DownloadModelAsync(Repo, ["model.onnx", "tokenizer.json"], cancellationToken: Ct);
+        var reports = new List<DownloadProgress>();
+        var progress = new SyncProgress(reports.Add);
+
+        var result = await downloader.DownloadModelAsync(Repo, ["model.onnx", "tokenizer.json"], progress: progress, cancellationToken: Ct);
 
         Assert.Equal(dir, result);
         Assert.Equal(0, hub.Count);
+        // The cached file is reported once as in place; the skipped one is not reported at all.
+        var report = Assert.Single(reports);
+        Assert.Equal(("model.onnx", DownloadPhase.Complete, 5L), (report.FileName, report.Phase, report.TotalBytes));
+    }
+
+    private sealed class SyncProgress(Action<DownloadProgress> report) : IProgress<DownloadProgress>
+    {
+        public void Report(DownloadProgress value) => report(value);
     }
 
     // An offline load must work from a read-only cache — the air-gapped deployment the mode exists for —

@@ -29,6 +29,14 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="LMSupply.Core.Tests" />
+    <InternalsVisibleTo Include="LMSupply.Captioner" />
+    <InternalsVisibleTo Include="LMSupply.Detector" />
+    <InternalsVisibleTo Include="LMSupply.ImageGenerator" />
+    <InternalsVisibleTo Include="LMSupply.Ocr" />
+    <InternalsVisibleTo Include="LMSupply.Segmenter" />
+    <InternalsVisibleTo Include="LMSupply.Synthesizer" />
+    <InternalsVisibleTo Include="LMSupply.Transcriber" />
+    <InternalsVisibleTo Include="LMSupply.Translator" />
     <InternalsVisibleTo Include="LMSupply.Embedder" />
     <InternalsVisibleTo Include="LMSupply.Embedder.Tests" />
     <InternalsVisibleTo Include="LMSupply.Generator" />

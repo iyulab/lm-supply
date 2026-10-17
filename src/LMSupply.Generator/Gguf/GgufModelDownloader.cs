@@ -128,7 +128,7 @@ public sealed class GgufModelDownloader : IDisposable
         if (usablePath is not null)
         {
             // A cache hit, not a transfer: Downloading is reserved for moving bytes (DownloadProgress.Phase).
-            progress?.Report(DownloadProgress.CachedFile(filename, usablePath));
+            progress?.Report(DownloadProgress.FileInPlace(filename, usablePath));
             return usablePath;
         }
 
@@ -143,7 +143,9 @@ public sealed class GgufModelDownloader : IDisposable
             TotalBytes = 0
         });
 
-        return await DownloadFileAsync(repoId, filename, expectedSize, listed?.BlobId, progress, cancellationToken);
+        var downloaded = await DownloadFileAsync(repoId, filename, expectedSize, listed?.BlobId, progress, cancellationToken);
+        progress?.Report(DownloadProgress.FileInPlace(filename, downloaded));
+        return downloaded;
     }
 
     // The file DownloadAsync fetches — the named one, else the best fit (offline, only a cached file can be chosen).

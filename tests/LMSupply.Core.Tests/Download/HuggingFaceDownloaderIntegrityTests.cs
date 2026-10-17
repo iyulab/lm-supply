@@ -70,6 +70,33 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
         Assert.Equal(100.0, model[^1].OverallPercentComplete, 3);
     }
 
+    [Fact]
+    public async Task EveryFile_IsCompletedOnce_DownloadedOrFoundInTheCache()
+    {
+        var hub = new Hub();
+        using var downloader = new HuggingFaceDownloader(_cacheDir, hub);
+        string[] files = ["config.json", "model.onnx"];
+
+        var cold = new ProgressSink();
+        await downloader.DownloadModelAsync(Repo, files, progress: cold, cancellationToken: Ct);
+        var warm = new ProgressSink();
+        await downloader.DownloadModelAsync(Repo, files, progress: warm, cancellationToken: Ct);
+
+        foreach (var reports in new[] { cold.Reports, warm.Reports })
+        {
+            var completes = reports.Where(r => r.Phase == DownloadPhase.Complete).ToList();
+            Assert.Equal(files, completes.Select(r => r.FileName));
+            Assert.All(completes, r => Assert.Equal(r.TotalBytes, r.BytesDownloaded));
+            Assert.Equal([2L, 4000L], completes.Select(r => r.TotalBytes));
+            // Complete is the last report of a file, and closes the whole download at 100 %.
+            foreach (var file in files)
+                Assert.Equal(DownloadPhase.Complete, reports.Last(r => r.FileName == file).Phase);
+            Assert.Equal(100.0, completes[^1].OverallPercentComplete, 3);
+        }
+
+        Assert.DoesNotContain(warm.Reports, r => r.Phase == DownloadPhase.Downloading);
+    }
+
     private sealed class ProgressSink : IProgress<DownloadProgress>
     {
         private readonly List<DownloadProgress> _reports = [];

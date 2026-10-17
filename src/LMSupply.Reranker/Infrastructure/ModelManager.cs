@@ -34,6 +34,15 @@ internal sealed class ModelManager : IDisposable
     /// </summary>
     public string CacheDirectory => _cacheDir;
 
+    private static void ReportInPlace(IProgress<DownloadProgress>? progress, params string?[] paths)
+    {
+        foreach (var path in paths)
+        {
+            if (path is not null)
+                progress?.Report(DownloadProgress.FileInPlace(CacheManager.ReportedFileName(path), path));
+        }
+    }
+
     /// <summary>
     /// Ensures a model is available locally, downloading if necessary.
     /// </summary>
@@ -67,6 +76,9 @@ internal sealed class ModelManager : IDisposable
         var modelExists = File.Exists(modelPath) && !CacheManager.IsLfsPointerFile(modelPath);
         var tokenizerExists = File.Exists(tokenizerPath) && !CacheManager.IsLfsPointerFile(tokenizerPath);
         var dataExists = dataPath is null || (File.Exists(dataPath) && !CacheManager.IsLfsPointerFile(dataPath));
+
+        // The files already in place are reported once each; the downloader reports the ones it fetches.
+        ReportInPlace(progress, modelExists ? modelPath : null, dataExists ? dataPath : null, tokenizerExists ? tokenizerPath : null);
 
         if (modelExists && tokenizerExists && dataExists)
         {

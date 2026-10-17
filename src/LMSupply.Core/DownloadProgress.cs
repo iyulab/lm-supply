@@ -108,12 +108,13 @@ public record DownloadProgress
     public DownloadKind Kind { get; init; } = DownloadKind.Model;
 
     /// <summary>
-    /// The one report of a file found usable in the cache: <see cref="DownloadPhase.Complete"/>, with the size of
-    /// the file on disk.
+    /// The one <see cref="DownloadPhase.Complete"/> report of a file that is in place — downloaded, or found usable in
+    /// the cache — with the size of the file on disk.
     /// </summary>
-    internal static DownloadProgress CachedFile(string fileName, string path)
+    internal static DownloadProgress FileInPlace(string fileName, string path)
     {
-        var size = new FileInfo(path).Length;
+        // A hub snapshot holds links to its blobs: the size is the content's, not the link's.
+        var size = LMSupply.Download.CacheManager.GetContentLength(path);
         return new DownloadProgress
         {
             FileName = fileName,

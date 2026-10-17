@@ -73,7 +73,7 @@ await using var model = await LocalEmbedder.LoadAsync("default", progress: progr
 
 Runtime reports carry `DownloadKind.Runtime`, the package or archive being fetched as `FileName`, and a phase
 (`Preparing`, `Downloading` with byte counts, `Extracting`, `Complete`); a runtime already on disk is one `Complete`
-report. Every load that takes a progress reporter forwards it to the runtime step: each `Local*.LoadAsync` (and
+report per load, however many runtime sessions the load creates. Every load that takes a progress reporter forwards it to the runtime step: each `Local*.LoadAsync` (and
 `LocalSegmenter.LoadInteractiveAsync`), `LocalGenerator.LoadAsync` and `LoadFromPathAsync` (a model already on disk can
 still need its runtime), and `TextGeneratorBuilder.WithDownloadProgress`. `LocalImageGenerator.LoadAsync` takes the
 same `IProgress<DownloadProgress>` as the others.
@@ -100,6 +100,15 @@ A load whose model is cached reports, for a GGUF model:
 Model   Qwen3-8B-Q4_K_M.gguf  Complete   (the file's size)
 Runtime llama-server          Preparing
 Model   Qwen3-8B-Q4_K_M.gguf  Loading
+```
+
+and for an ONNX embedder (each file of the model, the tokenizer's included, then the runtime):
+
+```
+Model   onnx/model.onnx       Complete   (the file's size)
+Model   tokenizer.json        Complete   (the file's size)
+Runtime onnxruntime           Complete
+Model   onnx/model.onnx       Loading
 ```
 
 ---

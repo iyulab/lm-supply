@@ -51,6 +51,7 @@ public static class LocalCaptioner
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
         // A copy: the qualifier below must not land in the caller's instance (and so in its next load).
         options = options?.Clone() ?? new CaptionerOptions();

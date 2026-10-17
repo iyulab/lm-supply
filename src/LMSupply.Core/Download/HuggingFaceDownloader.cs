@@ -112,7 +112,10 @@ public sealed class HuggingFaceDownloader : IDisposable
         // A snapshot another Hugging Face tool wrote for this revision, holding every file at its listed length,
         // is used where it is.
         if (TryFindForeignSnapshot(repoId, revision, subfolder: null, allFiles, ListedSize) is { } foreign)
+        {
+            ReportInPlace(progress, foreign, allFiles, new OverallBytes(allFiles.Select(ListedSize)));
             return (foreign, discovery);
+        }
 
         // The snapshot this library already has for the revision; the commit is looked up only when a file must be
         // fetched, so a warm load makes no request for it.
@@ -174,6 +177,10 @@ public sealed class HuggingFaceDownloader : IDisposable
                     throw Unreachable(repoId, file, modelDir, ex);
                 }
             }
+
+            // Downloaded or found in the cache, the file is in place: its one Complete report, under the name its
+            // download and its load are reported by (the path within the repository).
+            WrapProgress(progress, fileIndex, totalFileCount, bytes)?.Report(DownloadProgress.FileInPlace(CacheManager.ReportedFileName(localPath), localPath));
 
             if (CacheManager.ContentExists(localPath))
                 manifestFiles.Add(new ManifestFileEntry { Path = file, Size = expectedSize ?? CacheManager.GetContentLength(localPath) });
@@ -314,7 +321,10 @@ public sealed class HuggingFaceDownloader : IDisposable
         // A snapshot another Hugging Face tool wrote for this revision is used where it is when it holds every
         // requested file in the one directory the caller reads (the rule CacheManager.GetMissingFiles answers by).
         if (TryFindForeignSnapshot(repoId, revision, subfolder, fileList, _ => null) is { } foreign)
+        {
+            ReportInPlace(progress, foreign, fileList, new OverallBytes(fileList.Select(_ => (long?)null)));
             return foreign;
+        }
 
         var totalFileCount = fileList.Count;
         var fileIndex = 0;
@@ -459,8 +469,13 @@ public sealed class HuggingFaceDownloader : IDisposable
                     Trace.TraceInformation(
                         $"[HuggingFaceDownloader] Optional file '{file}' not present for '{repoId}' (searched in {location}).");
                     absent.Add(file);
+                    continue;
                 }
             }
+
+            // Downloaded or found in the cache, the file is in place: its one Complete report, under the name its
+            // download and its load are reported by (the path within the repository).
+            WrapProgress(progress, fileIndex, totalFileCount, bytes)?.Report(DownloadProgress.FileInPlace(CacheManager.ReportedFileName(localPath), localPath));
         }
 
         if (_localFilesOnly)
@@ -908,6 +923,18 @@ public sealed class HuggingFaceDownloader : IDisposable
             return null;
 
         return new MultiFileProgress(progress, currentFileIndex, totalFileCount, bytes.Before(currentFileIndex), bytes.Total);
+    }
+
+    /// <summary>The Complete report of each file of <paramref name="files"/> that <paramref name="directory"/> holds.</summary>
+    private static void ReportInPlace(
+        IProgress<DownloadProgress>? progress, string directory, List<string> files, OverallBytes bytes)
+    {
+        for (var i = 0; i < files.Count; i++)
+        {
+            var path = Path.Combine(directory, files[i].Replace('/', Path.DirectorySeparatorChar));
+            if (CacheManager.ContentExists(path))
+                WrapProgress(progress, i + 1, files.Count, bytes)?.Report(DownloadProgress.FileInPlace(CacheManager.ReportedFileName(path), path));
+        }
     }
 
     private sealed class MultiFileProgress(

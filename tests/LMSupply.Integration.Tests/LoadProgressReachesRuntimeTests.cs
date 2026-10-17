@@ -93,6 +93,14 @@ public sealed class LoadProgressReachesRuntimeTests
             $"the files were on disk and none of them is an archive; saw: {trace}");
         modelReports.Where(r => r.Phase == DownloadPhase.Complete).Select(r => r.FileName)
             .Should().OnlyHaveUniqueItems($"a file is completed once; saw: {trace}");
+        seen.Where(r => r.Kind == DownloadKind.Runtime && r.Phase == DownloadPhase.Complete).Select(r => r.FileName)
+            .Should().OnlyHaveUniqueItems($"a load completes its runtime once, however many sessions it creates; saw: {trace}");
+        foreach (var file in loading.Select(r => r.FileName))
+        {
+            var loadingAt = seen.FindIndex(r => r.Phase == DownloadPhase.Loading && r.FileName == file);
+            seen.Take(loadingAt).Should().Contain(r => r.Kind == DownloadKind.Model && r.Phase == DownloadPhase.Complete && r.FileName == file,
+                $"a file found in the cache is reported Complete before it is loaded; saw: {trace}");
+        }
         foreach (var file in loading.Select(r => r.FileName))
         {
             var loadingAt = seen.FindIndex(r => r.Phase == DownloadPhase.Loading && r.FileName == file);

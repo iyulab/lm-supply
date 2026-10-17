@@ -40,6 +40,7 @@ public static class LocalTranscriber
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         options = options?.Clone() ?? new TranscriberOptions();
         PrepareOptions(modelIdOrPath, options);
 
@@ -260,6 +261,7 @@ public static class LocalTranscriber
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         return LoadAsync(options?.ModelId ?? "default", options, progress, cancellationToken);
     }
 

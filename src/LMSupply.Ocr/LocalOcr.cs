@@ -51,6 +51,7 @@ public static class LocalOcr
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         ArgumentException.ThrowIfNullOrWhiteSpace(detectionModel);
         options = options?.Clone() ?? new OcrOptions();
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
@@ -104,6 +105,7 @@ public static class LocalOcr
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        progress = LoadProgress.Begin(progress);
         options = options?.Clone() ?? new OcrOptions { LanguageHint = languageCode };
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
