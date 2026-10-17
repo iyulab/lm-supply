@@ -90,6 +90,7 @@ public static class GgufMetadataReader
         bool[]? slidingWindowPattern = null;
         int? sharedKvLayers = null;
         int? fullAttentionInterval = null;
+        string? decisionType = null;
 
         for (ulong i = 0; i < metadataKvCount; i++)
         {
@@ -116,8 +117,15 @@ public static class GgufMetadataReader
                 // Note: general.quantization_version is a version number, not quantization type
                 // Quantization type is inferred from general.file_type
                 default:
+                    // A decision model's head (<arch>.decision.*) has keys of its own that end like the backbone's
+                    // (decision.block_count is the head's depth, not the model's): read its type, keep the rest out.
+                    if (key.Contains(".decision.", StringComparison.Ordinal))
+                    {
+                        if (key.EndsWith(".decision.type", StringComparison.Ordinal))
+                            decisionType = value?.ToString();
+                    }
                     // Architecture-specific keys
-                    if (key.EndsWith(".block_count", StringComparison.Ordinal))
+                    else if (key.EndsWith(".block_count", StringComparison.Ordinal))
                         layerCount = ConvertToInt(value);
                     else if (key.EndsWith(".context_length", StringComparison.Ordinal))
                         contextLength = ConvertToInt(value);
@@ -204,6 +212,7 @@ public static class GgufMetadataReader
             SlidingWindowPattern = slidingWindowPattern,
             SharedKvLayers = sharedKvLayers,
             FullAttentionInterval = fullAttentionInterval,
+            DecisionType = decisionType,
             RawMetadata = rawMetadata
         };
     }

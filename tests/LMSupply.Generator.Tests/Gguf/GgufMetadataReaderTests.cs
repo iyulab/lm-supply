@@ -386,6 +386,58 @@ public class GgufMetadataReaderTests
         }
     }
 
+    [Fact]
+    public async Task ReadAsync_DecisionModel_ReadsTheHeadTypeAndKeepsTheBackboneDepth()
+    {
+        // A decision model stores its head under <arch>.decision.*, after the backbone keys; the head's block_count must
+        // not replace the backbone's.
+        var tempPath = Path.GetTempFileName();
+        try
+        {
+            await CreateGgufFileWithMetadataAsync(tempPath, new Dictionary<string, object>
+            {
+                ["general.architecture"] = "modern-bert",
+                ["modern-bert.block_count"] = 18u,
+                ["modern-bert.context_length"] = 8192u,
+                ["modern-bert.decision.type"] = "laya",
+                ["modern-bert.decision.block_count"] = 2u,
+            });
+
+            var result = await GgufMetadataReader.ReadAsync(tempPath, cancellationToken: TestContext.Current.CancellationToken);
+
+            result.Should().NotBeNull();
+            result!.DecisionType.Should().Be("laya");
+            result.LayerCount.Should().Be(18);
+            result.ContextLength.Should().Be(8192);
+        }
+        finally
+        {
+            File.Delete(tempPath);
+        }
+    }
+
+    [Fact]
+    public async Task ReadAsync_GenerativeModel_HasNoDecisionType()
+    {
+        var tempPath = Path.GetTempFileName();
+        try
+        {
+            await CreateGgufFileWithMetadataAsync(tempPath, new Dictionary<string, object>
+            {
+                ["general.architecture"] = "llama",
+                ["llama.block_count"] = 4u,
+            });
+
+            var result = await GgufMetadataReader.ReadAsync(tempPath, cancellationToken: TestContext.Current.CancellationToken);
+
+            result!.DecisionType.Should().BeNull();
+        }
+        finally
+        {
+            File.Delete(tempPath);
+        }
+    }
+
     #region Helper Methods
 
     private static async Task CreateMinimalGgufFileAsync(string path, uint version = 3)

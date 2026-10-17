@@ -30,6 +30,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="LMSupply.Core.Tests" />
     <InternalsVisibleTo Include="LMSupply.Captioner" />
+    <InternalsVisibleTo Include="LMSupply.Decider" />
     <InternalsVisibleTo Include="LMSupply.Detector" />
     <InternalsVisibleTo Include="LMSupply.ImageGenerator" />
     <InternalsVisibleTo Include="LMSupply.Ocr" />

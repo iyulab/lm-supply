@@ -37,6 +37,13 @@ public class LlamaServerVersionRequirementsTests
     }
 
     [Fact]
+    public void GetMinimumBuild_NativeDecisions_NeedTheSystemOneBuilds()
+    {
+        LlamaServerVersionRequirements.GetMinimumBuild("decisions").Should().Be(11361);
+        LlamaServerVersionRequirements.GetMinimumBuild("decisions-clef").Should().Be(11371);
+    }
+
+    [Fact]
     public void GetMinimumBuild_UnknownFormat_ReturnsNull()
     {
         LlamaServerVersionRequirements.GetMinimumBuild("chatml").Should().BeNull();

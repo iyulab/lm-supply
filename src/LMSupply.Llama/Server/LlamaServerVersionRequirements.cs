@@ -21,6 +21,8 @@ public static partial class LlamaServerVersionRequirements
         ["spec-ngram-simple"] = 8994,   // --spec-type renamed ngram→ngram-simple (b8994+)
         ["kv-q8-vulkan"]      = 8500,   // KV cache Q8_0 stable on Vulkan
         ["load-mode"]         = 10105,  // --load-mode replaces --mmap/--no-mmap/--mlock (b10103 lacks it; b10104 untagged)
+        ["decisions"]         = 11361,  // native decision models: POST /v1/systemone, output_modalities "decisions"
+        ["decisions-clef"]    = 11371,  // the clef decision model type, which reads every question in one prompt
     };
 
     [GeneratedRegex(@"^b(\d+)", RegexOptions.IgnoreCase)]

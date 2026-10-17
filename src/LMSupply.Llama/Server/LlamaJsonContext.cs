@@ -19,6 +19,7 @@ namespace LMSupply.Llama.Server;
 [JsonSerializable(typeof(EmbeddingResponse))]
 [JsonSerializable(typeof(RerankRequest))]
 [JsonSerializable(typeof(RerankResponse))]
+[JsonSerializable(typeof(ModelsResponse))]
 [JsonSerializable(typeof(LlamaServerStateFile))]
 // Values of ChatCompletionRequest.ChatTemplateKwargs (Dictionary<string, object>).
 [JsonSerializable(typeof(bool))]

@@ -131,6 +131,12 @@ public sealed record GgufMetadata
     public int? FullAttentionInterval { get; init; }
 
     /// <summary>
+    /// The decision head type of a native decision model (<c>&lt;arch&gt;.decision.type</c>, e.g. <c>laya</c>, <c>clef</c>).
+    /// Null for any other model. llama-server serves such a model on <c>/v1/systemone</c>.
+    /// </summary>
+    public string? DecisionType { get; init; }
+
+    /// <summary>
     /// The pooling the model was converted with (<c>&lt;arch&gt;.pooling_type</c>): 0 none, 1 mean, 2 CLS, 3 last, 4 rank.
     /// Null when the file does not say. An embedding server pools this way unless told otherwise.
     /// </summary>
