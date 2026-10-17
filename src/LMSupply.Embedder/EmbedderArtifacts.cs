@@ -56,6 +56,9 @@ public sealed class EmbedderArtifacts : IModelArtifacts
             await Server().AcquireServerAsync(Backend(), localFilesOnly: false, progress, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public bool Delete(string modelId) => LocalEmbedder.DeleteModel(modelId, _options.CacheDirectory);
+
     private LlamaServerUpdateService Server() => LlamaServerUpdateService.Resolve(_options.ServerUpdateOptions);
 
     private LlamaServerBackend Backend() =>

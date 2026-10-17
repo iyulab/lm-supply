@@ -706,6 +706,44 @@ public static class LocalEmbedder
     }
 
     /// <summary>
+    /// Deletes what LMSupply downloaded of <paramref name="modelId"/>'s repository from the cache, so the next load downloads
+    /// it again.
+    /// </summary>
+    /// <remarks>
+    /// The id resolves as <see cref="IsModelDownloaded"/> resolves it (registry alias or repository id, <c>gguf:</c> repository)
+    /// to one repository, and <see cref="CacheManager.DeleteModel"/> deletes this library's files of it — every variant it
+    /// downloaded, and nothing another tool put in the shared cache. Not deleted: a local path (the files are yours), and
+    /// llama-server, which every GGUF model shares. A file a running server or session has open cannot be deleted on Windows;
+    /// the delete then throws <see cref="IOException"/>.
+    /// </remarks>
+    /// <param name="modelId">A model alias (e.g., "default"), a known model ID, a HuggingFace repo ID, or a <c>gguf:</c> repo ID.</param>
+    /// <param name="cacheDirectory">Custom cache directory, or <see langword="null"/> for default.</param>
+    /// <returns>Whether anything was deleted.</returns>
+    public static bool DeleteModel(string modelId, string? cacheDirectory = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        var cacheDir = cacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+
+        string? repoId;
+        if (IsGgufModel(modelId))
+        {
+            var repoIdOrPath = StripGgufPrefix(modelId);
+            repoId = !File.Exists(repoIdOrPath) && repoIdOrPath.Contains('/') && !repoIdOrPath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)
+                ? repoIdOrPath
+                : null;
+        }
+        else
+        {
+            var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelId);
+            repoId = EmbedderModelRegistry.Default.TryResolve(baseId, out var modelInfo) ? modelInfo!.RepoId : baseId;
+            if (File.Exists(repoId) || Directory.Exists(repoId))
+                repoId = null;
+        }
+
+        return repoId is not null && CacheManager.DeleteModel(cacheDir, repoId);
+    }
+
+    /// <summary>
     /// Downloads a model without loading it into memory.
     /// If the model is already cached, this is a no-op.
     /// Use this to pre-fetch models (e.g., during container build or CI) without requiring

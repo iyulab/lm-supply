@@ -32,4 +32,12 @@ public interface IModelArtifacts
     /// that it is available offline afterwards. Already cached files are not fetched again.
     /// </summary>
     Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes what LMSupply downloaded of <paramref name="modelId"/>'s files, so a load downloads them again (or, with downloads
+    /// disabled, fails). Files another tool put in the shared cache, a local path, and runtimes such as llama-server are kept.
+    /// </summary>
+    /// <returns>Whether anything was deleted.</returns>
+    /// <exception cref="IOException">A file is open, for example by a running server (Windows).</exception>
+    bool Delete(string modelId);
 }

@@ -56,6 +56,9 @@ public sealed class GeneratorArtifacts : IModelArtifacts
             await Server().AcquireServerAsync(Backend(), localFilesOnly: false, progress, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public bool Delete(string modelId) => LocalGenerator.DeleteModel(modelId, _options);
+
     private LlamaServerUpdateService Server() => LlamaServerUpdateService.Resolve(_options.ServerUpdateOptions);
 
     private LlamaServerBackend Backend() =>

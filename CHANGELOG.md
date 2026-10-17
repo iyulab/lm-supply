@@ -29,6 +29,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   model's status (`Missing`, `Downloading` with the latest `DownloadProgress`, `Ready`, `Failed` with the exception the download
   threw), `WatchAsync` — a stream of every change — and `DownloadAsync`, shared by every caller asking for the same model and
   cancellable by any caller with `CancelDownload` (a caller's own token only stops its wait). It never downloads on its own.
+- **A host can delete a model by the id it loads.** `ModelLifecycle.DeleteAsync(kind, id)` removes what LMSupply downloaded of
+  the model's repository and publishes the status it leaves (`Missing`, or `Ready` when another tool's files remain); it is
+  refused while that model downloads, and a download is refused while it is being deleted. Providers implement
+  `IModelArtifacts.Delete`; `LocalGenerator.DeleteModel(id, options)` and `LocalEmbedder.DeleteModel(id, cacheDir)` resolve an
+  alias (`gguf:` alias, registry alias, `"default"`) to its repository and call `CacheManager.DeleteModel`. A local path and
+  llama-server are never deleted.
 - **A GGUF model reports the log probability of each token it generates.** `GenerationOptions.TopLogprobs` (null by
   default) asks for them: 0 for each generated token's own value, n for the n most likely candidates at each position
   as well. They arrive as `TokenLogprob` entries (`TokenId`, `Token`, `Logprob`, `Bytes`, `TopLogprobs` — the shape of

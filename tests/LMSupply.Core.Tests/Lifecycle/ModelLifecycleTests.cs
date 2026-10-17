@@ -6,7 +6,8 @@ namespace LMSupply.Core.Tests.Lifecycle;
 
 /// <summary>
 /// <see cref="ModelLifecycle"/>: a status read never downloads; a download (the consent) is shared by its callers, streamed to
-/// watchers as it runs, can be cancelled by any caller, and a failure stays visible until the next download.
+/// watchers as it runs, can be cancelled by any caller, and a failure stays visible until the next download. A delete is
+/// refused while the model downloads, and a download while it is being deleted.
 /// </summary>
 public sealed class ModelLifecycleTests
 {
@@ -118,6 +119,70 @@ public sealed class ModelLifecycleTests
     }
 
     [Fact]
+    public async Task Delete_RemovesTheModel_AndWatchersSeeItMissing()
+    {
+        var generator = new FakeArtifacts("generator");
+        generator.Cached.Add("m");
+        var lifecycle = new ModelLifecycle([generator]);
+        using var watchCts = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        var watching = Task.Run(async () =>
+        {
+            await foreach (var status in lifecycle.WatchAsync(watchCts.Token))
+                return status;
+            return null;
+        }, Ct);
+        await Task.Delay(50, Ct); // the watcher is subscribed
+
+        (await lifecycle.DeleteAsync("generator", "m", Ct)).Should().BeTrue();
+
+        (await lifecycle.GetStatusAsync("generator", "m", Ct)).State.Should().Be(ModelState.Missing);
+        var published = await watching.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        published!.State.Should().Be(ModelState.Missing);
+        (await lifecycle.DeleteAsync("generator", "m", Ct)).Should().BeFalse("nothing is left to delete");
+    }
+
+    [Fact]
+    public async Task Delete_WhileTheModelDownloads_IsRefused_AndWorksAfterACancel()
+    {
+        var generator = new FakeArtifacts("generator") { Gate = new TaskCompletionSource() };
+        var lifecycle = new ModelLifecycle([generator]);
+
+        var waiting = lifecycle.DownloadAsync("generator", "m", Ct);
+        await generator.Started.Task.WaitAsync(Ct);
+
+        await lifecycle.Awaiting(l => l.DeleteAsync("generator", "m", Ct)).Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*downloading*");
+        generator.Deletes.Should().Be(0, "a refused delete touches no file");
+
+        lifecycle.CancelDownload("generator", "m");
+        await waiting.Awaiting(t => t).Should().ThrowAsync<OperationCanceledException>();
+        generator.Cached.Add("m"); // a partial download left files behind
+
+        (await lifecycle.DeleteAsync("generator", "m", Ct)).Should().BeTrue();
+        generator.Deletes.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ADownload_WhileTheModelIsBeingDeleted_IsRefused()
+    {
+        var generator = new FakeArtifacts("generator") { DeleteGate = new ManualResetEventSlim() };
+        generator.Cached.Add("m");
+        var lifecycle = new ModelLifecycle([generator]);
+
+        var deleting = Task.Run(() => lifecycle.DeleteAsync("generator", "m", Ct), Ct);
+        generator.DeleteStarted.Wait(Ct);
+
+        await lifecycle.Awaiting(l => l.DownloadAsync("generator", "m", Ct)).Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*being deleted*");
+        generator.Downloads.Should().Be(0);
+
+        generator.DeleteGate.Set();
+        (await deleting).Should().BeTrue();
+        generator.Cached.Add("m");
+        (await lifecycle.DownloadAsync("generator", "m", Ct)).State.Should().Be(ModelState.Ready, "the delete has returned");
+    }
+
+    [Fact]
     public async Task AnUnknownKind_IsRefused_AndKindsAreDistinct()
     {
         var lifecycle = new ModelLifecycle([new FakeArtifacts("generator"), new FakeArtifacts("embedder")]);
@@ -131,12 +196,16 @@ public sealed class ModelLifecycleTests
     private sealed class FakeArtifacts(string kind) : IModelArtifacts
     {
         private int _downloads;
+        private int _deletes;
 
         public HashSet<string> Cached { get; } = [];
         public TaskCompletionSource? Gate { get; init; }
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Exception? Failure { get; set; }
         public int Downloads => Volatile.Read(ref _downloads);
+        public int Deletes => Volatile.Read(ref _deletes);
+        public ManualResetEventSlim? DeleteGate { get; init; }
+        public ManualResetEventSlim DeleteStarted { get; } = new();
 
         public string Kind => kind;
 
@@ -156,6 +225,14 @@ public sealed class ModelLifecycleTests
                 throw failure;
             if (Gate is { } gate)
                 await gate.Task.WaitAsync(cancellationToken);
+        }
+
+        public bool Delete(string modelId)
+        {
+            Interlocked.Increment(ref _deletes);
+            DeleteStarted.Set();
+            DeleteGate?.Wait(TestContext.Current.CancellationToken);
+            lock (Cached) return Cached.Remove(modelId);
         }
     }
 }

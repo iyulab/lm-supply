@@ -6,7 +6,8 @@ namespace LMSupply.Embedder.Tests;
 
 /// <summary>
 /// <see cref="EmbedderArtifacts"/> and the GGUF branch of <see cref="LocalEmbedder.IsModelDownloaded"/>: a GGUF embedder is
-/// downloaded when the file an offline load opens is cached, and available offline when llama-server is cached too.
+/// downloaded when the file an offline load opens is cached, and available offline when llama-server is cached too; a delete
+/// removes this library's snapshot and keeps another tool's.
 /// Network-free — a seeded Hugging Face cache and a private llama-server cache.
 /// </summary>
 public sealed class EmbedderArtifactsTests : IDisposable
@@ -98,5 +99,34 @@ public sealed class EmbedderArtifactsTests : IDisposable
         await artifacts.DownloadAsync("gguf:" + Repo, cancellationToken: Ct);
 
         (await artifacts.IsAvailableOfflineAsync("gguf:" + Repo, Ct)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Delete_RemovesThisLibrarysSnapshot_AndKeepsAnotherToolsOne()
+    {
+        // Another tool's snapshot (a commit with no manifest) stays; a snapshot named after a branch is this library's own.
+        SeedGguf();
+        var own = Path.Combine(_hub, "models--example-org--other-embed-GGUF", "snapshots", "main");
+        Directory.CreateDirectory(own);
+        File.WriteAllBytes(Path.Combine(own, "other-embed.Q8_0.gguf"), "GGUF"u8.ToArray());
+        SeedServer();
+        var artifacts = Artifacts();
+
+        artifacts.Delete("gguf:example-org/other-embed-GGUF").Should().BeTrue();
+        artifacts.Delete("gguf:" + Repo).Should().BeFalse("only another tool's files are there");
+
+        (await artifacts.IsAvailableOfflineAsync("gguf:example-org/other-embed-GGUF", Ct)).Should().BeFalse();
+        (await artifacts.IsAvailableOfflineAsync("gguf:" + Repo, Ct)).Should().BeTrue("another tool's snapshot is kept");
+    }
+
+    [Fact]
+    public void Delete_OfALocalGgufFile_KeepsIt()
+    {
+        var file = Path.Combine(_dir, "local.gguf");
+        File.WriteAllBytes(file, "GGUF"u8.ToArray());
+
+        LocalEmbedder.DeleteModel(file, _hub).Should().BeFalse();
+
+        File.Exists(file).Should().BeTrue();
     }
 }

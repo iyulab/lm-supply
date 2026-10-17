@@ -45,6 +45,10 @@ public sealed record ModelStatus(
 /// It never downloads on its own: a status read only looks at the cache, and the network is used by <see cref="DownloadAsync"/>
 /// alone — the host calls it when the user has agreed. Two calls for the same model share one download.
 /// </para>
+/// <para>
+/// <see cref="DeleteAsync"/> removes what a download fetched; it is refused while that model downloads, and a download is refused
+/// while it is being deleted.
+/// </para>
 /// <para>Thread-safe. Statuses are published to every <see cref="WatchAsync"/> stream open at the time.</para>
 /// </remarks>
 public sealed class ModelLifecycle
@@ -53,6 +57,10 @@ public sealed class ModelLifecycle
     private readonly ConcurrentDictionary<(string Kind, string ModelId), Download> _downloads = new();
     private readonly ConcurrentDictionary<(string Kind, string ModelId), Exception> _failures = new();
     private readonly ConcurrentDictionary<Channel<ModelStatus>, byte> _watchers = new();
+
+    // Guards the two transitions that must not interleave: a download starting and a delete starting for the same model.
+    private readonly Lock _gate = new();
+    private readonly HashSet<(string Kind, string ModelId)> _deleting = [];
 
     /// <param name="artifacts">One provider per kind of model, for example a <c>GeneratorArtifacts</c> and an <c>EmbedderArtifacts</c>.</param>
     /// <exception cref="ArgumentException">Two providers have the same <see cref="IModelArtifacts.Kind"/>.</exception>
@@ -123,6 +131,7 @@ public sealed class ModelLifecycle
     /// <param name="cancellationToken">Stops this caller waiting; the download goes on for others (stop it with <see cref="CancelDownload"/>).</param>
     /// <exception cref="OperationCanceledException">This caller's token was cancelled, or the download was cancelled with <see cref="CancelDownload"/>.</exception>
     /// <exception cref="ArgumentException">No provider is registered for <paramref name="kind"/>.</exception>
+    /// <exception cref="InvalidOperationException">The model is being deleted (<see cref="DeleteAsync"/>).</exception>
     /// <remarks>A failed download is rethrown to every caller waiting on it, and the model's status becomes <see cref="ModelState.Failed"/>.</remarks>
     public async Task<ModelStatus> DownloadAsync(string kind, string modelId, CancellationToken cancellationToken = default)
     {
@@ -130,7 +139,14 @@ public sealed class ModelLifecycle
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
         var key = Key(provider, modelId);
 
-        var download = _downloads.GetOrAdd(key, _ => new Download(this, provider, modelId));
+        Download download;
+        lock (_gate)
+        {
+            if (_deleting.Contains(key))
+                throw new InvalidOperationException($"The {provider.Kind} '{modelId}' is being deleted; download it after the delete returns.");
+            download = _downloads.GetOrAdd(key, _ => new Download(this, provider, modelId));
+        }
+
         download.StartOnce();
         await download.Completion.WaitAsync(cancellationToken);
         return new ModelStatus(provider.Kind, modelId, ModelState.Ready);
@@ -147,6 +163,50 @@ public sealed class ModelLifecycle
 
         download.Cancel();
         return true;
+    }
+
+    /// <summary>
+    /// Deletes what LMSupply downloaded of <paramref name="modelId"/> (<see cref="IModelArtifacts.Delete"/>) and publishes the
+    /// status it is left in — <see cref="ModelState.Missing"/>, or still <see cref="ModelState.Ready"/> when the files a load
+    /// needs came from somewhere else (another tool's snapshot, a local path).
+    /// </summary>
+    /// <param name="kind">The kind of model.</param>
+    /// <param name="modelId">The model, as the host downloads and loads it.</param>
+    /// <param name="cancellationToken">Stops the status read after the delete; the delete itself is not interrupted.</param>
+    /// <returns>Whether anything was deleted.</returns>
+    /// <exception cref="ArgumentException">No provider is registered for <paramref name="kind"/>.</exception>
+    /// <exception cref="InvalidOperationException">The model is downloading — cancel it (<see cref="CancelDownload"/>) first — or
+    /// another caller is deleting it.</exception>
+    /// <exception cref="IOException">A file is open, for example by a running server (Windows).</exception>
+    public async Task<bool> DeleteAsync(string kind, string modelId, CancellationToken cancellationToken = default)
+    {
+        var provider = Provider(kind);
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        var key = Key(provider, modelId);
+
+        lock (_gate)
+        {
+            if (_downloads.ContainsKey(key))
+                throw new InvalidOperationException($"The {provider.Kind} '{modelId}' is downloading; cancel the download (CancelDownload) before deleting it.");
+            if (!_deleting.Add(key))
+                throw new InvalidOperationException($"The {provider.Kind} '{modelId}' is already being deleted.");
+        }
+
+        bool deleted;
+        try
+        {
+            deleted = provider.Delete(modelId);
+            _failures.TryRemove(key, out _);
+        }
+        finally
+        {
+            lock (_gate)
+                _deleting.Remove(key);
+        }
+
+        if (deleted)
+            Publish(await GetStatusAsync(provider.Kind, modelId, cancellationToken));
+        return deleted;
     }
 
     private IModelArtifacts Provider(string kind)
