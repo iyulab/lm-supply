@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Package Metadata -->
+    <PackageId>LMSupply.Decider</PackageId>
+    <Description>Typed decisions for .NET from a local model: give a state and named questions (choice, yes/no, score), get a typed answer with probabilities for each. Native decision models run on llama-server's decision endpoint; instruct models are read from their next-token probabilities.</Description>
+    <PackageTags>decision;classification;routing;llm;gguf;llama.cpp;llama-server;local-ai;probabilities</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- Build Settings -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <!-- Source Link for debugging -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LMSupply.Core\LMSupply.Core.csproj" />
+    <ProjectReference Include="..\LMSupply.Llama\LMSupply.Llama.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LMSupply.Decider.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -34,3 +34,4 @@ tests/LMSupply.Translator.Tests/TranslationResultTests.cs  # Korean text is tran
 src/LMSupply.Translator/README.md  # Korean source sentence is the input of the ko-en translation example
 CHANGELOG.md  # Korean sentences are translator inputs quoted in release notes
 tests/LMSupply.Translator.Tests/Tokenization/TranslatorTokenizerSpecialTokenTests.cs  # Korean sentence is a tokenizer input
+tests/LMSupply.Decider.Tests/LiveDeciderTests.cs  # Korean sentences are decision inputs and expected answers

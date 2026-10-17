@@ -30,6 +30,7 @@ public class DocsSnippetCompileTests
         "docs/MODEL_LIFECYCLE.md",
         "docs/TROUBLESHOOTING.md",
         "docs/captioner.md",
+        "docs/decider.md",
         "docs/detector.md",
         "docs/embedder.md",
         "docs/generator.md",
@@ -68,7 +69,7 @@ public class DocsSnippetCompileTests
 
     private static readonly string[] LibraryAssemblies =
     [
-        "LMSupply.Core", "LMSupply.Embedder", "LMSupply.Reranker", "LMSupply.Generator", "LMSupply.Generator.Onnx",
+        "LMSupply.Core", "LMSupply.Embedder", "LMSupply.Reranker", "LMSupply.Decider", "LMSupply.Generator", "LMSupply.Generator.Onnx",
         "LMSupply.Llama", "LMSupply.Translator", "LMSupply.Transcriber", "LMSupply.Synthesizer", "LMSupply.Captioner",
         "LMSupply.Ocr", "LMSupply.Detector", "LMSupply.Segmenter", "LMSupply.ImageGenerator",
         "LMSupply.Text.Core", "LMSupply.Vision.Core",

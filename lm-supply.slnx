@@ -22,6 +22,7 @@
   <Folder Name="/src/">
     <Project Path="src/LMSupply.Captioner/LMSupply.Captioner.csproj" />
     <Project Path="src/LMSupply.Core/LMSupply.Core.csproj" />
+    <Project Path="src/LMSupply.Decider/LMSupply.Decider.csproj" />
     <Project Path="src/LMSupply.Detector/LMSupply.Detector.csproj" />
     <Project Path="src/LMSupply.Embedder/LMSupply.Embedder.csproj" />
     <Project Path="src/LMSupply.Generator/LMSupply.Generator.csproj" />
@@ -40,6 +41,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/LMSupply.Captioner.Tests/LMSupply.Captioner.Tests.csproj" />
     <Project Path="tests/LMSupply.Core.Tests/LMSupply.Core.Tests.csproj" />
+    <Project Path="tests/LMSupply.Decider.Tests/LMSupply.Decider.Tests.csproj" />
     <Project Path="tests/LMSupply.Detector.Tests/LMSupply.Detector.Tests.csproj" />
     <Project Path="tests/LMSupply.Embedder.Tests/LMSupply.Embedder.Tests.csproj" />
     <Project Path="tests/LMSupply.Generator.Onnx.Tests/LMSupply.Generator.Onnx.Tests.csproj" />

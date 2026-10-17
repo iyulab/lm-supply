@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Added
+- **`LMSupply.Decider`: typed decisions from a local model.** `LocalDecider.LoadAsync` loads a GGUF model and
+  `IDeciderModel.DecideAsync` answers named questions about a state — `DecisionQuestion.Choice` (your options, optionally
+  «none of these»), `YesNo` and `Score` (2–10 levels) — with a probability for every answer (`Decision`, `DecisionResult`;
+  `Confidence`, `LabelMass`, `Path`, `Calibrated`). A model whose llama-server reports the `decisions` output modality
+  answers natively through `/v1/systemone` (every question in one request); any other instruct model is read from the
+  log probabilities of one generated token (thinking off), renormalized over the answer labels, with the questions of a call
+  sent in order so the server reuses the state's evaluation. `DeciderOptions.Temperature` applies a temperature per question
+  kind (p ∝ p^(1/T)). Decisions that need arithmetic or several steps of reasoning are out of scope. See
+  [docs/decider.md](docs/decider.md).
+
 ## [0.124.0] - 2026-10-17
 
 ### Changed

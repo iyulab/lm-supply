@@ -76,6 +76,8 @@ public class OptionsCloneCompletenessTests
         if (t == typeof(TimeSpan)) return Equals(current, TimeSpan.FromSeconds(33)) ? TimeSpan.FromSeconds(34) : TimeSpan.FromSeconds(33);
         if (t.IsAssignableFrom(typeof(HashSet<int>))) return new HashSet<int> { 3, 5 };
         if (t.IsAssignableFrom(typeof(List<string>))) return new List<string> { "probe" };
+        if (t.IsAssignableFrom(typeof(Dictionary<LMSupply.Decider.DecisionKind, double>)))
+            return new Dictionary<LMSupply.Decider.DecisionKind, double> { [LMSupply.Decider.DecisionKind.YesNo] = 1.5 };
         if (t.IsClass && t.GetConstructor(Type.EmptyTypes) is not null && !typeof(IEnumerable).IsAssignableFrom(t))
             return Activator.CreateInstance(t)!;
         // A service the caller supplies (a phonemizer, say): any instance will do, the copy must carry that same one.

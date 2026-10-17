@@ -62,6 +62,7 @@ float[] embedding = await model.EmbedAsync("Hello, world!");
 |---------|-------------|--------|
 | [LMSupply.Embedder](docs/embedder.md) | Text → Vector embeddings (ONNX + GGUF; `Describe` — name, backend and licence of what an id loads) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Embedder.svg)](https://www.nuget.org/packages/LMSupply.Embedder) |
 | [LMSupply.Reranker](docs/reranker.md) | Semantic reranking for search (`GetDownloadSizeBytesAsync`; `Describe` — name, backend and licence of what an id loads, GGUF aliases included) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Reranker.svg)](https://www.nuget.org/packages/LMSupply.Reranker) |
+| [LMSupply.Decider](docs/decider.md) | Typed decisions from a local model — choice, yes/no and score questions about a state, with a probability for every answer | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Decider.svg)](https://www.nuget.org/packages/LMSupply.Decider) |
 | [LMSupply.Generator](docs/generator.md) | Text generation & chat (ONNX + GGUF) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Generator.svg)](https://www.nuget.org/packages/LMSupply.Generator) |
 | [LMSupply.Captioner](docs/captioner.md) | Image → Text captioning (`default`/`quality` Florence-2 with brief/detailed/paragraph captions · `fast` ViT-GPT2; `GetDownloadSizeBytesAsync`) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Captioner.svg)](https://www.nuget.org/packages/LMSupply.Captioner) |
 | [LMSupply.Ocr](docs/ocr.md) | Document OCR (`GetDownloadSizeBytesAsync` per language) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Ocr.svg)](https://www.nuget.org/packages/LMSupply.Ocr) |
@@ -184,6 +185,26 @@ foreach (var result in results)
     Console.WriteLine($"[{result.Score:F4}] {result.Document}");
 }
 ```
+
+### Typed Decisions
+
+```csharp
+using LMSupply.Decider;
+
+await using var decider = await LocalDecider.LoadAsync("ggml-org/gemma-4-E4B-it-GGUF");
+
+var result = await decider.DecideAsync(
+    "Customer message: I was charged twice for my order last week.",
+    new Dictionary<string, DecisionQuestion>
+    {
+        ["route"] = DecisionQuestion.Choice("Which team should handle this?", ["billing", "shipping", "technical"], allowNone: true),
+        ["angry"] = DecisionQuestion.YesNo("Is the customer angry?"),
+    });
+
+Console.WriteLine($"{result["route"].Choice} ({result["route"].Confidence:P0}), angry: {result["angry"].Probability:P0}");
+```
+
+Decisions that need arithmetic or several steps of reasoning are out of scope — use generation. See the [Decider Guide](docs/decider.md).
 
 ### Text Generation
 

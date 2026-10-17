@@ -28,7 +28,7 @@ public partial class ReadmeSnippetCompileTests
     // namespaces only (see PackageNamespaces), so a block that needs another package's type has to say so.
     private static readonly string[] RootUsings =
     [
-        "LMSupply", "LMSupply.Download", "LMSupply.Embedder", "LMSupply.Reranker", "LMSupply.Generator",
+        "LMSupply", "LMSupply.Download", "LMSupply.Embedder", "LMSupply.Reranker", "LMSupply.Decider", "LMSupply.Generator",
         "LMSupply.Generator.Abstractions", "LMSupply.Generator.Models", "LMSupply.Translator", "LMSupply.Transcriber",
         "LMSupply.Transcriber.Models", "LMSupply.Synthesizer", "LMSupply.Llama",
     ];
@@ -54,7 +54,7 @@ public partial class ReadmeSnippetCompileTests
     private static readonly IReadOnlyList<Microsoft.CodeAnalysis.MetadataReference> References = SnippetCompiler.ReferencesFor(
         [.. new[]
         {
-            "LMSupply.Core", "LMSupply.Embedder", "LMSupply.Reranker", "LMSupply.Generator", "LMSupply.Generator.Onnx",
+            "LMSupply.Core", "LMSupply.Embedder", "LMSupply.Reranker", "LMSupply.Decider", "LMSupply.Generator", "LMSupply.Generator.Onnx",
             "LMSupply.Llama", "LMSupply.Translator", "LMSupply.Transcriber", "LMSupply.Synthesizer", "LMSupply.Captioner",
             "LMSupply.Ocr", "LMSupply.Detector", "LMSupply.Segmenter", "LMSupply.ImageGenerator",
             "LMSupply.Text.Core", "LMSupply.Vision.Core",
