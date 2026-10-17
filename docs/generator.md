@@ -85,6 +85,24 @@ if (last?.Timings?.CompletionTokensPerSecond is { } rate)
     Console.WriteLine($" ({rate:F1} tok/s)");
 ```
 
+Reading a long prompt can take minutes on a small machine before the first token. On the llama-server backend,
+`GenerateChatStreamAsync` yields a chunk carrying only `PromptProgress` when the server starts reading the prompt and
+after each batch it evaluates (512 tokens by default, `GeneratorOptions.LlamaOptions.BatchSize`), so a host that guards a turn
+against a backend that has stopped can count any chunk as a sign of life, and can show how far the read has got.
+`CachedTokens` were reused from the server's prompt cache and count as processed from the start. A request cut while
+the prompt was being read leaves the batches already evaluated in that cache, so the same prompt sent again resumes
+from them. The ONNX backend reads the prompt in one step and yields no such chunk.
+
+```csharp
+await foreach (var chunk in generator.GenerateChatStreamAsync(messages))
+{
+    if (chunk.PromptProgress is { } p)
+        Console.Write($"\rreading {p.ProcessedTokens}/{p.TotalTokens}");
+    else
+        Console.Write(chunk.Text);
+}
+```
+
 ### Streaming Generation
 
 ```csharp

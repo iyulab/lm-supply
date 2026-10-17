@@ -43,6 +43,27 @@ public class ChatStreamShapingTests
     }
 
     [Fact]
+    public async Task PromptProgress_LeavesAtOnce_AsAChunkOfItsOwn()
+    {
+        var chunks = await ShapeAsync(
+            Stream(
+                new ChatStreamData { PromptProgress = new LlamaPromptProgress { Total = 2526, Cache = 1536, Processed = 1536, TimeMs = 0 } },
+                new ChatStreamData { PromptProgress = new LlamaPromptProgress { Total = 2526, Cache = 1536, Processed = 2522, TimeMs = 79998 } },
+                new ChatStreamData { ReasoningDelta = "hm" },
+                new ChatStreamData { TextDelta = "OK" },
+                new ChatStreamData { FinishReason = "stop" }),
+            new GenerationOptions { FilterReasoningTokens = true });
+
+        chunks.Take(2).Select(c => c.PromptProgress).Should().Equal(
+            new PromptProgress { TotalTokens = 2526, CachedTokens = 1536, ProcessedTokens = 1536, Elapsed = TimeSpan.Zero },
+            new PromptProgress { TotalTokens = 2526, CachedTokens = 1536, ProcessedTokens = 2522, Elapsed = TimeSpan.FromMilliseconds(79998) });
+        chunks.Take(2).Should().OnlyContain(c => c.Text == null && c.ReasoningDelta == null && c.ToolCalls == null && c.FinishReason == null && c.Usage == null);
+        chunks.Skip(2).Should().OnlyContain(c => c.PromptProgress == null);
+        string.Concat(chunks.Select(c => c.Text)).Should().Be("OK");
+        chunks[^1].FinishReason.Should().Be("stop");
+    }
+
+    [Fact]
     public async Task UsageAfterFinish_IsCarriedOnTheSingleFinalChunk()
     {
         var chunks = await ShapeAsync(Stream(

@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Added
+- **A streamed chat on the llama-server backend reports how far the server has read the prompt:
+  `ChatStreamChunk.PromptProgress`** (`PromptProgress`: `TotalTokens`, `CachedTokens`, `ProcessedTokens`, `Elapsed`). Reading a
+  long prompt could leave `GenerateChatStreamAsync` silent for minutes before the first token, so a host guarding a turn
+  could not tell a prompt still being read from a backend that had stopped. The stream now yields a chunk carrying only
+  `PromptProgress` when the server starts reading and after each batch it evaluates (`return_progress`, sent on every
+  streamed chat; a build that predates it ignores it). A consumer that reads only `Text` sees no change. Null on the ONNX
+  backend, which reads the prompt in one step. `LlamaServerClient`'s `ChatStreamData.PromptProgress` carries the server's
+  `prompt_progress` (`LlamaPromptProgress`).
+
 ## [0.125.0] - 2026-10-17
 
 ### Changed

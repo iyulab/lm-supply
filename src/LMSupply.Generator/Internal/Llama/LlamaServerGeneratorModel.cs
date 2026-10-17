@@ -1091,6 +1091,13 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
 
         await foreach (var data in source.WithCancellation(cancellationToken))
         {
+            // Before the first token: nothing to shape, and the consumer is waiting for any sign of life.
+            if (data.PromptProgress is { } progress)
+            {
+                yield return new ChatStreamChunk { PromptProgress = ToPromptProgress(progress) };
+                continue;
+            }
+
             if (data.FinishReason is not null)
                 finishReason = data.FinishReason;
             if (data.Usage is { } reported)
@@ -1291,6 +1298,14 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         PromptTokensPerSecond = t.PromptPerSecond,
         CompletionDuration = t.PredictedMs is { } predictedMs ? TimeSpan.FromMilliseconds(predictedMs) : null,
         CompletionTokensPerSecond = t.PredictedPerSecond,
+    };
+
+    internal static PromptProgress ToPromptProgress(LlamaPromptProgress p) => new()
+    {
+        TotalTokens = p.Total,
+        CachedTokens = p.Cache,
+        ProcessedTokens = p.Processed,
+        Elapsed = TimeSpan.FromMilliseconds(p.TimeMs),
     };
 
     /// <summary>

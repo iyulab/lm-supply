@@ -269,6 +269,9 @@ public sealed partial class LlamaServerClient : IDisposable
             if (usage is not null || chunk?.Timings is not null)
                 yield return new ChatStreamData { Usage = usage, Timings = chunk?.Timings };
 
+            if (chunk?.PromptProgress is { } progress)
+                yield return new ChatStreamData { PromptProgress = progress };
+
             var choice = chunk?.Choices?.FirstOrDefault();
             if (choice is null)
                 continue;
@@ -985,6 +988,8 @@ public sealed partial class LlamaServerClient : IDisposable
             Stream = stream,
             // The server's token accounting on a streamed response; without it the last chunk carries no usage.
             StreamOptions = stream ? new ChatStreamOptions { IncludeUsage = true } : null,
+            // Reading a long prompt can take minutes before the first token; progress is the only sign of life meanwhile.
+            ReturnProgress = stream ? true : null,
             Stop = options.StopSequences?.ToList(),
             Grammar = options.Grammar,
             ResponseFormat = BuildChatResponseFormat(options.Grammar, options.JsonSchema),
@@ -1226,6 +1231,13 @@ internal sealed class ChatCompletionRequest
 
     public int? Seed { get; set; }
     public bool Stream { get; set; }
+
+    /// <summary>
+    /// Asks a streamed completion for <c>prompt_progress</c> chunks while the server reads the prompt; a build that
+    /// predates the option ignores it.
+    /// </summary>
+    public bool? ReturnProgress { get; set; }
+
     public List<string>? Stop { get; set; }
 
     /// <summary>
@@ -1364,6 +1376,32 @@ internal sealed class ChatCompletionChunk
 
     /// <summary>llama.cpp's own accounting, on the last chunk of every build that has it.</summary>
     public LlamaServerTimings? Timings { get; set; }
+
+    /// <summary>How far the server has read the prompt, on the chunks a request with <c>return_progress</c> gets before the first token.</summary>
+    public LlamaPromptProgress? PromptProgress { get; set; }
+}
+
+/// <summary>
+/// llama.cpp's <c>prompt_progress</c>: sent while the server reads the prompt of a streamed completion that set
+/// <c>return_progress</c> — when it starts and after each batch it evaluates.
+/// </summary>
+public sealed class LlamaPromptProgress
+{
+    /// <summary>Tokens in the prompt (<c>total</c>).</summary>
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    /// <summary>Prompt tokens reused from the server's prompt cache (<c>cache</c>); they count as processed from the start.</summary>
+    [JsonPropertyName("cache")]
+    public int Cache { get; set; }
+
+    /// <summary>Prompt tokens read so far, the cached ones included (<c>processed</c>).</summary>
+    [JsonPropertyName("processed")]
+    public int Processed { get; set; }
+
+    /// <summary>Milliseconds since the server started reading the prompt (<c>time_ms</c>).</summary>
+    [JsonPropertyName("time_ms")]
+    public double TimeMs { get; set; }
 }
 
 internal sealed class ChatStreamOptions
@@ -1656,6 +1694,11 @@ public sealed class ChatStreamData
     /// <see cref="ChatCompletionOptions.TopLogprobs"/> asked for them; null otherwise.
     /// </summary>
     public IReadOnlyList<LlamaTokenLogprob>? Logprobs { get; init; }
+
+    /// <summary>
+    /// How far the server has read the prompt, on the data the stream yields before the first token; null otherwise.
+    /// </summary>
+    public LlamaPromptProgress? PromptProgress { get; init; }
 }
 
 /// <summary>

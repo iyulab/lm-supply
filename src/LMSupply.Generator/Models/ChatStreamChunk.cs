@@ -49,6 +49,13 @@ public sealed record ChatStreamChunk
     /// probabilities of reasoning or tool-call tokens whose text it does not show, and then has no <see cref="Text"/>.
     /// </summary>
     public IReadOnlyList<TokenLogprob>? Logprobs { get; init; }
+
+    /// <summary>
+    /// How far the backend has read the prompt, on the chunks a stream yields before the first token: when it starts
+    /// reading and after each batch. Such a chunk carries nothing else. Null on every other chunk, on the ONNX path
+    /// (it reads the prompt in one step and reports nothing meanwhile), and on llama-server builds that do not report it.
+    /// </summary>
+    public PromptProgress? PromptProgress { get; init; }
 }
 
 /// <summary>
