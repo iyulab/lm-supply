@@ -96,7 +96,7 @@ public sealed class GeneratorArtifactsTests : IDisposable
     }
 
     [Fact]
-    public async Task Delete_ByAGgufAlias_RemovesTheRepositoryItNames()
+    public async Task Delete_ByAGgufAlias_ThatAloneUsesItsRepository_RemovesTheRepository()
     {
         SeedServer();
         var artifacts = Artifacts();
@@ -110,6 +110,30 @@ public sealed class GeneratorArtifactsTests : IDisposable
         (await artifacts.IsAvailableOfflineAsync("gguf:gemma4-fast", Ct)).Should().BeFalse();
         Directory.Exists(Path.Combine(_dir, "hub", "models--" + info.RepoId.Replace("/", "--"))).Should().BeFalse();
         artifacts.Delete("gguf:gemma4-fast").Should().BeFalse("nothing is left");
+    }
+
+    [Fact]
+    public void Delete_OfOneOfTwoAliasesSharingARepository_DeletesWhatThatAliasLoads_AndKeepsTheOther()
+    {
+        // gguf:gemma4-default (Q4_0) and gguf:gemma4-balanced (Q8_0) are two quantizations of one repository.
+        var options = new GeneratorOptions { Provider = ExecutionProvider.Cpu, CacheDirectory = Path.Combine(_dir, "hub") };
+        var first = GgufModelRegistry.Resolve("gguf:gemma4-default", ExecutionProvider.Cpu)!;
+        var second = GgufModelRegistry.Resolve("gguf:gemma4-balanced", ExecutionProvider.Cpu)!;
+        first.RepoId.Should().Be(second.RepoId);
+        SeedHubGguf(first.RepoId, first.DefaultFile);
+        SeedHubGguf(second.RepoId, second.DefaultFile);
+        IReadOnlyList<string> planned;
+        using (var downloader = new GgufModelDownloader(options.CacheDirectory, localFilesOnly: true))
+            planned = downloader.PlanRegistryFiles(first, options.SelectionProvider, options.MaxContextLength);
+
+        LocalGenerator.DeleteModel("gguf:gemma4-default", options).Should().Be(planned.Count > 0);
+
+        // Exactly the files the alias loads on this host are gone (its default, or a smaller quantization when the default
+        // would not fit this machine); every other file of the repository stays.
+        var snapshot = Path.Combine(_dir, "hub", "models--" + first.RepoId.Replace("/", "--"), "snapshots", "main");
+        foreach (var file in new[] { first.DefaultFile, second.DefaultFile })
+            File.Exists(Path.Combine(snapshot, file)).Should().Be(!planned.Contains(file), file);
+        LocalGenerator.IsModelDownloaded("gguf:gemma4-default", options).Should().BeFalse();
     }
 
     [Fact]

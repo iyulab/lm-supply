@@ -29,11 +29,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   model's status (`Missing`, `Downloading` with the latest `DownloadProgress`, `Ready`, `Failed` with the exception the download
   threw), `WatchAsync` — a stream of every change — and `DownloadAsync`, shared by every caller asking for the same model and
   cancellable by any caller with `CancelDownload` (a caller's own token only stops its wait). It never downloads on its own.
-- **A host can delete a model by the id it loads.** `ModelLifecycle.DeleteAsync(kind, id)` removes what LMSupply downloaded of
-  the model's repository and publishes the status it leaves (`Missing`, or `Ready` when another tool's files remain); it is
-  refused while that model downloads, and a download is refused while it is being deleted. Providers implement
-  `IModelArtifacts.Delete`; `LocalGenerator.DeleteModel(id, options)` and `LocalEmbedder.DeleteModel(id, cacheDir)` resolve an
-  alias (`gguf:` alias, registry alias, `"default"`) to its repository and call `CacheManager.DeleteModel`. A local path and
+- **A host can delete a model by the id it loads.** `ModelLifecycle.DeleteAsync(kind, id)` removes the files a load of that
+  id opens and publishes the status it leaves (`Missing`, or `Ready` when another tool's files remain); it is refused while
+  that model downloads, and a download is refused while it is being deleted. Providers implement `IModelArtifacts.Delete`;
+  `LocalGenerator.DeleteModel(id, options)` and `LocalEmbedder.DeleteModel(id, cacheDir)` resolve the id as
+  `IsModelDownloaded` does. A `gguf:` registry alias deletes only the file it loads, so aliases that share a repository
+  (`gguf:gemma4-default` / `gguf:gemma4-balanced`) keep each other's files — `CacheManager.DeleteModelFiles(cacheDir, repoId,
+  files)` is that file-level delete, and the last file takes the repository's private state with it. A local path and
   llama-server are never deleted.
 - **A GGUF model reports the log probability of each token it generates.** `GenerationOptions.TopLogprobs` (null by
   default) asks for them: 0 for each generated token's own value, n for the n most likely candidates at each position

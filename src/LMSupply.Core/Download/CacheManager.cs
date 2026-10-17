@@ -501,6 +501,94 @@ public static class CacheManager
         return deleted;
     }
 
+    /// <summary>
+    /// Deletes some of what this library downloaded of a model — the files a load of one of several models that share a
+    /// repository opens (two quantizations of one GGUF repository) — and nothing another tool put in the shared cache.
+    /// </summary>
+    /// <remarks>
+    /// In each snapshot this library owns, the entries it owns whose path relative to the snapshot is one of
+    /// <paramref name="files"/> are deleted, with the blobs no remaining entry links to. When none of its entries is left
+    /// in the repository, the rest goes as in <see cref="DeleteModel"/> (refs, <c>.lmsupply/</c>, metadata), so the last
+    /// file deleted leaves nothing of this library's behind.
+    /// </remarks>
+    /// <param name="cacheDir">The cache directory (the hub layout, <c>models--org--name</c>).</param>
+    /// <param name="repoId">The repository id.</param>
+    /// <param name="files">Paths relative to a snapshot, <c>/</c>-separated (for example <c>model-Q4_0.gguf</c>).</param>
+    /// <returns>True if anything of this library's was found and deleted, false otherwise.</returns>
+    public static bool DeleteModelFiles(string cacheDir, string repoId, IEnumerable<string> files)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        var wanted = files.Select(f => ToLocalPath(f.TrimStart('/'))).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var repoDir = Path.GetFullPath(GetRepositoryDirectory(cacheDir, repoId));
+        var snapshotsDir = Path.Combine(repoDir, "snapshots");
+        if (wanted.Count == 0 || !Directory.Exists(snapshotsDir))
+            return false;
+
+        var deleted = false;
+        var blobsDir = Path.Combine(repoDir, "blobs");
+        var releasedBlobs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var ownLeft = false;
+        var touched = new List<string>();
+        foreach (var snapshot in Directory.GetDirectories(snapshotsDir))
+        {
+            if (!IsOwnSnapshotDirectory(repoDir, snapshot))
+                continue;
+
+            foreach (var entry in OwnEntries(repoDir, snapshot))
+            {
+                if (!wanted.Contains(Path.GetRelativePath(snapshot, entry)))
+                {
+                    ownLeft |= Path.GetFileName(entry) != DownloadManifest.LegacyFileName;
+                    continue;
+                }
+
+                if (LinkedBlob(entry, blobsDir) is { } blob)
+                    releasedBlobs.Add(blob);
+                DeleteEntry(entry);
+                deleted = true;
+                touched.Add(snapshot);
+            }
+        }
+
+        // A released blob stays while any remaining snapshot entry (another tool's, or another model's) links to it.
+        if (releasedBlobs.Count > 0)
+        {
+            var stillLinked = Directory.Exists(snapshotsDir)
+                ? Directory.EnumerateFiles(snapshotsDir, "*", SearchOption.AllDirectories)
+                    .Select(f => LinkedBlob(f, blobsDir))
+                    .OfType<string>()
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase)
+                : [];
+            foreach (var blob in releasedBlobs.Where(b => !stillLinked.Contains(b)))
+                DeleteEntry(blob);
+        }
+
+        // The last of this library's files: DeleteModel takes the emptied snapshots, their refs, the private state and the
+        // metadata. Otherwise only a snapshot left empty goes, with the refs naming it.
+        if (!ownLeft)
+            return DeleteModel(cacheDir, repoId) | deleted;
+
+        var removed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var snapshot in touched.Distinct())
+        {
+            DeleteEmptyDirectories(snapshot);
+            if (!Directory.Exists(snapshot))
+                removed.Add(Path.GetFileName(snapshot));
+        }
+
+        var refsDir = Path.Combine(repoDir, "refs");
+        if (removed.Count > 0 && Directory.Exists(refsDir))
+        {
+            foreach (var reference in Directory.GetFiles(refsDir, "*", SearchOption.AllDirectories))
+            {
+                if (TryReadSmallText(reference) is { } commit && removed.Contains(commit))
+                    DeleteEntry(reference);
+            }
+        }
+
+        return deleted;
+    }
+
     // The entries of an own snapshot that are this library's: all of a snapshot named after a branch or tag, else the
     // files its manifests list (and a manifest kept inside it by an earlier version).
     private static List<string> OwnEntries(string repoDir, string snapshot)

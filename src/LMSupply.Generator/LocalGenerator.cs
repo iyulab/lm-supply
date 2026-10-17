@@ -382,8 +382,12 @@ public static class LocalGenerator
     /// <remarks>
     /// <para>
     /// The id resolves as <see cref="IsModelDownloaded"/> resolves it (registry alias, <c>gguf:</c> alias, <c>"default"</c>/<c>"auto"</c>,
-    /// repository id) to one repository, and <see cref="CacheManager.DeleteModel"/> deletes this library's files of it — every
-    /// variant and quantization of that repository it downloaded, and nothing another tool put in the shared cache.
+    /// repository id). A <c>gguf:</c> registry alias deletes the files a load of it opens on this host (every shard of a split
+    /// model): several aliases share a repository (<c>gguf:gemma4-default</c> and <c>gguf:gemma4-balanced</c> are two
+    /// quantizations of one), and the others' files stay — the repository's private state goes with its last file
+    /// (<see cref="CacheManager.DeleteModelFiles"/>). Any other id names one model per repository, and
+    /// <see cref="CacheManager.DeleteModel"/> deletes this library's files of that repository. Nothing another tool put in the
+    /// shared cache is deleted.
     /// </para>
     /// <para>
     /// Not deleted: a local path (the files are yours), and llama-server, which every GGUF model shares. A file a running
@@ -399,12 +403,24 @@ public static class LocalGenerator
         options = options?.Clone() ?? new GeneratorOptions();
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
 
-        return CacheRepository(modelId, options) is { } repoId && CacheManager.DeleteModel(cacheDir, repoId);
+        switch (CacheTarget(modelId, options))
+        {
+            case (_, { } registryModel):
+                using (var downloader = new Gguf.GgufModelDownloader(cacheDir, localFilesOnly: true))
+                {
+                    var files = downloader.PlanRegistryFiles(registryModel, options.SelectionProvider, options.MaxContextLength);
+                    return CacheManager.DeleteModelFiles(cacheDir, registryModel.RepoId, files);
+                }
+            case ({ } repoId, null):
+                return CacheManager.DeleteModel(cacheDir, repoId);
+            default:
+                return false;
+        }
     }
 
-    // The cache repository a load of modelId downloads into, or null for a local path or an id nothing resolves —
-    // IsModelDownloaded's resolution, step for step.
-    private static string? CacheRepository(string modelId, GeneratorOptions options)
+    // What a load of modelId downloads into — a GGUF registry model (one of possibly several sharing its repository) or a
+    // repository — or neither, for a local path or an id nothing resolves. IsModelDownloaded's resolution, step for step.
+    private static (string? RepoId, Gguf.GgufModelInfo? RegistryModel) CacheTarget(string modelId, GeneratorOptions options)
     {
         if (GeneratorModelRegistry.Default.TryGetUserAliasTarget(modelId, out var userAliasTarget))
         {
@@ -414,8 +430,9 @@ public static class LocalGenerator
         if (modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ||
             Gguf.GgufModelRegistry.IsAlias(modelId))
         {
-            return Gguf.GgufModelRegistry.Resolve(modelId, options.SelectionProvider, options.MaxContextLength, options.AutoSelectionGoal)?.RepoId
-                ?? (modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ? null : modelId);
+            return Gguf.GgufModelRegistry.Resolve(modelId, options.SelectionProvider, options.MaxContextLength, options.AutoSelectionGoal) is { } info
+                ? (null, info)
+                : (modelId.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ? null : modelId, null);
         }
 
         var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelId);
@@ -427,7 +444,7 @@ public static class LocalGenerator
             var selected = !string.IsNullOrEmpty(options.PreferredAutoModelId)
                 ? options.PreferredAutoModelId
                 : SelectAutoModel(options).ModelId;
-            return CacheRepository(selected, options);
+            return CacheTarget(selected, options);
         }
 
         if (GeneratorModelRegistry.Default.TryResolve(modelId, out var resolvedModel))
@@ -435,7 +452,7 @@ public static class LocalGenerator
             modelId = resolvedModel!.ModelId;
         }
 
-        return File.Exists(modelId) || Directory.Exists(modelId) ? null : modelId;
+        return (File.Exists(modelId) || Directory.Exists(modelId) ? null : modelId, null);
     }
 
     private static bool IsGgufModelCached(string modelId, GeneratorOptions options, string cacheDir)

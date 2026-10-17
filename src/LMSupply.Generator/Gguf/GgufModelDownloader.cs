@@ -369,18 +369,26 @@ public sealed class GgufModelDownloader : IDisposable
     /// </remarks>
     internal bool IsRegistryModelCached(GgufModelInfo modelInfo, ExecutionProvider provider, int? contextLength = null)
     {
+        var files = PlanRegistryFiles(modelInfo, provider, contextLength);
+        return files.Count > 0 && files.All(f => IsCachedFile(modelInfo.RepoId, f));
+    }
+
+    /// <summary>
+    /// The files a load of this registry model opens — every shard of a split model, otherwise the file the load picks for
+    /// this host — decided as <see cref="IsRegistryModelCached"/> decides it, read-only and network-free. Empty when the cache
+    /// and the cached listing cannot settle the pick.
+    /// </summary>
+    internal IReadOnlyList<string> PlanRegistryFiles(GgufModelInfo modelInfo, ExecutionProvider provider, int? contextLength = null)
+    {
         if (modelInfo.ShardCount is > 1)
-        {
-            return GenerateShardFilenames(modelInfo.DefaultFile, modelInfo.ShardCount.Value)
-                .All(f => IsCachedFile(modelInfo.RepoId, f));
-        }
+            return [.. GenerateShardFilenames(modelInfo.DefaultFile, modelInfo.ShardCount.Value)];
 
         var budget = SelectionBudgetFor(provider, contextLength, out var vramOnly);
         var listing = _discoveryService.TryReadCachedListing(modelInfo.RepoId);
         var planned = PlanRegistryFile(
             modelInfo, ListCachedGroups(modelInfo.RepoId), listing is null ? null : ToGgufGroups(listing), budget, vramOnly);
 
-        return planned is not null && IsCachedFile(modelInfo.RepoId, planned);
+        return planned is null ? [] : [planned];
     }
 
     /// <summary>

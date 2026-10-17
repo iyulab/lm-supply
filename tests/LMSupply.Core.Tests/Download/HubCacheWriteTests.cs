@@ -278,6 +278,26 @@ public sealed class HubCacheWriteTests : IDisposable
     }
 
     [Fact]
+    public async Task DeleteModelFiles_DeletesTheNamedFilesOnly_AndTheLastOneTakesTheRest()
+    {
+        using (var downloader = new HuggingFaceDownloader(_cacheDir, new Hub()))
+            await downloader.DownloadModelAsync(Repo, ["model.onnx", "config.json"], cancellationToken: Ct);
+
+        CacheManager.DeleteModelFiles(_cacheDir, Repo, ["model.onnx"]).Should().BeTrue();
+
+        File.Exists(Path.Combine(CommitSnapshot, "model.onnx")).Should().BeFalse();
+        File.Exists(ModelBlob).Should().BeFalse("no remaining entry links to it");
+        File.ReadAllBytes(Path.Combine(CommitSnapshot, "config.json")).Should().Equal(Config, "another model's file stays");
+        CacheManager.HasOwnFiles(_cacheDir, Repo).Should().BeTrue();
+        CacheManager.DeleteModelFiles(_cacheDir, Repo, ["model.onnx"]).Should().BeFalse("it is gone already");
+
+        CacheManager.DeleteModelFiles(_cacheDir, Repo, ["config.json"]).Should().BeTrue();
+
+        CacheManager.HasOwnFiles(_cacheDir, Repo).Should().BeFalse("the last file took the refs and private state with it");
+        Directory.Exists(RepoDir).Should().BeFalse();
+    }
+
+    [Fact]
     public void DeleteModel_InACommitSnapshotSharedWithAnotherTool_DeletesOnlyTheListedFiles()
     {
         Directory.CreateDirectory(CommitSnapshot);

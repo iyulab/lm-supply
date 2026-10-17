@@ -1031,8 +1031,8 @@ await using var model = await LocalGenerator.LoadAsync("gguf:default", new Gener
 A host that shows several models to a user keeps them in one `ModelLifecycle`: each model's status (`Missing`, `Downloading`
 with progress, `Ready`, or `Failed` with the exception), a stream of every change for the UI, downloads that two callers share
 and any caller can cancel (`CancelDownload` — partial files stay and resume), and delete by the id the host loads
-(`DeleteAsync` — what LMSupply downloaded of the model's repository; refused while that model downloads, and a download is
-refused while it is being deleted). It never downloads on its own; a status read looks at the cache only.
+(`DeleteAsync` — the files a load of that id opens; refused while that model downloads, and a download is refused while it
+is being deleted). It never downloads on its own; a status read looks at the cache only.
 
 ```csharp
 using LMSupply.Embedder;
@@ -1052,10 +1052,12 @@ await models.DownloadAsync("generator", "gguf:default");                   // on
 await models.DeleteAsync("generator", "gguf:default");                     // the user removes it; status goes back to Missing
 ```
 
-A delete removes LMSupply's own files only — another tool's snapshot in the shared cache, a local path and llama-server stay
-(a model still `Ready` after `DeleteAsync` loads from those). Without a lifecycle, `LocalGenerator.DeleteModel(id, options)` and
-`LocalEmbedder.DeleteModel(id, cacheDir)` resolve an alias to its repository the way `IsModelDownloaded` does and call
-`CacheManager.DeleteModel`. On Windows a file a running server has open cannot be deleted (`IOException`) — dispose the model
+A `gguf:` registry alias deletes the file it loads on this host (every shard of a split model) — `gguf:gemma4-default` and
+`gguf:gemma4-balanced` are two quantizations of one repository, and deleting one keeps the other; any other id names one
+model per repository and deletes LMSupply's files of it. A delete removes LMSupply's own files only — another tool's snapshot
+in the shared cache, a local path and llama-server stay (a model still `Ready` after `DeleteAsync` loads from those). Without
+a lifecycle, `LocalGenerator.DeleteModel(id, options)` and `LocalEmbedder.DeleteModel(id, cacheDir)` resolve the id the way
+`IsModelDownloaded` does and call `CacheManager.DeleteModelFiles(cacheDir, repoId, files)` or `CacheManager.DeleteModel`. On Windows a file a running server has open cannot be deleted (`IOException`) — dispose the model
 first.
 
 ### Behind a proxy
