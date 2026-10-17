@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [Unreleased]
+## [0.125.0] - 2026-10-17
 
 ### Changed
 - **Breaking: the console host's `POST /v1/chat/completions` rejects a message role it does not know.** A role outside
