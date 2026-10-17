@@ -1,0 +1,8 @@
+# Text is kept with LF in the repository, and is checked out with LF on every platform. Source text reaches the
+# compiled program - a multi-line string literal keeps the line ends of the file it was written in - so a checkout with
+# CRLF builds a different assembly than the one CI makes from the same commit, and the tests of the first run against
+# bytes the second never ships.
+* text=auto eol=lf
+
+# Files a shell or a container engine reads: a script with CRLF does not run.
+*.sh          text eol=lf
