@@ -62,7 +62,9 @@ like every other LMSupply GGUF model) and asks the server what the model produce
 
 `Decision.LabelMass` is the share of the model's next-token probability that fell on answer labels before renormalizing. Near
 1 means the model wanted to answer with a label; a low value means it mostly wanted to say something else and the
-renormalized numbers rest on little. If none of the candidate tokens the request asks for (the number of labels plus 10) is an answer label,
+renormalized numbers rest on little. A model that formats its answer (it would write `**Yes**`) leaves part of the mass on the
+formatting token; the renormalized numbers are then still its relative preference between the labels, and a low `LabelMass`
+only says how much of its next-token probability they cover. If none of the candidate tokens the request asks for (the number of labels plus 10) is an answer label,
 `DecisionException` reports the token the model started with (for example reasoning markup of a model run with thinking on).
 
 Each answer label must be a single token of the model's tokenizer. The loader checks this once; a question that needs a label
