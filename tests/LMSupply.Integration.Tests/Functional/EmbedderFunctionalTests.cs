@@ -722,8 +722,10 @@ public class EmbedderFunctionalTests
             .Select(alias => LocalEmbedder.Registry.TryResolve(alias, out var model) ? model!.RepoId : null)
             .ToArray();
 
-        tiers.Should().OnlyHaveUniqueItems();
         tiers.Should().AllSatisfy(t => t.Should().NotBeNullOrWhiteSpace());
+        // "quality" is bge-m3 like "default" by design (DefaultModels.BgeM3QualityAlias); the other tiers are distinct models
+        tiers[2].Should().Be(tiers[0], "\"quality\" names the default model for pipelines that ask for the quality tier");
+        tiers.Distinct().Should().HaveCount(3, "default, fast and large are three different models");
     }
 
     // ── GetAllModels API (no model loading) ───────────────────────
@@ -913,7 +915,7 @@ public class EmbedderFunctionalTests
     {
         // E-Q4: Same model family (nomic-embed-text-v1.5) in GGUF and ONNX
         // should produce very similar embeddings (cosine similarity > 0.8)
-        await using var onnxModel = await LocalEmbedder.LoadAsync("large", cancellationToken: TestContext.Current.CancellationToken); // nomic-embed-text-v1.5 ONNX
+        await using var onnxModel = await LocalEmbedder.LoadAsync("nomic-embed-text-v1.5", cancellationToken: TestContext.Current.CancellationToken); // ONNX ("large" is multilingual-e5-large)
         await using var ggufModel = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF", cancellationToken: TestContext.Current.CancellationToken);
 
         var text = "Machine learning is a subset of artificial intelligence.";

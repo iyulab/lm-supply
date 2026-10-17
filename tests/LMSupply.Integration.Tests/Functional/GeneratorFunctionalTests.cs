@@ -16,7 +16,9 @@ namespace LMSupply.Integration.Tests.Functional;
 public class GeneratorFunctionalTests
 {
     private const string FastModel = "gguf:gemma4-fast";
-    private static readonly GenerationOptions ShortOutput = new() { MaxTokens = 30 };
+    // Thinking off: gemma4 reasons by default, and a 30-token budget spent on reasoning returns an empty answer at random
+    // (Gemma4EmptyChatProbeTests) — these facts test generation paths, not the reasoning channel
+    private static readonly GenerationOptions ShortOutput = new() { MaxTokens = 30, Thinking = ThinkingMode.Off };
 
     // ── L axis: Model Loading ───────────────────────────────────────
 
@@ -145,7 +147,9 @@ public class GeneratorFunctionalTests
             ChatMessage.User("How are you?")
         ];
 
-        var result = await model.GenerateChatCompleteAsync(messages, new GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
+        // gemma4 reasons by default and a 50-token budget can go entirely to reasoning (Gemma4EmptyChatProbeTests);
+        // this fact is about the chat format, so it asks for the answer directly
+        var result = await model.GenerateChatCompleteAsync(messages, new GenerationOptions { MaxTokens = 50, Thinking = ThinkingMode.Off }, TestContext.Current.CancellationToken);
 
         result.Should().NotBeNullOrEmpty("chat with system message should generate response");
     }
@@ -403,8 +407,9 @@ public class GeneratorFunctionalTests
         var models = GeneratorModelRegistry.Default.GetAvailableModels();
 
         models.Should().NotBeEmpty();
-        models.Count.Should().BeGreaterThanOrEqualTo(5,
-            "registry should have at least 5 generator models");
+        // The ONNX registry: Phi-4 mini (default), Phi-3.5 mini, Phi-4 — GGUF models resolve through their own registry
+        models.Select(m => m.ModelId).Should().Contain(DefaultGeneratorModels.All.Select(m => m.ModelId),
+            "every built-in ONNX generator is listed");
     }
 
     [Fact]

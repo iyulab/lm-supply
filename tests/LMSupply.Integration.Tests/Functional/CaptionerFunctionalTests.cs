@@ -217,7 +217,7 @@ public class CaptionerFunctionalTests
 
         opts.MaxLength.Should().Be(50, "default max caption length should be 50");
         opts.NumBeams.Should().Be(1, "default beam search should be greedy (1)");
-        opts.Temperature.Should().Be(1.0f, "default temperature should be 1.0");
+        opts.Temperature.Should().BeNull("no temperature decodes deterministically (greedy, or beam search with NumBeams)");
         opts.Prompt.Should().BeNull("default prompt should be null");
     }
 
@@ -249,12 +249,13 @@ public class CaptionerFunctionalTests
 
     [Fact]
     [Trait("Axis", "Loading")]
-    public void L_GetAllModels_ReturnsFourModels()
+    public void L_GetAllModels_ReturnsDistinctModels()
     {
         var models = LocalCaptioner.GetAllModels().ToList();
 
-        models.Count.Should().Be(1,
-            "registry has 1 unique captioning model (VitGpt2, aliased as both default and fast)");
+        // Two models: ViT-GPT2 ("fast") and Florence-2 base ("quality", also registered as "default" since 0.104.0)
+        models.Select(m => m.RepoId).Should().BeEquivalentTo(
+            ["Xenova/vit-gpt2-image-captioning", "onnx-community/Florence-2-base-ft"]);
     }
 
     [Fact]
@@ -313,7 +314,7 @@ public class CaptionerFunctionalTests
 
         opts.MaxLength.Should().Be(50);
         opts.NumBeams.Should().Be(1);
-        opts.Temperature.Should().Be(1.0f);
+        opts.Temperature.Should().BeNull();
         opts.Prompt.Should().BeNull();
         opts.Provider.Should().Be(ExecutionProvider.Auto);
         opts.CacheDirectory.Should().BeNull();

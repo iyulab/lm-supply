@@ -356,7 +356,11 @@ public class CrossDomainScenarioTests
 
         // 3. Generate a summary using the translated text
         await using var generator = await LocalGenerator.LoadAsync("gguf:gemma4-fast", cancellationToken: TestContext.Current.CancellationToken);
-        var summary = await generator.GenerateCompleteAsync($"Summarize in one sentence: {translation.TranslatedText}", new Generator.Models.GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
+        // An instruct model takes the request as a chat turn: a raw prompt with no chat template makes gemma4 end its turn
+        // at once (1 token, finish "stop"); thinking off so a 50-token budget goes to the answer
+        var summary = await generator.GenerateChatCompleteAsync(
+            [Generator.Models.ChatMessage.User($"Summarize in one sentence: {translation.TranslatedText}")],
+            new Generator.Models.GenerationOptions { MaxTokens = 50, Thinking = Generator.Models.ThinkingMode.Off }, TestContext.Current.CancellationToken);
 
         summary.Should().NotBeNullOrEmpty(
             "Translate → Embed → Generate pipeline should produce summary text");

@@ -365,10 +365,9 @@ public class OcrFunctionalTests
     [Trait("Axis", "Loading")]
     public void L_GetRecognitionModelForLanguage_FallsBackToEnglish()
     {
-        // Japanese is documented as falling back to English (not available in repository)
-        var model = OcrRecognitionModelRegistry.Default.ResolveForLanguage("ja");
-
-        model.AliasName.Should().Be("crnn-en-v3",
+        // Japanese is read by the Chinese/Japanese model (its dictionary carries kana); a language no model lists falls back to English
+        OcrRecognitionModelRegistry.Default.ResolveForLanguage("ja").AliasName.Should().Be("crnn-chinese-v3");
+        OcrRecognitionModelRegistry.Default.ResolveForLanguage("km").AliasName.Should().Be("crnn-en-v3",
             "unsupported language should fall back to English recognition");
     }
 

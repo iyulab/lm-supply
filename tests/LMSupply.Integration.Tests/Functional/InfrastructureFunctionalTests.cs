@@ -317,7 +317,7 @@ public class InfrastructureFunctionalTests
 
         model.RequestedProvider.Should().Be(ExecutionProvider.Cpu,
             "requested provider should reflect the explicit override");
-        model.ActiveProviders.Should().Contain("CpuExecutionProvider",
+        model.ActiveProviders.Should().Contain("CPUExecutionProvider", // ONNX Runtime's own provider name
             "CPU provider should be active when explicitly requested");
     }
 
