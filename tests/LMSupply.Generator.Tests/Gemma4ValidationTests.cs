@@ -261,8 +261,11 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
 {
     // Gemma 4 uses thinking tokens (reasoning_content) before answering.
     // MaxTokens must be large enough to cover thinking (~100-200 tokens) + answer.
+    // Gemma 4's recommended sampling, with a fixed seed: an unseeded draw at temperature 1.0 turned a coherence check
+    // («3 + 5» contains "8») into an occasional red on a model that answers it correctly
     private static GenerationOptions MakeGemma4Options(int maxTokens = 512) => new()
     {
+        Seed = 42,
         Temperature = 1.0f,
         TopP = 0.95f,
         TopK = 64,

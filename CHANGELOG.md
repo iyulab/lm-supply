@@ -6,6 +6,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Changed
+- **Breaking: the console host's `POST /v1/chat/completions` rejects a message role it does not know.** A role outside
+  OpenAI's set (`system`, `developer`, `user`, `assistant`, `tool`, `function`) was read as a user message; it is now a
+  400 naming the message (`messages[i].role`), before any model loads. `developer` — OpenAI's newer name for the system
+  role — is the system prompt, and `function` is read like `tool`. Migration: send one of those roles.
+
 ### Added
 - **`LMSupply.Decider`: typed decisions from a local model.** `LocalDecider.LoadAsync` loads a GGUF model and
   `IDeciderModel.DecideAsync` answers named questions about a state — `DecisionQuestion.Choice` (your options, optionally

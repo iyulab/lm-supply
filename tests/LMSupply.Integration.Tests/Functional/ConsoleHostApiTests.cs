@@ -59,25 +59,28 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         var response = await _client.GetAsync("/v1/models", TestContext.Current.CancellationToken);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
-        var ids = json.GetProperty("data")
+        // Ids are registry aliases; the model kind is told apart by capabilities
+        var models = json.GetProperty("data")
             .EnumerateArray()
-            .Select(item => item.GetProperty("id").GetString()!)
-            .ToHashSet();
+            .Select(item => (
+                Id: item.GetProperty("id").GetString()!,
+                Capabilities: item.GetProperty("capabilities").EnumerateArray().Select(c => c.GetString()!).ToHashSet()))
+            .ToList();
 
-        ids.Should().Contain("embedder:default");
-        ids.Should().Contain("reranker:default");
-        ids.Should().Contain("generator:default");
+        models.Should().Contain(m => m.Id == "default" && m.Capabilities.Contains("embeddings"));
+        models.Should().Contain(m => m.Id == "default" && m.Capabilities.Contains("reranking"));
+        models.Should().Contain(m => m.Capabilities.Contains("chat.completions"));
     }
 
     [Fact]
     [Trait("Axis", "API-GET")]
     public async Task GET_ModelById_ReturnsModelInfo()
     {
-        var response = await _client.GetAsync("/v1/models/embedder:default", TestContext.Current.CancellationToken);
+        var response = await _client.GetAsync("/v1/models/fast", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
-        json.GetProperty("id").GetString().Should().Be("embedder:default");
+        json.GetProperty("id").GetString().Should().Be("fast");
     }
 
     [Fact]
@@ -266,10 +269,11 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             .Select(m => m.GetProperty("aliasName").GetString()!)
             .ToList();
 
+        // One entry per distinct model: "quality" is bge-m3 like "default", so it resolves but is not listed twice
         aliases.Should().Contain("default");
         aliases.Should().Contain("fast");
-        aliases.Should().Contain("quality");
-        aliases.Should().Contain("multilingual");
+        aliases.Should().Contain("large");
+        aliases.Should().NotContain("quality");
     }
 
     [Fact]
@@ -891,7 +895,8 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
-        json.TryGetProperty("text", out _).Should().BeTrue();
+        json.TryGetProperty("full_text", out _).Should().BeTrue();
+        json.GetProperty("pages").GetArrayLength().Should().Be(1);
     }
 
     // ── Group D: Advanced API Tests ─────────────────────────────────
@@ -1131,6 +1136,31 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    [Trait("Axis", "API-Inference")]
+    public async Task POST_ChatCompletions_DeveloperRole_IsTheSystemPrompt()
+    {
+        // OpenAI's newer name for the system role is accepted, not rejected with the unknown roles
+        var ct = TestContext.Current.CancellationToken;
+        var content = JsonContent.Create(new
+        {
+            model = "unsloth/Qwen3.5-2B-GGUF",
+            messages = new[]
+            {
+                new { role = "developer", content = "Answer with one word." },
+                new { role = "user", content = "Say hello." }
+            },
+            max_tokens = 3,
+            temperature = 0,
+        });
+
+        var response = await _client.PostAsync("/v1/chat/completions", content, ct);
+        var text = await response.Content.ReadAsStringAsync(ct);
+        if (response.StatusCode == HttpStatusCode.InternalServerError && text.Contains("not in the local cache", StringComparison.Ordinal))
+            Assert.Skip("The model is not cached here.");
+        response.StatusCode.Should().Be(HttpStatusCode.OK, text);
+    }
+
+    [Fact]
     [Trait("Axis", "API-Error")]
     public async Task POST_ChatCompletions_InvalidRole_ReturnsError()
     {
@@ -1141,9 +1171,10 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         });
         var response = await _client.PostAsync("/v1/chat/completions", content, TestContext.Current.CancellationToken);
 
-        // Invalid role should cause an error (enum parse failure)
-        response.IsSuccessStatusCode.Should().BeFalse(
-            "invalid message role should cause an error");
+        // An unknown role is a 400 before any model loads (it was read as a user message)
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
+        json.GetProperty("error").GetProperty("message").GetString().Should().Contain("messages[0].role");
     }
 
     [Fact]
@@ -1229,7 +1260,8 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_NonExistentEndpoint_SpaFallback_Returns200()
     {
-        // SPA fallback serves index.html for unknown GET routes (client-side routing)
+        // SPA fallback serves index.html for unknown GET routes (client-side routing) — only when the npm build put the UI in wwwroot
+        Assert.SkipUnless(HostEmbedsUi(), "console UI is not embedded (wwwroot was not built before the host)");
         var response = await _client.GetAsync("/v1/nonexistent", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -1767,14 +1799,14 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
 
     [Fact]
     [Trait("Axis", "API-GET")]
-    public async Task GET_ModelById_AnyId_Returns200()
+    public async Task GET_ModelById_UnknownId_Returns404()
     {
-        // OpenAI-compatible — returns model info for any ID
-        var response = await _client.GetAsync("/v1/models/nonexistent:unknown", TestContext.Current.CancellationToken);
+        // OpenAI answers an unknown model id with 404 model_not_found; so does the host
+        var response = await _client.GetAsync("/v1/models/nonexistent-model", TestContext.Current.CancellationToken);
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
-        json.GetProperty("id").GetString().Should().Be("nonexistent:unknown");
+        json.GetProperty("error").GetProperty("type").GetString().Should().Be("model_not_found");
     }
 
     [Fact]
@@ -1841,4 +1873,17 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         procMem.GetDouble().Should().BeGreaterThan(0);
     }
 
+    // The host embeds wwwroot only when the npm build produced it (GenerateEmbeddedFilesManifest is conditional)
+    private static bool HostEmbedsUi()
+    {
+        try
+        {
+            return new Microsoft.Extensions.FileProviders.ManifestEmbeddedFileProvider(typeof(Program).Assembly, "wwwroot")
+                .GetFileInfo("index.html").Exists;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
 }

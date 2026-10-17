@@ -34,6 +34,22 @@ public static class ChatEndpoints
                 return;
             }
 
+            // Message roles, OpenAI's set: an unknown role is a 400, not a user message
+            var badRoleIndex = IndexOfUnknownRole(request.Messages);
+            if (badRoleIndex >= 0)
+            {
+                context.Response.StatusCode = 400;
+                await context.Response.WriteAsJsonAsync(new ErrorResponse
+                {
+                    Error = new ErrorDetail
+                    {
+                        Message = $"'messages[{badRoleIndex}].role' must be one of system, developer, user, assistant, tool, function; got '{request.Messages[badRoleIndex].Role}'",
+                        Type = "invalid_request_error"
+                    }
+                }, ct);
+                return;
+            }
+
             // Log probabilities, OpenAI's rules: top_logprobs 0-20, and only with logprobs: true
             var logprobsError = request switch
             {
@@ -369,7 +385,7 @@ public static class ChatEndpoints
         string? existingSystem = null;
         foreach (var m in request.Messages)
         {
-            if (string.Equals(m.Role, "system", StringComparison.OrdinalIgnoreCase))
+            if (IsSystemRole(m.Role))
             {
                 existingSystem = m.GetTextContent();
                 break;
@@ -390,7 +406,7 @@ public static class ChatEndpoints
         {
             var role = m.Role.ToLowerInvariant();
 
-            if (role == "system")
+            if (role is "system" or "developer")
             {
                 if (!systemHandled)
                 {
@@ -403,7 +419,7 @@ public static class ChatEndpoints
                 continue;
             }
 
-            if (role == "tool")
+            if (role is "tool" or "function")
             {
                 // Tool result messages — represent as user messages with tool result context
                 var toolContent = m.GetTextContent();
@@ -423,7 +439,7 @@ public static class ChatEndpoints
             {
                 "user" => ChatRole.User,
                 "assistant" => ChatRole.Assistant,
-                _ => ChatRole.User // fallback for unknown roles
+                _ => ChatRole.User // "user" — the endpoint has rejected every role outside KnownRoles
             };
 
             result.Add(new ChatMessage(chatRole, text));
@@ -435,6 +451,24 @@ public static class ChatEndpoints
 
         return result;
     }
+
+    private static readonly HashSet<string> KnownRoles =
+        new(StringComparer.OrdinalIgnoreCase) { "system", "developer", "user", "assistant", "tool", "function" };
+
+    private static int IndexOfUnknownRole(IReadOnlyList<ChatCompletionMessage> messages)
+    {
+        for (var i = 0; i < messages.Count; i++)
+        {
+            if (messages[i].Role is not { } role || !KnownRoles.Contains(role))
+                return i;
+        }
+        return -1;
+    }
+
+    // "developer" is OpenAI's name for the system role on newer models
+    private static bool IsSystemRole(string? role) =>
+        string.Equals(role, "system", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(role, "developer", StringComparison.OrdinalIgnoreCase);
 
     private static string FormatError(Exception ex)
     {
