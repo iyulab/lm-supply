@@ -199,6 +199,92 @@ public static class LocalOcr
         return plans.Sum(p => p.GetRemainingBytes(cacheDir));
     }
 
+    /// <summary>
+    /// Whether <see cref="LoadForLanguageAsync"/> for <paramref name="languageCode"/> with <paramref name="options"/> would open
+    /// cached files only — the default detection model and the language's recognizer and dictionary, each in the cache at the
+    /// length its repository lists. Makes no network request and loads nothing; never errs toward <see langword="true"/> (a
+    /// repository this cache never listed, a missing or partial file answers <see langword="false"/>).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="GetCacheStatusForLanguage"/> lists the same files with their presence; this also checks their lengths.
+    /// </remarks>
+    /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh", "ja").</param>
+    /// <param name="options">The options the load will use; not modified.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static async Task<bool> IsLanguageDownloadedAsync(
+        string languageCode,
+        OcrOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageCode);
+        options = options?.Clone() ?? new OcrOptions();
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+        // Plan from the cached listings only: the check must not reach the network.
+        options.DisableAutoDownload = true;
+
+        IReadOnlyList<DownloadPlan> plans;
+        try
+        {
+            plans = await PlanDownloadsAsync(languageCode, options, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is ModelNotFoundException or ModelDownloadException)
+        {
+            return false;
+        }
+
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        return plans.All(p => p.GetRemainingBytes(cacheDir) == 0);
+    }
+
+    /// <summary>
+    /// Downloads the files <see cref="LoadForLanguageAsync"/> for <paramref name="languageCode"/> opens — the default detection
+    /// model and the language's recognizer and dictionary — without creating a session, so that a load with downloads disabled
+    /// opens cached files only. Cached files are not fetched again; the load downloads through the same path.
+    /// </summary>
+    /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh", "ja").</param>
+    /// <param name="options">The options the load will use; not modified.</param>
+    /// <param name="progress">Download progress, as a load reports it.</param>
+    /// <param name="cancellationToken">Cancellation token; a cancelled download keeps its partial file and resumes next time.</param>
+    public static async Task DownloadForLanguageAsync(
+        string languageCode,
+        OcrOptions? options = null,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageCode);
+        options = options?.Clone() ?? new OcrOptions();
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+        options.LanguageHint = languageCode;
+
+        await ResolveDetectionModelAsync(DefaultDetectionModel, options, progress, cancellationToken).ConfigureAwait(false);
+        var recognitionModel = OcrRecognitionModelRegistry.Default.ResolveForLanguage(languageCode).AliasName;
+        await ResolveRecognitionModelAsync(recognitionModel, options, progress, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Deletes what LMSupply downloaded of the recognizer <paramref name="languageCode"/> reads with — its model and dictionary
+    /// — so the next load for that language downloads them again.
+    /// </summary>
+    /// <remarks>
+    /// The detection model is kept: every language uses it. The recognizer is shared by the languages of one script (Chinese
+    /// and Japanese read with one model), so deleting one deletes it for the others too — <see cref="GetCacheStatusForLanguage"/>
+    /// names it (<see cref="OcrCacheStatus"/>). Only this library's files are deleted, never another tool's in the shared cache.
+    /// A file an open session holds cannot be deleted on Windows; the delete then throws <see cref="IOException"/>.
+    /// </remarks>
+    /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh", "ja").</param>
+    /// <param name="options">Only <see cref="LMSupplyOptionsBase.CacheDirectory"/> is read; null means the default cache.</param>
+    /// <returns>Whether anything was deleted.</returns>
+    public static bool DeleteLanguageModel(string languageCode, OcrOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageCode);
+        var recognition = OcrRecognitionModelRegistry.Default.ResolveForLanguage(languageCode);
+        var prefix = string.IsNullOrEmpty(recognition.Subfolder) ? "" : recognition.Subfolder.TrimEnd('/') + "/";
+        return CacheManager.DeleteModelFiles(
+            options?.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory(),
+            recognition.RepoId,
+            RequiredFiles(recognition).Select(f => prefix + f));
+    }
+
     // The plans a load with these options fetches; empty for a model on local disk. Shared by the total and the
     // remaining figure, so both count the files the load picks.
     private static async Task<IReadOnlyList<DownloadPlan>> PlanDownloadsAsync(

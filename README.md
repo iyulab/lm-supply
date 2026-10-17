@@ -1026,7 +1026,8 @@ RuntimeManager.Configure(new RuntimeManagerOptions
 
 A host that must not download before the user agrees asks each model package the same three questions through
 `LMSupply.Lifecycle.IModelArtifacts` — `GeneratorArtifacts(options)`, `EmbedderArtifacts(options)`, `RerankerArtifacts(options)`,
-`TranscriberArtifacts(options)` and `CaptionerArtifacts(options)`, built with the options the later load will use:
+`TranscriberArtifacts(options)`, `CaptionerArtifacts(options)` and `OcrArtifacts(options)` (its id is a language code, as for
+`LocalOcr.LoadForLanguageAsync`), built with the options the later load will use:
 
 ```csharp
 using LMSupply;
@@ -1063,11 +1064,15 @@ using LMSupply.Captioner;
 using LMSupply.Embedder;
 using LMSupply.Generator;
 using LMSupply.Lifecycle;
+using LMSupply.Ocr;
 using LMSupply.Reranker;
 using LMSupply.Transcriber;
 
 var models = new ModelLifecycle(
-    [new GeneratorArtifacts(), new EmbedderArtifacts(), new RerankerArtifacts(), new TranscriberArtifacts(), new CaptionerArtifacts()]);
+[
+    new GeneratorArtifacts(), new EmbedderArtifacts(), new RerankerArtifacts(),
+    new TranscriberArtifacts(), new CaptionerArtifacts(), new OcrArtifacts(),
+]);
 
 var status = await models.GetStatusAsync("generator", "gguf:default");       // Missing / Downloading / Ready / Failed
 _ = Task.Run(async () =>
@@ -1086,7 +1091,9 @@ model per repository and deletes LMSupply's files of it. A delete removes LMSupp
 in the shared cache, a local path and llama-server stay (a model still `Ready` after `DeleteAsync` loads from those). Without
 a lifecycle, `LocalGenerator.DeleteModel(id, options)`, `LocalEmbedder.DeleteModel(id, cacheDir)`,
 `LocalReranker.DeleteModel(id, cacheDir)`, `LocalTranscriber.DeleteModel(id, options)` and `LocalCaptioner.DeleteModel(id, options)`
-resolve the id the way their `IsModelDownloaded`/`IsModelDownloadedAsync` does (a transcriber keeps the shared diarization pair) and call `CacheManager.DeleteModelFiles(cacheDir, repoId, files)` or `CacheManager.DeleteModel`. On Windows a file a running server has open cannot be deleted (`IOException`) — dispose the model
+resolve the id the way their `IsModelDownloaded`/`IsModelDownloadedAsync` does (OCR: `LocalOcr.DeleteLanguageModel(language, options)`
+deletes that language's recognizer and keeps the detection model every language shares; languages of one script share a
+recognizer) (a transcriber keeps the shared diarization pair) and call `CacheManager.DeleteModelFiles(cacheDir, repoId, files)` or `CacheManager.DeleteModel`. On Windows a file a running server has open cannot be deleted (`IOException`) — dispose the model
 first.
 
 ### Behind a proxy
