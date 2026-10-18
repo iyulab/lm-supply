@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [Unreleased]
+## [0.128.0] - 2026-10-19
 
 ### Added
 - **The speaker-diarization pair is a lifecycle kind of its own: `DiarizationArtifacts`** (`Kind = "diarization"`, one model id,
