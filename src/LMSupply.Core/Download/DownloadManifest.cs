@@ -24,6 +24,9 @@ public sealed class DownloadManifest
 
     private const string ManifestsDirectoryName = "manifests";
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> s_writeGates =
+        new(StringComparer.OrdinalIgnoreCase);
+
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         TypeInfoResolver = CoreJsonContext.Default,
@@ -72,13 +75,83 @@ public sealed class DownloadManifest
         await WriteFileAsync(path, manifest);
     }
 
+    // Several loads of one model can run at once (in one process or several), and each ends by recording what it
+    // found. A record that says what the file already says is not written: a load of a cached model leaves the file
+    // alone. Otherwise the new text goes to a file of its own and replaces the manifest in one step, so a reader sees
+    // the old manifest or the new one, never a half-written one, and two writers never hold the same file open.
     private static async Task WriteFileAsync(string path, DownloadManifest manifest)
     {
-        manifest.CompletedAt = DateTimeOffset.UtcNow;
-        var json = JsonSerializer.Serialize(manifest, s_jsonOptions.TypeInfoOf(manifest));
+        // Writers in this process take turns per file; writers in other processes are met by the retry below.
+        var gate = s_writeGates.GetOrAdd(Path.GetFullPath(path), _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await WriteFileCoreAsync(path, manifest).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
 
-        // Retry on transient file lock (e.g., rapid host restart releasing handles).
-        await FileIoRetry.ExecuteAsync(() => File.WriteAllTextAsync(path, json));
+    private static async Task WriteFileCoreAsync(string path, DownloadManifest manifest)
+    {
+        if (ReadFile(path) is { } existing)
+        {
+            manifest.CompletedAt = existing.CompletedAt;
+            if (Serialize(manifest) == Serialize(existing))
+                return;
+        }
+
+        manifest.CompletedAt = DateTimeOffset.UtcNow;
+        var json = Serialize(manifest);
+        var temp = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            await File.WriteAllTextAsync(temp, json).ConfigureAwait(false);
+            // Retry on a transient lock: another writer replacing the file at the same moment, or a handle a host
+            // restart has not released yet.
+            await FileIoRetry.ExecuteAsync(() => Replace(temp, path)).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (File.Exists(temp))
+                File.Delete(temp);
+        }
+    }
+
+    // Windows refuses a replace while another process is replacing the same file with «access denied», not a sharing
+    // violation; it is the same transient condition, so it is retried like one.
+    private static void Replace(string source, string destination)
+    {
+        try
+        {
+            File.Move(source, destination, overwrite: true);
+        }
+        catch (UnauthorizedAccessException ex) when (File.Exists(source))
+        {
+            throw new IOException(ex.Message, ex);
+        }
+    }
+
+    private static string Serialize(DownloadManifest manifest)
+        => JsonSerializer.Serialize(manifest, s_jsonOptions.TypeInfoOf(manifest));
+
+    // Readers share the file with writers and with its replacement (FileShare.Delete): a reader open on the manifest
+    // must not make a writer's replace fail.
+    private static FileStream OpenShared(string path)
+        => new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+
+    private static string ReadSharedText(string path)
+    {
+        using var reader = new StreamReader(OpenShared(path));
+        return reader.ReadToEnd();
+    }
+
+    private static async Task<string> ReadSharedTextAsync(string path, CancellationToken cancellationToken)
+    {
+        using var reader = new StreamReader(OpenShared(path));
+        return await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -94,7 +167,7 @@ public sealed class DownloadManifest
 
             try
             {
-                var json = await File.ReadAllTextAsync(path, cancellationToken);
+                var json = await ReadSharedTextAsync(path, cancellationToken).ConfigureAwait(false);
                 return JsonSerializer.Deserialize(json, s_jsonOptions.TypeInfo<DownloadManifest>());
             }
             catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
@@ -118,7 +191,7 @@ public sealed class DownloadManifest
 
             try
             {
-                var json = File.ReadAllText(path);
+                var json = ReadSharedText(path);
                 return JsonSerializer.Deserialize(json, s_jsonOptions.TypeInfo<DownloadManifest>());
             }
             catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)
@@ -190,7 +263,7 @@ public sealed class DownloadManifest
         try
         {
             return File.Exists(path)
-                ? JsonSerializer.Deserialize(File.ReadAllText(path), s_jsonOptions.TypeInfo<DownloadManifest>())
+                ? JsonSerializer.Deserialize(ReadSharedText(path), s_jsonOptions.TypeInfo<DownloadManifest>())
                 : null;
         }
         catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException)

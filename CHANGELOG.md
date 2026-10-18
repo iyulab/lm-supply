@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Fixed
+- **Several loads of one cached model at once no longer fail with «The process cannot access the file
+  `.lmsupply-manifest.json` because it is being used by another process».** Every load with downloads allowed rewrote the
+  snapshot's download manifest even when every file was cached, and concurrent writers (or a reader beside them) collided on
+  the file. A load that finds nothing new now leaves the manifest untouched; a manifest that does change is written to a file
+  of its own and replaces the old one in one step (writers in one process take turns, a writer in another process is
+  retried), and readers open it shared, so they see the old manifest or the new one, never a partial one. Loads with
+  `DisableAutoDownload` never wrote it and are unchanged.
+
 ## [0.127.0] - 2026-10-18
 
 ### Added
