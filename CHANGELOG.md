@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
-## [Unreleased]
+## [0.127.0] - 2026-10-18
 
 ### Added
 - **A shared download can end when its last waiter leaves: `ModelLifecycle.DownloadAsync(kind, modelId, DownloadWaitMode, ct)`.**
