@@ -10,21 +10,24 @@ namespace LMSupply.Console.Host.Services;
 /// <summary>
 /// System resource monitoring service
 /// </summary>
-public sealed partial class SystemMonitorService : IDisposable
+// Process figures come from Environment, which reads them live on every call: a Process object answers WorkingSet64 from
+// the snapshot it took when first asked (until Refresh), and once disposed it throws — a metrics stream still open when
+// the host shuts down would then fail on its next tick.
+public sealed partial class SystemMonitorService
 {
     private readonly ILogger<SystemMonitorService> _logger;
-    private readonly Process _currentProcess;
+    private readonly Lock _cpuLock = new();
     private DateTime _lastCpuTime;
     private TimeSpan _lastTotalProcessorTime;
-    private bool _disposed;
 
     public SystemMonitorService(ILogger<SystemMonitorService> logger)
     {
         _logger = logger;
-        _currentProcess = Process.GetCurrentProcess();
         _lastCpuTime = DateTime.UtcNow;
-        _lastTotalProcessorTime = _currentProcess.TotalProcessorTime;
+        _lastTotalProcessorTime = Environment.CpuUsage.TotalTime;
     }
+
+    private static double ProcessMemoryMB => Environment.WorkingSet / (1024.0 * 1024.0);
 
     /// <summary>
     /// Gets the overall system status
@@ -47,7 +50,7 @@ public sealed partial class SystemMonitorService : IDisposable
             VramUsageMB = gpuInfo?.UsedVramMB,
             VramTotalMB = gpuInfo?.TotalVramMB,
             VramUsagePercent = gpuInfo?.VramUsagePercent,
-            ProcessMemoryMB = _currentProcess.WorkingSet64 / (1024.0 * 1024.0),
+            ProcessMemoryMB = ProcessMemoryMB,
             Timestamp = DateTime.UtcNow
         };
     }
@@ -60,13 +63,17 @@ public sealed partial class SystemMonitorService : IDisposable
         try
         {
             var currentTime = DateTime.UtcNow;
-            var currentCpuTime = _currentProcess.TotalProcessorTime;
+            var currentCpuTime = Environment.CpuUsage.TotalTime;
+            double cpuUsedMs, totalTimeMs;
 
-            var cpuUsedMs = (currentCpuTime - _lastTotalProcessorTime).TotalMilliseconds;
-            var totalTimeMs = (currentTime - _lastCpuTime).TotalMilliseconds;
-
-            _lastCpuTime = currentTime;
-            _lastTotalProcessorTime = currentCpuTime;
+            // Status reads and every open metrics stream share the last sample; take it and replace it together.
+            lock (_cpuLock)
+            {
+                cpuUsedMs = (currentCpuTime - _lastTotalProcessorTime).TotalMilliseconds;
+                totalTimeMs = (currentTime - _lastCpuTime).TotalMilliseconds;
+                _lastCpuTime = currentTime;
+                _lastTotalProcessorTime = currentCpuTime;
+            }
 
             if (totalTimeMs > 0)
             {
@@ -103,7 +110,7 @@ public sealed partial class SystemMonitorService : IDisposable
             return new HostMemoryMetrics
             {
                 TotalMB = totalMemory / (1024.0 * 1024.0),
-                UsedMB = _currentProcess.WorkingSet64 / (1024.0 * 1024.0),
+                UsedMB = ProcessMemoryMB,
                 UsagePercent = 0
             };
         }
@@ -155,7 +162,7 @@ public sealed partial class SystemMonitorService : IDisposable
             yield return new SystemMetrics
             {
                 CpuUsage = GetCpuUsage(),
-                RamUsageMB = _currentProcess.WorkingSet64 / (1024.0 * 1024.0),
+                RamUsageMB = ProcessMemoryMB,
                 Timestamp = DateTime.UtcNow
             };
 
@@ -218,14 +225,6 @@ public sealed partial class SystemMonitorService : IDisposable
         public ulong ullTotalVirtual;
         public ulong ullAvailVirtual;
         public ulong ullAvailExtendedVirtual;
-    }
-
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-
-        _currentProcess.Dispose();
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to get memory metrics")]

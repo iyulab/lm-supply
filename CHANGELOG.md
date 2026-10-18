@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Fixed
+- **The console host's system status and metrics stream report the process's memory as it is now.** `GET /api/system/status`
+  (`processMemoryMB`) and each tick of `GET /api/system/metrics/stream` (`ramUsageMB`) repeated the working set the host had
+  the first time it was asked, and a metrics stream still open when the host shut down failed with «No process is associated
+  with this object». Both now read the figures live, and the CPU share shared by status reads and open streams is sampled
+  atomically.
+
 ## [0.128.0] - 2026-10-19
 
 ### Added
