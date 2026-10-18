@@ -1059,6 +1059,12 @@ and any caller can cancel (`CancelDownload` — partial files stay and resume), 
 (`DeleteAsync` — the files a load of that id opens; refused while that model downloads, and a download is refused while it
 is being deleted). It never downloads on its own; a status read looks at the cache only.
 
+A caller's token stops only that caller waiting; the download goes on for the others. A caller that started the download for
+a surface that means «stop» when it goes away (a dialog) passes `DownloadWaitMode.CancelWhenAbandoned`: the download ends when
+its last waiter leaves, unless a `DownloadWaitMode.KeepRunning` caller (the default — «download in the background») joined it.
+The download counts its own waiters, so the host never reads the status to decide who may stop it (last lines of the example
+below).
+
 ```csharp
 using LMSupply.Captioner;
 using LMSupply.Embedder;
@@ -1083,6 +1089,9 @@ _ = Task.Run(async () =>
 
 await models.DownloadAsync("generator", "gguf:default");                   // on the user's consent
 await models.DeleteAsync("generator", "gguf:default");                     // the user removes it; status goes back to Missing
+
+using var dialog = new CancellationTokenSource();                          // cancelled when the download dialog closes
+await models.DownloadAsync("generator", "gguf:default", DownloadWaitMode.CancelWhenAbandoned, dialog.Token);
 ```
 
 A `gguf:` registry alias deletes the file it loads on this host (every shard of a split model) — `gguf:gemma4-default` and

@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file. Versions follow
 [Semantic Versioning](https://semver.org/); while the major version is 0, a minor release may contain
 breaking changes, and each one is marked **Breaking** with a migration note.
 
+## [Unreleased]
+
+### Added
+- **A shared download can end when its last waiter leaves: `ModelLifecycle.DownloadAsync(kind, modelId, DownloadWaitMode, ct)`.**
+  With `DownloadWaitMode.CancelWhenAbandoned`, a caller that stops waiting cancels the download if nobody else is waiting on
+  it and no `DownloadWaitMode.KeepRunning` caller joined it (partial files stay, as with `CancelDownload`). The download
+  counts its waiters itself, so two callers that start it in the same instant, or one that starts it and one that joins, no
+  longer need a status read to decide who may stop it. A caller that arrives while an abandoned download is still winding
+  down waits for it and starts a new one. The existing `DownloadAsync(kind, modelId, ct)` keeps today's behaviour
+  (`KeepRunning`).
+
 ## [0.126.0] - 2026-10-18
 
 ### Added

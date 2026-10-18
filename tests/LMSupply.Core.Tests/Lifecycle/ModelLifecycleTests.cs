@@ -193,6 +193,135 @@ public sealed class ModelLifecycleTests
             .Should().Throw<ArgumentException>();
     }
 
+    [Fact]
+    public async Task CancelWhenAbandoned_TheOnlyWaiterLeaving_StopsTheDownload()
+    {
+        var generator = new FakeArtifacts("generator") { Gate = new TaskCompletionSource() };
+        var lifecycle = new ModelLifecycle([generator]);
+        using var dialog = new CancellationTokenSource();
+
+        var waiting = lifecycle.DownloadAsync("generator", "m", DownloadWaitMode.CancelWhenAbandoned, dialog.Token);
+        await generator.Started.Task.WaitAsync(Ct);
+        await dialog.CancelAsync();
+
+        await waiting.Awaiting(t => t).Should().ThrowAsync<OperationCanceledException>();
+        await generator.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        await WaitForStateAsync(lifecycle, ModelState.Missing);
+        lifecycle.CancelDownload("generator", "m").Should().BeFalse("the download ended with its last waiter");
+    }
+
+    [Fact]
+    public async Task CancelWhenAbandoned_AStarts_BJoins_ALeaves_BStillGetsTheModel()
+    {
+        var generator = new FakeArtifacts("generator") { Gate = new TaskCompletionSource() };
+        var lifecycle = new ModelLifecycle([generator]);
+        using var starter = new CancellationTokenSource();
+
+        var a = lifecycle.DownloadAsync("generator", "m", DownloadWaitMode.CancelWhenAbandoned, starter.Token);
+        await generator.Started.Task.WaitAsync(Ct);
+        var b = lifecycle.DownloadAsync("generator", "m", DownloadWaitMode.CancelWhenAbandoned, Ct);
+        await starter.CancelAsync();
+        await a.Awaiting(t => t).Should().ThrowAsync<OperationCanceledException>();
+
+        generator.Cancelled.Task.IsCompleted.Should().BeFalse("B is still waiting");
+        generator.Cached.Add("m");
+        generator.Gate.SetResult();
+        (await b).State.Should().Be(ModelState.Ready);
+        generator.Downloads.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CancelWhenAbandoned_TwoCallersStartingInTheSameInstant_DoNotStopEachOther()
+    {
+        var generator = new FakeArtifacts("generator") { Gate = new TaskCompletionSource() };
+        var lifecycle = new ModelLifecycle([generator]);
+        using var first = new CancellationTokenSource();
+        using var go = new ManualResetEventSlim();
+
+        var starts = Enumerable.Range(0, 2).Select(i => Task.Run(() =>
+        {
+            go.Wait(Ct);
+            // Wrapped so Task.Run hands back the call itself rather than awaiting it.
+            return new[] { lifecycle.DownloadAsync("generator", "m", DownloadWaitMode.CancelWhenAbandoned, i == 0 ? first.Token : Ct) };
+        }, Ct)).ToArray();
+        go.Set();
+        var calls = (await Task.WhenAll(starts)).Select(c => c[0]).ToArray();
+        await generator.Started.Task.WaitAsync(Ct);
+
+        await first.CancelAsync();
+        await calls[0].Awaiting(t => t).Should().ThrowAsync<OperationCanceledException>();
+
+        generator.Cached.Add("m");
+        generator.Gate.SetResult();
+        (await calls[1]).State.Should().Be(ModelState.Ready, "the other caller is still waiting");
+        generator.Downloads.Should().Be(1, "both calls share one download");
+        generator.Cancelled.Task.IsCompleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelWhenAbandoned_AKeepRunningCallerPinsTheDownload()
+    {
+        var generator = new FakeArtifacts("generator") { Gate = new TaskCompletionSource() };
+        var lifecycle = new ModelLifecycle([generator]);
+        using var dialog = new CancellationTokenSource();
+        using var background = new CancellationTokenSource();
+
+        var a = lifecycle.DownloadAsync("generator", "m", DownloadWaitMode.CancelWhenAbandoned, dialog.Token);
+        await generator.Started.Task.WaitAsync(Ct);
+        var b = lifecycle.DownloadAsync("generator", "m", DownloadWaitMode.KeepRunning, background.Token);
+        await background.CancelAsync();
+        await b.Awaiting(t => t).Should().ThrowAsync<OperationCanceledException>();
+        await dialog.CancelAsync();
+        await a.Awaiting(t => t).Should().ThrowAsync<OperationCanceledException>();
+
+        (await lifecycle.GetStatusAsync("generator", "m", Ct)).State.Should().Be(ModelState.Downloading, "a KeepRunning caller joined it");
+        generator.Cached.Add("m");
+        generator.Gate.SetResult();
+        await WaitForStateAsync(lifecycle, ModelState.Ready);
+        generator.Cancelled.Task.IsCompleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ACallerArrivingWhileAnAbandonedDownloadWindsDown_StartsANewOne()
+    {
+        var generator = new FakeArtifacts("generator") { Gate = new TaskCompletionSource(), WindDown = new TaskCompletionSource() };
+        var lifecycle = new ModelLifecycle([generator]);
+        using var dialog = new CancellationTokenSource();
+
+        var a = lifecycle.DownloadAsync("generator", "m", DownloadWaitMode.CancelWhenAbandoned, dialog.Token);
+        await generator.Started.Task.WaitAsync(Ct);
+        await dialog.CancelAsync();
+        await a.Awaiting(t => t).Should().ThrowAsync<OperationCanceledException>();
+        await generator.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+
+        var b = lifecycle.DownloadAsync("generator", "m", Ct); // the old download is still closing its files
+        generator.Downloads.Should().Be(1);
+        b.IsCompleted.Should().BeFalse("it waits for the abandoned download instead of joining its cancellation");
+
+        generator.WindDown!.SetResult();
+        generator.Cached.Add("m");
+        generator.Gate.SetResult();
+        (await b.WaitAsync(TimeSpan.FromSeconds(10), Ct)).State.Should().Be(ModelState.Ready);
+        generator.Downloads.Should().Be(2, "a new download started after the abandoned one ended");
+    }
+
+    [Fact]
+    public async Task AnUndefinedWaitMode_IsRefused()
+    {
+        var lifecycle = new ModelLifecycle([new FakeArtifacts("generator")]);
+        await lifecycle.Awaiting(l => l.DownloadAsync("generator", "m", (DownloadWaitMode)7, Ct)).Should().ThrowAsync<ArgumentException>();
+    }
+
+    private static async Task WaitForStateAsync(ModelLifecycle lifecycle, ModelState state)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while ((await lifecycle.GetStatusAsync("generator", "m", Ct)).State != state)
+        {
+            DateTime.UtcNow.Should().BeBefore(deadline, $"the model should reach {state}");
+            await Task.Delay(10, Ct);
+        }
+    }
+
     private sealed class FakeArtifacts(string kind) : IModelArtifacts
     {
         private int _downloads;
@@ -224,8 +353,26 @@ public sealed class ModelLifecycleTests
             if (Failure is { } failure)
                 throw failure;
             if (Gate is { } gate)
-                await gate.Task.WaitAsync(cancellationToken);
+            {
+                try
+                {
+                    await gate.Task.WaitAsync(cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    Cancelled.TrySetResult();
+                    if (WindDown is { } windDown)
+                        await windDown.Task;
+                    throw;
+                }
+            }
         }
+
+        /// <summary>Set when a download observed its cancellation.</summary>
+        public TaskCompletionSource Cancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>When set, a cancelled download keeps running until this completes (a provider still closing its files).</summary>
+        public TaskCompletionSource? WindDown { get; init; }
 
         public bool Delete(string modelId)
         {

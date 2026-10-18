@@ -11,7 +11,7 @@ public enum ModelState
     /// <summary>Not everything a load needs is cached, and no download is running.</summary>
     Missing,
 
-    /// <summary>A download started through <see cref="ModelLifecycle.DownloadAsync"/> is running.</summary>
+    /// <summary>A download started through <see cref="ModelLifecycle.DownloadAsync(string, string, DownloadWaitMode, CancellationToken)"/> is running.</summary>
     Downloading,
 
     /// <summary>Everything a load with downloads disabled needs is cached.</summary>
@@ -19,6 +19,20 @@ public enum ModelState
 
     /// <summary>The last download failed (see <see cref="ModelStatus.Error"/>); a new download clears it.</summary>
     Failed,
+}
+
+/// <summary>What happens to a shared download when a caller of <see cref="ModelLifecycle.DownloadAsync(string, string, DownloadWaitMode, CancellationToken)"/> stops waiting.</summary>
+public enum DownloadWaitMode
+{
+    /// <summary>The download goes on after this caller leaves — for example a «download in the background» action.</summary>
+    KeepRunning = 0,
+
+    /// <summary>
+    /// When this caller leaves, the download is cancelled if nobody is waiting on it any more and no <see cref="KeepRunning"/>
+    /// caller joined it — for example a dialog that started the download and means «stop» when it closes. Partial files stay, as
+    /// with <see cref="ModelLifecycle.CancelDownload"/>.
+    /// </summary>
+    CancelWhenAbandoned = 1,
 }
 
 /// <summary>One model's status.</summary>
@@ -42,7 +56,7 @@ public sealed record ModelStatus(
 /// </summary>
 /// <remarks>
 /// <para>
-/// It never downloads on its own: a status read only looks at the cache, and the network is used by <see cref="DownloadAsync"/>
+/// It never downloads on its own: a status read only looks at the cache, and the network is used by <see cref="DownloadAsync(string, string, DownloadWaitMode, CancellationToken)"/>
 /// alone — the host calls it when the user has agreed. Two calls for the same model share one download.
 /// </para>
 /// <para>
@@ -128,28 +142,74 @@ public sealed class ModelLifecycle
     /// </summary>
     /// <param name="kind">The kind of model.</param>
     /// <param name="modelId">The model.</param>
-    /// <param name="cancellationToken">Stops this caller waiting; the download goes on for others (stop it with <see cref="CancelDownload"/>).</param>
+    /// <param name="cancellationToken">Stops this caller waiting; the download goes on (stop it with <see cref="CancelDownload"/>,
+    /// or let it end with its last waiter: <see cref="DownloadAsync(string, string, DownloadWaitMode, CancellationToken)"/>).</param>
     /// <exception cref="OperationCanceledException">This caller's token was cancelled, or the download was cancelled with <see cref="CancelDownload"/>.</exception>
     /// <exception cref="ArgumentException">No provider is registered for <paramref name="kind"/>.</exception>
     /// <exception cref="InvalidOperationException">The model is being deleted (<see cref="DeleteAsync"/>).</exception>
     /// <remarks>A failed download is rethrown to every caller waiting on it, and the model's status becomes <see cref="ModelState.Failed"/>.</remarks>
-    public async Task<ModelStatus> DownloadAsync(string kind, string modelId, CancellationToken cancellationToken = default)
+    public Task<ModelStatus> DownloadAsync(string kind, string modelId, CancellationToken cancellationToken = default)
+        => DownloadAsync(kind, modelId, DownloadWaitMode.KeepRunning, cancellationToken);
+
+    /// <summary>
+    /// Downloads what a load of <paramref name="modelId"/> needs, or joins the download of it that is already running, and says
+    /// what happens to that download when this caller stops waiting.
+    /// </summary>
+    /// <param name="kind">The kind of model.</param>
+    /// <param name="modelId">The model.</param>
+    /// <param name="wait">Whether the download outlives this caller (<see cref="DownloadWaitMode.KeepRunning"/>) or ends when its
+    /// last waiter leaves (<see cref="DownloadWaitMode.CancelWhenAbandoned"/>).</param>
+    /// <param name="cancellationToken">Stops this caller waiting.</param>
+    /// <exception cref="OperationCanceledException">This caller's token was cancelled, or the download was cancelled with <see cref="CancelDownload"/>.</exception>
+    /// <exception cref="ArgumentException">No provider is registered for <paramref name="kind"/>, or <paramref name="wait"/> is not a defined mode.</exception>
+    /// <exception cref="InvalidOperationException">The model is being deleted (<see cref="DeleteAsync"/>).</exception>
+    /// <remarks>
+    /// <para>The download counts its own waiters, so callers that start it in the same instant, or one that starts it and others
+    /// that join, never read the status to decide who may stop it: with <see cref="DownloadWaitMode.CancelWhenAbandoned"/> the last
+    /// one to leave stops it, unless a <see cref="DownloadWaitMode.KeepRunning"/> caller joined it.</para>
+    /// <para>A caller that arrives while an abandoned download is still winding down waits for it to end and starts a new one,
+    /// which resumes its partial files.</para>
+    /// <para>A failed download is rethrown to every caller waiting on it, and the model's status becomes <see cref="ModelState.Failed"/>.</para>
+    /// </remarks>
+    public async Task<ModelStatus> DownloadAsync(string kind, string modelId, DownloadWaitMode wait, CancellationToken cancellationToken = default)
     {
         var provider = Provider(kind);
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        if (!Enum.IsDefined(wait))
+            throw new ArgumentException($"Unknown download wait mode '{wait}'.", nameof(wait));
         var key = Key(provider, modelId);
 
-        Download download;
-        lock (_gate)
+        while (true)
         {
-            if (_deleting.Contains(key))
-                throw new InvalidOperationException($"The {provider.Kind} '{modelId}' is being deleted; download it after the delete returns.");
-            download = _downloads.GetOrAdd(key, _ => new Download(this, provider, modelId));
-        }
+            cancellationToken.ThrowIfCancellationRequested();
+            Download download;
+            bool joined;
+            lock (_gate)
+            {
+                if (_deleting.Contains(key))
+                    throw new InvalidOperationException($"The {provider.Kind} '{modelId}' is being deleted; download it after the delete returns.");
+                download = _downloads.GetOrAdd(key, _ => new Download(this, provider, modelId));
+                joined = download.TryJoin(wait);
+            }
 
-        download.StartOnce();
-        await download.Completion.WaitAsync(cancellationToken);
-        return new ModelStatus(provider.Kind, modelId, ModelState.Ready);
+            if (!joined)
+            {
+                // Abandoned and winding down: once it has left the table, start (or join) the next one.
+                await Task.WhenAny(download.Completion).WaitAsync(cancellationToken);
+                continue;
+            }
+
+            try
+            {
+                download.StartOnce();
+                await download.Completion.WaitAsync(cancellationToken);
+                return new ModelStatus(provider.Kind, modelId, ModelState.Ready);
+            }
+            finally
+            {
+                download.Leave();
+            }
+        }
     }
 
     /// <summary>Cancels the running download of <paramref name="modelId"/>. Its partial files stay, so a later download resumes them.</summary>
@@ -225,7 +285,7 @@ public sealed class ModelLifecycle
             watcher.Writer.TryWrite(status);
     }
 
-    /// <summary>One running download, shared by every caller of <see cref="DownloadAsync"/> for the model.</summary>
+    /// <summary>One running download, shared by every caller of <see cref="DownloadAsync(string, string, DownloadWaitMode, CancellationToken)"/> for the model.</summary>
     private sealed class Download : IDisposable
     {
         private readonly ModelLifecycle _owner;
@@ -235,6 +295,11 @@ public sealed class ModelLifecycle
         private readonly TaskCompletionSource _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _started;
         private volatile ModelStatus _status;
+
+        // Guarded by the owner's gate: how many callers wait, whether a KeepRunning caller joined, and whether the last one left.
+        private int _waiters;
+        private bool _pinned;
+        private bool _abandoned;
 
         public Download(ModelLifecycle owner, IModelArtifacts provider, string modelId)
         {
@@ -262,6 +327,32 @@ public sealed class ModelLifecycle
 
         public void Dispose() => _cts.Dispose();
 
+        /// <summary>Counts a caller in; false when the download was abandoned and is winding down. Called under the owner's gate.</summary>
+        public bool TryJoin(DownloadWaitMode wait)
+        {
+            if (_abandoned)
+                return false;
+            _waiters++;
+            if (wait == DownloadWaitMode.KeepRunning)
+                _pinned = true;
+            return true;
+        }
+
+        /// <summary>Counts a caller out, and cancels the download when that leaves nobody waiting on an unpinned download.</summary>
+        public void Leave()
+        {
+            lock (_owner._gate)
+            {
+                _waiters--;
+                if (_waiters > 0 || _pinned || _completion.Task.IsCompleted)
+                    return;
+                _abandoned = true;
+            }
+
+            // Outside the gate: cancellation callbacks may run inline.
+            Cancel();
+        }
+
         public void StartOnce()
         {
             if (Interlocked.Exchange(ref _started, 1) == 0)
@@ -277,20 +368,20 @@ public sealed class ModelLifecycle
             {
                 var progress = new CoalescingProgress(new StatusProgress(this));
                 await _provider.DownloadAsync(_modelId, progress, _cts.Token);
-                _owner._downloads.TryRemove(key, out _);
+                _owner._downloads.TryRemove(new(key, this));
                 _owner.Publish(new ModelStatus(_provider.Kind, _modelId, ModelState.Ready));
                 _completion.TrySetResult();
             }
             catch (OperationCanceledException) when (_cts.IsCancellationRequested)
             {
-                _owner._downloads.TryRemove(key, out _);
+                _owner._downloads.TryRemove(new(key, this));
                 _owner.Publish(new ModelStatus(_provider.Kind, _modelId, ModelState.Missing));
                 _completion.TrySetCanceled(_cts.Token);
             }
             catch (Exception ex)
             {
                 _owner._failures[key] = ex;
-                _owner._downloads.TryRemove(key, out _);
+                _owner._downloads.TryRemove(new(key, this));
                 _owner.Publish(new ModelStatus(_provider.Kind, _modelId, ModelState.Failed, Error: ex));
                 _completion.TrySetException(ex);
             }
