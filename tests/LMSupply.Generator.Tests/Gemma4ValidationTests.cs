@@ -310,7 +310,9 @@ public class Gemma4LiveInferenceTests(ITestOutputHelper output)
 
         result.ToString().Should().NotBeNullOrWhiteSpace(
             because: "E2B must produce a non-empty response to a simple arithmetic question");
-        result.ToString().Should().Contain("8",
+        // The answer may be written as a numeral or a word: a fixed seed does not fix the draw across GPU backends,
+        // and "Three plus five equals eight." is as correct as "8".
+        result.ToString().Should().ContainAny(["8", "eight", "Eight"],
             because: "3 + 5 = 8 — a minimal coherence check");
     }
 
