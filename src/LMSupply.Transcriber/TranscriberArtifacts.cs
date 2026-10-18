@@ -4,10 +4,14 @@ namespace LMSupply.Transcriber;
 
 /// <summary>
 /// <see cref="IModelArtifacts"/> for transcribers: whether a <see cref="LocalTranscriber"/> load with downloads disabled would
-/// find every file it opens in the cache — the model's files, and the speaker-diarization pair when the options preload it —
-/// and the download that makes it so. The options are the ones the load will use (provider, quantization hint and cache
-/// directory decide which files that is).
+/// find the model's files in the cache, and the download that makes it so. The options are the ones the load will use
+/// (provider, quantization hint and cache directory decide which files that is).
 /// </summary>
+/// <remarks>
+/// The speaker-diarization pair is not part of this kind, whatever <see cref="TranscriberOptions.PreloadDiarization"/> says: it
+/// is <see cref="DiarizationArtifacts"/>, a kind of its own, so «transcription available» does not wait for speaker labels. A
+/// host whose loads preload diarization registers both and treats the transcriber as ready when both are.
+/// </remarks>
 public sealed class TranscriberArtifacts : IModelArtifacts
 {
     private readonly TranscriberOptions _options;
@@ -16,18 +20,18 @@ public sealed class TranscriberArtifacts : IModelArtifacts
     public TranscriberArtifacts(TranscriberOptions? options = null)
     {
         _options = options?.Clone() ?? new TranscriberOptions();
+        // The pair is DiarizationArtifacts' kind; the load option stays for the load.
+        _options.PreloadDiarization = false;
     }
 
     /// <inheritdoc />
     public string Kind => "transcriber";
 
     /// <inheritdoc />
-    public async Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
+    public Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
-        if (!await LocalTranscriber.IsModelDownloadedAsync(modelId, _options, cancellationToken))
-            return false;
-        return !_options.PreloadDiarization || await LocalTranscriber.IsDiarizationDownloadedAsync(_options, cancellationToken);
+        return LocalTranscriber.IsModelDownloadedAsync(modelId, _options, cancellationToken);
     }
 
     /// <inheritdoc />

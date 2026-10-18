@@ -6,6 +6,21 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **The speaker-diarization pair is a lifecycle kind of its own: `DiarizationArtifacts`** (`Kind = "diarization"`, one model id,
+  `DiarizationArtifacts.DefaultModelId` = `"default"`). A `ModelLifecycle` that registers it beside `TranscriberArtifacts` holds
+  «transcription available» and «speaker labels available» apart: the pair gets its own status, its own shared and
+  cancellable download, and its own delete (the transcriber model is kept). With `DisableAutoDownload` its download only
+  confirms the pair is cached.
+
+### Changed
+- **Breaking: `TranscriberArtifacts` covers the transcription model only.** `IsAvailableOfflineAsync`,
+  `GetRemainingDownloadBytesAsync` and `DownloadAsync` no longer include the speaker-diarization pair when the options set
+  `PreloadDiarization`, so a cached model reads as available before the pair is installed. Migration: register
+  `new DiarizationArtifacts(options)` in the same `ModelLifecycle` and treat the transcriber as ready when both kinds are.
+  `PreloadDiarization` still preloads the pair at load time, and `LocalTranscriber`'s static size, cache and download methods
+  are unchanged.
+
 ### Fixed
 - **Several loads of one cached model at once no longer fail with «The process cannot access the file
   `.lmsupply-manifest.json` because it is being used by another process».** Every load with downloads allowed rewrote the

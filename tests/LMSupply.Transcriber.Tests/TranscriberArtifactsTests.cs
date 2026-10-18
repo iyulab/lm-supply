@@ -71,12 +71,84 @@ public sealed class TranscriberArtifactsTests : IDisposable
     }
 
     [Fact]
-    public async Task WithDiarizationPreloaded_TheModelAloneIsNotAvailableOffline()
+    public async Task WithDiarizationPreloaded_TheTranscriberKindStillCoversTheModelOnly()
     {
         SeedCachedModel();
+        var transcriber = new TranscriberArtifacts(Options(preloadDiarization: true));
+        var speakers = new DiarizationArtifacts(Options(preloadDiarization: true));
 
-        (await new TranscriberArtifacts(Options(preloadDiarization: true)).IsAvailableOfflineAsync("default", Ct))
-            .Should().BeFalse("a load that preloads diarization opens its pair too, and that is not cached");
+        (await transcriber.IsAvailableOfflineAsync("default", Ct))
+            .Should().BeTrue("the speaker pair is its own kind — transcription is available without it");
+        (await transcriber.GetRemainingDownloadBytesAsync("default", Ct)).Should().Be(0);
+        (await speakers.IsAvailableOfflineAsync(DiarizationArtifacts.DefaultModelId, Ct)).Should().BeFalse();
+    }
+
+    private void SeedCachedDiarizationPair()
+    {
+        foreach (var (repo, file) in new[]
+                 {
+                     (LMSupply.Transcriber.Diarization.SpeakerDiarizer.SegmentationRepo, LMSupply.Transcriber.Diarization.SpeakerDiarizer.SegmentationFile),
+                     (LMSupply.Transcriber.Diarization.SpeakerDiarizer.EmbeddingRepo, LMSupply.Transcriber.Diarization.SpeakerDiarizer.EmbeddingFile),
+                 })
+        {
+            var dir = CacheManager.GetModelDirectory(_cache, repo);
+            Directory.CreateDirectory(dir);
+            File.WriteAllBytes(Path.Combine(dir, file), [1, 2, 3]);
+        }
+    }
+
+    [Fact]
+    public async Task TheDiarizationKind_ReportsThePairApartFromAnyTranscriber()
+    {
+        var speakers = new DiarizationArtifacts(Options());
+        speakers.Kind.Should().Be("diarization");
+
+        (await speakers.IsAvailableOfflineAsync(DiarizationArtifacts.DefaultModelId, Ct)).Should().BeFalse();
+        (await speakers.GetRemainingDownloadBytesAsync(DiarizationArtifacts.DefaultModelId, Ct))
+            .Should().Be(LocalTranscriber.DiarizationDownloadSizeBytes);
+
+        SeedCachedDiarizationPair();
+
+        (await speakers.IsAvailableOfflineAsync(DiarizationArtifacts.DefaultModelId, Ct)).Should().BeTrue();
+        (await speakers.GetRemainingDownloadBytesAsync(DiarizationArtifacts.DefaultModelId, Ct)).Should().Be(0);
+        (await new TranscriberArtifacts(Options()).IsAvailableOfflineAsync("default", Ct))
+            .Should().BeFalse("a cached pair does not make a transcriber model available");
+    }
+
+    [Fact]
+    public async Task TheDiarizationKind_WithDownloadsDisabled_DownloadsNothing()
+    {
+        var speakers = new DiarizationArtifacts(Options(downloadsDisabled: true));
+
+        await FluentActions.Awaiting(() => speakers.DownloadAsync(DiarizationArtifacts.DefaultModelId, cancellationToken: Ct))
+            .Should().ThrowAsync<LMSupply.Exceptions.ModelNotFoundException>("nothing is cached and downloads are disabled");
+
+        SeedCachedDiarizationPair();
+        await speakers.DownloadAsync(DiarizationArtifacts.DefaultModelId, cancellationToken: Ct);
+        (await speakers.IsAvailableOfflineAsync(DiarizationArtifacts.DefaultModelId, Ct)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TheDiarizationKind_DeletesThePairOnly()
+    {
+        SeedCachedModel();
+        SeedCachedDiarizationPair();
+        var speakers = new DiarizationArtifacts(Options());
+
+        speakers.Delete(DiarizationArtifacts.DefaultModelId).Should().BeTrue();
+
+        (await speakers.IsAvailableOfflineAsync(DiarizationArtifacts.DefaultModelId, Ct)).Should().BeFalse();
+        (await new TranscriberArtifacts(Options()).IsAvailableOfflineAsync("default", Ct)).Should().BeTrue("the transcriber model is kept");
+        speakers.Delete(DiarizationArtifacts.DefaultModelId).Should().BeFalse("nothing is left to delete");
+    }
+
+    [Fact]
+    public async Task TheDiarizationKind_RefusesAnotherModelId()
+    {
+        var speakers = new DiarizationArtifacts(Options());
+
+        await FluentActions.Awaiting(() => speakers.IsAvailableOfflineAsync("whisper-base", Ct)).Should().ThrowAsync<ArgumentException>();
+        FluentActions.Invoking(() => speakers.Delete("whisper-base")).Should().Throw<ArgumentException>();
     }
 
     [Fact]

@@ -1026,7 +1026,8 @@ RuntimeManager.Configure(new RuntimeManagerOptions
 
 A host that must not download before the user agrees asks each model package the same three questions through
 `LMSupply.Lifecycle.IModelArtifacts` — `GeneratorArtifacts(options)`, `EmbedderArtifacts(options)`, `RerankerArtifacts(options)`,
-`TranscriberArtifacts(options)`, `CaptionerArtifacts(options)` and `OcrArtifacts(options)` (its id is a language code, as for
+`TranscriberArtifacts(options)`, `DiarizationArtifacts(options)` (the speaker-diarization pair, one id `"default"`),
+`CaptionerArtifacts(options)` and `OcrArtifacts(options)` (its id is a language code, as for
 `LocalOcr.LoadForLanguageAsync`), built with the options the later load will use:
 
 ```csharp
@@ -1049,7 +1050,9 @@ await using var model = await LocalGenerator.LoadAsync("gguf:default", new Gener
 
 «Available offline» is exactly what a load with `DisableAutoDownload` needs, so that load then makes no network request.
 `GetRemainingDownloadBytesAsync` counts model files only (llama-server is a shared runtime of a few hundred MB, fetched once).
-For a transcriber whose options preload speaker diarization, its model pair is part of «available offline» and of the download.
+The speaker-diarization pair is a kind of its own (`"diarization"`), not part of the transcriber's — whatever
+`PreloadDiarization` says — so «transcription available» and «speaker labels available» are two statuses, each with its own
+consent and download. A host whose loads preload diarization treats the transcriber as ready when both kinds are.
 A host that loads from a path rather than an id finds the path after the download from the cache alone — for example
 `LocalGenerator.DownloadModelAsync(id, new GeneratorOptions { DisableAutoDownload = true })` returns it without a request.
 
@@ -1077,7 +1080,7 @@ using LMSupply.Transcriber;
 var models = new ModelLifecycle(
 [
     new GeneratorArtifacts(), new EmbedderArtifacts(), new RerankerArtifacts(),
-    new TranscriberArtifacts(), new CaptionerArtifacts(), new OcrArtifacts(),
+    new TranscriberArtifacts(), new DiarizationArtifacts(), new CaptionerArtifacts(), new OcrArtifacts(),
 ]);
 
 var status = await models.GetStatusAsync("generator", "gguf:default");       // Missing / Downloading / Ready / Failed

@@ -242,6 +242,9 @@ long bytes = await LocalTranscriber.GetDownloadSizeBytesAsync(install);   // the
   `true`. The diarization pair is not part of the answer — `IsDiarizationDownloadedAsync` answers for it.
 - The load's `progress` reports one sequence per model: the transcription model's files, then the two diarization
   files. (Before 0.82.0 `LoadAsync` accepted `progress` but never passed it to the download.)
+- In a `ModelLifecycle`, the pair is `DiarizationArtifacts` (kind `"diarization"`, id `"default"`): its own status,
+  download (shared and cancellable like any kind's) and delete. `TranscriberArtifacts` covers the transcription model
+  only, whatever `PreloadDiarization` says, so a cached model reads as available before the pair is installed.
 - `LocalTranscriber.Pool` keys models by id only: a pooled model that was loaded without `PreloadDiarization` is
   returned as is, and its pair loads on the first diarized call.
 
