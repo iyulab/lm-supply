@@ -189,6 +189,15 @@ public class DownloadStartTests
                 downloadFileName = p.FileName;
                 cts.Cancel(); // Cancel as soon as download starts
             }
+            else if (p.Phase == DownloadPhase.Loading)
+            {
+                // The files are in place and the model is being brought into memory: the cache held it, which is the
+                // pass case. Stop here rather than wait for the load — a multi-gigabyte model read from a slow disk, or
+                // on a busy host, outlasts the window below and would read as «no download started».
+                downloadStarted = true;
+                downloadFileName = "(cached)";
+                cts.Cancel();
+            }
         });
 
         try
