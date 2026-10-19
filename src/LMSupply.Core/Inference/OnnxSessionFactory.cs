@@ -59,6 +59,9 @@ public sealed class SessionCreationResult
 /// </summary>
 public static class OnnxSessionFactory
 {
+    // Before any session or session options exist, so that ONNX Runtime's environment is created without its uploader.
+    static OnnxSessionFactory() => OnnxRuntimeTelemetry.EnsureOff();
+
     /// <summary>
     /// Creates an ONNX Runtime inference session asynchronously, ensuring runtime binaries are available.
     /// This is the recommended method as it downloads required binaries on first use.

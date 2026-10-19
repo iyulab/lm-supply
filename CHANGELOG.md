@@ -23,6 +23,14 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   Migration: a consumer of `LMSupply.Captioner`, `LMSupply.Embedder`, `LMSupply.ImageGenerator` or `LMSupply.Ocr` that pins
   `System.Numerics.Tensors` below 10.0.13 gets NU1605 (package downgrade) on restore — raise that pin to 10.0.13 or later,
   together with any other .NET 10.0.x servicing pins kept on one band.
+- **ONNX Runtime no longer sends its own telemetry from a process that uses LMSupply.** The official ONNX Runtime
+  builds for Linux, macOS and Windows outside Windows apps upload trace events and a persistent device identifier to
+  Microsoft by default. LMSupply now sets `ORT_DISABLE_TELEMETRY=1` before it first creates a session or touches the
+  ONNX Runtime environment (in the native environment as well, where ONNX Runtime reads it on Linux and macOS), so the
+  uploader is never created. A process that has set the variable itself, to any value, keeps it — set
+  `ORT_DISABLE_TELEMETRY=0` before the first load to keep ONNX Runtime's default. Child processes inherit the variable.
+  This also removes a crash at process exit on macOS, where the uploader's thread could abort the process while a
+  response arrived during shutdown.
 
 ### Removed
 - **Breaking: `DetectorModels.RtDetrR18`, `RtDetrR50`, `RtDetrR101` and `EfficientDetD0`.** They were other names for

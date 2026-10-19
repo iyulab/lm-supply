@@ -50,6 +50,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
         Tokenizer? tokenizer = null;
         try
         {
+            LMSupply.Runtime.OnnxRuntimeTelemetry.EnsureOff();
             model = new Model(modelPath);
             tokenizer = new Tokenizer(model);
 

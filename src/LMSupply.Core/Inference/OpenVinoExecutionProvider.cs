@@ -48,6 +48,7 @@ internal static class OpenVinoExecutionProvider
         {
             if (IsRegistered)
                 return;
+            OnnxRuntimeTelemetry.EnsureOff();
             OrtEnv.Instance().RegisterExecutionProviderLibrary(RegistrationName, library);
             s_registeredLibrary = library;
             Trace.TraceInformation($"[OpenVINO] Registered execution provider plugin {library}");
