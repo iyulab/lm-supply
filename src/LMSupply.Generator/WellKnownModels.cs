@@ -48,11 +48,6 @@ public static class WellKnownModels
         /// 14B parameters, highest quality reasoning among ONNX models.
         /// </summary>
         public const string Large = Quality;
-
-        /// <summary>
-        /// Legacy default - Phi-3.5 Mini for backward compatibility.
-        /// </summary>
-        public const string Phi35Mini = "microsoft/Phi-3.5-mini-instruct-onnx";
     }
 
     /// <summary>

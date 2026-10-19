@@ -139,16 +139,16 @@ LMSupply automatically selects the **best quantization file that fits your avail
 
 | Model | Parameters | ONNX Size | Est. Memory | Input Size |
 |-------|------------|-----------|-------------|------------|
-| EfficientDet-Lite0 | 3.9M | ~15MB | ~30MB | 320×320 |
-| RT-DETR-R18 | - | ~80MB | ~160MB | 640×640 |
-| RT-DETR-R34 | - | ~160MB | ~320MB | 640×640 |
-| RT-DETR-R50 | - | ~200MB | ~400MB | 640×640 |
-| RT-DETR-R101 | - | ~300MB | ~600MB | 640×640 |
+| RT-DETR v2 Small (`default`) | 20M | ~80MB | ~160MB | 640×640 |
+| RT-DETR v2 Mini-Small (`fast`) | 15M | ~126MB | ~250MB | 640×640 |
+| RT-DETR v2 Medium (`quality`) | 36M | ~133MB | ~270MB | 640×640 |
+| RT-DETR v2 Large (`large`) | 42M | ~169MB | ~340MB | 640×640 |
+| RT-DETR v2 XLarge (`xlarge`) | 76M | ~300MB | ~600MB | 640×640 |
 
 **Recommended:**
-- 💡 **Fast**: `efficientdet-lite0` (mobile/edge)
-- ⚖️ **Default**: `rt-detr-r34`
-- 🚀 **Quality**: `rt-detr-r101`
+- 💡 **Fast**: `fast`
+- ⚖️ **Default**: `default`
+- 🚀 **Quality**: `quality` (or `large` / `xlarge`)
 
 ---
 

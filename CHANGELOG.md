@@ -20,6 +20,14 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   Migration: pin or ship b8146 or later; or set `LlamaServerUpdateOptions.AllowVulnerableBuild = true` to keep running the
   older build. A binary whose build cannot be read is run as before.
 
+### Removed
+- **Breaking: `DetectorModels.RtDetrR18`, `RtDetrR50`, `RtDetrR101` and `EfficientDetD0`.** They were other names for
+  RT-DETR v2 models, and `EfficientDetD0` named an architecture it did not return (it was RT-DETR v2 Mini-Small).
+  Migration: `RtDetrR18` → `DetectorModels.RtDetrV2S`, `RtDetrR50` → `RtDetrV2M`, `RtDetrR101` → `RtDetrV2L`,
+  `EfficientDetD0` → `RtDetrV2MS` (alias `fast`).
+- **Breaking: `WellKnownModels.Generator.Phi35Mini`**, a second name for `WellKnownModels.Generator.Medium` (the same
+  model id). Migration: use `Medium`. The `phi-3.5-mini` alias and `DefaultGeneratorModels.Phi35Mini` stay.
+
 ### Fixed
 - **The console host's system status and metrics stream report the process's memory as it is now.** `GET /api/system/status`
   (`processMemoryMB`) and each tick of `GET /api/system/metrics/stream` (`ramUsageMB`) repeated the working set the host had

@@ -260,12 +260,6 @@ public static class DetectorModels
         License = "Apache-2.0"
     };
 
-    // Backward compatibility aliases
-    public static DetectorModelInfo RtDetrR18 => RtDetrV2S;
-    public static DetectorModelInfo RtDetrR50 => RtDetrV2M;
-    public static DetectorModelInfo RtDetrR101 => RtDetrV2L;
-    public static DetectorModelInfo EfficientDetD0 => RtDetrV2MS;
-
     /// <summary>
     /// Gets all default models.
     /// </summary>
