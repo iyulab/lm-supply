@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.129.0] - 2026-10-20
+
 ### Added
 - **`LlamaServerVersionRequirements.MinimumSecureBuild` (b8146) and `IsBelowSecurityFloor`**: the oldest llama-server build
   that no published llama.cpp security advisory affects — b8146 fixes GHSA-3p4r-fq3f-q74v (CVE-2026-27940), the newest fix
