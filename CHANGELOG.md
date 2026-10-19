@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.130.0] - 2026-10-20
+
 ### Added
 - `TranscribeOptions.Seed` makes a transcription reproducible. A window that fails the quality checks — audio without
   speech often does — is decoded again by sampling, and those draws differed on every call, so the same audio could
