@@ -18,11 +18,16 @@ public class ExternalLlamaServerBinaryIntegrationTests
     private const string ServerEnvVar = "LMSUPPLY_EXTERNAL_LLAMA_SERVER";
     private const string GgufEnvVar = "LMSUPPLY_TEST_GGUF";
 
-    private static readonly string DefaultGguf = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".cache", "huggingface", "hub",
-        "models--bartowski--microsoft_Phi-4-mini-instruct-GGUF",
-        "snapshots", "main", "microsoft_Phi-4-mini-instruct-Q4_K_M.gguf");
+    private const string DefaultRepo = "bartowski/microsoft_Phi-4-mini-instruct-GGUF";
+    private const string DefaultFile = "microsoft_Phi-4-mini-instruct-Q4_K_M.gguf";
+
+    // The cached file found as the loader finds it — in whichever cache the environment names, and in either
+    // snapshot layout (`snapshots/{commit}` named by `refs/main`, or `snapshots/main`) — never by an assumed path.
+    private static string? DefaultGguf() =>
+        LMSupply.Download.CacheManager.FindSnapshotDirectory(
+            LMSupply.Download.CacheManager.GetDefaultCacheDirectory(), DefaultRepo, [DefaultFile]) is { } snapshot
+            ? Path.Combine(snapshot, DefaultFile)
+            : null;
 
     [Fact]
     public async Task ExternalBinary_LoadsAndGenerates_OnItsOwnBuild()
@@ -46,8 +51,8 @@ public class ExternalLlamaServerBinaryIntegrationTests
         if (string.IsNullOrEmpty(server))
             Assert.Skip($"{ServerEnvVar} is not set.");
 
-        var gguf = Environment.GetEnvironmentVariable(GgufEnvVar) ?? DefaultGguf;
-        Assert.True(File.Exists(gguf), $"GGUF not found at {gguf}. Set {GgufEnvVar}.");
+        var gguf = Environment.GetEnvironmentVariable(GgufEnvVar) ?? DefaultGguf();
+        Assert.True(gguf is not null && File.Exists(gguf), $"{DefaultFile} of {DefaultRepo} is not cached, and {GgufEnvVar} is not set.");
 
         var options = new GeneratorOptions
         {
