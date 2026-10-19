@@ -129,13 +129,13 @@ public class EmbedderFunctionalTests
         {
         }
 
-        var snapshotDir = CacheManager.GetModelDirectory(CacheManager.GetDefaultCacheDirectory(), repoId);
+        // Look the snapshot up as the loader does, in either cache layout — `snapshots/{commit}` named by `refs/main`
+        // after a resolved download — and in the same two places, rather than assuming a directory name.
+        var cacheDir = CacheManager.GetDefaultCacheDirectory();
+        var tokenizerDir = CacheManager.FindSnapshotDirectory(cacheDir, repoId, ["tokenizer.json"])
+            ?? CacheManager.FindSnapshotDirectory(cacheDir, repoId, ["tokenizer.json"], subfolder: "onnx");
 
-        // Probe the same two places the loader does rather than assuming a layout.
-        var tokenizerDir = new[] { snapshotDir, Path.Combine(snapshotDir, "onnx") }
-            .FirstOrDefault(dir => File.Exists(Path.Combine(dir, "tokenizer.json")));
-
-        tokenizerDir.Should().NotBeNull($"the snapshot under '{snapshotDir}' must carry tokenizer.json");
+        tokenizerDir.Should().NotBeNull($"the cached snapshot of {repoId} must carry tokenizer.json");
 
         var tokenizer = await TokenizerFactory.CreateAutoSequenceAsync(tokenizerDir!, maxSequenceLength: 512, cancellationToken: TestContext.Current.CancellationToken);
 
