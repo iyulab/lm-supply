@@ -155,6 +155,28 @@ public class WhisperDecoderTemperatureFallbackTests
     }
 
     [Fact]
+    public void ASeed_MakesEveryWindowDrawTheSame()
+    {
+        // The decoder's own draws differ; a seeded window's do not, however many windows came before.
+        var decoder = WhisperDecoder.CreateForTesting(WhisperTokenizer.CreateDefault(), new Random(7));
+        var seeded = new TranscribeOptions { Seed = 42 };
+
+        var first = Draws(decoder, temperature: 1.0f, decoder.DrawsFor(seeded));
+        var second = Draws(decoder, temperature: 1.0f, decoder.DrawsFor(seeded));
+
+        second.Should().Equal(first);
+        first.Should().Contain(TextB, "the seed fixes the draws, it does not stop them");
+    }
+
+    [Fact]
+    public void WithoutASeed_TheDecodersOwnDrawsAreUsed()
+    {
+        var decoder = WhisperDecoder.CreateForTesting(WhisperTokenizer.CreateDefault(), new Random(7));
+
+        decoder.DrawsFor(new TranscribeOptions()).Should().BeSameAs(decoder.DrawsFor(null));
+    }
+
+    [Fact]
     public void ASuppressedToken_IsNeverDrawn()
     {
         var decoder = WhisperDecoder.CreateForTesting(WhisperTokenizer.CreateDefault(), new Random(7));
@@ -168,12 +190,12 @@ public class WhisperDecoderTemperatureFallbackTests
         }
     }
 
-    private static List<int> Draws(WhisperDecoder decoder, float temperature)
+    private static List<int> Draws(WhisperDecoder decoder, float temperature, Random? random = null)
     {
         var draws = new List<int>();
         for (var i = 0; i < 500; i++)
         {
-            draws.Add(decoder.SelectNextToken(TwoCandidates(), [.. Prompt], Prompt, options: null, temperature));
+            draws.Add(decoder.SelectNextToken(TwoCandidates(), [.. Prompt], Prompt, options: null, temperature, random: random));
         }
 
         return draws;

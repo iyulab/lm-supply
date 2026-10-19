@@ -428,12 +428,15 @@ public class TranscriberFunctionalTests
     {
         await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
+        // A tone has no speech: the greedy decode fails the quality checks and the window falls back
+        // to sampling, so only a seed makes two calls read the same.
         var wavBytes = TestDataHelper.CreateToneWav(16000, 2.0f, 440);
-        var result1 = await model.TranscribeAsync(wavBytes, cancellationToken: TestContext.Current.CancellationToken);
-        var result2 = await model.TranscribeAsync(wavBytes, cancellationToken: TestContext.Current.CancellationToken);
+        var seeded = new TranscribeOptions { Seed = 1234 };
+        var result1 = await model.TranscribeAsync(wavBytes, seeded, cancellationToken: TestContext.Current.CancellationToken);
+        var result2 = await model.TranscribeAsync(wavBytes, seeded, cancellationToken: TestContext.Current.CancellationToken);
 
         result1.Text.Should().Be(result2.Text,
-            "same audio should produce same transcription");
+            "the same audio, options and seed should produce the same transcription");
     }
 
     [Fact]

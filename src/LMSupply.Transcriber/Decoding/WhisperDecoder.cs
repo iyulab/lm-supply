@@ -247,10 +247,13 @@ internal sealed class WhisperDecoder
     {
         ValidateSamplingOptions(options);
 
+        // One source of draws for the window's attempts: seeded when asked, so the window decodes the
+        // same way every time.
+        var random = DrawsFor(options);
         return DecodeWithFallbackAsync(
             (temperature, ct) => DecodeOnceAsync(
                 encoderOutput, encoderSequenceLength, hiddenSize, chunkDurationSeconds,
-                options, detectedLanguage, temperature, ct),
+                options, detectedLanguage, temperature, random, ct),
             options,
             cancellationToken);
     }
@@ -264,6 +267,7 @@ internal sealed class WhisperDecoder
         TranscribeOptions? options,
         LanguageDetection? detectedLanguage,
         float temperature,
+        Random random,
         CancellationToken cancellationToken)
     {
         // Initialize tokens with SOT sequence
@@ -316,7 +320,7 @@ internal sealed class WhisperDecoder
 
             // Argmax at temperature 0, a draw above it -- after the hallucination guard and the
             // timestamp rules have filtered the logits.
-            var nextToken = SelectNextToken(lastLogits, tokens, initialTokens, options, temperature, chunkDurationSeconds);
+            var nextToken = SelectNextToken(lastLogits, tokens, initialTokens, options, temperature, chunkDurationSeconds, random);
 
             // Log probability from the filtered, unscaled logits (as the reference decoder takes it):
             // per segment over text tokens for AvgLogProb, and over every selected token for the
@@ -618,7 +622,7 @@ internal sealed class WhisperDecoder
     /// </summary>
     internal int SelectNextToken(
         float[] logits, List<int> tokens, int[] initialTokens, TranscribeOptions? options, float temperature = 0f,
-        double? audioSeconds = null)
+        double? audioSeconds = null, Random? random = null)
     {
         // No blanket repetition penalty. The reference decoder applies none, and neither do the
         // mainstream Whisper runtimes: speech legitimately reuses short tokens within a few tokens
@@ -667,14 +671,22 @@ internal sealed class WhisperDecoder
             ApplyTimestampRules(logits, tokens, initialTokens, audioSeconds);
         }
 
-        return temperature > 0f ? Sample(logits, temperature) : ArgMax(logits);
+        return temperature > 0f ? Sample(logits, temperature, random ?? _random) : ArgMax(logits);
     }
+
+    /// <summary>
+    /// Where a window's draws come from: a generator seeded with <see cref="TranscribeOptions.Seed"/>
+    /// when it is set, new for each window so every window decodes the same way each time; otherwise
+    /// the decoder's own.
+    /// </summary>
+    internal Random DrawsFor(TranscribeOptions? options) =>
+        options?.Seed is { } seed ? new Random(seed) : _random;
 
     /// <summary>
     /// Draws a token from softmax(<paramref name="logits"/> / <paramref name="temperature"/>). A token the
     /// filters set to negative infinity has probability zero and is never drawn.
     /// </summary>
-    private int Sample(float[] logits, float temperature)
+    private static int Sample(float[] logits, float temperature, Random random)
     {
         var max = float.NegativeInfinity;
         foreach (var logit in logits)
@@ -696,7 +708,7 @@ internal sealed class WhisperDecoder
             total += weight;
         }
 
-        var target = _random.NextDouble() * total;
+        var target = random.NextDouble() * total;
         double cumulative = 0;
         for (int i = 0; i < weights.Length; i++)
         {

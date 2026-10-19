@@ -148,6 +148,16 @@ public sealed class TranscribeOptions
     public float TemperatureIncrementOnFallback { get; set; } = 0.2f;
 
     /// <summary>
+    /// Gets or sets the seed of the draws made above temperature 0 — at a <see cref="Temperature"/>
+    /// above 0, or in a fallback decode. With a seed, the same audio and options give the same text
+    /// every time; without one, a window that falls back (audio without speech often does) can read
+    /// differently from one call to the next. A greedy decode that passes the quality checks draws
+    /// nothing and is the same either way.
+    /// <para>Default: null (a different draw each call)</para>
+    /// </summary>
+    public int? Seed { get; set; }
+
+    /// <summary>
     /// Gets or sets the compression ratio threshold.
     /// A window whose text compresses above this ratio (highly repetitive text, a typical sign of a
     /// hallucination loop) is decoded again at a higher temperature (see

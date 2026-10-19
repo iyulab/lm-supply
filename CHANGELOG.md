@@ -6,6 +6,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- `TranscribeOptions.Seed` makes a transcription reproducible. A window that fails the quality checks — audio without
+  speech often does — is decoded again by sampling, and those draws differed on every call, so the same audio could
+  read differently twice. With a seed, the same audio and options give the same text each time; without one,
+  nothing changes.
+
 ### Changed
 - **Breaking (macOS): `ExecutionProvider.Auto` no longer picks CoreML for ONNX sessions — they run on the CPU.**
   With the models LMSupply loads, CoreML took the host process down instead of failing a session, where no fallback

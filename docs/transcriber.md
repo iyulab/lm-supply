@@ -159,6 +159,14 @@ var options = new TranscribeOptions
 };
 ```
 
+A sampled decode — above temperature 0, or a fallback — draws differently on each call, so audio
+without clear speech, whose windows fall back, can read differently from one call to the next. Set
+`Seed` to make every call with the same audio and options give the same text:
+
+```csharp
+var result = await model.TranscribeAsync(audio, new TranscribeOptions { Seed = 1234 });
+```
+
 Beam search is not offered: the decoder is greedy (or sampling, above temperature 0). Before v0.64.0
 `BeamWidth` existed but nothing read it, and `Temperature` changed nothing.
 
