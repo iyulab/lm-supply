@@ -25,6 +25,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `ExecutionProvider.CoreML` and checks its own models on it.
 
 ### Fixed
+- **Creating an ONNX session no longer risks reading freed session options.** The options were left for the garbage
+  collector, and the ONNX Runtime binding passes only their native handle while a session is created, so a collection
+  during a slow session creation could free them mid-call — seen once as a process crash (a bus error inside ONNX
+  Runtime's session initialization) in a long run of loads. The options are now released once the session exists.
 - **A load that runs on the CPU ranks quantized variants as the CPU runs them.** The tier from system memory was read
   with the GPU's order, so a CPU machine with 32 GB or more put FP16 first: the ONNX Runtime CPU provider has FP16 kernels
   for only part of its operators, and some FP16 exports do not load there at all — Florence-2's merged FP16 decoder is

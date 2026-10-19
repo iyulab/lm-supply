@@ -677,7 +677,11 @@ public static class OnnxSessionFactory
         // Pre-check: prevent fatal crash from NativeMethods..cctor() on missing native dependencies
         EnsureOnnxRuntimeAvailable(modelPath);
 
-        var options = new SessionOptions();
+        // Disposed once the session exists, which keeps it alive until then: the session takes a copy of
+        // the options, but the binding hands ONNX Runtime the bare native handle, so options nothing else
+        // references can be finalized — and their native memory freed — while the session is still being
+        // created from them on this thread. That reads freed memory and has taken the process down.
+        using var options = new SessionOptions();
 
         // Default to Error level to suppress expected ORT warnings
         // (e.g., "Some nodes were not assigned to the preferred execution providers").
@@ -811,13 +815,21 @@ public static class OnnxSessionFactory
         yield return ExecutionProvider.Cpu;
 
         // Check GPU providers
-        var testOptions = new SessionOptions();
+        bool cuda, coreMl;
+        using (var probe = new SessionOptions())
+        {
+            cuda = TryAddCuda(probe);
+        }
 
-        if (TryAddCuda(testOptions))
+        using (var probe = new SessionOptions())
+        {
+            coreMl = TryAddCoreML(probe);
+        }
+
+        if (cuda)
             yield return ExecutionProvider.Cuda;
 
-        testOptions = new SessionOptions();
-        if (TryAddCoreML(testOptions))
+        if (coreMl)
             yield return ExecutionProvider.CoreML;
 
         // Only once something has registered the plugin: probing must not download or register it.
