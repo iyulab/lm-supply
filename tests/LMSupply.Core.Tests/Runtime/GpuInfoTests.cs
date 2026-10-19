@@ -138,11 +138,11 @@ public class GpuInfoTests
     }
 
     [Fact]
-    public void RecommendedProvider_Apple_ShouldBeCoreML()
+    public void RecommendedProvider_Apple_IsCpu_CoreMLRunsOnlyWhenAskedFor()
     {
-        var gpu = new GpuInfo { Vendor = GpuVendor.Apple };
+        var gpu = new GpuInfo { Vendor = GpuVendor.Apple, CoreMLSupported = true };
 
-        gpu.RecommendedProvider.Should().Be(ExecutionProvider.CoreML);
+        gpu.RecommendedProvider.Should().Be(ExecutionProvider.Cpu, "CoreML has taken the process down with models LMSupply loads, where no fallback can catch it");
     }
 
     [Fact]
@@ -184,7 +184,7 @@ public class GpuInfoTests
     }
 
     [Fact]
-    public void GetFallbackProviders_AppleWithCoreML_ShouldIncludeCoreML()
+    public void GetFallbackProviders_AppleWithCoreML_IsCpuAlone()
     {
         var gpu = new GpuInfo
         {
@@ -192,11 +192,7 @@ public class GpuInfoTests
             CoreMLSupported = true
         };
 
-        var providers = gpu.GetFallbackProviders();
-
-        providers.Should().Contain(ExecutionProvider.CoreML);
-        providers.Should().EndWith(ExecutionProvider.Cpu);
-        providers.Should().NotContain(ExecutionProvider.Cuda);
+        gpu.GetFallbackProviders().Should().Equal([ExecutionProvider.Cpu], "Auto never picks CoreML; a caller that wants it asks for ExecutionProvider.CoreML");
     }
 
     [Fact]

@@ -6,6 +6,18 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Changed
+- **Breaking (macOS): `ExecutionProvider.Auto` no longer picks CoreML for ONNX sessions — they run on the CPU.**
+  With the models LMSupply loads, CoreML took the host process down instead of failing a session, where no fallback
+  can catch it: an invalid memory access on every synthesis with a Piper voice (CoreML's NeuralNetwork format), and a
+  Metal assertion while compiling another model when the newer ML Program format was tried. `ExecutionProvider.CoreML`
+  still runs a session on CoreML when asked for. llama-server's Metal backend (GGUF models) is unaffected. On an Apple
+  Silicon Mac `auto` now also sizes models to the system's memory: the GPU reported no memory, the hardware tier came
+  out `Low` on every Mac, and `auto` picked the smallest models — for the reranker, an English-only one. The GPU now
+  carries the working-set budget Metal states for it (`recommendedMaxWorkingSetSize`).
+  Migration: none for most callers. A caller that relied on `Auto` meaning CoreML on a Mac passes
+  `ExecutionProvider.CoreML` and checks its own models on it.
+
 ## [0.129.0] - 2026-10-20
 
 ### Added

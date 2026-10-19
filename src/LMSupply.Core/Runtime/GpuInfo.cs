@@ -102,15 +102,21 @@ public sealed record GpuInfo
     public ExecutionProvider RecommendedProvider => Vendor switch
     {
         GpuVendor.Nvidia when CanRunOnnxRuntimeCuda => ExecutionProvider.Cuda,
-        GpuVendor.Apple => ExecutionProvider.CoreML,
+        // Apple: CPU. CoreML runs only when asked for — see GetFallbackProviders.
         _ => ExecutionProvider.Cpu
     };
 
     /// <summary>
-    /// Gets a prioritized list of execution providers to try based on GPU capabilities.
-    /// The fallback chain ensures zero-configuration GPU acceleration:
-    /// CUDA → CoreML → CPU
+    /// Gets a prioritized list of execution providers to try based on GPU capabilities:
+    /// CUDA → CPU.
     /// </summary>
+    /// <remarks>
+    /// CoreML is not in the chain. With the models LMSupply loads, CoreML has taken the process down
+    /// rather than failed a session: an invalid memory access while synthesizing with a Piper voice
+    /// (NeuralNetwork format) and a Metal assertion while compiling another model (ML Program format) —
+    /// neither of which a fallback can catch. It stays available to a caller that asks for
+    /// <see cref="ExecutionProvider.CoreML"/> and has verified it with their model.
+    /// </remarks>
     public IReadOnlyList<ExecutionProvider> GetFallbackProviders()
     {
         var providers = new List<ExecutionProvider>();
@@ -118,10 +124,6 @@ public sealed record GpuInfo
         // CUDA first (if NVIDIA with a driver that runs the ONNX Runtime GPU build)
         if (Vendor == GpuVendor.Nvidia && CanRunOnnxRuntimeCuda)
             providers.Add(ExecutionProvider.Cuda);
-
-        // CoreML (macOS/iOS)
-        if (CoreMLSupported)
-            providers.Add(ExecutionProvider.CoreML);
 
         // CPU always as final fallback
         providers.Add(ExecutionProvider.Cpu);

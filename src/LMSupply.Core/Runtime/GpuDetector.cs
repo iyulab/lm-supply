@@ -89,6 +89,8 @@ public static class GpuDetector
             {
                 Vendor = GpuVendor.Apple,
                 DeviceName = GetAppleSiliconName(),
+                // Unified memory: no dedicated amount, but a budget the GPU's working set should stay within.
+                TotalMemoryBytes = AppleGpuMemory.WorkingSetBytes(),
                 CoreMLSupported = true,
                 DirectMLSupported = false
             });

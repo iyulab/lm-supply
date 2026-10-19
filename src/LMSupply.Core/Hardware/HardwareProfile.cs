@@ -115,12 +115,7 @@ public sealed class HardwareProfile
             return ExecutionProvider.Cuda;
         }
 
-        // CoreML for Apple Silicon
-        if (gpuInfo.CoreMLSupported)
-        {
-            return ExecutionProvider.CoreML;
-        }
-
+        // Apple Silicon: CPU. CoreML runs only when asked for (GpuInfo.GetFallbackProviders says why).
         return ExecutionProvider.Cpu;
     }
 

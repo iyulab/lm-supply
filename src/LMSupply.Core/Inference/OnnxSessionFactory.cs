@@ -65,7 +65,7 @@ public static class OnnxSessionFactory
     /// <summary>
     /// Creates an ONNX Runtime inference session asynchronously, ensuring runtime binaries are available.
     /// This is the recommended method as it downloads required binaries on first use.
-    /// When provider is Auto, uses fallback chain: CUDA → CoreML → CPU.
+    /// When provider is Auto, uses fallback chain: CUDA → CPU; CoreML runs only when asked for.
     /// </summary>
     /// <param name="modelPath">Path to the ONNX model file.</param>
     /// <param name="provider">The execution provider to use.</param>
@@ -92,7 +92,7 @@ public static class OnnxSessionFactory
     /// <summary>
     /// Creates an ONNX Runtime inference session with detailed information about active providers.
     /// Use this when you need to verify GPU acceleration is actually working.
-    /// When provider is Auto, uses fallback chain: CUDA → CoreML → CPU.
+    /// When provider is Auto, uses fallback chain: CUDA → CPU; CoreML runs only when asked for.
     /// </summary>
     /// <param name="modelPath">Path to the ONNX model file.</param>
     /// <param name="provider">The execution provider to use.</param>
@@ -143,7 +143,7 @@ public static class OnnxSessionFactory
 
         if (provider == ExecutionProvider.Auto)
         {
-            // Use fallback chain: CUDA → CoreML → CPU
+            // Use fallback chain: CUDA → CPU (CoreML only when asked for)
             return await CreateWithFallbackChainAsync(modelPath, skipProviders, configureOptions, progress, loading, deviceId, cancellationToken);
         }
 
@@ -724,9 +724,9 @@ public static class OnnxSessionFactory
     /// </summary>
     private static bool TryAddBestAvailableProvider(SessionOptions options, int deviceId)
     {
-        // Try providers in order of preference
+        // Try providers in order of preference. CoreML is not among them: it is used only when asked for
+        // (see GpuInfo.GetFallbackProviders).
         if (TryAddCuda(options, deviceId)) return true;
-        if (TryAddCoreML(options)) return true;
         // CPU fallback is automatic
         return false;
     }
