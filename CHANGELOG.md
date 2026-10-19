@@ -20,6 +20,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   Migration: pin or ship b8146 or later; or set `LlamaServerUpdateOptions.AllowVulnerableBuild = true` to keep running the
   older build. A binary whose build cannot be read is run as before.
 - Dependencies: `System.Numerics.Tensors` 10.0.13, `Microsoft.ML.Tokenizers` 2.0.1, `NAudio` 3.2.0.
+  Migration: a consumer of `LMSupply.Captioner`, `LMSupply.Embedder`, `LMSupply.ImageGenerator` or `LMSupply.Ocr` that pins
+  `System.Numerics.Tensors` below 10.0.13 gets NU1605 (package downgrade) on restore — raise that pin to 10.0.13 or later,
+  together with any other .NET 10.0.x servicing pins kept on one band.
 
 ### Removed
 - **Breaking: `DetectorModels.RtDetrR18`, `RtDetrR50`, `RtDetrR101` and `EfficientDetD0`.** They were other names for
