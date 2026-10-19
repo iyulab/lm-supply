@@ -164,7 +164,7 @@ without clear speech, whose windows fall back, can read differently from one cal
 `Seed` to make every call with the same audio and options give the same text:
 
 ```csharp
-var result = await model.TranscribeAsync(audio, new TranscribeOptions { Seed = 1234 });
+var seeded = await transcriber.TranscribeAsync("audio.wav", new TranscribeOptions { Seed = 1234 });
 ```
 
 Beam search is not offered: the decoder is greedy (or sampling, above temperature 0). Before v0.64.0
