@@ -62,4 +62,30 @@ public class ModelPreferencesHardwareTests
             prefs.QuantizationPriority.Should().Contain(Quantization.Quant8);
         }
     }
+
+    [Theory]
+    [InlineData(PerformanceTier.Ultra)]
+    [InlineData(PerformanceTier.High)]
+    [InlineData(PerformanceTier.Medium)]
+    [InlineData(PerformanceTier.Low)]
+    public void OnTheCpu_Fp16IsTheLastResort_AtEveryTier(PerformanceTier tier)
+    {
+        ModelPreferences.ForCpuTier(tier).QuantizationPriority[^1].Should().Be(Quantization.Fp16, "the CPU provider runs FP16 through casts, and some FP16 exports do not load there");
+    }
+
+    [Fact]
+    public void OnTheCpu_AMachineWithMuchMemoryTakesFullPrecision()
+    {
+        ModelPreferences.ForCpuTier(PerformanceTier.High).QuantizationPriority[0].Should().Be(Quantization.Default);
+        ModelPreferences.ForCpuTier(PerformanceTier.Medium).QuantizationPriority[0].Should().Be(Quantization.Quant8);
+        ModelPreferences.ForCpuTier(PerformanceTier.Low).QuantizationPriority[0].Should().Be(Quantization.Quant4);
+    }
+
+    [Fact]
+    public void AnExplicitCpuLoad_RanksAsTheCpuRunsIt()
+    {
+        var tier = HardwareProfile.For(ExecutionProvider.Cpu).Tier;
+
+        ModelPreferences.ForProvider(ExecutionProvider.Cpu).QuantizationPriority.Should().Equal(ModelPreferences.ForCpuTier(tier).QuantizationPriority);
+    }
 }

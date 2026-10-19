@@ -18,6 +18,14 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   Migration: none for most callers. A caller that relied on `Auto` meaning CoreML on a Mac passes
   `ExecutionProvider.CoreML` and checks its own models on it.
 
+### Fixed
+- **A load that runs on the CPU ranks quantized variants as the CPU runs them.** The tier from system memory was read
+  with the GPU's order, so a CPU machine with 32 GB or more put FP16 first: the ONNX Runtime CPU provider has FP16 kernels
+  for only part of its operators, and some FP16 exports do not load there at all — Florence-2's merged FP16 decoder is
+  refused as an invalid model. On the CPU, full precision and 8-bit now come first and FP16 last
+  (`ModelPreferences.ForCpuTier`), for an explicit `ExecutionProvider.Cpu` and for `Auto` where the hardware recommends
+  the CPU.
+
 ## [0.129.0] - 2026-10-20
 
 ### Added

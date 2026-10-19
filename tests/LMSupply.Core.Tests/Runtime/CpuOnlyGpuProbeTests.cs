@@ -61,7 +61,7 @@ public sealed class CpuOnlyGpuProbeTests
 
         GpuDetector.ProbeCount.Should().Be(before);
         preferences.QuantizationPriority.Should().Equal(
-            ModelPreferences.ForTier(HardwareProfile.For(ExecutionProvider.Cpu).Tier).QuantizationPriority);
+            ModelPreferences.ForCpuTier(HardwareProfile.For(ExecutionProvider.Cpu).Tier).QuantizationPriority);
     }
 
     [Fact]

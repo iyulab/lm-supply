@@ -31,7 +31,7 @@ public sealed class ModelPreferences
     };
 
     /// <summary>
-    /// Creates preferences adapted to the given performance tier.
+    /// Creates preferences adapted to the given performance tier of a GPU (a CPU load uses <see cref="ForCpuTier"/>).
     /// Ultra  → Default (FP32) first — maximum quality, ample VRAM
     /// High   → FP16 first          — high quality, 8-16GB VRAM
     /// Medium → Quant8 first        — balanced, 4-8GB VRAM
@@ -67,18 +67,51 @@ public sealed class ModelPreferences
     };
 
     /// <summary>
-    /// Creates preferences optimized for the current machine's hardware.
+    /// Creates preferences optimized for the current machine's hardware — what a load with
+    /// <see cref="ExecutionProvider.Auto"/> uses.
     /// </summary>
-    public static ModelPreferences ForCurrentHardware() =>
-        ForTier(HardwareProfile.Current.Tier);
+    public static ModelPreferences ForCurrentHardware() => ForProvider(ExecutionProvider.Auto);
 
     /// <summary>
     /// Creates preferences for a load with <paramref name="provider"/>, from <see cref="HardwareProfile.For"/>: an
     /// explicit <see cref="ExecutionProvider.Cpu"/> ranks quantizations by the CPU tier (system memory) and does not
-    /// probe the GPU; every other provider uses the current hardware, like <see cref="ForCurrentHardware"/>.
+    /// probe the GPU; every other provider uses the current hardware. A load that runs on the CPU — asked for, or
+    /// <see cref="ExecutionProvider.Auto"/> where the hardware's recommendation is the CPU — ranks them as the CPU
+    /// runs them (<see cref="ForCpuTier"/>), not as a GPU of that tier would.
     /// </summary>
-    public static ModelPreferences ForProvider(ExecutionProvider provider) =>
-        ForTier(HardwareProfile.For(provider).Tier);
+    public static ModelPreferences ForProvider(ExecutionProvider provider)
+    {
+        var profile = HardwareProfile.For(provider);
+        var onCpu = provider == ExecutionProvider.Cpu
+            || (provider == ExecutionProvider.Auto && profile.RecommendedProvider == ExecutionProvider.Cpu);
+        return onCpu ? ForCpuTier(profile.Tier) : ForTier(profile.Tier);
+    }
+
+    /// <summary>
+    /// Preferences for a load that runs on the CPU, by the tier its system memory gives. Full precision and 8-bit
+    /// come before FP16: ONNX Runtime's CPU provider has FP16 kernels for only part of its operators and runs the rest through
+    /// casts, and some FP16 exports do not load there at all — so on the CPU FP16 is the last resort, not the
+    /// high-quality choice it is on a GPU.
+    /// </summary>
+    public static ModelPreferences ForCpuTier(PerformanceTier tier) => tier switch
+    {
+        PerformanceTier.Ultra or PerformanceTier.High => new ModelPreferences
+        {
+            PreferLowMemory = false,
+            QuantizationPriority = [Quantization.Default, Quantization.Quant8, Quantization.Quant4, Quantization.Fp16]
+        },
+        PerformanceTier.Medium => new ModelPreferences
+        {
+            PreferLowMemory = false,
+            QuantizationPriority = [Quantization.Quant8, Quantization.Default, Quantization.Quant4, Quantization.Fp16]
+        },
+        PerformanceTier.Low => new ModelPreferences
+        {
+            PreferLowMemory = true,
+            QuantizationPriority = [Quantization.Quant4, Quantization.Quant8, Quantization.Default, Quantization.Fp16]
+        },
+        _ => throw new ArgumentOutOfRangeException(nameof(tier), tier, null)
+    };
 
     /// <summary>
     /// Creates preferences from a quantization hint string (e.g., "fp16", "int8", "q4", "bnb4").
