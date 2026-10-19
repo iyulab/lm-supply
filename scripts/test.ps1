@@ -25,6 +25,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# The summary below is read from the test platform's English keys ("total:", "succeeded:"). On a machine whose UI
+# language is not English those keys are translated and no count would match, so pin the CLI language for this run.
+$env:DOTNET_CLI_UI_LANGUAGE = "en"
+
 function Write-Status {
     param([string]$Message, [string]$Color = "White")
     Write-Host $Message -ForegroundColor $Color

@@ -38,6 +38,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   the first time it was asked, and a metrics stream still open when the host shut down failed with «No process is associated
   with this object». Both now read the figures live, and the CPU share shared by status reads and open streams is sampled
   atomically.
+- **`scripts/test.ps1` reads its counts on a machine whose UI language is not English.** The test platform translates
+  its summary keys there, so no count matched and the run reported no summary; the script now runs with
+  `DOTNET_CLI_UI_LANGUAGE=en`.
 
 ## [0.128.0] - 2026-10-19
 
