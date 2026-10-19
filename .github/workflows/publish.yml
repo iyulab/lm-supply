@@ -33,6 +33,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # The commit whose CI run triggered this one. Without it, a workflow_run checks out the
+          # branch's latest commit, which may be a later one that CI has not verified yet — and it
+          # would be published under the version line of the commit that was.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
@@ -177,6 +182,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # The same commit the packages were published from (see the publish job).
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
