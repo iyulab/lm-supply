@@ -309,9 +309,21 @@ public sealed class LlamaServerStateManager : IDisposable
     /// installed version as failed. Previous entries newer than it whose build is gone are dropped. Returns null,
     /// changing nothing, when no previous build exists.
     /// </summary>
+    public Task<LlamaServerVersionState?> RollbackAsync(
+        string backend,
+        string platform,
+        CancellationToken cancellationToken = default) =>
+        RollbackAsync(backend, platform, eligible: null, cancellationToken);
+
+    /// <summary>
+    /// Rolls back as <see cref="RollbackAsync(string, string, CancellationToken)"/> does, to a previous version
+    /// <paramref name="eligible"/> accepts (any, when it is null); the entries newer than that version that it
+    /// refused are dropped as well. Returns null, changing nothing, when no such previous build exists.
+    /// </summary>
     public async Task<LlamaServerVersionState?> RollbackAsync(
         string backend,
         string platform,
+        Func<string, bool>? eligible,
         CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);
@@ -324,7 +336,8 @@ public sealed class LlamaServerStateManager : IDisposable
                 return null;
 
             var index = state.PreviousVersions.FindIndex(previous =>
-                Directory.Exists(GetBuildDirectory(previous.Version, previous.BuildBackend ?? state.Backend)));
+                (eligible is null || eligible(previous.Version))
+                && Directory.Exists(GetBuildDirectory(previous.Version, previous.BuildBackend ?? state.Backend)));
             if (index < 0)
                 return null;
 

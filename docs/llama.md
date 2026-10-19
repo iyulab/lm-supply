@@ -341,6 +341,20 @@ The following packages use LMSupply.Llama for GGUF support:
 - On a machine without network, pin a build already in the cache (`LlamaServerUpdateOptions.PinnedVersion`) or point
   at a binary you ship (`LlamaServerUpdateOptions.ServerBinaryPath`); neither looks for a newer build
 
+### `llama-server bNNNN is below b8146, the oldest build no published llama.cpp security advisory affects`
+
+A build older than `LlamaServerVersionRequirements.MinimumSecureBuild` is not run. When nothing is pinned and
+downloads are allowed, the latest build replaces it on its own; this error comes when it cannot:
+
+- a `PinnedVersion`, or a `ServerBinaryPath` whose build reads (or is declared) as older — pin or ship a newer build;
+- a load with downloads disabled whose cached build is older — load once with downloads allowed (until then the server
+  reads as not cached, so a check of what is available offline says no);
+- downloads allowed, but the latest build could not be fetched (GitHub unreachable) — try again once it is;
+- a rollback whose previous builds are all older — it fails rather than return to one.
+
+`LlamaServerUpdateOptions.AllowVulnerableBuild = true` runs such a build anyway and traces a warning each time it is
+acquired. A binary whose build cannot be read is run as before.
+
 ### Server won't start
 
 - Check if port is already in use (servers use random available ports)

@@ -6,6 +6,20 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **`LlamaServerVersionRequirements.MinimumSecureBuild` (b8146) and `IsBelowSecurityFloor`**: the oldest llama-server build
+  that no published llama.cpp security advisory affects — b8146 fixes GHSA-3p4r-fq3f-q74v (CVE-2026-27940), the newest fix
+  among them. `LlamaServerUpdateOptions.AllowVulnerableBuild` runs an older build anyway, with a traced warning.
+- `LlamaServerStateManager.RollbackAsync(backend, platform, eligible, cancellationToken)`: a rollback to the newest previous
+  version the predicate accepts.
+
+### Changed
+- **Breaking: a llama-server build below b8146 is no longer run.** When nothing is pinned and downloads are allowed, the latest
+  build replaces it. Otherwise acquisition fails — a `PinnedVersion` below it, a `ServerBinaryPath` whose build reads or is
+  declared as below it, a cached build below it on a load with downloads disabled — and a rollback passes over such builds.
+  Migration: pin or ship b8146 or later; or set `LlamaServerUpdateOptions.AllowVulnerableBuild = true` to keep running the
+  older build. A binary whose build cannot be read is run as before.
+
 ### Fixed
 - **The console host's system status and metrics stream report the process's memory as it is now.** `GET /api/system/status`
   (`processMemoryMB`) and each tick of `GET /api/system/metrics/stream` (`ramUsageMB`) repeated the working set the host had

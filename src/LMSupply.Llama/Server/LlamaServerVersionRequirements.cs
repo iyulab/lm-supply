@@ -25,6 +25,22 @@ public static partial class LlamaServerVersionRequirements
         ["decisions-clef"]    = 11371,  // the clef decision model type, which reads every question in one prompt
     };
 
+    /// <summary>
+    /// The oldest llama-server build that no published llama.cpp security advisory affects: b8146 fixes
+    /// GHSA-3p4r-fq3f-q74v (CVE-2026-27940, a heap buffer overflow while loading a GGUF file), the newest
+    /// fix among the project's advisories. A build below it is not run — neither acquired, pinned, supplied
+    /// through <see cref="LlamaServerUpdateOptions.ServerBinaryPath"/> nor rolled back to — unless
+    /// <see cref="LlamaServerUpdateOptions.AllowVulnerableBuild"/> is set.
+    /// </summary>
+    public static int MinimumSecureBuild => 8146;
+
+    /// <summary>
+    /// Whether <paramref name="version"/> is a build below <see cref="MinimumSecureBuild"/>. A version whose
+    /// build cannot be read is not known to be below it.
+    /// </summary>
+    public static bool IsBelowSecurityFloor(string? version) =>
+        ParseBuildNumber(version) is { } build && build < MinimumSecureBuild;
+
     [GeneratedRegex(@"^b(\d+)", RegexOptions.IgnoreCase)]
     private static partial Regex BuildNumberPattern();
 

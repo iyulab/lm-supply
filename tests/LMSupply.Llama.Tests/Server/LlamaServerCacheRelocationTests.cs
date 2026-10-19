@@ -93,6 +93,8 @@ public sealed partial class LlamaServerCacheRelocationTests : IDisposable
     private LlamaServerUpdateService Service() => new(new LlamaServerUpdateOptions
     {
         CacheDirectory = _newRoot,
+        // The builds here are named b1 to b9 for brevity; what is tested is where they are found, not the security floor.
+        AllowVulnerableBuild = true,
         AutoDownloadUpdates = false,
         VersionCheckInterval = TimeSpan.FromDays(365)
     });

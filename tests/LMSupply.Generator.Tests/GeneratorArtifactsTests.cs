@@ -42,7 +42,7 @@ public sealed class GeneratorArtifactsTests : IDisposable
 
     private void SeedServer()
     {
-        var versionDir = Path.Combine(_serverCache, "b7898", "cpu");
+        var versionDir = Path.Combine(_serverCache, "b9898", "cpu");
         Directory.CreateDirectory(versionDir);
         File.WriteAllBytes(Path.Combine(versionDir, OperatingSystem.IsWindows() ? "llama-server.exe" : "llama-server"), "binary"u8.ToArray());
     }

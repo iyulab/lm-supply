@@ -127,15 +127,67 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         progress = RuntimeDownloadProgress.Wrap(progress);
+        LlamaServerUpdateResult result;
         if (_options.UpdateOnWarmup && !IsPinned && !localFilesOnly)
         {
-            var updated = await CheckAndApplyUpdateAsync(backend, progress, cancellationToken);
-            await EnsureCudaRuntimeAsync(updated, progress, cancellationToken);
-            return updated;
+            result = await CheckAndApplyUpdateAsync(backend, progress, cancellationToken);
+            await EnsureCudaRuntimeAsync(result, progress, cancellationToken);
+        }
+        else
+        {
+            result = await AcquireAsync(backend, progress, localFilesOnly, cancellationToken);
         }
 
-        return await AcquireAsync(backend, progress, localFilesOnly, cancellationToken);
+        return await HoldToSecurityFloorAsync(result, backend, progress, localFilesOnly, cancellationToken);
     }
+
+    // A build below the security floor is replaced by the latest when it may be (nothing pinned, downloads allowed)
+    // and refused otherwise, unless the options allow it — then it is run, with a warning.
+    private async Task<LlamaServerUpdateResult> HoldToSecurityFloorAsync(
+        LlamaServerUpdateResult result,
+        LlamaServerBackend backend,
+        IProgress<DownloadProgress>? progress,
+        bool localFilesOnly,
+        CancellationToken cancellationToken)
+    {
+        var version = result.NewVersion ?? result.PreviousVersion;
+        if (!result.Success || !LlamaServerVersionRequirements.IsBelowSecurityFloor(version))
+            return result;
+
+        if (_options.AllowVulnerableBuild)
+        {
+            Trace.TraceWarning($"[LlamaServerUpdateService] {BelowFloor(version)} It runs because AllowVulnerableBuild is set.");
+            return result;
+        }
+
+        if (!IsPinned && !localFilesOnly)
+        {
+            var updated = await CheckAndApplyUpdateAsync(backend, progress, cancellationToken);
+            if (updated.Success && !LlamaServerVersionRequirements.IsBelowSecurityFloor(updated.NewVersion ?? updated.PreviousVersion))
+            {
+                await EnsureCudaRuntimeAsync(updated, progress, cancellationToken);
+                return updated;
+            }
+        }
+
+        // Unpinned with downloads disabled, the cache holds no server a load may run: the same answer as an empty cache,
+        // so a check of what is available offline says no and a download brings the latest build.
+        if (!IsPinned && localFilesOnly)
+        {
+            return LlamaServerUpdateResult.NotInCache(backend,
+                $"{BelowFloor(version)} Downloads are disabled (DisableAutoDownload): load once while they are allowed, so the " +
+                "latest build replaces it, or set LlamaServerUpdateOptions.AllowVulnerableBuild to run it anyway.");
+        }
+
+        var remedy = IsPinned ? "Pin or supply a newer build" : "The latest build could not be acquired to replace it; try again once GitHub is reachable";
+        return LlamaServerUpdateResult.Failed(
+            result.ServerPath, backend,
+            $"{BelowFloor(version)} {remedy}, or set LlamaServerUpdateOptions.AllowVulnerableBuild to run it anyway.");
+    }
+
+    private static string BelowFloor(string? version) =>
+        $"llama-server {version} is below b{LlamaServerVersionRequirements.MinimumSecureBuild}, the oldest build no published " +
+        "llama.cpp security advisory affects.";
 
     private string NotCachedMessage(LlamaServerBackend backend, string? version) =>
         $"llama-server ({backend.ToString().ToLowerInvariant()}{(version is null ? "" : $", {version}")}) is not in the cache '{_downloader.CacheDirectory}', " +
@@ -457,7 +509,9 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Rolls back to the previous version if available.
+    /// Rolls back to the previous version if available — one below
+    /// <see cref="LlamaServerVersionRequirements.MinimumSecureBuild"/> only when
+    /// <see cref="LlamaServerUpdateOptions.AllowVulnerableBuild"/> is set.
     /// </summary>
     public async Task<LlamaServerUpdateResult> RollbackAsync(
         LlamaServerBackend backend,
@@ -466,10 +520,16 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         var platform = GetCurrentPlatform();
         var backendStr = backend.ToString().ToLowerInvariant();
 
-        var state = await _stateManager.RollbackAsync(backendStr, platform, cancellationToken);
+        var state = await _stateManager.RollbackAsync(
+            backendStr, platform,
+            _options.AllowVulnerableBuild ? null : version => !LlamaServerVersionRequirements.IsBelowSecurityFloor(version),
+            cancellationToken);
         if (state == null)
         {
-            return LlamaServerUpdateResult.Failed("", backend, "No previous version available for rollback");
+            return LlamaServerUpdateResult.Failed("", backend, _options.AllowVulnerableBuild
+                ? "No previous version available for rollback"
+                : $"No previous version at or above b{LlamaServerVersionRequirements.MinimumSecureBuild} is available for rollback " +
+                  "(set LlamaServerUpdateOptions.AllowVulnerableBuild to roll back to an older build)");
         }
 
         // The state manager rolls back only to a build whose directory exists; the executable is checked here

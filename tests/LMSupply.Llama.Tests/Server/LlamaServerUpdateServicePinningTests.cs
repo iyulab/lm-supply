@@ -28,17 +28,17 @@ public sealed class LlamaServerUpdateServicePinningTests : IDisposable
     [Fact]
     public async Task PinnedVersion_CacheHit_MakesZeroNetworkCalls()
     {
-        SeedCachedBinary(_dir, "b7898", LlamaServerBackend.Cpu);
+        SeedCachedBinary(_dir, "b9898", LlamaServerBackend.Cpu);
 
         var handler = new NeverCallHandler();
         using var http = new HttpClient(handler);
-        var options = new LlamaServerUpdateOptions { CacheDirectory = _dir, PinnedVersion = "b7898" };
+        var options = new LlamaServerUpdateOptions { CacheDirectory = _dir, PinnedVersion = "b9898" };
         await using var service = new LlamaServerUpdateService(options, http);
 
         var result = await service.GetServerPathAsync(LlamaServerBackend.Cpu, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Success.Should().BeTrue();
-        result.NewVersion.Should().Be("b7898");
+        result.NewVersion.Should().Be("b9898");
         File.Exists(result.ServerPath).Should().BeTrue();
         handler.CallCount.Should().Be(0, "a cache hit for a pinned version must never touch the network");
     }
@@ -46,21 +46,21 @@ public sealed class LlamaServerUpdateServicePinningTests : IDisposable
     [Fact]
     public async Task PinnedVersion_CacheMiss_DownloadsExactTag_NeverCallsLatestEndpoint()
     {
-        var assetName = FakeReleaseAssets.CpuAssetName("b7898");
+        var assetName = FakeReleaseAssets.CpuAssetName("b9898");
         var downloadUrl = "https://fake.local/" + assetName;
         var releaseJson =
-            $$"""{ "tag_name": "b7898", "assets": [ { "name": "{{assetName}}", "browser_download_url": "{{downloadUrl}}" } ] }""";
+            $$"""{ "tag_name": "b9898", "assets": [ { "name": "{{assetName}}", "browser_download_url": "{{downloadUrl}}" } ] }""";
         var archiveBytes = FakeReleaseAssets.ServerArchive();
 
         var handler = new TagsOnlyHandler(downloadUrl, releaseJson, archiveBytes);
         using var http = new HttpClient(handler);
-        var options = new LlamaServerUpdateOptions { CacheDirectory = _dir, PinnedVersion = "b7898" };
+        var options = new LlamaServerUpdateOptions { CacheDirectory = _dir, PinnedVersion = "b9898" };
         await using var service = new LlamaServerUpdateService(options, http);
 
         var result = await service.GetServerPathAsync(LlamaServerBackend.Cpu, cancellationToken: TestContext.Current.CancellationToken);
 
         result.Success.Should().BeTrue();
-        result.NewVersion.Should().Be("b7898");
+        result.NewVersion.Should().Be("b9898");
         File.Exists(result.ServerPath).Should().BeTrue();
         handler.LatestEndpointHitCount.Should().Be(0,
             "a pinned version must resolve straight to its tag, never GET .../releases/latest");
@@ -100,11 +100,11 @@ public sealed class LlamaServerUpdateServicePinningTests : IDisposable
     [Fact]
     public async Task CheckAndApplyUpdateAsync_PinnedVersion_NeverCallsLatestEndpoint()
     {
-        SeedCachedBinary(_dir, "b7898", LlamaServerBackend.Cpu);
+        SeedCachedBinary(_dir, "b9898", LlamaServerBackend.Cpu);
 
         var handler = new NeverCallHandler();
         using var http = new HttpClient(handler);
-        var options = new LlamaServerUpdateOptions { CacheDirectory = _dir, PinnedVersion = "b7898" };
+        var options = new LlamaServerUpdateOptions { CacheDirectory = _dir, PinnedVersion = "b9898" };
         await using var service = new LlamaServerUpdateService(options, http);
 
         var result = await service.CheckAndApplyUpdateAsync(LlamaServerBackend.Cpu, cancellationToken: TestContext.Current.CancellationToken);

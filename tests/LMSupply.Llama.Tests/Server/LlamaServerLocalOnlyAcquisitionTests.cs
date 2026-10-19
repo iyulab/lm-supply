@@ -46,18 +46,18 @@ public sealed class LlamaServerLocalOnlyAcquisitionTests : IDisposable
         var handler = new CountingHandler();
         using var http = new HttpClient(handler);
         await using var service = new LlamaServerUpdateService(
-            new LlamaServerUpdateOptions { CacheDirectory = _dir, PinnedVersion = "b7898" }, http);
+            new LlamaServerUpdateOptions { CacheDirectory = _dir, PinnedVersion = "b9898" }, http);
 
         var act = () => service.AcquireServerAsync(LlamaServerBackend.Cpu, localFilesOnly: true, cancellationToken: Ct);
 
-        (await act.Should().ThrowAsync<LMSupply.Exceptions.ModelNotFoundException>()).Which.Message.Should().Contain("b7898");
+        (await act.Should().ThrowAsync<LMSupply.Exceptions.ModelNotFoundException>()).Which.Message.Should().Contain("b9898");
         handler.Count.Should().Be(0);
     }
 
     [Fact]
     public async Task ACachedServer_IsUsed_AndNoBackgroundCheckFollows()
     {
-        SeedCachedBinary(_dir, "b7898", LlamaServerBackend.Cpu);
+        SeedCachedBinary(_dir, "b9898", LlamaServerBackend.Cpu);
         var handler = new CountingHandler();
         using var http = new HttpClient(handler);
         await using var service = new LlamaServerUpdateService(
@@ -67,14 +67,14 @@ public sealed class LlamaServerLocalOnlyAcquisitionTests : IDisposable
         await Task.Delay(PastBackgroundCheck, Ct);
 
         File.Exists(installation.ServerPath).Should().BeTrue();
-        installation.Version.Should().Be("b7898");
+        installation.Version.Should().Be("b9898");
         handler.Count.Should().Be(0, "neither the warm-up update nor the background check may ask the release feed");
     }
 
     [Fact]
     public async Task PositiveControl_WithoutLocalOnly_TheSameCachedServerTriggersTheBackgroundCheck()
     {
-        SeedCachedBinary(_dir, "b7898", LlamaServerBackend.Cpu);
+        SeedCachedBinary(_dir, "b9898", LlamaServerBackend.Cpu);
         var handler = new CountingHandler();
         using var http = new HttpClient(handler);
         await using var service = new LlamaServerUpdateService(

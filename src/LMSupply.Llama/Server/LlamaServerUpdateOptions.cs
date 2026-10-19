@@ -67,8 +67,9 @@ public sealed class LlamaServerUpdateOptions
     public TimeSpan ApiTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
-    /// Pins an exact llama-server release tag (e.g. "b7898"). When set, version resolution never
-    /// calls the GitHub "latest release" API — a cache hit for this version makes zero network
+    /// Pins an exact llama-server release tag (e.g. "b11476"); a tag below
+    /// <see cref="LlamaServerVersionRequirements.MinimumSecureBuild"/> is refused unless <see cref="AllowVulnerableBuild"/>
+    /// is set. When set, version resolution never calls the GitHub "latest release" API — a cache hit for this version makes zero network
     /// calls, a cache miss downloads exactly this tagged asset.
     /// <see cref="LlamaServerUpdateService.CheckAndApplyUpdateAsync"/> also short-circuits: a
     /// pinned installation never re-checks for or auto-applies a newer version. When
@@ -87,4 +88,14 @@ public sealed class LlamaServerUpdateOptions
     /// Default: null (binary is acquired/cached as before).
     /// </summary>
     public string? ServerBinaryPath { get; set; }
+
+    /// <summary>
+    /// Runs a llama-server build below <see cref="LlamaServerVersionRequirements.MinimumSecureBuild"/>, the
+    /// oldest build no published llama.cpp security advisory affects. False (default): such a build is
+    /// replaced by the latest one when downloads are allowed and nothing is pinned, and refused otherwise —
+    /// a <see cref="PinnedVersion"/> or <see cref="ServerBinaryPath"/> below it fails to acquire, and a
+    /// rollback skips it. True: it is run, with a warning traced each time it is acquired.
+    /// Default: false.
+    /// </summary>
+    public bool AllowVulnerableBuild { get; set; }
 }

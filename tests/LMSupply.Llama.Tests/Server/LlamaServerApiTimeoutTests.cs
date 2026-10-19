@@ -14,7 +14,7 @@ namespace LMSupply.Llama.Tests.Server;
 /// </summary>
 public sealed class LlamaServerApiTimeoutTests : IDisposable
 {
-    private const string Build = "b100";
+    private const string Build = "b9100";
     private const string FakeHost = "https://fake.local/";
 
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "lmsupply-apitimeout-" + Guid.NewGuid().ToString("N"));
@@ -91,7 +91,7 @@ public sealed class LlamaServerApiTimeoutTests : IDisposable
     }
 
     /// <summary>
-    /// A one-build GitHub: <c>releases/latest</c> and <c>releases/tags/b100</c> name this platform's CPU
+    /// A one-build GitHub: <c>releases/latest</c> and <c>releases/tags/b9100</c> name this platform's CPU
     /// asset. API requests either answer at once or hang until cancelled; the asset answers after a delay.
     /// </summary>
     private sealed class Hub(bool apiHangs, TimeSpan assetDelay = default) : HttpMessageHandler
