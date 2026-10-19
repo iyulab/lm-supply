@@ -76,7 +76,8 @@ public sealed class LlamaServerVersionState
     // Absolute directories, written for LMSupply releases before 0.122 that share the cache (their schema requires
     // these fields and resolves builds from them; without them they discard the whole state file and re-adopt one
     // backend). Never read here except to migrate a file those releases wrote: the build backend is the last segment.
-    // TODO: remove once every iyulab consumer that shares a cache with another pins LMSupply 0.122 or later.
+    // TODO: remove when no downstream consumer pins LMSupply below 0.122. The check belongs to the release that removes
+    // them: the pre-release check of the downstream pins (run where the consumers are) must find no pin below 0.122.
     [JsonInclude]
     [JsonPropertyName("installedPath")]
     internal string? LegacyInstalledPath { get; set; }

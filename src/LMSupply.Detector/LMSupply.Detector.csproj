@@ -7,10 +7,6 @@
     <PackageTags>object-detection;detector;yolo;rt-detr;computer-vision;ml;machine-learning;onnx;gpu;cuda;coco</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
-    <!-- Build Settings -->
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
-
     <!-- Source Link for debugging -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>

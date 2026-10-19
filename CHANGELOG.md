@@ -19,6 +19,7 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   declared as below it, a cached build below it on a load with downloads disabled — and a rollback passes over such builds.
   Migration: pin or ship b8146 or later; or set `LlamaServerUpdateOptions.AllowVulnerableBuild = true` to keep running the
   older build. A binary whose build cannot be read is run as before.
+- Dependencies: `System.Numerics.Tensors` 10.0.13, `Microsoft.ML.Tokenizers` 2.0.1, `NAudio` 3.2.0.
 
 ### Removed
 - **Breaking: `DetectorModels.RtDetrR18`, `RtDetrR50`, `RtDetrR101` and `EfficientDetD0`.** They were other names for

@@ -39,7 +39,6 @@
   <ItemGroup>
     <!-- OpenAPI/Swagger -->
     <PackageReference Include="Swashbuckle.AspNetCore" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <!-- Audio conversion -->
     <PackageReference Include="NAudio.Lame" />
     <!-- EF Core SQLite for API key storage -->

@@ -56,7 +56,8 @@ public sealed partial class TempFileService(ILogger<TempFileService> logger) : I
         }
         foreach (var path in expiredPaths)
         {
-            try { File.Delete(path); } catch { }
+            // A file still open elsewhere, or no longer ours to delete, is left for the next sweep or the OS.
+            try { File.Delete(path); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         }
         LogCleanup(logger, expiredPaths.Count);
     }

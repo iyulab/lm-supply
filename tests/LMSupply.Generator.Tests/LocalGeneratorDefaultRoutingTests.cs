@@ -217,8 +217,9 @@ public class LocalGeneratorDefaultRoutingTests
         {
             using var cts = new CancellationTokenSource();
             cts.Cancel();
+            // Only the routing line is asserted; the load itself ends at the cancellation.
             try { await LocalGenerator.LoadAsync("auto", options, cancellationToken: cts.Token); }
-            catch { }
+            catch (OperationCanceledException) { }
         }
         finally
         {

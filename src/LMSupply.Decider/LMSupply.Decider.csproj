@@ -7,10 +7,6 @@
     <PackageTags>decision;classification;routing;llm;gguf;llama.cpp;llama-server;local-ai;probabilities</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
-    <!-- Build Settings -->
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
-
     <!-- Source Link for debugging -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>

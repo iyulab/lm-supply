@@ -7,10 +7,6 @@
     <PackageTags>reranker;semantic-search;rag;nlp;machine-learning;onnx;cross-encoder;bert;retrieval;ranking;gpu;cuda</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
-    <!-- Build Settings -->
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
-
     <!-- Source Link for debugging -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>

@@ -66,9 +66,7 @@ if ($testProjects.Count -eq 0) {
 # Entries are structural, not waivers, so they carry no expiry: a project either has tests that run
 # under this filter or it does not. Adding one means asserting that every test in it needs hardware
 # or a service - check before you do.
-$hardwareOnlyProjects = @(
-    "TranscriberGpuTest"   # needs a GPU execution provider; deliberately outside the solution build
-)
+$hardwareOnlyProjects = @()
 
 # A name that matches nothing is rot: the project was renamed or deleted and the entry now excuses a
 # project that does not exist while covering nothing.
