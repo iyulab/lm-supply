@@ -68,6 +68,13 @@ public sealed class LoadProgressReachesRuntimeTests
         var reports = new List<DownloadProgress>();
         var progress = new SyncProgress(p => { lock (reports) reports.Add(p); });
 
+        // A GGUF load leases a llama-server already holding the model when one is idle — it then loads nothing and
+        // rightly reports no Loading. Stop the idle ones, so this load is one that brings the model into memory.
+        if (domain == "GgufGenerator")
+        {
+            await LMSupply.Llama.Server.LlamaServerPool.Instance.ReleaseIdleAsync(ct);
+        }
+
         try
         {
             await using var model = await LoadAsync(domain, progress, ct);
