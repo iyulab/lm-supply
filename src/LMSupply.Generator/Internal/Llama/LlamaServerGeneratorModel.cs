@@ -141,132 +141,33 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
             ? GpuDetector.WithCurrentFreeMemory(Hardware.HardwareProfile.Current.GpuInfo)
             : Hardware.HardwareProfile.Current.GpuInfo;
 
-        // What sizing decided, exposed via GetModelInfo() for diagnostics.
-        var sizing = LoadSizing.None;
-
-        // Auto-calculate GPU layer count based on actual VRAM budget when using default (-1 = all).
+        // What the load settles before the server starts, one step at a time: the GPU layers, then the context the
+        // GPU can hold (falling back to CPU where Auto would get no usable one), then the context RAM can hold.
+        var plan = new GgufLoadPlan(serverPath, backend, serverVersion, llamaOpts, contextLength, LoadSizing.None);
         if (NeedsVramFit(llamaOpts, backend) && sharedContext is null)
         {
-            (llamaOpts, sizing) = FitGpuLayers(modelPath, llamaOpts, ggufMetadata, contextLength, backend, serverVersion, options, loadGpu);
+            var (fitted, fittedSizing) = FitGpuLayers(modelPath, llamaOpts, ggufMetadata, contextLength, backend, serverVersion, options, loadGpu);
+            plan = plan with { Options = fitted, Sizing = fittedSizing };
         }
 
-        // Auto-cap context length based on remaining VRAM after model load.
-        // When the GPU can only offer the unusable floor (n_ctx clamped to 512 below request),
-        // Auto recovers by falling back to CPU (RAM-bound, no VRAM clamp); an explicit GPU pin
-        // fails fast instead of silently loading an unusable 512-token context.
         if (backend != LlamaServerBackend.Cpu && sharedContext is null)
         {
-            var (safeContext, contextFloored) = EstimateSafeContextLengthDetailed(
-                modelPath,
-                contextLength,
-                llamaOpts.GpuLayerCount ?? -1,
-                ggufMetadata,
-                ResolveKvCacheType(llamaOpts.TypeK, backend, serverVersion),
-                ResolveKvCacheType(llamaOpts.TypeV, backend, serverVersion),
-                sequences: Math.Max(1, options.MaxConcurrentRequests),
-                ubatch: (int)(llamaOpts.UBatchSize ?? KvCacheGeometry.DefaultUBatch),
-                gpu: loadGpu);
-
-            // Capture VRAM telemetry before any CPU fallback switches the backend below.
-            var vramBudget = VramBudget.GetAvailableBytes(loadGpu);
-            sizing = sizing with
-            {
-                ContextFlooredByVram = contextFloored,
-                VramBudgetBytes = vramBudget > 0 ? vramBudget : null,
-                VramTotalBytes = loadGpu.TotalMemoryBytes,
-                VramFreeBytes = loadGpu.FreeMemoryBytes ?? loadGpu.TotalMemoryBytes,
-            };
-
-            var action = DecideFlooredContextAction(options.Provider, backend, safeContext, contextLength);
-
-            if (action == FlooredContextAction.FailFast)
-            {
-                throw new InvalidOperationException(
-                    $"[LlamaServerGeneratorModel] GPU backend '{backend}' can only provide a {safeContext}-token context " +
-                    $"(requested {contextLength}) - VRAM is insufficient for a usable context. " +
-                    $"Pin ExecutionProvider.Cpu or free VRAM.");
-            }
-
-            if (action == FlooredContextAction.FallBackToCpu)
-            {
-                Trace.TraceWarning(
-                    $"[LlamaServerGeneratorModel] Auto provider: GPU backend '{backend}' yields only {safeContext}-token context " +
-                    $"(requested {contextLength}); falling back to CPU for a usable RAM-bound context.");
-
-                // Re-acquire the CPU server binary and switch the backend. CPU is RAM-bound, so the
-                // full requested context is kept (EstimateSafeContextLength returns it for GpuLayerCount=0).
-                LlamaServerInstallation? cpu = null;
-                string? cpuError = null;
-                try
-                {
-                    cpu = await updateService.AcquireServerAsync(LlamaServerBackend.Cpu, options.DisableAutoDownload, progress, cancellationToken);
-                }
-                catch (Exception ex) when (ex is ModelNotFoundException or InvalidOperationException)
-                {
-                    cpuError = ex.Message;
-                }
-
-                if (cpu is not null)
-                {
-                    serverPath = cpu.ServerPath;
-                    backend = LlamaServerBackend.Cpu;
-                    serverVersion = cpu.Version ?? serverVersion;
-                    llamaOpts = CloneLlamaOptionsForCpuFallback(llamaOpts);
-                }
-                else
-                {
-                    // CPU binary unavailable — degrade to the floored context rather than fail the load.
-                    Trace.TraceWarning(
-                        $"[LlamaServerGeneratorModel] CPU fallback unavailable ({cpuError}); " +
-                        $"using floored {safeContext}-token context.");
-                    contextLength = safeContext;
-                }
-            }
-            else if (safeContext < contextLength)
-            {
-                const double mb = 1024.0 * 1024.0;
-                var gpu = loadGpu;
-                var budgetMb = VramBudget.GetAvailableBytes(gpu) / mb;
-                var totalMb = (gpu.TotalMemoryBytes ?? 0) / mb;
-                var freeMb = (gpu.FreeMemoryBytes ?? gpu.TotalMemoryBytes ?? 0) / mb;
-                var ctxMsg = $"[LlamaServerGeneratorModel] ctx-size adjusted: requested={contextLength}, actual={safeContext} " +
-                    $"(VRAM budget={budgetMb:F0}MB, free={freeMb:F0}MB, total={totalMb:F0}MB)";
-                // Warn when the caller explicitly set MaxContextLength and it was silently reduced.
-                if (options.MaxContextLength is not null)
-                    Trace.TraceWarning(ctxMsg);
-                else
-                    Trace.TraceInformation(ctxMsg);
-                contextLength = safeContext;
-            }
+            plan = await BoundContextByVramAsync(plan, modelPath, ggufMetadata, options, loadGpu, updateService, progress, cancellationToken);
         }
 
-        // A context the caller did not choose is also bounded by RAM when the KV cache lives there (the CPU backend,
-        // chosen or fallen back to) — the GPU path above already bounds it by VRAM. An explicit length is the caller's.
-        if (backend == LlamaServerBackend.Cpu && options.MaxContextLength is null)
+        if (plan.Backend == LlamaServerBackend.Cpu && options.MaxContextLength is null)
         {
-            var ramContext = EstimateRamBoundContextLength(
-                CacheManager.GetContentLength(modelPath),
-                contextLength,
-                ggufMetadata,
-                ResolveKvCacheType(llamaOpts.TypeK, backend, serverVersion),
-                ResolveKvCacheType(llamaOpts.TypeV, backend, serverVersion),
-                Math.Max(1, options.MaxConcurrentRequests),
-                (int)(llamaOpts.UBatchSize ?? KvCacheGeometry.DefaultUBatch),
-                Hardware.HardwareProfile.Current.SystemMemoryBytes);
-            if (ramContext < contextLength)
-            {
-                Trace.TraceInformation(
-                    $"[LlamaServerGeneratorModel] ctx-size bounded by RAM: requested={contextLength}, actual={ramContext}");
-                contextLength = ramContext;
-            }
+            plan = BoundContextByRam(plan, modelPath, ggufMetadata, options);
         }
+
+        (serverPath, backend, serverVersion, llamaOpts, contextLength, var sizingDecided) = plan;
 
         var serverConfig = BuildServerConfig(modelPath, contextLength, llamaOpts, backend, serverVersion, options, ggufMetadata);
 
         // 4. Lease server from pool with OOM retry (reduces GPU layers on failure)
         var plannedGpuLayers = serverConfig.GpuLayers;
         (var serverLease, serverConfig) = await LeaseWithOomRetryAsync(serverPath, serverConfig, backend, progress, cancellationToken);
-        sizing = sizing.AfterRetry(plannedGpuLayers, serverConfig.GpuLayers);
+        var sizing = sizingDecided.AfterRetry(plannedGpuLayers, serverConfig.GpuLayers);
 
         var restartConfig = serverConfig;
         var model = new LlamaServerGeneratorModel(
@@ -295,6 +196,148 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
         }
 
         return model;
+    }
+
+    /// <summary>
+    /// What a GGUF load has settled before its server starts: the server build and backend, the llama options, the
+    /// context length and what sizing decided.
+    /// </summary>
+    private sealed record GgufLoadPlan(
+        string ServerPath,
+        LlamaServerBackend Backend,
+        string? ServerVersion,
+        LlamaOptions Options,
+        int ContextLength,
+        LoadSizing Sizing);
+
+    /// <summary>
+    /// Bounds the context by what the GPU can hold after the model's layers. When it can offer only the unusable floor
+    /// (n_ctx clamped to 512 below the request), Auto falls back to CPU (RAM-bound, no VRAM clamp) and an explicit GPU
+    /// pin fails fast instead of silently loading an unusable 512-token context.
+    /// </summary>
+    private static async Task<GgufLoadPlan> BoundContextByVramAsync(
+        GgufLoadPlan plan,
+        string modelPath,
+        GgufMetadata? ggufMetadata,
+        GeneratorOptions options,
+        GpuInfo loadGpu,
+        LlamaServerUpdateService updateService,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var (_, backend, serverVersion, llamaOpts, contextLength, _) = plan;
+        var (safeContext, contextFloored) = EstimateSafeContextLengthDetailed(
+            modelPath,
+            contextLength,
+            llamaOpts.GpuLayerCount ?? -1,
+            ggufMetadata,
+            ResolveKvCacheType(llamaOpts.TypeK, backend, serverVersion),
+            ResolveKvCacheType(llamaOpts.TypeV, backend, serverVersion),
+            sequences: Math.Max(1, options.MaxConcurrentRequests),
+            ubatch: (int)(llamaOpts.UBatchSize ?? KvCacheGeometry.DefaultUBatch),
+            gpu: loadGpu);
+
+        // VRAM telemetry is taken before any CPU fallback switches the backend below.
+        var vramBudget = VramBudget.GetAvailableBytes(loadGpu);
+        plan = plan with
+        {
+            Sizing = plan.Sizing with
+            {
+                ContextFlooredByVram = contextFloored,
+                VramBudgetBytes = vramBudget > 0 ? vramBudget : null,
+                VramTotalBytes = loadGpu.TotalMemoryBytes,
+                VramFreeBytes = loadGpu.FreeMemoryBytes ?? loadGpu.TotalMemoryBytes,
+            },
+        };
+
+        switch (DecideFlooredContextAction(options.Provider, backend, safeContext, contextLength))
+        {
+            case FlooredContextAction.FailFast:
+                throw new InvalidOperationException(
+                    $"[LlamaServerGeneratorModel] GPU backend '{backend}' can only provide a {safeContext}-token context " +
+                    $"(requested {contextLength}) - VRAM is insufficient for a usable context. " +
+                    $"Pin ExecutionProvider.Cpu or free VRAM.");
+
+            case FlooredContextAction.FallBackToCpu:
+                Trace.TraceWarning(
+                    $"[LlamaServerGeneratorModel] Auto provider: GPU backend '{backend}' yields only {safeContext}-token context " +
+                    $"(requested {contextLength}); falling back to CPU for a usable RAM-bound context.");
+
+                // The CPU build replaces the GPU one. CPU is RAM-bound, so the full requested context is kept
+                // (EstimateSafeContextLength returns it for GpuLayerCount=0).
+                LlamaServerInstallation? cpu = null;
+                string? cpuError = null;
+                try
+                {
+                    cpu = await updateService.AcquireServerAsync(LlamaServerBackend.Cpu, options.DisableAutoDownload, progress, cancellationToken);
+                }
+                catch (Exception ex) when (ex is ModelNotFoundException or InvalidOperationException)
+                {
+                    cpuError = ex.Message;
+                }
+
+                if (cpu is not null)
+                {
+                    return plan with
+                    {
+                        ServerPath = cpu.ServerPath,
+                        Backend = LlamaServerBackend.Cpu,
+                        ServerVersion = cpu.Version ?? serverVersion,
+                        Options = CloneLlamaOptionsForCpuFallback(llamaOpts),
+                    };
+                }
+
+                // CPU binary unavailable — degrade to the floored context rather than fail the load.
+                Trace.TraceWarning(
+                    $"[LlamaServerGeneratorModel] CPU fallback unavailable ({cpuError}); " +
+                    $"using floored {safeContext}-token context.");
+                return plan with { ContextLength = safeContext };
+
+            default:
+                if (safeContext >= contextLength)
+                {
+                    return plan;
+                }
+
+                const double mb = 1024.0 * 1024.0;
+                var budgetMb = vramBudget / mb;
+                var totalMb = (loadGpu.TotalMemoryBytes ?? 0) / mb;
+                var freeMb = (loadGpu.FreeMemoryBytes ?? loadGpu.TotalMemoryBytes ?? 0) / mb;
+                var ctxMsg = $"[LlamaServerGeneratorModel] ctx-size adjusted: requested={contextLength}, actual={safeContext} " +
+                    $"(VRAM budget={budgetMb:F0}MB, free={freeMb:F0}MB, total={totalMb:F0}MB)";
+
+                // Warn when the caller explicitly set MaxContextLength and it was silently reduced.
+                if (options.MaxContextLength is not null)
+                    Trace.TraceWarning(ctxMsg);
+                else
+                    Trace.TraceInformation(ctxMsg);
+                return plan with { ContextLength = safeContext };
+        }
+    }
+
+    /// <summary>
+    /// Bounds a context the caller did not choose by RAM, where the KV cache lives on the CPU backend (chosen or fallen
+    /// back to); the GPU path bounds it by VRAM. An explicit length is the caller's.
+    /// </summary>
+    private static GgufLoadPlan BoundContextByRam(GgufLoadPlan plan, string modelPath, GgufMetadata? ggufMetadata, GeneratorOptions options)
+    {
+        var ramContext = EstimateRamBoundContextLength(
+            CacheManager.GetContentLength(modelPath),
+            plan.ContextLength,
+            ggufMetadata,
+            ResolveKvCacheType(plan.Options.TypeK, plan.Backend, plan.ServerVersion),
+            ResolveKvCacheType(plan.Options.TypeV, plan.Backend, plan.ServerVersion),
+            Math.Max(1, options.MaxConcurrentRequests),
+            (int)(plan.Options.UBatchSize ?? KvCacheGeometry.DefaultUBatch),
+            Hardware.HardwareProfile.Current.SystemMemoryBytes);
+        if (ramContext >= plan.ContextLength)
+        {
+            return plan;
+        }
+
+        Trace.TraceInformation(
+            $"[LlamaServerGeneratorModel] ctx-size bounded by RAM: requested={plan.ContextLength}, actual={ramContext}");
+        return plan with { ContextLength = ramContext };
     }
 
     /// <summary>
