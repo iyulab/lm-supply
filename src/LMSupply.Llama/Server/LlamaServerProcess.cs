@@ -409,6 +409,9 @@ public sealed class LlamaServerProcess : IAsyncDisposable
     private const string ApiKeyFileVariable = "LLAMA_ARG_API_KEY_FILE";
 
     private Process? _process;
+
+    // This server's owner record (LlamaServerOwners), removed when it is disposed.
+    private string? _ownerRecord;
     private int _port;
     private bool _disposed;
     private readonly ServerLogTail _recentLog = new();
@@ -510,6 +513,9 @@ public sealed class LlamaServerProcess : IAsyncDisposable
         // Get the directory containing llama-server for DLL resolution
         var workingDir = Path.GetDirectoryName(_serverPath)!;
 
+        // A server whose owner died without stopping it holds a port and a model's memory: stop it first.
+        LlamaServerOwners.StopOrphans();
+
         // Start process via guardian
         var startInfo = new ProcessStartInfo
         {
@@ -561,6 +567,8 @@ public sealed class LlamaServerProcess : IAsyncDisposable
         {
             throw new InvalidOperationException(DidNotLaunchMessage(_serverPath, _backend, workingDir));
         }
+
+        _ownerRecord = LlamaServerOwners.Take(_process);
 
         // Capture output for diagnostics. The complete startup log is kept only until the server is ready (a running
         // server logs every request, so an unbounded buffer grows for its whole life); after that only the bounded
@@ -1179,6 +1187,7 @@ public sealed class LlamaServerProcess : IAsyncDisposable
         await StopAsync();
         _httpClient.Dispose();
         _guardian.Dispose();
+        LlamaServerOwners.Release(_ownerRecord);
         _process?.Dispose();
     }
 }

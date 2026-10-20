@@ -7,6 +7,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Fixed
+- **A llama-server whose owner was killed is stopped by the next process that starts one, on Linux and macOS.** On
+  those systems nothing ended a server when the process that started it was killed or crashed — its exit hooks never
+  ran — so the server kept its port and the model's memory until stopped by hand. Each server now leaves an owner record
+  (`owners/` in the llama-server cache directory) that a clean stop removes, and before a server starts, any recorded
+  server whose owner is gone is stopped. A process is matched by its id, start time and name, so a reused id is never
+  taken for a server. Windows already ended such servers with their owner.
 - **An embedding or reranking llama-server keeps no RAM prompt cache.** Such a request always processes its whole
   input, so a prompt it leaves in the cache is never read back, yet llama-server builds before the upstream fix cached it
   anyway and held up to the cache limit (8 GiB by default) for nothing. LMSupply now starts these servers with
