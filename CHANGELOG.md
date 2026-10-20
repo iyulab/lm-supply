@@ -7,6 +7,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Fixed
+- **A downloaded model is sized by its content, not by its cache link** — a model file in the cache is a snapshot
+  entry linking to its blob, and its size was read from the link itself: 0 bytes on Windows, a few dozen bytes elsewhere.
+  Loading a GGUF model whose layers did not all fit in GPU memory threw `DivideByZeroException` on Windows, and on other
+  systems GPU offload, the context-length bound and the memory estimate of every model type (`EstimatedMemoryBytes`,
+  registry `SizeBytes`) were computed from that size. A GGUF `block_count` of 0 now reads as unknown
+  (`GgufMetadata.LayerCount` is null), and `MemoryEstimator.EstimateForGguf` rejects a non-positive file size or layer
+  count with `ArgumentOutOfRangeException` instead of dividing by it.
 - **`Reranker` and `MemoryAwareGenerator` implement `IDisposable` as well** — a container disposed with `Dispose()` (a `using` provider or scope) no longer throws «only implements IAsyncDisposable» when it created one.
 
 ### Changed

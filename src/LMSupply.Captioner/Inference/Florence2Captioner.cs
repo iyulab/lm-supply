@@ -1,4 +1,5 @@
 using LMSupply.Captioner.Models;
+using LMSupply.Download;
 using LMSupply.Exceptions;
 using LMSupply.Inference;
 using LMSupply.Text;
@@ -101,8 +102,8 @@ internal sealed class Florence2Captioner : ICaptionerModel
     public ExecutionProvider RequestedProvider => _vision.RequestedProvider;
 
     /// <inheritdoc />
-    public long? EstimatedMemoryBytes => _modelFiles.All(File.Exists)
-        ? _modelFiles.Sum(f => new FileInfo(f).Length) * 2
+    public long? EstimatedMemoryBytes => _modelFiles.All(CacheManager.ContentExists)
+        ? _modelFiles.Sum(CacheManager.GetContentLengthOrZero) * 2
         : null;
 
     /// <inheritdoc />

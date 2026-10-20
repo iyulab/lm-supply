@@ -528,6 +528,29 @@ public class MemoryEstimatorPartialOffloadTests
             "less VRAM should recommend fewer or equal GPU layers");
     }
 
+    [Theory]
+    [InlineData(0L, 32)]
+    [InlineData(1024L, 0)]
+    [InlineData(-1L, 32)]
+    public void EstimateForGguf_NonPositiveSizeOrLayers_IsRejected(long fileSize, int layers)
+    {
+        var estimate = () => MemoryEstimator.EstimateForGguf(
+            modelFileSizeBytes: fileSize, availableVramBytes: 4L << 30, estimatedLayers: layers);
+
+        estimate.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void EstimateForGguf_ModelSmallerThanItsLayerCount_PartialOffloadDoesNotDivideByZero()
+    {
+        // 16 bytes over 32 layers: a layer of 0 bytes, which the partial-offload branch once divided by.
+        var estimate = MemoryEstimator.EstimateForGguf(
+            modelFileSizeBytes: 16, contextLength: 1 << 20, availableVramBytes: 3L << 30, estimatedLayers: 32);
+
+        estimate.CanFitInVram.Should().BeFalse();
+        estimate.RecommendedGpuLayers.Should().BeInRange(0, 32);
+    }
+
     [Fact]
     public void EstimateForGguf_GpuOffloadRatio_IsValid()
     {

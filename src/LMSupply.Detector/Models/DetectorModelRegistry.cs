@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using LMSupply.Download;
 
 namespace LMSupply.Detector.Models;
 
@@ -84,7 +85,7 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
             DisplayName = $"Local: {fileName}",
             Architecture = "Unknown",
             ParametersM = 0,
-            SizeBytes = File.Exists(fullPath) ? new FileInfo(fullPath).Length : 0,
+            SizeBytes = CacheManager.TryGetContentLength(fullPath, out var size) ? size : 0,
             MapCoco = 0,
             InputWidth = 640,
             InputHeight = 640,

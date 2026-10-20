@@ -295,6 +295,13 @@ public static class CacheManager
         => ResolveContent(filePath)?.Length
            ?? throw new FileNotFoundException($"'{filePath}' does not exist or is a link to a missing file.", filePath);
 
+    /// <summary>
+    /// <see cref="TryGetContentLength"/> as a value: 0 when the file, or the file a link points at, does not exist —
+    /// for sums over a model's files, where a missing one adds nothing.
+    /// </summary>
+    internal static long GetContentLengthOrZero(string filePath)
+        => TryGetContentLength(filePath, out var length) ? length : 0;
+
     /// <summary>Whether <paramref name="filePath"/> exists and, when it is a link, the file it points at exists.</summary>
     internal static bool ContentExists(string filePath) => ResolveContent(filePath) is not null;
 

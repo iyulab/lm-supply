@@ -22,7 +22,7 @@ public sealed record GgufMetadata
     public string? Name { get; init; }
 
     /// <summary>
-    /// Number of transformer layers (blocks).
+    /// Number of transformer layers (blocks); null when the file does not state a positive count.
     /// </summary>
     public int? LayerCount { get; init; }
 

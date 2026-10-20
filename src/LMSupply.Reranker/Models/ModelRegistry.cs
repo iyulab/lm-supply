@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using LMSupply.Download;
 using LMSupply.Hardware;
 
 namespace LMSupply.Reranker.Models;
@@ -91,7 +92,7 @@ public sealed class RerankerModelRegistry : ModelRegistryBase<RerankerModelInfo>
             DisplayName = $"Local: {fileName}",
             Parameters = 0,
             MaxSequenceLength = 512, // Default assumption
-            SizeBytes = File.Exists(fullPath) ? new FileInfo(fullPath).Length : 0,
+            SizeBytes = CacheManager.TryGetContentLength(fullPath, out var size) ? size : 0,
             OnnxFile = fileName,
             TokenizerFile = "tokenizer.json",
             Description = $"Local model from {directory}",

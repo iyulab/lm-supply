@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
+using LMSupply.Download;
 using LMSupply.Exceptions;
 using LMSupply.Generator.Abstractions;
 using LMSupply.Generator.Models;
@@ -113,7 +114,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
 
     /// <inheritdoc />
     public long? EstimatedMemoryBytes => Directory.Exists(_modelPath)
-        ? Directory.GetFiles(_modelPath, "*.onnx").Sum(f => new FileInfo(f).Length) * 2
+        ? Directory.GetFiles(_modelPath, "*.onnx").Sum(CacheManager.GetContentLengthOrZero) * 2
         : null;
 
     /// <inheritdoc />

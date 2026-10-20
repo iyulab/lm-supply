@@ -105,7 +105,7 @@ internal sealed class LlamaServerRerankerModel : IRerankerModel
     public string ModelId { get; }
 
     /// <inheritdoc />
-    public long? EstimatedMemoryBytes => File.Exists(_modelPath) ? new FileInfo(_modelPath).Length * 2 : null;
+    public long? EstimatedMemoryBytes => CacheManager.TryGetContentLength(_modelPath, out var length) ? length * 2 : null;
 
     /// <inheritdoc />
     public bool IsGpuActive => _lease.Current.Backend != LlamaServerBackend.Cpu;

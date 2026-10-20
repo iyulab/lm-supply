@@ -219,7 +219,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         // Auto-calculate GPU layer count based on actual VRAM budget when using default (-1 = all).
         if (NeedsVramFit(llamaOpts, backend) && sharedContext is null)
         {
-            var fileSize = new FileInfo(modelPath).Length;
+            var fileSize = CacheManager.GetContentLength(modelPath);
             var profile = Hardware.HardwareProfile.Current;
             // Use VramBudget so LMSUPPLY_VRAM_BUDGET_MB override + safety margins
             // flow into the offload decision. Raw EffectiveAvailableBytes ignored both.
@@ -354,7 +354,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         if (backend == LlamaServerBackend.Cpu && options.MaxContextLength is null)
         {
             var ramContext = EstimateRamBoundContextLength(
-                new FileInfo(modelPath).Length,
+                CacheManager.GetContentLength(modelPath),
                 contextLength,
                 ggufMetadata,
                 ResolveKvCacheType(llamaOpts.TypeK, backend, serverVersion),
@@ -534,7 +534,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
     public ExecutionProvider RequestedProvider => _options.Provider;
 
     /// <inheritdoc />
-    public long? EstimatedMemoryBytes => File.Exists(_modelPath) ? new FileInfo(_modelPath).Length * 2 : null;
+    public long? EstimatedMemoryBytes => CacheManager.TryGetContentLength(_modelPath, out var length) ? length * 2 : null;
 
     /// <summary>
     /// Gets the startup log from the llama-server process for diagnostics.
@@ -1617,7 +1617,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         if (ggufMetadata?.ExpertCount > 1)
             availableVram = (long)(availableVram * moeBudgetFactor);
 
-        var modelFileSize = new FileInfo(modelPath).Length;
+        var modelFileSize = CacheManager.GetContentLength(modelPath);
         var modelMemory = (long)(modelFileSize * 1.1);
         const long vramBuffer = 512L * 1024 * 1024; // 500MB safety buffer
         var remainingVram = Math.Max(0, availableVram - modelMemory - vramBuffer);
@@ -1863,17 +1863,17 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel, IDiagnosticsS
         if (ggufMetadata is not null)
         {
             // Use file size as the most accurate measure of on-disk model weight size
-            modelSizeBytes = new FileInfo(modelPath).Length;
+            modelSizeBytes = CacheManager.GetContentLength(modelPath);
         }
         else
         {
             // No metadata: estimate from file size with runtime overhead factor
-            var fileSize = new FileInfo(modelPath).Length;
+            var fileSize = CacheManager.GetContentLength(modelPath);
             modelSizeBytes = (long)(fileSize * 1.1); // ~10% runtime overhead
         }
 
         // Determine total layers from metadata or estimate from file size
-        var totalLayers = ggufMetadata?.LayerCount ?? EstimateTotalLayers(new FileInfo(modelPath).Length);
+        var totalLayers = ggufMetadata?.LayerCount ?? EstimateTotalLayers(CacheManager.GetContentLength(modelPath));
 
         return LlamaOptions.GetOptimalForHardware(gpu, modelSizeBytes, totalLayers);
     }

@@ -1,3 +1,4 @@
+using LMSupply.Download;
 using LMSupply.Inference;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -23,7 +24,7 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
     public string ModelId => _modelDefinition.RepoId;
 
     public long? EstimatedMemoryBytes => Directory.Exists(_modelPath)
-        ? Directory.GetFiles(_modelPath, "*.onnx", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length) * 2
+        ? Directory.GetFiles(_modelPath, "*.onnx", SearchOption.AllDirectories).Sum(CacheManager.GetContentLengthOrZero) * 2
         : null;
 
     private OnnxImageGeneratorModel(

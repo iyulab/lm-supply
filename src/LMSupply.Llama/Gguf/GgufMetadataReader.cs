@@ -189,7 +189,8 @@ public static class GgufMetadataReader
             Version = version,
             Architecture = architecture,
             Name = name,
-            LayerCount = layerCount,
+            // A count of 0 (or less) states nothing a caller can size by: unknown, as when the key is absent.
+            LayerCount = layerCount is > 0 ? layerCount : null,
             ContextLength = contextLength,
             PoolingType = poolingType,
             EmbeddingLength = embeddingLength,

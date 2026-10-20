@@ -1,3 +1,4 @@
+using LMSupply.Download;
 using LMSupply.Embedder.Inference;
 using LMSupply.Embedder.Pooling;
 using LMSupply.Embedder.Utils;
@@ -40,8 +41,7 @@ internal sealed class EmbeddingModel : IEmbeddingModel
     // model.onnx.data); the graph file alone is a few hundred kilobytes.
     private static long WeightBytes(string modelPath) =>
         new[] { modelPath, modelPath + "_data", modelPath + ".data" }
-            .Where(File.Exists)
-            .Sum(path => new FileInfo(path).Length);
+            .Sum(CacheManager.GetContentLengthOrZero);
 
     /// <inheritdoc />
     public bool IsGpuActive => _engine.IsGpuActive;

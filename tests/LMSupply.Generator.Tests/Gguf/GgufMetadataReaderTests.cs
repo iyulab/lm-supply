@@ -140,6 +140,75 @@ public class GgufMetadataReaderTests
     }
 
     [Fact]
+    public async Task ReadAsync_ZeroBlockCount_ReadsAsUnknown()
+    {
+        // A count of 0 sizes nothing (and once reached a division in the offload estimate): unknown, as when absent.
+        var tempPath = Path.GetTempFileName();
+        try
+        {
+            await CreateGgufFileWithMetadataAsync(tempPath, new Dictionary<string, object>
+            {
+                { "general.architecture", "llama" },
+                { "llama.block_count", 0 },
+            });
+
+            var result = await GgufMetadataReader.ReadAsync(tempPath, cancellationToken: TestContext.Current.CancellationToken);
+
+            result.Should().NotBeNull();
+            result!.LayerCount.Should().BeNull();
+        }
+        finally
+        {
+            File.Delete(tempPath);
+        }
+    }
+
+    [Fact]
+    public async Task EstimateFromGgufFileAsync_ThroughASymbolicLink_SizesTheFileItPointsAt()
+    {
+        // A downloaded model is a hub-cache snapshot entry linking to its blob; the link's own length is 0 on
+        // Windows and the length of the target path elsewhere.
+        var dir = Directory.CreateTempSubdirectory("lmsupply-gguf-link-").FullName;
+        try
+        {
+            var blob = Path.Combine(dir, "blob");
+            await CreateGgufFileWithMetadataAsync(blob, new Dictionary<string, object>
+            {
+                { "general.architecture", "llama" },
+                { "llama.block_count", 28 },
+                { "llama.embedding_length", 2048 },
+                { "llama.attention.head_count", 16 },
+                { "llama.attention.head_count_kv", 8 },
+                { "llama.context_length", 4096 },
+            });
+            await using (var stream = new FileStream(blob, FileMode.Append))
+                stream.SetLength(stream.Length + 8 * 1024 * 1024);
+            var blobLength = new FileInfo(blob).Length;
+
+            var link = Path.Combine(dir, "model.gguf");
+            try
+            {
+                File.CreateSymbolicLink(link, "blob");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+            {
+                Assert.Skip($"This host cannot create symbolic links: {ex.Message}");
+            }
+
+            var throughLink = await MemoryEstimator.EstimateFromGgufFileAsync(
+                link, contextLength: 4096, availableVramBytes: 1L << 30, availableRamBytes: 16L << 30,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            throughLink.Should().NotBeNull();
+            throughLink!.ModelFileSizeBytes.Should().Be(blobLength);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ReadAsync_WithArchitectureMetadata_ParsesArchitecture()
     {
         var tempPath = Path.GetTempFileName();

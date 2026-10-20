@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using LMSupply.Download;
 using LMSupply.Ocr.Detection;
 using LMSupply.Ocr.Models;
 using LMSupply.Ocr.Recognition;
@@ -50,10 +51,10 @@ internal sealed class OcrPipeline : IOcr
         get
         {
             long total = 0;
-            if (_detModelPath is not null && File.Exists(_detModelPath))
-                total += new FileInfo(_detModelPath).Length;
-            if (_recModelPath is not null && File.Exists(_recModelPath))
-                total += new FileInfo(_recModelPath).Length;
+            if (_detModelPath is not null)
+                total += CacheManager.GetContentLengthOrZero(_detModelPath);
+            if (_recModelPath is not null)
+                total += CacheManager.GetContentLengthOrZero(_recModelPath);
             return total > 0 ? total * 2 : null;
         }
     }

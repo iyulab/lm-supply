@@ -1,3 +1,4 @@
+using LMSupply.Download;
 using LMSupply.Generator.Gguf;
 using LMSupply.Core.Download;
 
@@ -111,6 +112,9 @@ public static class MemoryEstimator
     /// <param name="availableRamBytes">Available system RAM in bytes (null to skip RAM check).</param>
     /// <param name="estimatedLayers">Estimated number of layers (default: 32 for 7B-class models).</param>
     /// <returns>Resource estimation with GPU/RAM breakdown.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="modelFileSizeBytes"/> or <paramref name="estimatedLayers"/> is not positive.
+    /// </exception>
     public static ResourceEstimate EstimateForGguf(
         long modelFileSizeBytes,
         int contextLength = 4096,
@@ -118,6 +122,9 @@ public static class MemoryEstimator
         long? availableRamBytes = null,
         int estimatedLayers = 32)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(modelFileSizeBytes);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(estimatedLayers);
+
         // Estimate KV cache based on model size and context length
         // Rough formula: context_length * hidden_size * 2 (K+V) * layers * 2 bytes (FP16)
         // Estimate hidden_size from model size: smaller models ~2048, larger ~4096
@@ -144,6 +151,9 @@ public static class MemoryEstimator
         long? availableRamBytes,
         int estimatedLayers)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(modelFileSizeBytes);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(estimatedLayers);
+
         // GGUF file size is roughly equal to model weights in memory
         // Add ~10% overhead for model loading structures
         var modelMemory = (long)(modelFileSizeBytes * 1.1);
@@ -177,7 +187,8 @@ public static class MemoryEstimator
         {
             // Partial GPU offload
             var usableVram = Math.Max(0, availableVramBytes.Value - vramOverhead);
-            var layerSize = modelMemory / estimatedLayers;
+            // At least one byte, so a model smaller than its layer count (a test fixture) cannot divide by zero.
+            var layerSize = Math.Max(1, modelMemory / estimatedLayers);
             recommendedLayers = (int)(usableVram / layerSize);
             recommendedLayers = Math.Clamp(recommendedLayers, 0, estimatedLayers);
 
@@ -232,7 +243,7 @@ public static class MemoryEstimator
         if (config == null)
         {
             // Fall back to file-size based estimation if metadata is incomplete
-            var fileSize = new FileInfo(ggufFilePath).Length;
+            var fileSize = CacheManager.GetContentLength(ggufFilePath);
             return EstimateForGguf(
                 fileSize,
                 contextLength ?? 4096,
@@ -248,7 +259,7 @@ public static class MemoryEstimator
         {
             Confidence = EstimationConfidence.High,
             TotalLayers = metadata.LayerCount ?? result.TotalLayers,
-            ModelFileSizeBytes = new FileInfo(ggufFilePath).Length
+            ModelFileSizeBytes = CacheManager.GetContentLength(ggufFilePath)
         };
     }
 

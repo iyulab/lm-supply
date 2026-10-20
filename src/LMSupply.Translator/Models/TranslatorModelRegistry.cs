@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using LMSupply.Download;
 
 namespace LMSupply.Translator.Models;
 
@@ -96,7 +97,7 @@ public sealed class TranslatorModelRegistry : ModelRegistryBase<TranslatorModelI
             SourceLanguage = "auto",
             TargetLanguage = "auto",
             ParametersM = 0,
-            SizeBytes = File.Exists(fullPath) ? new FileInfo(fullPath).Length : 0,
+            SizeBytes = CacheManager.TryGetContentLength(fullPath, out var size) ? size : 0,
             BleuScore = 0,
             MaxLength = 512,
             VocabSize = 0,

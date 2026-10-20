@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using LMSupply.Download;
 
 namespace LMSupply.Segmenter.Models;
 
@@ -99,7 +100,7 @@ public sealed class SegmenterModelRegistry : ModelRegistryBase<SegmenterModelInf
             DisplayName = $"Local: {fileName}",
             Architecture = "Unknown",
             ParametersM = 0,
-            SizeBytes = File.Exists(fullPath) ? new FileInfo(fullPath).Length : 0,
+            SizeBytes = CacheManager.TryGetContentLength(fullPath, out var size) ? size : 0,
             MIoU = 0,
             InputSize = 512,
             NumClasses = 150,

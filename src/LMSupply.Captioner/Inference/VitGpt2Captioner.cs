@@ -1,4 +1,5 @@
 using LMSupply.Captioner.Models;
+using LMSupply.Download;
 using LMSupply.Exceptions;
 using LMSupply.Inference;
 using LMSupply.Text;
@@ -59,7 +60,7 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
 
     /// <inheritdoc />
     public long? EstimatedMemoryBytes => Directory.Exists(_modelDir)
-        ? new DirectoryInfo(_modelDir).EnumerateFiles("*.onnx", SearchOption.AllDirectories).Sum(f => f.Length) * 2
+        ? new DirectoryInfo(_modelDir).EnumerateFiles("*.onnx", SearchOption.AllDirectories).Sum(f => CacheManager.GetContentLengthOrZero(f.FullName)) * 2
         : null;
 
     /// <inheritdoc />

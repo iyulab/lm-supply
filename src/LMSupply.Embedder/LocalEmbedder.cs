@@ -108,7 +108,7 @@ public static class LocalEmbedder
                 PassagePrefix = sources.Prompts.Passage,
                 DefaultPrefix = sources.Prompts.Default,
                 Subfolder = sources.Subfolder,
-                SizeBytes = File.Exists(sources.ModelPath) ? new FileInfo(sources.ModelPath).Length : 0
+                SizeBytes = CacheManager.TryGetContentLength(sources.ModelPath, out var size) ? size : 0
             }
             : sources.CatalogInfo with
             {
