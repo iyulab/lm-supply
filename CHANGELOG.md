@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.131.0] - 2026-10-20
+
 ### Fixed
 - **A downloaded model is sized by its content, not by its cache link** — a model file in the cache is a snapshot
   entry linking to its blob, and its size was read from the link itself: 0 bytes on Windows, a few dozen bytes elsewhere.
