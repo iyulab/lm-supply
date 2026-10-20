@@ -20,11 +20,10 @@
     <PackageVersion Include="SkiaSharp" Version="4.153.1" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
     <!-- Audio Dependencies -->
-    <PackageVersion Include="NAudio" Version="3.2.0" />
+    <PackageVersion Include="NAudio" Version="3.3.0" />
     <PackageVersion Include="NAudio.Lame" Version="2.1.0" />
-    <!-- Pure-managed MP3 decoder for NAudio 3.0's cross-platform build, which no longer bundles
-         one — version-locked to NAudio.Core 3.0.1 per its own release notes. This lock is also what holds NAudio at
-         3.0.1 (3.1.0 is out): move both when NLayer.NAudioSupport publishes a release for NAudio 3.1. -->
+    <!-- Pure-managed MP3 decoder for NAudio 3's cross-platform build, which no longer bundles one. It is built
+         against NAudio.Core 3.0.1 and asks for that version or later, so it does not hold NAudio back. -->
     <PackageVersion Include="NLayer.NAudioSupport" Version="3.0.0" />
     <!-- Pure-managed Opus decoder: audio recorded in a browser (MediaRecorder WebM/Opus, Ogg/Opus) is decoded without a
          native library, the same cross-platform stance as NLayer above. -->
@@ -52,10 +51,10 @@
     <!-- Build Tooling -->
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
     <!-- Console Host -->
-    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.3.0" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.3.1" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.13" />
-    <!-- The M.E.AI embedding contract LMSupply.Embedder implements. Held with the ecosystem line (10.10.x). -->
-    <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.10.1" />
+    <!-- The M.E.AI embedding contract LMSupply.Embedder implements. -->
+    <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.11.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13" />
     <!--

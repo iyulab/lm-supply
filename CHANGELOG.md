@@ -6,6 +6,11 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Changed
+- Dependencies: `Microsoft.Extensions.AI.Abstractions` 10.11.0 (`LMSupply.Embedder`), `NAudio` 3.3.0
+  (`LMSupply.Transcriber`). Migration: a consumer that pins either below these versions gets NU1605 (package downgrade)
+  on restore — raise the pin.
+
 ## [0.130.0] - 2026-10-20
 
 ### Added
