@@ -54,7 +54,8 @@ Console.WriteLine(response);
 response was cut off at `GenerationOptions.MaxTokens` (a summary or rewrite you are about to store, say), use a
 path that carries the finish reason: `GenerateCompleteResultAsync(prompt)` for a raw prompt and
 `GenerateChatCompleteResultAsync(messages)` for chat (`GenerationResult.FinishReason`, 0.73.0+), `GenerateChatWithToolsAsync` (`ChatCompletionResult.FinishReason`, works
-without tools) or `GenerateChatStreamAsync` (the last chunk's `FinishReason`). `"length"` means the model stopped
+without tools) or the structured streams — `GenerateChatStreamAsync` for chat, `GenerateStreamAsync` for a raw prompt
+(the last chunk's `FinishReason`). `"length"` means the model stopped
 at the output limit or the context window; `"stop"` means it finished. Both backends report it (ONNX since 0.72.1).
 Reaching the limit is data, not an error — you set the limit, you decide what a cut-off answer means:
 
@@ -67,7 +68,7 @@ if (result.FinishReason == "length")
 ```
 
 On the llama-server backend, `GenerationResult`, `ChatCompletionResult` and the last chunk of `GenerateChatStreamAsync`
-also carry the server's own accounting (0.80.0+ for timings): `Usage` (prompt/completion tokens, reasoning included)
+and `GenerateStreamAsync` also carry the server's own accounting (0.80.0+ for timings): `Usage` (prompt/completion tokens, reasoning included)
 and `Timings` (`GenerationTimings`: `CompletionTokensPerSecond`, `PromptTokensPerSecond`, the two durations, and
 `CachedPromptTokens`). Show the decode
 speed from `Timings` rather than dividing tokens by wall-clock time: a reasoning model generates tokens the stream
@@ -91,7 +92,8 @@ after each batch it evaluates (512 tokens by default, `GeneratorOptions.LlamaOpt
 against a backend that has stopped can count any chunk as a sign of life, and can show how far the read has got.
 `CachedTokens` were reused from the server's prompt cache and count as processed from the start. A request cut while
 the prompt was being read leaves the batches already evaluated in that cache, so the same prompt sent again resumes
-from them. The ONNX backend reads the prompt in one step and yields no such chunk.
+from them. `GenerateStreamAsync` does the same for a raw prompt (`TextStreamChunk.PromptProgress`). The ONNX backend
+reads the prompt in one step and yields no such chunk.
 
 ```csharp
 await foreach (var chunk in generator.GenerateChatStreamAsync(messages))

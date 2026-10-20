@@ -25,6 +25,20 @@ public interface ITextGenerator : IAsyncDisposable
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Generates text with streaming output, in structured chunks: text deltas, the backend's progress reading a long
+    /// prompt before the first token, and a final chunk with why the completion ended and the backend's usage. The text
+    /// is the same as <see cref="GenerateAsync"/>'s.
+    /// </summary>
+    /// <param name="prompt">The input prompt.</param>
+    /// <param name="options">Generation options. If null, default options are used.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>An async enumerable of structured stream chunks.</returns>
+    IAsyncEnumerable<TextStreamChunk> GenerateStreamAsync(
+        string prompt,
+        GenerationOptions? options = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Generates text from chat messages with streaming output.
     /// </summary>
     /// <param name="messages">The chat messages.</param>

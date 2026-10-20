@@ -6,6 +6,15 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **`ITextGenerator.GenerateStreamAsync(prompt)` streams a raw-prompt completion in structured chunks**
+  (`TextStreamChunk`), as `GenerateChatStreamAsync` does for chat: text deltas with their log probabilities, the
+  server's progress reading a long prompt before the first token (`PromptProgress`, llama-server backend), and a final
+  chunk with `FinishReason` and, on llama-server, `Usage` and `Timings`. Until now a raw-prompt stream said nothing
+  while a long prompt was read, so a caller could not tell reading from a stalled backend. **Breaking** for a type that
+  implements `ITextGenerator` (or `IGeneratorModel`) itself: it must add the member — forwarding to an inner
+  generator, or yielding its text as `TextStreamChunk.Text` and a last chunk with the finish reason.
+
 ### Fixed
 - **A GGUF model that started with fewer GPU layers after running out of GPU memory reports the layers it runs
   with.** When llama-server failed to start for lack of GPU memory, the load retried with about a quarter fewer layers,

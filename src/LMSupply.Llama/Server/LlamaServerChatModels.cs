@@ -243,6 +243,13 @@ internal sealed class CompletionRequest
 
     public int? Seed { get; set; }
     public bool Stream { get; set; }
+
+    /// <summary>
+    /// Asks a streamed completion for <c>prompt_progress</c> chunks while the server reads the prompt; a build that
+    /// predates the option ignores it.
+    /// </summary>
+    public bool? ReturnProgress { get; set; }
+
     public List<string>? Stop { get; set; }
 
     /// <summary>
@@ -444,6 +451,9 @@ internal sealed class CompletionChunk
 
     /// <summary>The log probabilities of the tokens this chunk carries, when <c>n_probs</c> asked for them.</summary>
     public List<LlamaTokenLogprob>? CompletionProbabilities { get; set; }
+
+    /// <summary>How far the server has read the prompt, on the chunks a request with <c>return_progress</c> gets before the first token.</summary>
+    public LlamaPromptProgress? PromptProgress { get; set; }
 }
 
 /// <summary>
@@ -476,6 +486,13 @@ public sealed class CompletionStreamData
     /// for them; null otherwise.
     /// </summary>
     public IReadOnlyList<LlamaTokenLogprob>? Logprobs { get; init; }
+
+    /// <summary>
+    /// How far the server has read the prompt, on the items a stream yields before the first token: when it starts
+    /// reading and after each batch. Such an item carries nothing else. Null on every other item, and on builds that do
+    /// not report it.
+    /// </summary>
+    public LlamaPromptProgress? PromptProgress { get; init; }
 }
 
 /// <summary>

@@ -270,6 +270,7 @@ public sealed partial class LlamaServerClient
             RepeatLastN = options.RepeatLastN,
             Seed = options.Seed != -1 ? options.Seed : null,
             Stream = true,
+            ReturnProgress = true,
             Stop = options.StopSequences?.ToList(),
             Grammar = options.Grammar,
             JsonSchema = ParseStructuredSchema(options.Grammar, options.JsonSchema),
@@ -317,6 +318,13 @@ public sealed partial class LlamaServerClient
 
             if (chunk is null)
                 continue;
+
+            // Before the first token: the server reports how far it has read the prompt, with empty content.
+            if (chunk.PromptProgress is { } progress && !chunk.Stop)
+            {
+                yield return new CompletionStreamData { PromptProgress = progress };
+                continue;
+            }
 
             var logprobs = ShapeLogprobs(chunk.CompletionProbabilities, options.TopLogprobs);
 

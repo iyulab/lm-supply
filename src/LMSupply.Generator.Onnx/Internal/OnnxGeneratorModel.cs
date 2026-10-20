@@ -124,6 +124,22 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
         CancellationToken cancellationToken = default)
         => GenerateCoreAsync(prompt, options, outcome: null, cancellationToken);
 
+    /// <inheritdoc />
+    public async IAsyncEnumerable<TextStreamChunk> GenerateStreamAsync(
+        string prompt,
+        GenerationOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        // The ONNX path reads the prompt in one step and reports no progress, usage or timings: text, then the ending.
+        var outcome = new GenerationOutcome();
+        await foreach (var token in GenerateCoreAsync(prompt, options, outcome, cancellationToken))
+        {
+            yield return new TextStreamChunk { Text = token };
+        }
+
+        yield return new TextStreamChunk { FinishReason = outcome.FinishReason };
+    }
+
     /// <summary>
     /// Why a generation ended, filled in by <see cref="GenerateCoreAsync"/> once its stream completes.
     /// </summary>

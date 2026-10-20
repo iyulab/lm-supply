@@ -78,4 +78,46 @@ public class LlamaServerClientPromptProgressTests
         data.Skip(3).Should().OnlyContain(d => d.PromptProgress == null);
         string.Concat(data.Select(d => d.TextDelta)).Should().Be("OK");
     }
+
+    // A raw completion's stream in llama-server b11669's shape: progress on chunks with empty content before the first
+    // token, then the text, then the final chunk (whose echoed prompt and other fields are left out here).
+    private const string CompletionStream =
+        "data: {\"index\":0,\"content\":\"\",\"tokens\":[0],\"stop\":false,\"id_slot\":-1,\"tokens_predicted\":0,\"tokens_evaluated\":1201,\"prompt_progress\":{\"total\":1201,\"cache\":0,\"processed\":0,\"time_ms\":0}}\n\n" +
+        "data: {\"index\":0,\"content\":\"\",\"tokens\":[0],\"stop\":false,\"id_slot\":-1,\"tokens_predicted\":0,\"tokens_evaluated\":1201,\"prompt_progress\":{\"total\":1201,\"cache\":0,\"processed\":512,\"time_ms\":39}}\n\n" +
+        "data: {\"index\":0,\"content\":\"\",\"tokens\":[0],\"stop\":false,\"id_slot\":-1,\"tokens_predicted\":0,\"tokens_evaluated\":1201,\"prompt_progress\":{\"total\":1201,\"cache\":0,\"processed\":1201,\"time_ms\":300}}\n\n" +
+        "data: {\"index\":0,\"content\":\"O\",\"tokens\":[21],\"stop\":false,\"id_slot\":-1,\"tokens_predicted\":1,\"tokens_evaluated\":1201}\n\n" +
+        "data: {\"index\":0,\"content\":\"K\",\"tokens\":[16],\"stop\":false,\"id_slot\":-1,\"tokens_predicted\":2,\"tokens_evaluated\":1201}\n\n" +
+        "data: {\"index\":0,\"content\":\"\",\"stop\":true,\"tokens_predicted\":2,\"tokens_evaluated\":1201,\"stop_type\":\"limit\",\"timings\":{\"cache_n\":0,\"prompt_n\":1201,\"prompt_ms\":300.614,\"predicted_n\":2,\"predicted_ms\":59.066}}\n\n";
+
+    private static async Task<(List<CompletionStreamData> Data, FixedResponseHandler Handler)> StreamCompletionAsync()
+    {
+        var handler = new FixedResponseHandler(CompletionStream);
+        var client = new LlamaServerClient("http://localhost:9999", new HttpClient(handler));
+        var data = new List<CompletionStreamData>();
+        await foreach (var d in client.GenerateStreamAsync("a long prompt", new CompletionOptions(), Ct))
+            data.Add(d);
+        return (data, handler);
+    }
+
+    [Fact]
+    public async Task StreamedCompletion_AsksForPromptProgress()
+    {
+        var (_, handler) = await StreamCompletionAsync();
+
+        JsonDocument.Parse(handler.RequestBody!).RootElement.GetProperty("return_progress").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task EachCompletionProgressReport_IsYieldedOnItsOwn_BeforeTheFirstToken()
+    {
+        var (data, _) = await StreamCompletionAsync();
+
+        data.Take(3).Select(d => (d.PromptProgress!.Processed, d.PromptProgress.TimeMs))
+            .Should().Equal((0, 0.0), (512, 39.0), (1201, 300.0));
+        data.Take(3).Should().OnlyContain(d => d.TextDelta == null && d.FinishReason == null && d.Timings == null);
+        data.Skip(3).Should().OnlyContain(d => d.PromptProgress == null);
+        string.Concat(data.Select(d => d.TextDelta)).Should().Be("OK");
+        data[^1].FinishReason.Should().Be("length");
+        data[^1].CompletionTokens.Should().Be(2);
+    }
 }

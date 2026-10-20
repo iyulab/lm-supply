@@ -211,6 +211,38 @@ public class GgufIntegrationTests
     }
 
     /// <summary>
+    /// A raw prompt long enough to take several batches reports how far the server has read it, on chunks of their own
+    /// before the first token; the text is the plain stream's, and the last chunk carries the ending and the usage.
+    /// </summary>
+    [Fact]
+    public async Task GenerateStreamAsync_WithGgufModel_ReportsPromptProgressThenTheEnding()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", cancellationToken: ct);
+        var prompt = string.Concat(Enumerable.Repeat("The quick brown fox jumps over the lazy dog. ", 150));
+        var options = new GenerationOptions { MaxTokens = 8, Temperature = 0f };
+
+        var chunks = new List<TextStreamChunk>();
+        await foreach (var chunk in model.GenerateStreamAsync(prompt, options, ct))
+            chunks.Add(chunk);
+
+        var progress = chunks.TakeWhile(c => c.Text is null && c.FinishReason is null).ToList();
+        progress.Should().NotBeEmpty().And.OnlyContain(c => c.PromptProgress != null, "the server reads the prompt first");
+        progress[^1].PromptProgress!.ProcessedTokens.Should().Be(progress[^1].PromptProgress!.TotalTokens);
+        chunks.Skip(progress.Count).Should().OnlyContain(c => c.PromptProgress == null);
+
+        var last = chunks[^1];
+        last.FinishReason.Should().Be("length");
+        last.Usage!.CompletionTokens.Should().Be(8);
+        last.Timings.Should().NotBeNull();
+
+        var plain = new List<string>();
+        await foreach (var token in model.GenerateAsync(prompt, options, ct))
+            plain.Add(token);
+        string.Concat(chunks.Select(c => c.Text)).Should().Be(string.Concat(plain), "greedy decoding of the same prompt");
+    }
+
+    /// <summary>
     /// Tests chat generation with a GGUF model.
     /// </summary>
     [Fact]

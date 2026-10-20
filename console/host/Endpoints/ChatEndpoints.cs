@@ -500,6 +500,8 @@ public static class ChatEndpoints
 
         public IAsyncEnumerable<string> GenerateAsync(string prompt, GenerationOptions? options = null, CancellationToken ct = default)
             => inner.GenerateAsync(prompt, options, ct);
+        public IAsyncEnumerable<TextStreamChunk> GenerateStreamAsync(string prompt, GenerationOptions? options = null, CancellationToken ct = default)
+            => inner.GenerateStreamAsync(prompt, options, ct);
 
         public IAsyncEnumerable<string> GenerateChatAsync(IEnumerable<ChatMessage> messages, GenerationOptions? options = null, CancellationToken ct = default)
             => inner.GenerateChatAsync(messages, options, ct);

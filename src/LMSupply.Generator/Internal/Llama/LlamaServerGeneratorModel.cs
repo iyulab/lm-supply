@@ -490,6 +490,31 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
         CompletionOutcome? outcome,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        await foreach (var chunk in StreamCompletionAsync(prompt, options, outcome ?? new CompletionOutcome(), cancellationToken))
+        {
+            if (!string.IsNullOrEmpty(chunk.Text))
+                yield return chunk.Text;
+        }
+    }
+
+    /// <inheritdoc />
+    public IAsyncEnumerable<TextStreamChunk> GenerateStreamAsync(
+        string prompt,
+        GenerationOptions? options = null,
+        CancellationToken cancellationToken = default)
+        => StreamCompletionAsync(prompt, options, new CompletionOutcome(), cancellationToken);
+
+    /// <summary>
+    /// A raw-prompt completion as structured chunks: the server's prompt-reading progress, the text (through the
+    /// reasoning filter when the options ask for one) with its log probabilities, and a final chunk with the ending,
+    /// usage and timings, which <paramref name="outcome"/> also records.
+    /// </summary>
+    private async IAsyncEnumerable<TextStreamChunk> StreamCompletionAsync(
+        string prompt,
+        GenerationOptions? options,
+        CompletionOutcome outcome,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
         ThrowIfDisposed();
         options ??= GenerationOptions.Default;
 
@@ -525,58 +550,60 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
 
             await foreach (var data in (await ClientAsync(cancellationToken)).GenerateStreamAsync(prompt, completionOptions, cancellationToken))
             {
-                if (data.FinishReason is not null && outcome is not null)
+                // Before the first token: nothing to filter, and the consumer is waiting for any sign of life.
+                if (data.PromptProgress is { } progress)
+                {
+                    yield return new TextStreamChunk { PromptProgress = ToPromptProgress(progress) };
+                    continue;
+                }
+
+                if (data.FinishReason is not null)
                     outcome.FinishReason = data.FinishReason;
-                if (outcome is not null && data.PromptTokens is { } evaluated && data.CompletionTokens is { } predicted)
+                if (data.PromptTokens is { } evaluated && data.CompletionTokens is { } predicted)
                 {
                     outcome.PromptTokens = evaluated;
                     outcome.CompletionTokens = predicted;
                 }
-                if (outcome is not null && data.Timings is { } rawTimings)
+                if (data.Timings is { } rawTimings)
                     outcome.Timings = ToGenerationTimings(rawTimings);
 
                 if (data.TextDelta is not { } token)
                 {
-                    outcome?.AddLogprobs(data.Logprobs);
+                    outcome.AddLogprobs(data.Logprobs);
+                    if (ToTokenLogprobs(data.Logprobs) is { } onlyLogprobs)
+                        yield return new TextStreamChunk { Logprobs = onlyLogprobs };
                     continue;
                 }
 
                 if (maxTokens > 0 && ++tokenCount > maxTokens)
                 {
                     // The client-side cap cut the stream before the server said why: that is the output limit.
-                    if (outcome is not null)
-                    {
-                        outcome.FinishReason = "length";
-                        outcome.Timings = null;
-                    }
+                    outcome.FinishReason = "length";
+                    outcome.PromptTokens = null;
+                    outcome.CompletionTokens = null;
+                    outcome.Timings = null;
                     break;
                 }
 
-                outcome?.AddLogprobs(data.Logprobs);
-
-                if (reasoningFilter != null)
-                {
-                    var filtered = reasoningFilter.Process(token);
-                    if (!string.IsNullOrEmpty(filtered))
-                    {
-                        yield return filtered;
-                    }
-                }
-                else
-                {
-                    yield return token;
-                }
+                outcome.AddLogprobs(data.Logprobs);
+                var text = reasoningFilter is null ? token : reasoningFilter.Process(token);
+                var logprobs = ToTokenLogprobs(data.Logprobs);
+                if (!string.IsNullOrEmpty(text) || logprobs is not null)
+                    yield return new TextStreamChunk { Text = string.IsNullOrEmpty(text) ? null : text, Logprobs = logprobs };
             }
 
             // Flush remaining content
-            if (reasoningFilter != null)
+            if (reasoningFilter?.Flush() is { Length: > 0 } remaining)
+                yield return new TextStreamChunk { Text = remaining };
+
+            yield return new TextStreamChunk
             {
-                var remaining = reasoningFilter.Flush();
-                if (!string.IsNullOrEmpty(remaining))
-                {
-                    yield return remaining;
-                }
-            }
+                FinishReason = outcome.FinishReason ?? "stop",
+                Usage = outcome.PromptTokens is { } prompts && outcome.CompletionTokens is { } completions
+                    ? new ChatTokenUsage { PromptTokens = prompts, CompletionTokens = completions, TotalTokens = prompts + completions }
+                    : null,
+                Timings = outcome.Timings,
+            };
         }
         finally
         {
