@@ -26,14 +26,13 @@ public sealed class LlamaServerOwnersTests : IDisposable
         return Process.Start(startInfo)!;
     }
 
-    // A process that has already ended: its id and start time name an owner that is gone.
+    // A process that has already ended: its id and start time name an owner that is gone. It is ended only after its
+    // start time is read — a process that exits on its own may be gone before then.
     private static async Task<(int Id, long StartTicks)> EndedAsync()
     {
-        var startInfo = OperatingSystem.IsWindows() ? new ProcessStartInfo("cmd.exe", "/c exit 0") : new ProcessStartInfo("/bin/sh", "-c \"exit 0\"");
-        startInfo.UseShellExecute = false;
-        startInfo.CreateNoWindow = true;
-        using var process = Process.Start(startInfo)!;
+        using var process = LongRunning();
         var start = process.StartTime.ToUniversalTime().Ticks;
+        process.Kill(entireProcessTree: true);
         await process.WaitForExitAsync(TestContext.Current.CancellationToken);
         return (process.Id, start);
     }
