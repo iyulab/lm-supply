@@ -8,12 +8,12 @@
     <!--
       onnxruntime 1.25.x-1.26.0 crashed InferenceSession construction for the Transcriber's
       zero-config registry default (whisper-base, decoder_model_merged_int8.onnx, CPU EP) with
-      "Missing required scale: ...embed_tokens.weight_merged_0_scale". 1.30.0 loads and
+      "Missing required scale: ...embed_tokens.weight_merged_0_scale". 1.30.0 and later load and
       transcribes it again. Before changing this version, run the registry-default models through
       LMSupply.Integration.Tests' Functional/LocalOnly suites (network + GPU required, not part
       of CI).
     -->
-    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />
     <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.1" />
     <PackageVersion Include="System.Numerics.Tensors" Version="10.0.13" />
     <!-- Vision Dependencies -->
@@ -32,11 +32,11 @@
     <!-- ONNX Runtime GenAI for LLM Inference. The 0.x API changes between minors, and the generator paths are covered
          only by the integration and local-model suites, which CI does not run: move it only after those suites pass on
          the new version on a GPU machine. -->
-    <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.17.1" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.18.0" />
     <!-- llama-server process management -->
     <PackageVersion Include="ChildProcessGuard" Version="1.4.0" />
     <!-- GPU Providers (optional, user installs separately) -->
-    <PackageVersion Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.30.0" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.31.0" />
     <!-- Testing (xUnit v3 / Microsoft.Testing.Platform) -->
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
     <PackageVersion Include="Iyu.Conventions.Testing" Version="0.13.0" />

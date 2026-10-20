@@ -86,7 +86,7 @@ public static class RuntimePackageRegistry
     };
 
     /// <summary>The OpenVINO plugin version this library is tested with.</summary>
-    public const string OpenVinoPluginVersion = "1.7.0";
+    public const string OpenVinoPluginVersion = "1.8.0";
 
     // Execution provider plugin packages (win-x64 and linux-x64 natives only)
     private static readonly Dictionary<string, PackageConfig> ExecutionProviderPluginPackages = new(StringComparer.OrdinalIgnoreCase)

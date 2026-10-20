@@ -6,6 +6,14 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Changed
+- **ONNX Runtime 1.31.0, ONNX Runtime GenAI 0.18.0 and the OpenVINO execution provider plugin 1.8.0.** GenAI 0.18.0
+  requires ONNX Runtime 1.31.0 or later, so the three move together. ONNX Runtime 1.31.0 creates a session from a copy of its
+  `SessionOptions`, so options released while a session is being created no longer matter. Its native builds now use
+  the 1DS telemetry uploader on Windows too; LMSupply keeps setting `ORT_DISABLE_TELEMETRY=1` first, which that uploader
+  honours. Migration: a consumer that pins `Microsoft.ML.OnnxRuntime`, `Microsoft.ML.OnnxRuntime.Gpu` or
+  `Microsoft.ML.OnnxRuntimeGenAI` below these versions gets NU1605 on restore — raise the pin.
+
 ## [0.131.0] - 2026-10-20
 
 ### Fixed
