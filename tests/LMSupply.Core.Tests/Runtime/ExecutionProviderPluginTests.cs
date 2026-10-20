@@ -85,7 +85,7 @@ public sealed class ExecutionProviderPluginTests : IDisposable
     public async Task LocalOnly_AnotherCachedPluginVersion_DoesNotStandIn()
     {
         var (manager, feed) = await CreateAsync(new RuntimeManagerOptions { CacheDirectory = CacheDir, DisableAutoDownload = true });
-        var other = Path.Combine(CacheDir, Plugin, OpenVino, "1.6.1", manager.Platform.RuntimeIdentifier);
+        var other = Path.Combine(CacheDir, Plugin, OpenVino, "0.0.1", manager.Platform.RuntimeIdentifier);
         Directory.CreateDirectory(other);
         File.WriteAllBytes(Path.Combine(other, RuntimePackageRegistry.GetNativeLibraryFileName(PluginLibrary, manager.Platform)), [1]);
 

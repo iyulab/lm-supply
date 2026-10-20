@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using LMSupply.Inference;
 using Xunit;
 
 namespace LMSupply.Embedder.Tests;
@@ -20,8 +21,17 @@ public sealed class OpenVinoProviderTests
         var ct = TestContext.Current.CancellationToken;
         await using var gpu = await LocalEmbedder.LoadAsync("default", new EmbedderOptions { Provider = ExecutionProvider.OpenVino },
             cancellationToken: ct);
-        if (!gpu.ActiveProviders.Contains("OpenVINOExecutionProvider"))
-            Assert.Skip($"No Intel GPU exposed by the OpenVINO plugin on this host (active: {string.Join(", ", gpu.ActiveProviders)}).");
+        if (!gpu.ActiveProviders.Contains(OpenVinoExecutionProvider.EpName))
+        {
+            // Only a host whose plugin lists no GPU is skipped. A GPU the plugin lists but the session does not run on is a
+            // failure: the plugin registered and then could not create its provider (an ONNX Runtime it is not built for),
+            // which the library survives by running on CPU -- and which must not read as "no GPU here".
+            var listed = OpenVinoExecutionProvider.GpuDevices().Count;
+            if (listed == 0)
+                Assert.Skip($"No Intel GPU exposed by the OpenVINO plugin on this host (active: {string.Join(", ", gpu.ActiveProviders)}).");
+            Assert.Fail($"The OpenVINO plugin lists {listed} GPU device(s), but the session runs on " +
+                $"{string.Join(", ", gpu.ActiveProviders)}; the [OnnxSessionFactory] and [OpenVINO] trace lines say why.");
+        }
 
         gpu.IsGpuActive.Should().BeTrue();
 

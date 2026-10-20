@@ -86,7 +86,14 @@ public static class RuntimePackageRegistry
     };
 
     /// <summary>The OpenVINO plugin version this library is tested with.</summary>
-    public const string OpenVinoPluginVersion = "1.8.0";
+    /// <remarks>
+    /// A plugin build is tied to the ONNX Runtime versions whose plugin API it calls, so this moves only together with
+    /// <c>Microsoft.ML.OnnxRuntime</c>. Plugins 1.7.0 and 1.8.0 look up experimental EPContext functions that ONNX Runtime
+    /// 1.31.0 moved to its stable API, and fail to create the provider on it; 1.6.1 does not call them.
+    /// </remarks>
+    // TODO(upstream: onnxruntime/onnxruntime-ep-openvino, a plugin built for ONNX Runtime 1.31) -- move to the first
+    // plugin release that creates the provider on ONNX Runtime 1.31, after an Intel GPU run of OpenVinoProviderTests.
+    public const string OpenVinoPluginVersion = "1.6.1";
 
     // Execution provider plugin packages (win-x64 and linux-x64 natives only)
     private static readonly Dictionary<string, PackageConfig> ExecutionProviderPluginPackages = new(StringComparer.OrdinalIgnoreCase)

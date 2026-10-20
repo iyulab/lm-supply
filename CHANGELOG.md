@@ -23,8 +23,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   a few layers left on the CPU. The number of GPU layers is unchanged.
 
 ### Changed
-- **ONNX Runtime 1.31.0, ONNX Runtime GenAI 0.18.0 and the OpenVINO execution provider plugin 1.8.0.** GenAI 0.18.0
-  requires ONNX Runtime 1.31.0 or later, so the three move together. ONNX Runtime 1.31.0 creates a session from a copy of its
+- **ONNX Runtime 1.31.0 and ONNX Runtime GenAI 0.18.0; the OpenVINO execution provider plugin goes to 1.6.1.** GenAI
+  0.18.0 requires ONNX Runtime 1.31.0 or later, so the two move together. OpenVINO plugins 1.7.0 and 1.8.0 cannot create
+  their provider on ONNX Runtime 1.31.0 (they look up experimental functions that release moved to its stable API), so
+  `ExecutionProvider.OpenVino` uses plugin 1.6.1, which can; it moves forward once a later plugin release works with 1.31. ONNX Runtime 1.31.0 creates a session from a copy of its
   `SessionOptions`, so options released while a session is being created no longer matter. Its native builds now use
   the 1DS telemetry uploader on Windows too; LMSupply keeps setting `ORT_DISABLE_TELEMETRY=1` first, which that uploader
   honours. Migration: a consumer that pins `Microsoft.ML.OnnxRuntime`, `Microsoft.ML.OnnxRuntime.Gpu` or
