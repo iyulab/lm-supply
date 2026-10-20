@@ -63,6 +63,147 @@ internal sealed partial class LlamaServerGeneratorModel
     }
 
     /// <summary>
+    /// Fits the model's GPU layers to the VRAM budget of <paramref name="loadGpu"/>, the KV cache counted when the GGUF
+    /// says enough to size it. A model that does not fit is offloaded partially, and the layers and estimates are
+    /// returned as the load's sizing; one that fits keeps its options and no sizing.
+    /// </summary>
+    internal static (LlamaOptions Options, LoadSizing Sizing) FitGpuLayers(
+        string modelPath,
+        LlamaOptions llamaOpts,
+        GgufMetadata? ggufMetadata,
+        int contextLength,
+        LlamaServerBackend backend,
+        string? serverVersion,
+        GeneratorOptions options,
+        GpuInfo loadGpu)
+    {
+        var fileSize = CacheManager.GetContentLength(modelPath);
+        var profile = Hardware.HardwareProfile.Current;
+        // Use VramBudget so LMSUPPLY_VRAM_BUDGET_MB override + safety margins
+        // flow into the offload decision. Raw EffectiveAvailableBytes ignored both.
+        var budgetVram = VramBudget.GetAvailableBytes(loadGpu);
+        var availableVram = budgetVram > 0 ? budgetVram : loadGpu.EffectiveAvailableBytes;
+        var geometry = KvCacheGeometry.FromMetadata(ggufMetadata);
+        var estimate = geometry is not null && ggufMetadata!.LayerCount is { } layerCount
+            ? MemoryEstimator.EstimateForGgufWithKvCache(
+                fileSize,
+                geometry.TotalBytes(
+                    contextLength,
+                    ResolveKvCacheType(llamaOpts.TypeK, backend, serverVersion),
+                    ResolveKvCacheType(llamaOpts.TypeV, backend, serverVersion),
+                    Math.Max(1, options.MaxConcurrentRequests),
+                    (int)(llamaOpts.UBatchSize ?? KvCacheGeometry.DefaultUBatch)),
+                availableVram,
+                profile.SystemMemoryBytes,
+                layerCount)
+            : MemoryEstimator.EstimateForGguf(
+                fileSize,
+                contextLength,
+                availableVramBytes: availableVram,
+                availableRamBytes: profile.SystemMemoryBytes);
+
+        if (estimate.CanFitInVram || estimate.RecommendedGpuLayers >= estimate.TotalLayers)
+        {
+            return (llamaOpts, LoadSizing.None);
+        }
+
+        // Severity-aware trace: TraceWarning for full CPU fallback (0 GPU layers),
+        // TraceInformation for partial offload. See LlamaOffloadTraceHelper.
+        LlamaOffloadTraceHelper.TraceOffloadDecision(
+            estimate,
+            freeVramBytes: loadGpu.FreeMemoryBytes ?? 0,
+            totalVramBytes: loadGpu.TotalMemoryBytes ?? 0);
+        return (
+            CloneLlamaOptionsWithGpuLayers(llamaOpts, estimate.RecommendedGpuLayers),
+            new LoadSizing(
+                GpuLayers: estimate.RecommendedGpuLayers,
+                TotalLayers: estimate.TotalLayers,
+                EstimatedVramBytes: estimate.EstimatedVramBytes,
+                EstimatedRamBytes: estimate.EstimatedRamBytes));
+    }
+
+    /// <summary>
+    /// The configuration a server for this load starts with. Rejects a draft-model speculative decoding without a draft
+    /// model, and YaRN scaling without the original training context.
+    /// </summary>
+    internal static LlamaServerConfig BuildServerConfig(
+        string modelPath,
+        int contextLength,
+        LlamaOptions llamaOpts,
+        LlamaServerBackend backend,
+        string? serverVersion,
+        GeneratorOptions options,
+        GgufMetadata? ggufMetadata)
+    {
+        // Build additional arguments
+        var additionalArgs = BuildAdditionalArgs(llamaOpts, ggufMetadata?.Architecture);
+
+        // Validate speculative decoding configuration
+        if (llamaOpts.SpeculativeDecoding == SpeculativeDecodingMode.DraftModel
+            && string.IsNullOrEmpty(llamaOpts.DraftModelPath))
+        {
+            throw new InvalidOperationException(
+                "SpeculativeDecoding = DraftModel requires DraftModelPath to be set.");
+        }
+
+        // Validate YaRN configuration
+        if (llamaOpts.RopeScaling == RopeScalingMode.YaRN && !llamaOpts.YarnOriginalContext.HasValue)
+        {
+            throw new InvalidOperationException(
+                "RopeScaling = YaRN requires YarnOriginalContext to be set (original training context size, e.g., 4096).");
+        }
+
+        return new LlamaServerConfig
+        {
+            ModelPath = modelPath,
+            Port = 0, // Auto-assign
+            ContextSize = contextLength,
+            GpuLayers = llamaOpts.GpuLayerCount ?? (backend == LlamaServerBackend.Cpu ? 0 : -1),
+            BatchSize = (int)(llamaOpts.BatchSize ?? 512),
+            UBatchSize = llamaOpts.UBatchSize.HasValue ? (int)llamaOpts.UBatchSize.Value : null,
+            Parallel = Math.Max(1, options.MaxConcurrentRequests),
+            FlashAttention = llamaOpts.FlashAttention ?? false,
+            // Phase 1: KV cache quantization
+            CacheTypeK = ResolveKvCacheType(llamaOpts.TypeK, backend, serverVersion),
+            CacheTypeV = ResolveKvCacheType(llamaOpts.TypeV, backend, serverVersion),
+            // Phase 1: Memory options
+            UseMemoryMap = llamaOpts.UseMemoryMap,
+            UseMemoryLock = llamaOpts.UseMemoryLock,
+            // Phase 1: GPU options
+            MainGpu = llamaOpts.MainGpu,
+            // Phase 1: RoPE options
+            RopeFreqBase = llamaOpts.RopeFrequencyBase,
+            RopeFreqScale = llamaOpts.RopeFrequencyScale,
+            // Speculative decoding
+            SpecType = ResolveSpecType(llamaOpts.SpeculativeDecoding, serverVersion),
+            ModelDraft = llamaOpts.SpeculativeDecoding == SpeculativeDecodingMode.DraftModel
+                ? llamaOpts.DraftModelPath : null,
+            // YaRN RoPE scaling
+            RopeScaling         = MapRopeScaling(llamaOpts.RopeScaling),
+            YarnOriginalContext  = llamaOpts.YarnOriginalContext,
+            YarnExtensionFactor  = llamaOpts.YarnExtensionFactor,
+            YarnAttentionFactor  = llamaOpts.YarnAttentionFactor,
+            YarnBetaFast         = llamaOpts.YarnBetaFast,
+            YarnBetaSlow         = llamaOpts.YarnBetaSlow,
+            // Phase 3: Multimodal support
+            MultimodalProjector = llamaOpts.MultimodalProjector,
+            // Phase 3: LoRA support
+            LoraPath = llamaOpts.LoraPath,
+            LoraScale = llamaOpts.LoraScale,
+            // Startup wait policy: the caller's values when given, otherwise LlamaServerConfig's
+            // defaults (progress-based stall detection + a far-out absolute cap). No constant here —
+            // the 120 s that used to live at this site (and in Embedder/Reranker) is what a cold
+            // page-cache mmap load of a 4 GB model overran on a shared CI runner.
+            ServerVersion = serverVersion,
+            StartupTimeout = llamaOpts.StartupTimeout ?? LlamaServerConfig.DefaultStartupTimeout,
+            StartupStallTimeout = llamaOpts.StartupStallTimeout ?? LlamaServerConfig.DefaultStartupStallTimeout,
+            RequestTimeout = llamaOpts.RequestTimeout ?? LlamaServerConfig.DefaultRequestTimeout,
+            ShutdownTimeout = TimeSpan.FromSeconds(10),
+            AdditionalArgs = additionalArgs.Count > 0 ? additionalArgs : null
+        };
+    }
+
+    /// <summary>
     /// Resolves KV cache type to llama-server CLI string.
     /// Auto selects based on backend and server version.
     /// </summary>

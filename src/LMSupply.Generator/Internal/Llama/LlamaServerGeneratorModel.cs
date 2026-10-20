@@ -26,14 +26,7 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
     private SelectionDiagnostics? _diagnostics;
     private readonly int _requestedContextLength;
     private readonly int _effectiveContextLength;
-    private readonly int? _gpuLayers;
-    private readonly int? _totalLayers;
-    private readonly long? _estimatedVramBytes;
-    private readonly long? _estimatedRamBytes;
-    private readonly long? _vramBudgetBytes;
-    private readonly long? _vramFreeBytes;
-    private readonly long? _vramTotalBytes;
-    private readonly bool _contextFlooredByVram;
+    private readonly LoadSizing _sizing;
 
     public void SetDiagnostics(SelectionDiagnostics diagnostics) => _diagnostics = diagnostics;
     private bool _disposed;
@@ -49,14 +42,7 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
         int effectiveContextLength,
         GgufMetadata? ggufMetadata,
         string serverVersion,
-        int? gpuLayers = null,
-        int? totalLayers = null,
-        long? estimatedVramBytes = null,
-        long? estimatedRamBytes = null,
-        long? vramBudgetBytes = null,
-        long? vramFreeBytes = null,
-        long? vramTotalBytes = null,
-        bool contextFlooredByVram = false)
+        LoadSizing sizing)
     {
         ModelId = identity.ModelId;
         _identity = identity;
@@ -69,14 +55,7 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
         _effectiveContextLength = effectiveContextLength;
         _ggufMetadata = ggufMetadata;
         _serverVersion = serverVersion;
-        _gpuLayers = gpuLayers;
-        _totalLayers = totalLayers;
-        _estimatedVramBytes = estimatedVramBytes;
-        _estimatedRamBytes = estimatedRamBytes;
-        _vramBudgetBytes = vramBudgetBytes;
-        _vramFreeBytes = vramFreeBytes;
-        _vramTotalBytes = vramTotalBytes;
-        _contextFlooredByVram = contextFlooredByVram;
+        _sizing = sizing;
 
         // Initialize concurrency limiter
         _concurrencyLimiter = new SemaphoreSlim(
@@ -95,47 +74,10 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        // 1. Get llama-server via update service (handles caching, updates, rollback). The opening report is the
-        // runtime step's, like every report the update service makes.
-        progress?.Report(new DownloadProgress
-        {
-            FileName = "llama-server",
-            Kind = DownloadKind.Runtime,
-            Phase = DownloadPhase.Preparing
-        });
-
-        var preferredBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(
-            options.Provider, Hardware.HardwareProfile.For(options.Provider).GpuInfo);
+        // 1. The llama-server build for this model's chat format. The opening report is the runtime step's, like every
+        // report the update service makes.
         var updateService = LlamaServerUpdateService.Resolve(options.ServerUpdateOptions);
-        // With downloads disabled the server comes from the cache only, with no update check: the load makes no request.
-        var installation = await updateService.AcquireServerAsync(
-            preferredBackend,
-            options.DisableAutoDownload,
-            progress,
-            cancellationToken);
-
-        var serverPath = installation.ServerPath;
-        var backend = installation.Backend;
-        var serverVersion = installation.Version;
-
-        // 1b. Validate server version meets model requirements.
-        // If the cached version is too old, trigger an immediate update and retry once
-        // before throwing — avoids requiring manual cache deletion. When options.ServerUpdateOptions
-        // pins a version, CheckAndApplyUpdateAsync intentionally short-circuits to the same pinned
-        // binary (a pin must never be silently exceeded), so this retry is a no-op and Validate below
-        // still throws — correctly, since the pin genuinely doesn't meet the requirement.
-        // With downloads disabled no newer build is fetched: Validate below says the cached one is too old.
-        if (!options.DisableAutoDownload
-            && !LlamaServerVersionRequirements.MeetsMinimum(serverVersion, chatFormatter.FormatName))
-        {
-            var retryResult = await updateService.CheckAndApplyUpdateAsync(
-                preferredBackend, progress, cancellationToken);
-            serverPath    = retryResult.ServerPath;
-            backend       = retryResult.Backend;
-            serverVersion = retryResult.NewVersion ?? retryResult.PreviousVersion;
-        }
-
-        LlamaServerVersionRequirements.Validate(serverVersion, chatFormatter.FormatName);
+        var (serverPath, backend, serverVersion) = await AcquireServerAsync(updateService, chatFormatter, options, progress, cancellationToken);
 
         // 1c. On a GPU, stop the idle servers of other models before sizing this one: a server whose
         // model was disposed stays pooled for reuse, and on one GPU it keeps the memory this load is
@@ -199,62 +141,13 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
             ? GpuDetector.WithCurrentFreeMemory(Hardware.HardwareProfile.Current.GpuInfo)
             : Hardware.HardwareProfile.Current.GpuInfo;
 
-        // Captured when partial offload occurs — exposed via GetModelInfo() for diagnostics.
-        int? capturedGpuLayers = null;
-        int? capturedTotalLayers = null;
-        long? capturedVramBytes = null;
-        long? capturedRamBytes = null;
-
-        // VRAM-budget telemetry — exposed via GetModelInfo() so consumers can classify
-        // "accurately-small VRAM" vs "under-reported budget" without parsing log magic numbers.
-        long? capturedVramBudgetBytes = null;
-        long? capturedVramFreeBytes = null;
-        long? capturedVramTotalBytes = null;
-        bool capturedContextFloored = false;
+        // What sizing decided, exposed via GetModelInfo() for diagnostics.
+        var sizing = LoadSizing.None;
 
         // Auto-calculate GPU layer count based on actual VRAM budget when using default (-1 = all).
         if (NeedsVramFit(llamaOpts, backend) && sharedContext is null)
         {
-            var fileSize = CacheManager.GetContentLength(modelPath);
-            var profile = Hardware.HardwareProfile.Current;
-            // Use VramBudget so LMSUPPLY_VRAM_BUDGET_MB override + safety margins
-            // flow into the offload decision. Raw EffectiveAvailableBytes ignored both.
-            var budgetVram = VramBudget.GetAvailableBytes(loadGpu);
-            var availableVram = budgetVram > 0 ? budgetVram : loadGpu.EffectiveAvailableBytes;
-            var geometry = KvCacheGeometry.FromMetadata(ggufMetadata);
-            var estimate = geometry is not null && ggufMetadata!.LayerCount is { } layerCount
-                ? MemoryEstimator.EstimateForGgufWithKvCache(
-                    fileSize,
-                    geometry.TotalBytes(
-                        contextLength,
-                        ResolveKvCacheType(llamaOpts.TypeK, backend, serverVersion),
-                        ResolveKvCacheType(llamaOpts.TypeV, backend, serverVersion),
-                        Math.Max(1, options.MaxConcurrentRequests),
-                        (int)(llamaOpts.UBatchSize ?? KvCacheGeometry.DefaultUBatch)),
-                    availableVram,
-                    profile.SystemMemoryBytes,
-                    layerCount)
-                : MemoryEstimator.EstimateForGguf(
-                    fileSize,
-                    contextLength,
-                    availableVramBytes: availableVram,
-                    availableRamBytes: profile.SystemMemoryBytes);
-
-            if (!estimate.CanFitInVram && estimate.RecommendedGpuLayers < estimate.TotalLayers)
-            {
-                capturedGpuLayers = estimate.RecommendedGpuLayers;
-                capturedTotalLayers = estimate.TotalLayers;
-                capturedVramBytes = estimate.EstimatedVramBytes;
-                capturedRamBytes = estimate.EstimatedRamBytes;
-
-                llamaOpts = CloneLlamaOptionsWithGpuLayers(llamaOpts, estimate.RecommendedGpuLayers);
-                // Severity-aware trace: TraceWarning for full CPU fallback (0 GPU layers),
-                // TraceInformation for partial offload. See LlamaOffloadTraceHelper.
-                LlamaOffloadTraceHelper.TraceOffloadDecision(
-                    estimate,
-                    freeVramBytes: loadGpu.FreeMemoryBytes ?? 0,
-                    totalVramBytes: loadGpu.TotalMemoryBytes ?? 0);
-            }
+            (llamaOpts, sizing) = FitGpuLayers(modelPath, llamaOpts, ggufMetadata, contextLength, backend, serverVersion, options, loadGpu);
         }
 
         // Auto-cap context length based on remaining VRAM after model load.
@@ -275,12 +168,14 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
                 gpu: loadGpu);
 
             // Capture VRAM telemetry before any CPU fallback switches the backend below.
-            capturedContextFloored = contextFloored;
-            var gpuInfo = loadGpu;
-            var vramBudget = VramBudget.GetAvailableBytes(gpuInfo);
-            capturedVramBudgetBytes = vramBudget > 0 ? vramBudget : null;
-            capturedVramTotalBytes = gpuInfo.TotalMemoryBytes;
-            capturedVramFreeBytes = gpuInfo.FreeMemoryBytes ?? gpuInfo.TotalMemoryBytes;
+            var vramBudget = VramBudget.GetAvailableBytes(loadGpu);
+            sizing = sizing with
+            {
+                ContextFlooredByVram = contextFloored,
+                VramBudgetBytes = vramBudget > 0 ? vramBudget : null,
+                VramTotalBytes = loadGpu.TotalMemoryBytes,
+                VramFreeBytes = loadGpu.FreeMemoryBytes ?? loadGpu.TotalMemoryBytes,
+            };
 
             var action = DecideFlooredContextAction(options.Provider, backend, safeContext, contextLength);
 
@@ -366,75 +261,117 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
             }
         }
 
-        // Build additional arguments
-        var additionalArgs = BuildAdditionalArgs(llamaOpts, ggufMetadata?.Architecture);
-
-        // Validate speculative decoding configuration
-        if (llamaOpts.SpeculativeDecoding == SpeculativeDecodingMode.DraftModel
-            && string.IsNullOrEmpty(llamaOpts.DraftModelPath))
-        {
-            throw new InvalidOperationException(
-                "SpeculativeDecoding = DraftModel requires DraftModelPath to be set.");
-        }
-
-        // Validate YaRN configuration
-        if (llamaOpts.RopeScaling == RopeScalingMode.YaRN && !llamaOpts.YarnOriginalContext.HasValue)
-        {
-            throw new InvalidOperationException(
-                "RopeScaling = YaRN requires YarnOriginalContext to be set (original training context size, e.g., 4096).");
-        }
-
-        var serverConfig = new LlamaServerConfig
-        {
-            ModelPath = modelPath,
-            Port = 0, // Auto-assign
-            ContextSize = contextLength,
-            GpuLayers = llamaOpts.GpuLayerCount ?? (backend == LlamaServerBackend.Cpu ? 0 : -1),
-            BatchSize = (int)(llamaOpts.BatchSize ?? 512),
-            UBatchSize = llamaOpts.UBatchSize.HasValue ? (int)llamaOpts.UBatchSize.Value : null,
-            Parallel = Math.Max(1, options.MaxConcurrentRequests),
-            FlashAttention = llamaOpts.FlashAttention ?? false,
-            // Phase 1: KV cache quantization
-            CacheTypeK = ResolveKvCacheType(llamaOpts.TypeK, backend, serverVersion),
-            CacheTypeV = ResolveKvCacheType(llamaOpts.TypeV, backend, serverVersion),
-            // Phase 1: Memory options
-            UseMemoryMap = llamaOpts.UseMemoryMap,
-            UseMemoryLock = llamaOpts.UseMemoryLock,
-            // Phase 1: GPU options
-            MainGpu = llamaOpts.MainGpu,
-            // Phase 1: RoPE options
-            RopeFreqBase = llamaOpts.RopeFrequencyBase,
-            RopeFreqScale = llamaOpts.RopeFrequencyScale,
-            // Speculative decoding
-            SpecType = ResolveSpecType(llamaOpts.SpeculativeDecoding, serverVersion),
-            ModelDraft = llamaOpts.SpeculativeDecoding == SpeculativeDecodingMode.DraftModel
-                ? llamaOpts.DraftModelPath : null,
-            // YaRN RoPE scaling
-            RopeScaling         = MapRopeScaling(llamaOpts.RopeScaling),
-            YarnOriginalContext  = llamaOpts.YarnOriginalContext,
-            YarnExtensionFactor  = llamaOpts.YarnExtensionFactor,
-            YarnAttentionFactor  = llamaOpts.YarnAttentionFactor,
-            YarnBetaFast         = llamaOpts.YarnBetaFast,
-            YarnBetaSlow         = llamaOpts.YarnBetaSlow,
-            // Phase 3: Multimodal support
-            MultimodalProjector = llamaOpts.MultimodalProjector,
-            // Phase 3: LoRA support
-            LoraPath = llamaOpts.LoraPath,
-            LoraScale = llamaOpts.LoraScale,
-            // Startup wait policy: the caller's values when given, otherwise LlamaServerConfig's
-            // defaults (progress-based stall detection + a far-out absolute cap). No constant here —
-            // the 120 s that used to live at this site (and in Embedder/Reranker) is what a cold
-            // page-cache mmap load of a 4 GB model overran on a shared CI runner.
-            ServerVersion = serverVersion,
-            StartupTimeout = llamaOpts.StartupTimeout ?? LlamaServerConfig.DefaultStartupTimeout,
-            StartupStallTimeout = llamaOpts.StartupStallTimeout ?? LlamaServerConfig.DefaultStartupStallTimeout,
-            RequestTimeout = llamaOpts.RequestTimeout ?? LlamaServerConfig.DefaultRequestTimeout,
-            ShutdownTimeout = TimeSpan.FromSeconds(10),
-            AdditionalArgs = additionalArgs.Count > 0 ? additionalArgs : null
-        };
+        var serverConfig = BuildServerConfig(modelPath, contextLength, llamaOpts, backend, serverVersion, options, ggufMetadata);
 
         // 4. Lease server from pool with OOM retry (reduces GPU layers on failure)
-        ServerLease serverLease;
+        (var serverLease, serverConfig) = await LeaseWithOomRetryAsync(serverPath, serverConfig, backend, progress, cancellationToken);
+
+        var restartConfig = serverConfig;
+        var model = new LlamaServerGeneratorModel(
+            identity,
+            modelPath,
+            serverLease,
+            ct => LlamaServerPool.Instance.LeaseAsync(serverPath, restartConfig, backend, progress: null, ct),
+            chatFormatter,
+            options,
+            requestedContextLength,
+            contextLength,
+            ggufMetadata,
+            serverVersion ?? "unknown",
+            sizing);
+
+        // W1: Gemma 4 tool-use risk advisory (llama.cpp #21375 / #21882 not yet merged).
+        // Emitted once at load time so operators see the warning before any inference request.
+        if (chatFormatter is Gemma4ChatFormatter)
+        {
+            Trace.TraceWarning(
+                "[LlamaServerGeneratorModel] Gemma 4 model loaded. " +
+                "llama.cpp #21375 (chat-template/rope) and #21882 (instruction-following) " +
+                "are not yet in a stable release. " +
+                "Tool-use + Korean instructional prompts may produce empty responses (Q4_K_M). " +
+                "Consider Qwen2.5-7B-Instruct GGUF for reliable tool-use until upstream PRs land.");
+        }
+
+        return model;
+    }
+
+    /// <summary>
+    /// What sizing decided for a load, reported by <see cref="GetModelInfo"/>: the GPU layers of a partial offload and
+    /// the estimates behind them, and the VRAM budget the context was sized against.
+    /// </summary>
+    internal sealed record LoadSizing(
+        int? GpuLayers = null,
+        int? TotalLayers = null,
+        long? EstimatedVramBytes = null,
+        long? EstimatedRamBytes = null,
+        long? VramBudgetBytes = null,
+        long? VramFreeBytes = null,
+        long? VramTotalBytes = null,
+        bool ContextFlooredByVram = false)
+    {
+        /// <summary>Nothing was decided: the model loads as configured.</summary>
+        public static LoadSizing None { get; } = new();
+    }
+
+    /// <summary>
+    /// Gets the llama-server build for <paramref name="chatFormatter"/>'s format. A cached build too old for the format is
+    /// updated once before <see cref="LlamaServerVersionRequirements.Validate"/> rejects it — avoids requiring manual
+    /// cache deletion. A pinned version is never exceeded: the update short-circuits to the same pinned binary, and
+    /// Validate then throws, correctly. With downloads disabled the server comes from the cache only, with no update
+    /// check, and no newer build is fetched.
+    /// </summary>
+    private static async Task<(string ServerPath, LlamaServerBackend Backend, string? Version)> AcquireServerAsync(
+        LlamaServerUpdateService updateService,
+        IChatFormatter chatFormatter,
+        GeneratorOptions options,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        progress?.Report(new DownloadProgress
+        {
+            FileName = "llama-server",
+            Kind = DownloadKind.Runtime,
+            Phase = DownloadPhase.Preparing
+        });
+
+        var preferredBackend = global::LMSupply.Llama.LlamaBackendSelector.MapProvider(
+            options.Provider, Hardware.HardwareProfile.For(options.Provider).GpuInfo);
+        var installation = await updateService.AcquireServerAsync(
+            preferredBackend,
+            options.DisableAutoDownload,
+            progress,
+            cancellationToken);
+
+        var serverPath = installation.ServerPath;
+        var backend = installation.Backend;
+        var serverVersion = installation.Version;
+
+        if (!options.DisableAutoDownload
+            && !LlamaServerVersionRequirements.MeetsMinimum(serverVersion, chatFormatter.FormatName))
+        {
+            var retryResult = await updateService.CheckAndApplyUpdateAsync(
+                preferredBackend, progress, cancellationToken);
+            serverPath    = retryResult.ServerPath;
+            backend       = retryResult.Backend;
+            serverVersion = retryResult.NewVersion ?? retryResult.PreviousVersion;
+        }
+
+        LlamaServerVersionRequirements.Validate(serverVersion, chatFormatter.FormatName);
+        return (serverPath, backend, serverVersion);
+    }
+
+    /// <summary>
+    /// Leases a server for <paramref name="serverConfig"/>. A start that runs out of memory with GPU layers left is
+    /// retried with about a quarter fewer (at least one), until it starts or no GPU layer is left. Returns the lease and
+    /// the configuration it was started with.
+    /// </summary>
+    private static async Task<(ServerLease Lease, LlamaServerConfig Config)> LeaseWithOomRetryAsync(
+        string serverPath,
+        LlamaServerConfig serverConfig,
+        LlamaServerBackend backend,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
         var currentGpuLayers = serverConfig.GpuLayers;
         var leaseProgress = progress;
 
@@ -442,13 +379,13 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
         {
             try
             {
-                serverLease = await LlamaServerPool.Instance.LeaseAsync(
+                var lease = await LlamaServerPool.Instance.LeaseAsync(
                     serverPath,
                     serverConfig,
                     backend,
                     leaseProgress,
                     cancellationToken);
-                break; // Success
+                return (lease, serverConfig);
             }
             catch (Exception ex) when ((ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested) && (IsOomError(ex) && currentGpuLayers > 0))
             {
@@ -466,45 +403,6 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
                 serverConfig = CloneConfigWithGpuLayers(serverConfig, currentGpuLayers);
             }
         }
-
-        // OOM retry may have further reduced GPU layers — update captured value.
-        if (capturedGpuLayers.HasValue && currentGpuLayers != serverConfig.GpuLayers)
-            capturedGpuLayers = currentGpuLayers;
-
-        var restartConfig = serverConfig;
-        var model = new LlamaServerGeneratorModel(
-            identity,
-            modelPath,
-            serverLease,
-            ct => LlamaServerPool.Instance.LeaseAsync(serverPath, restartConfig, backend, progress: null, ct),
-            chatFormatter,
-            options,
-            requestedContextLength,
-            contextLength,
-            ggufMetadata,
-            serverVersion ?? "unknown",
-            capturedGpuLayers,
-            capturedTotalLayers,
-            capturedVramBytes,
-            capturedRamBytes,
-            capturedVramBudgetBytes,
-            capturedVramFreeBytes,
-            capturedVramTotalBytes,
-            capturedContextFloored);
-
-        // W1: Gemma 4 tool-use risk advisory (llama.cpp #21375 / #21882 not yet merged).
-        // Emitted once at load time so operators see the warning before any inference request.
-        if (chatFormatter is Gemma4ChatFormatter)
-        {
-            Trace.TraceWarning(
-                "[LlamaServerGeneratorModel] Gemma 4 model loaded. " +
-                "llama.cpp #21375 (chat-template/rope) and #21882 (instruction-following) " +
-                "are not yet in a stable release. " +
-                "Tool-use + Korean instructional prompts may produce empty responses (Q4_K_M). " +
-                "Consider Qwen2.5-7B-Instruct GGUF for reliable tool-use until upstream PRs land.");
-        }
-
-        return model;
     }
 
     /// <inheritdoc />
@@ -892,14 +790,14 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
         RequestedModelId = _identity.RequestedModelId,
         LoadedFile = Path.GetFileName(_modelPath),
         RequestedFile = _identity.RequestedFile,
-        GpuLayers = _gpuLayers,
-        TotalLayers = _totalLayers,
-        EstimatedVramBytes = _estimatedVramBytes,
-        EstimatedRamBytes = _estimatedRamBytes,
-        VramBudgetBytes = _vramBudgetBytes,
-        VramFreeBytes = _vramFreeBytes,
-        VramTotalBytes = _vramTotalBytes,
-        ContextFlooredByVram = _contextFlooredByVram,
+        GpuLayers = _sizing.GpuLayers,
+        TotalLayers = _sizing.TotalLayers,
+        EstimatedVramBytes = _sizing.EstimatedVramBytes,
+        EstimatedRamBytes = _sizing.EstimatedRamBytes,
+        VramBudgetBytes = _sizing.VramBudgetBytes,
+        VramFreeBytes = _sizing.VramFreeBytes,
+        VramTotalBytes = _sizing.VramTotalBytes,
+        ContextFlooredByVram = _sizing.ContextFlooredByVram,
     };
 
     /// <inheritdoc />
