@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.132.0] - 2026-10-20
+
 ### Fixed
 - **A llama-server whose owner was killed is stopped by the next process that starts one, on Linux and macOS.** On
   those systems nothing ended a server when the process that started it was killed or crashed — its exit hooks never
