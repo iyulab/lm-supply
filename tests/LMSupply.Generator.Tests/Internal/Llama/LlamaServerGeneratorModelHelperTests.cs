@@ -467,6 +467,29 @@ public class MemoryEstimatorPartialOffloadTests
     }
 
     [Fact]
+    public void EstimateForGguf_PartialOffload_VramAndRamAddUpToTheTotal()
+    {
+        // The KV cache is part of TotalMemoryBytes; the RAM share must not add it a second time
+        // (it did: 5.6 GB reported for 3 of 36 layers left on the CPU).
+        // TotalMemoryBytes is VRAM + RAM by definition, so the reference total is the same model and context with room for
+        // all of it on the GPU.
+        var estimate = MemoryEstimator.EstimateForGguf(
+            modelFileSizeBytes: 8L * 1024 * 1024 * 1024,
+            contextLength: 32768,
+            availableVramBytes: 6L * 1024 * 1024 * 1024,
+            availableRamBytes: 32L * 1024 * 1024 * 1024);
+        var allOnGpu = MemoryEstimator.EstimateForGguf(
+            modelFileSizeBytes: 8L * 1024 * 1024 * 1024,
+            contextLength: 32768,
+            availableVramBytes: 64L * 1024 * 1024 * 1024,
+            availableRamBytes: 32L * 1024 * 1024 * 1024);
+
+        estimate.RecommendedGpuLayers.Should().BeInRange(1, estimate.TotalLayers - 1, "the case under test is a partial offload");
+        allOnGpu.CanFitInVram.Should().BeTrue();
+        estimate.TotalMemoryBytes.Should().Be(allOnGpu.EstimatedVramBytes, "moving layers to the CPU moves memory, it does not add any");
+    }
+
+    [Fact]
     public void EstimateForGguf_AmpleVram_RecommendsAllLayers()
     {
         // 3GB model, 24GB VRAM → all layers on GPU

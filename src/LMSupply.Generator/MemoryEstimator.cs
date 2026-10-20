@@ -193,7 +193,7 @@ public static class MemoryEstimator
             recommendedLayers = Math.Clamp(recommendedLayers, 0, estimatedLayers);
 
             estimatedVram = recommendedLayers * layerSize;
-            estimatedRam = totalMemory - estimatedVram + kvCacheMemory;
+            estimatedRam = totalMemory - estimatedVram;
         }
         else
         {

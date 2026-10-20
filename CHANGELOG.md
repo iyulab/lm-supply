@@ -17,6 +17,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   input, so a prompt it leaves in the cache is never read back, yet llama-server builds before the upstream fix cached it
   anyway and held up to the cache limit (8 GiB by default) for nothing. LMSupply now starts these servers with
   `--cache-ram 0`; a generation server keeps llama-server's default.
+- **A partially offloaded GGUF model reports its RAM share without counting the KV cache twice.** When not every layer
+  fits in GPU memory, `GeneratorModelInfo.EstimatedRamBytes` (and the offload trace) added the KV cache to a total that
+  already contained it, so the RAM share read one KV cache too high — more than the whole model file for a model with only
+  a few layers left on the CPU. The number of GPU layers is unchanged.
 
 ### Changed
 - **ONNX Runtime 1.31.0, ONNX Runtime GenAI 0.18.0 and the OpenVINO execution provider plugin 1.8.0.** GenAI 0.18.0
