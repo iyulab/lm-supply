@@ -23,7 +23,7 @@ namespace LMSupply.Reranker;
 /// </code>
 /// </example>
 /// </remarks>
-public sealed class Reranker : IRerankerModel
+public sealed class Reranker : IRerankerModel, IDisposable
 {
     private readonly RerankerOptions _options;
     private readonly IProgress<DownloadProgress>? _loadProgress;
@@ -281,6 +281,9 @@ public sealed class Reranker : IRerankerModel
             throw new ArgumentException("Documents collection cannot be empty.", nameof(documents));
         }
     }
+
+    /// <summary>Disposes synchronously, for a container disposed with <c>Dispose()</c> (it throws on a service that is only <see cref="IAsyncDisposable"/>).</summary>
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()

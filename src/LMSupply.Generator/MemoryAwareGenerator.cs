@@ -56,7 +56,7 @@ public sealed class MemoryAwareOptions
 /// <summary>
 /// Decorator that wraps a generator model with memory monitoring and management.
 /// </summary>
-public sealed class MemoryAwareGenerator : IGeneratorModel, Internal.IDiagnosticsSink
+public sealed class MemoryAwareGenerator : IGeneratorModel, Internal.IDiagnosticsSink, IDisposable
 {
     private readonly IGeneratorModel _inner;
     private readonly MemoryAwareOptions _options;
@@ -331,6 +331,9 @@ public sealed class MemoryAwareGenerator : IGeneratorModel, Internal.IDiagnostic
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
     }
+
+    /// <summary>Disposes synchronously, for a container disposed with <c>Dispose()</c> (it throws on a service that is only <see cref="IAsyncDisposable"/>).</summary>
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
