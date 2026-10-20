@@ -6,6 +6,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Fixed
+- **An embedding or reranking llama-server keeps no RAM prompt cache.** Such a request always processes its whole
+  input, so a prompt it leaves in the cache is never read back, yet llama-server builds before the upstream fix cached it
+  anyway and held up to the cache limit (8 GiB by default) for nothing. LMSupply now starts these servers with
+  `--cache-ram 0`; a generation server keeps llama-server's default.
+
 ### Changed
 - **ONNX Runtime 1.31.0, ONNX Runtime GenAI 0.18.0 and the OpenVINO execution provider plugin 1.8.0.** GenAI 0.18.0
   requires ONNX Runtime 1.31.0 or later, so the three move together. ONNX Runtime 1.31.0 creates a session from a copy of its

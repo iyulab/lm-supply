@@ -683,6 +683,36 @@ public sealed class LlamaServerProcess : IAsyncDisposable
         return args;
     }
 
+    /// <summary>
+    /// The arguments <paramref name="mode"/> and <paramref name="pooling"/> add. An embedding or reranking server
+    /// gets <c>--embedding</c> and no RAM prompt cache (<c>--cache-ram 0</c>): such a request always processes its
+    /// whole input, so a cached prompt is never read back, and builds that cache it anyway hold up to the cache limit
+    /// (8 GiB by default) for nothing. A reranking server pools by rank unless a pooling is given.
+    /// </summary>
+    internal static List<string> ModeArguments(ServerMode mode, PoolingType pooling)
+    {
+        var args = new List<string>();
+        if (mode is ServerMode.Embedding or ServerMode.Reranking)
+        {
+            args.Add("--embedding");
+            args.Add("--cache-ram");
+            args.Add("0");
+        }
+
+        if (mode == ServerMode.Reranking && pooling == PoolingType.None)
+        {
+            pooling = PoolingType.Rank;
+        }
+
+        if (pooling != PoolingType.None)
+        {
+            args.Add("--pooling");
+            args.Add(pooling.ToString().ToLowerInvariant());
+        }
+
+        return args;
+    }
+
     /// <summary>The <c>--api-key</c>/<c>--api-key-file</c> argument in <paramref name="args"/>, if any.</summary>
     internal static string? FindApiKeyArgument(IReadOnlyList<string>? args)
     {
@@ -838,26 +868,7 @@ public sealed class LlamaServerProcess : IAsyncDisposable
             }
         }
 
-        // Embedding/Reranking mode flags
-        if (_config.Mode == ServerMode.Embedding || _config.Mode == ServerMode.Reranking)
-        {
-            args.Add("--embedding");
-        }
-
-        // Pooling type
-        var poolingType = _config.Pooling;
-
-        // For reranking mode, force rank pooling if not explicitly set
-        if (_config.Mode == ServerMode.Reranking && poolingType == PoolingType.None)
-        {
-            poolingType = PoolingType.Rank;
-        }
-
-        if (poolingType != PoolingType.None)
-        {
-            args.Add("--pooling");
-            args.Add(poolingType.ToString().ToLowerInvariant());
-        }
+        args.AddRange(ModeArguments(_config.Mode, _config.Pooling));
 
         if (_config.AdditionalArgs != null)
         {
