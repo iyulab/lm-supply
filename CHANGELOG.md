@@ -6,6 +6,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Fixed
+- **A GGUF model that started with fewer GPU layers after running out of GPU memory reports the layers it runs
+  with.** When llama-server failed to start for lack of GPU memory, the load retried with about a quarter fewer layers,
+  but `GeneratorModelInfo.GpuLayers` kept the count first planned — or none, when the caller had set the count
+  through `LlamaOptions.GpuLayerCount`. It is now the count the server started with.
+
 ## [0.132.0] - 2026-10-20
 
 ### Fixed

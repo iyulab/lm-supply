@@ -264,7 +264,9 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
         var serverConfig = BuildServerConfig(modelPath, contextLength, llamaOpts, backend, serverVersion, options, ggufMetadata);
 
         // 4. Lease server from pool with OOM retry (reduces GPU layers on failure)
+        var plannedGpuLayers = serverConfig.GpuLayers;
         (var serverLease, serverConfig) = await LeaseWithOomRetryAsync(serverPath, serverConfig, backend, progress, cancellationToken);
+        sizing = sizing.AfterRetry(plannedGpuLayers, serverConfig.GpuLayers);
 
         var restartConfig = serverConfig;
         var model = new LlamaServerGeneratorModel(
@@ -311,6 +313,13 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
     {
         /// <summary>Nothing was decided: the model loads as configured.</summary>
         public static LoadSizing None { get; } = new();
+
+        /// <summary>
+        /// The sizing once the server has started: when out-of-memory retries started it with fewer GPU layers than
+        /// planned, those are the layers it runs with.
+        /// </summary>
+        public LoadSizing AfterRetry(int plannedGpuLayers, int startedGpuLayers) =>
+            startedGpuLayers == plannedGpuLayers ? this : this with { GpuLayers = startedGpuLayers };
     }
 
     /// <summary>
