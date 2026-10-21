@@ -19,7 +19,6 @@ public sealed class HuggingFaceDownloader : IDisposable
     private readonly HttpMessageHandler? _discoveryHandler;
     private bool _disposed;
 
-    private const string HuggingFaceBaseUrl = "https://huggingface.co";
     private const int MaxRetries = 3;
 
     /// <summary>
@@ -769,12 +768,16 @@ public sealed class HuggingFaceDownloader : IDisposable
     /// The failure of a download the network could not serve: the file is not in the cache and the hub cannot be
     /// reached. Says what to do next.
     /// </summary>
-    private static ModelDownloadException Unreachable(string repoId, string file, string directory, Exception inner) =>
-        new($"Could not download '{file}' of model '{repoId}': the network is unavailable ({inner.Message}) and the file " +
-            $"is not in the local cache ({directory}). Load the model once with network access to cache it; if it is " +
+    private static ModelHostUnreachableException Unreachable(string repoId, string file, string directory, Exception inner)
+    {
+        var host = HubEndpoint.Host;
+        return new($"Could not download '{file}' of model '{repoId}': the model host {host} could not be reached ({inner.Message}) " +
+            $"and the file is not in the local cache ({directory}). If this network cannot reach {host}, set {HubEndpoint.EnvironmentVariable} " +
+            "to a mirror or an internal hub it can reach. Otherwise load the model once with network access to cache it; if it is " +
             "already cached in another directory, point the cache directory there and load with downloads disabled " +
             "(DisableAutoDownload, or a downloader created with localFilesOnly).",
-            repoId, inner);
+            repoId, host, inner);
+    }
 
     /// <summary>
     /// Attempts to download a file, with fallback to root directory for tokenizer files.
@@ -884,7 +887,7 @@ public sealed class HuggingFaceDownloader : IDisposable
         var filePath = string.IsNullOrEmpty(subfolder) ? filename : $"{subfolder}/{filename}";
         return new ResumableFileDownload.Request
         {
-            Url = $"{HuggingFaceBaseUrl}/{repoId}/resolve/{revision}/{filePath}",
+            Url = $"{HubEndpoint.BaseUrl}/{repoId}/resolve/{revision}/{filePath}",
             DestinationPath = destinationPath,
             FileName = filePath,
             ModelId = repoId,

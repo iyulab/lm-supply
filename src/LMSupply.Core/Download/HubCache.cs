@@ -17,8 +17,6 @@ namespace LMSupply.Download;
 /// </remarks>
 internal static class HubCache
 {
-    private const string HuggingFaceBaseUrl = "https://huggingface.co";
-
     // The revision lookup is a small JSON answer; the downloaders' clients allow minutes for multi-gigabyte bodies.
     private static readonly TimeSpan s_revisionLookupTimeout = TimeSpan.FromSeconds(30);
 
@@ -67,7 +65,7 @@ internal static class HubCache
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(s_revisionLookupTimeout);
 
-        var url = $"{HuggingFaceBaseUrl}/api/models/{repoId}/revision/{Uri.EscapeDataString(revision)}";
+        var url = $"{HubEndpoint.ModelsApiUrl}/{repoId}/revision/{Uri.EscapeDataString(revision)}";
         try
         {
             using var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseContentRead, timeout.Token).ConfigureAwait(false);
@@ -270,7 +268,7 @@ internal static class HubCache
 
     /// <summary>The <c>resolve</c> URL of a repository file at a revision.</summary>
     public static string GetResolveUrl(string repoId, string revision, string repoPath)
-        => $"{HuggingFaceBaseUrl}/{repoId}/resolve/{Uri.EscapeDataString(revision)}/{repoPath}";
+        => $"{HubEndpoint.BaseUrl}/{repoId}/resolve/{Uri.EscapeDataString(revision)}/{repoPath}";
 
     /// <summary>
     /// The local path of <paramref name="repoPath"/> in <paramref name="snapshotDir"/>; refuses a path that resolves

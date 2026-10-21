@@ -870,6 +870,12 @@ await using var generator = await LocalGenerator.LoadAsync("/path/to/model.gguf"
 
 For private HuggingFace repositories, set the `HF_TOKEN` environment variable.
 
+Downloads and Hub requests go to `https://huggingface.co`, or to the URL in the `HF_ENDPOINT` environment variable
+when it is set — the variable `huggingface_hub` reads — for a mirror or an internal hub on a network that cannot reach
+huggingface.co. A model that is not cached and whose host cannot be reached at all (no connection, name resolution,
+proxy, TLS, timeout) fails with `ModelHostUnreachableException` (a `ModelDownloadException`) carrying the `Host`;
+a host that answered — a missing file, a refused request — still fails as before.
+
 ---
 
 ## Custom Model Aliases

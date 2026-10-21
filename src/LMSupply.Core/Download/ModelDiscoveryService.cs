@@ -19,7 +19,6 @@ public sealed class ModelDiscoveryService : IDisposable
     private readonly string? _cacheDir;
     private bool _disposed;
 
-    private const string ApiBaseUrl = "https://huggingface.co/api/models";
 
     // Common subfolder patterns in priority order
     private static readonly string[] PreferredSubfolders =
@@ -178,7 +177,7 @@ public sealed class ModelDiscoveryService : IDisposable
         // One recursive listing, paged by the Link header — not one request per directory. A repository with
         // hundreds of directories (a voice collection) used to cost a request each: about a minute, and the
         // anonymous API quota (500 requests per 5 minutes per IP) in a single load.
-        var url = $"{ApiBaseUrl}/{repoId}/tree/{revision}?recursive=true&expand=false";
+        var url = $"{HubEndpoint.ModelsApiUrl}/{repoId}/tree/{revision}?recursive=true&expand=false";
         var allFiles = new List<RepoFile>();
 
         try

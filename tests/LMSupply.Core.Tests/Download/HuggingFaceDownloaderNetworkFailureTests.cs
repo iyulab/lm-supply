@@ -95,9 +95,12 @@ public sealed class HuggingFaceDownloaderNetworkFailureTests : IDisposable
         var hub = new Hub { Offline = true };
         using var downloader = new HuggingFaceDownloader(_cacheDir, hub);
 
-        var ex = await Assert.ThrowsAsync<ModelDownloadException>(() =>
+        // Typed: a host can tell «this network cannot reach the model host» from a file the host refused.
+        var ex = await Assert.ThrowsAsync<ModelHostUnreachableException>(() =>
             downloader.DownloadModelAsync(Repo, subfolder: Subfolder, cancellationToken: Ct));
 
+        Assert.Equal("huggingface.co", ex.Host);
+        Assert.Contains("HF_ENDPOINT", ex.Message, StringComparison.Ordinal);
         Assert.Contains("model.onnx", ex.Message, StringComparison.Ordinal);
         Assert.Contains("DisableAutoDownload", ex.Message, StringComparison.Ordinal);
         Assert.Equal(Repo, ex.ModelId);

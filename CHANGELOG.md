@@ -6,6 +6,17 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **Model downloads and Hub requests honour `HF_ENDPOINT`**, the Hub base URL variable `huggingface_hub` reads — a
+  mirror or an internal hub for a machine that cannot reach huggingface.co. Every Hub URL uses it: file downloads,
+  repository listings, model metadata and revision lookups. Unset, nothing changes; a value that is not an absolute
+  http(s) URL fails the download with a message naming the variable instead of falling back to huggingface.co.
+- **`ModelHostUnreachableException`: a model that is not cached and whose host cannot be reached at all fails with
+  its own type**, carrying `Host`, so a host can tell «this network cannot reach the model host» (retrying will not
+  help) from a host that answered. **Breaking** only for code that checks the exact type: it derives from
+  `ModelDownloadException`, so `catch (ModelDownloadException)` still catches it — an exact-type assertion such as
+  `Assert.ThrowsAsync<ModelDownloadException>` becomes `ThrowsAnyAsync`, or names the new type.
+
 ## [0.133.0] - 2026-10-21
 
 ### Added

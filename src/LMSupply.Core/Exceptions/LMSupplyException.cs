@@ -131,6 +131,31 @@ public class ModelDownloadException : LMSupplyException
 }
 
 /// <summary>
+/// Exception thrown when a model file is not in the local cache and the model host could not be reached at all — no
+/// connection, name resolution, proxy or TLS failure, or a timeout — as opposed to a host that answered (a missing file,
+/// a refused request). Retrying on the same network is unlikely to help; pointing <c>HF_ENDPOINT</c> at a reachable
+/// mirror, or caching the model on a machine that can reach the host, does.
+/// </summary>
+public class ModelHostUnreachableException : ModelDownloadException
+{
+    /// <summary>Gets the host name the download went to (the Hub base URL's host, <c>HF_ENDPOINT</c> when set).</summary>
+    public string Host { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ModelHostUnreachableException"/> class.
+    /// </summary>
+    /// <param name="message">The message that describes the error.</param>
+    /// <param name="modelId">The model identifier for which download failed.</param>
+    /// <param name="host">The host name that could not be reached.</param>
+    /// <param name="innerException">The network failure.</param>
+    public ModelHostUnreachableException(string message, string? modelId, string host, Exception innerException)
+        : base(message, modelId, innerException)
+    {
+        Host = host;
+    }
+}
+
+/// <summary>
 /// Exception thrown when model inference fails.
 /// </summary>
 public class InferenceException : LMSupplyException

@@ -16,7 +16,6 @@ public sealed class ModelMetadataService : IDisposable
     private readonly string? _cacheDir;
     private bool _disposed;
 
-    private const string ApiBaseUrl = "https://huggingface.co/api/models";
     private const string MetadataFileName = ".metadata.json";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -127,7 +126,7 @@ public sealed class ModelMetadataService : IDisposable
         string repoId,
         CancellationToken cancellationToken)
     {
-        var url = $"{ApiBaseUrl}/{repoId}";
+        var url = $"{HubEndpoint.ModelsApiUrl}/{repoId}";
 
         var response = await _httpClient.GetAsync(url, cancellationToken);
 
