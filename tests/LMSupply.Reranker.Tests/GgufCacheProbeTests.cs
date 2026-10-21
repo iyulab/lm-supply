@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using LMSupply.Download;
 using LMSupply.Reranker.Utils;
 
 namespace LMSupply.Reranker.Tests;
@@ -52,7 +53,8 @@ public sealed class GgufCacheProbeTests : IDisposable
         var opened = await offline.DownloadAsync(Repo, LocalReranker.DefaultGgufQuantization,
             cancellationToken: TestContext.Current.CancellationToken);
 
-        opened.Should().Be(preferred);
+        // The earlier private tree is moved into the repository's snapshot on the first lookup
+        opened.Should().Be(Path.Combine(CacheManager.GetModelDirectory(_cacheDir, Repo), Path.GetFileName(preferred)));
         GgufDownloader.TrySelectFromLocalCache(_cacheDir, Repo, LocalReranker.DefaultGgufQuantization).Should().Be(opened);
         LocalReranker.IsModelDownloaded("gguf:" + Repo, _cacheDir).Should().BeTrue();
     }

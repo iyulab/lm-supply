@@ -991,6 +991,7 @@ public sealed class ModelDiscoveryService : IDisposable
             ListingsDirectoryName,
             revision.Replace('/', '_').Replace('\\', '_') + ".json");
 
+    // COMPAT(remove-after: 0.150.0) — the hub-root listing cache of releases before 0.112; removed where found until then.
     /// <summary>
     /// Removes the <c>.discovery-cache</c> directory earlier versions kept at the hub root, where Hugging Face's cache
     /// scan reports it as an invalid cache directory. It is this library's own and only a cache. Once per hub

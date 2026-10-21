@@ -37,6 +37,14 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   speech; a phonemizer set in `SynthesizerOptions.Phonemizer` still replaces the built-in one. The Chinese voice still
   needs phonemes or a phonemizer. See [Korean text](docs/synthesizer.md#korean-text) for what is not handled.
 
+### Changed
+- **Embedder and Reranker GGUF files written before 0.98.0 are moved into the Hugging Face cache layout.** The first
+  lookup of a repository moves its files from the private `gguf-embeddings/` or `gguf-rerankers/` tree into the
+  repository's `snapshots/main/` and removes the emptied tree, so other Hugging Face tools find them and nothing is
+  downloaded again. A cache that cannot be written keeps its tree, which is still read. Both the move and the reading
+  of those trees end after 0.150.0, as does the removal of the pre-0.112 `.discovery-cache/` directory and the absolute
+  build paths the llama-server state keeps for releases before 0.122.
+
 ### Fixed
 - **Synthesizer: English words the dictionary lacks are stressed and ended as English says them.** The
   letter-to-sound rules stressed every word of three or four syllables on its first one (`agenda`, `origami`,

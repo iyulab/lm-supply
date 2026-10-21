@@ -7,14 +7,14 @@ namespace LMSupply.Core.Download;
 /// <summary>
 /// Downloads the single GGUF file a llama-server-backed embedder or reranker loads, and answers what that download
 /// would be without making it. Shared by the domains so the selection, the cache layout and the plan cannot drift
-/// apart between them; each domain names only the private tree its earlier versions wrote.
+/// apart between them; a domain whose earlier versions wrote a private tree names it.
 /// </summary>
 internal class SingleFileGgufDownloader : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly ModelDiscoveryService _discoveryService;
     private readonly string _cacheDirectory;
-    private readonly string _legacyTreeName;
+    private readonly string? _legacyTreeName;
     private readonly bool _localFilesOnly;
     private bool _disposed;
 
@@ -22,13 +22,17 @@ internal class SingleFileGgufDownloader : IDisposable
     private const string Revision = "main";
 
     /// <param name="cacheDirectory">Where downloaded GGUF files are kept.</param>
-    /// <param name="legacyTreeName">The private tree earlier versions of the domain wrote (still read, never written).</param>
+    /// <param name="legacyTreeName">
+    /// The private tree earlier versions of the domain wrote, whose files a lookup moves into the snapshots; null for a
+    /// domain that never had one.
+    /// </param>
     /// <param name="localFilesOnly">
     /// True: serve from the cache only — no repository listing, no download; a repository with no cached
     /// GGUF file fails with <see cref="ModelNotFoundException"/>. The <c>DisableAutoDownload</c> option maps here.
     /// </param>
     /// <param name="handler">Test seam: the transport for listing and download; null for the default.</param>
-    protected SingleFileGgufDownloader(string cacheDirectory, string legacyTreeName, bool localFilesOnly, HttpMessageHandler? handler)
+    // COMPAT(remove-after: 0.150.0) — legacyTreeName goes with the private trees (see GgufCacheLookup).
+    protected SingleFileGgufDownloader(string cacheDirectory, string? legacyTreeName, bool localFilesOnly, HttpMessageHandler? handler)
     {
         _cacheDirectory = cacheDirectory;
         _legacyTreeName = legacyTreeName;
@@ -123,7 +127,7 @@ internal class SingleFileGgufDownloader : IDisposable
                 RepoId = repoId,
                 Revision = Revision,
                 Files = [new PlannedFile(Path.GetFileName(cached), CacheManager.GetContentLength(cached))],
-                AlsoCachedIn = [GgufCacheLookup.GetLegacyDirectory(_cacheDirectory, _legacyTreeName, repoId)],
+                AlsoCachedIn = LegacyDirectories(repoId),
             };
         }
 
@@ -137,18 +141,22 @@ internal class SingleFileGgufDownloader : IDisposable
             RepoId = repoId,
             Revision = Revision,
             Files = [new PlannedFile(selected.Path, selected.Size)],
-            AlsoCachedIn = [GgufCacheLookup.GetLegacyDirectory(_cacheDirectory, _legacyTreeName, repoId)],
+            AlsoCachedIn = LegacyDirectories(repoId),
         };
     }
 
+    // What is left of the private tree after the move — a read-only cache's — counts as cached for a plan.
+    private IReadOnlyList<string> LegacyDirectories(string repoId) =>
+        _legacyTreeName is null ? [] : [GgufCacheLookup.GetLegacyDirectory(_cacheDirectory, _legacyTreeName, repoId)];
+
     /// <summary>
     /// The cached GGUF file an offline load opens: the one matching the preferred quantization when
-    /// there is one, otherwise the first by name — looked up in the repository's snapshots, then in the
-    /// private tree earlier versions wrote (see <see cref="GgufCacheLookup"/>). Null when nothing of the
+    /// there is one, otherwise the first by name — looked up in the repository's snapshots, after moving the private
+    /// tree earlier versions wrote into them (see <see cref="GgufCacheLookup"/>). Null when nothing of the
     /// repository is cached.
     /// </summary>
     internal static string? TrySelectFromLocalCache(
-        string cacheDirectory, string repoId, string? preferredQuantization, string legacyTreeName)
+        string cacheDirectory, string repoId, string? preferredQuantization, string? legacyTreeName)
     {
         var files = GgufCacheLookup.EnumerateCachedFiles(cacheDirectory, repoId, Revision, legacyTreeName);
         if (files.Count == 0)

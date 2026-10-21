@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using LMSupply.Download;
 using LMSupply.Embedder.Utils;
 
 namespace LMSupply.Embedder.Tests;
@@ -61,20 +62,47 @@ public sealed class GgufDownloaderIntegrityTests : IDisposable
     }
 
     [Fact]
-    public async Task AFileInTheEarlierPrivateTree_IsStillLoaded_WithoutADownload()
+    public async Task AFileInTheEarlierPrivateTree_IsMovedIntoTheSnapshot_WithoutADownload()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(LegacyPath)!);
         await File.WriteAllBytesAsync(LegacyPath, Model, Ct);
         var hub = new Hub();
+        var moved = Path.Combine(CacheManager.GetModelDirectory(_cacheDir, Repo), Path.GetFileName(LegacyPath));
 
         using (var online = new GgufDownloader(_cacheDir, localFilesOnly: false, hub))
-            Assert.Equal(LegacyPath, await online.DownloadAsync(Repo, cancellationToken: Ct));
+            Assert.Equal(moved, await online.DownloadAsync(Repo, cancellationToken: Ct));
         using (var offline = new GgufDownloader(_cacheDir, localFilesOnly: true, hub))
-            Assert.Equal(LegacyPath, await offline.DownloadAsync(Repo, cancellationToken: Ct));
+            Assert.Equal(moved, await offline.DownloadAsync(Repo, cancellationToken: Ct));
 
         Assert.Equal(0, hub.ResolveRequests);
-        // The repository directory may hold this library's listing record (.lmsupply/listings); no snapshot holds the file.
-        Assert.False(Directory.Exists(Path.Combine(_cacheDir, "models--acme--gguf-embedder", "snapshots")), "the old file is not moved or copied");
+        Assert.Equal(Model, await File.ReadAllBytesAsync(moved, Ct));
+        Assert.False(Directory.Exists(Path.Combine(_cacheDir, "gguf-embeddings")), "the emptied tree is removed");
+    }
+
+    [Fact]
+    public async Task AnEarlierPrivateTreeThatCannotBeMoved_IsStillLoaded_WithoutADownload()
+    {
+        if (OperatingSystem.IsWindows())
+            return; // the directory permission below is POSIX
+
+        var tree = Path.GetDirectoryName(LegacyPath)!;
+        Directory.CreateDirectory(tree);
+        await File.WriteAllBytesAsync(LegacyPath, Model, Ct);
+        File.SetUnixFileMode(tree, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        try
+        {
+            // The file cannot leave the tree; whichever copy the lookup finds (on a POSIX volume the move may already
+            // have linked it into the snapshot before failing to unlink it), the load opens the model without a request.
+            var hub = new Hub();
+            using var offline = new GgufDownloader(_cacheDir, localFilesOnly: true, hub);
+            Assert.Equal(Model, await File.ReadAllBytesAsync(await offline.DownloadAsync(Repo, cancellationToken: Ct), Ct));
+            Assert.True(File.Exists(LegacyPath), "the tree that could not be written keeps its file");
+            Assert.Equal(0, hub.ResolveRequests);
+        }
+        finally
+        {
+            File.SetUnixFileMode(tree, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
     }
 
     [Fact]
