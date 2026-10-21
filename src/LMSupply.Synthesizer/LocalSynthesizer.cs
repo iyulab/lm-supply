@@ -8,8 +8,8 @@ namespace LMSupply.Synthesizer;
 /// Main entry point for loading and using text-to-speech synthesis models.
 /// </summary>
 /// <remarks>
-/// A voice is run by the contract its config declares. Text for an English voice is turned into its phonemes by the
-/// package's built-in English phonemizer; for a voice in another language it needs a caller's
+/// A voice is run by the contract its config declares. Text for an English or Korean voice is turned into its phonemes by
+/// the package's built-in phonemizer for that language; for a voice in another language it needs a caller's
 /// <see cref="SynthesizerOptions.Phonemizer"/>, and throws <see cref="NotSupportedException"/> without one. Phonemes
 /// (<see cref="ISynthesizerModel.SynthesizePhonemesAsync"/>) work for every voice. See the package README.
 /// </remarks>

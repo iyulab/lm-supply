@@ -25,7 +25,8 @@ public sealed class SynthesizerOptions : LMSupplyOptionsBase
     /// <summary>
     /// Gets or sets the phonemizer that turns text into the voice's phonemes; when set, it is used for every voice. When
     /// unset, the package's own is used: the built-in English phonemizer for a voice of the <c>espeak</c> type in English
-    /// (eSpeak NG voices <c>en</c>, <c>en-us</c>, <c>en-gb</c>, <c>en-gb-x-rp</c>), and the text itself for a voice whose
+    /// (eSpeak NG voices <c>en</c>, <c>en-us</c>, <c>en-gb</c>, <c>en-gb-x-rp</c>), the built-in Korean phonemizer for one
+    /// in Korean (<c>ko</c>), and the text itself for a voice whose
     /// phonemes are its text (<see cref="PhonemeScheme.Type"/> <c>"text"</c>). For any other voice, synthesizing text
     /// without a phonemizer throws <see cref="NotSupportedException"/>; phonemes can always be passed directly
     /// (<see cref="ISynthesizerModel.SynthesizePhonemesAsync"/>).

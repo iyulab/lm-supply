@@ -1,17 +1,20 @@
 using AwesomeAssertions;
 using LMSupply.Synthesizer.Core;
 using LMSupply.Synthesizer.Core.English;
+using LMSupply.Synthesizer.Core.Korean;
 using LMSupply.Synthesizer.Models;
 
 namespace LMSupply.Synthesizer.Tests;
 
 /// <summary>
 /// Text reaches a voice through a phonemizer: the caller's, or a built-in one — the text itself for a voice whose phonemes
-/// are its text, the English phonemizer for an English voice. A voice with none of them is refused, by an exception that
-/// says what the voice takes and how to supply it.
+/// are its text, the English or the Korean phonemizer for a voice in that language. A voice with none of them is refused,
+/// by an exception that says what the voice takes and how to supply it.
 /// </summary>
 public class PhonemizerTests
 {
+    private static readonly VoiceConfig Chinese =
+        VoiceFixture.Minimal("\"espeak\": {\"voice\": \"cmn\"}, \"language\": {\"code\": \"zh_CN\"}", catalog: SynthesizerModels.ZhCn);
     private static readonly VoiceConfig Korean =
         VoiceFixture.Minimal("\"espeak\": {\"voice\": \"ko\"}, \"language\": {\"code\": \"ko_KR\"}", catalog: SynthesizerModels.KoKr);
     private static readonly VoiceConfig English = VoiceFixture.LjSpeech();
@@ -20,11 +23,11 @@ public class PhonemizerTests
     [Fact]
     public void TextForAVoiceThatNeedsAPhonemizer_IsRefused_NamingWhatTheVoiceTakesAndTheTwoWaysOut()
     {
-        var act = () => OnnxSynthesizerModel.ResolvePhonemizer(callers: null, Korean, "korean");
+        var act = () => OnnxSynthesizerModel.ResolvePhonemizer(callers: null, Chinese, "chinese");
 
         var message = act.Should().Throw<NotSupportedException>().Which.Message;
-        message.Should().Contain("'korean'").And.Contain("'espeak'").And.Contain("'ko'").And.Contain("'ko-KR'");
-        message.Should().Contain("English voices only");
+        message.Should().Contain("'chinese'").And.Contain("'espeak'").And.Contain("'cmn'").And.Contain("'zh-CN'");
+        message.Should().Contain("English and Korean voices");
         message.Should().Contain("SynthesizerOptions.Phonemizer").And.Contain("SynthesizePhonemesAsync");
         message.Should().MatchRegex(@"^[\x20-\x7E]+$", "operational text is ASCII");
     }
@@ -32,10 +35,22 @@ public class PhonemizerTests
     [Fact]
     public void AVoiceThatNamesNoPhonemizerVoice_IsStillRefusedWithAReadableMessage()
     {
-        var voice = VoiceFixture.Minimal(catalog: SynthesizerModels.KoKr);
-        var act = () => OnnxSynthesizerModel.ResolvePhonemizer(callers: null, voice, "korean");
+        var voice = VoiceFixture.Minimal(catalog: SynthesizerModels.ZhCn);
+        var act = () => OnnxSynthesizerModel.ResolvePhonemizer(callers: null, voice, "chinese");
 
-        act.Should().Throw<NotSupportedException>().WithMessage("*'espeak'*'unspecified'*'ko-KR'*");
+        act.Should().Throw<NotSupportedException>().WithMessage("*'espeak'*'unspecified'*'zh-CN'*");
+    }
+
+    [Fact]
+    public void AKoreanVoice_SpeaksTextThroughTheBuiltInKoreanPhonemizer_AlsoWhenItNamesOnlyItsLanguage()
+    {
+        var json = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", SynthesizerModels.KoKr.ConfigFile));
+        var languageOnly = VoiceConfig.Parse(json.Replace("\"espeak\": {\"voice\": \"ko\"},", ""), SynthesizerModels.KoKr);
+        languageOnly.Scheme.Voice.Should().BeNull();
+
+        OnnxSynthesizerModel.ResolvePhonemizer(callers: null, VoiceFixture.Catalog(SynthesizerModels.KoKr), "korean")
+            .Should().BeOfType<KoreanPhonemizer>();
+        OnnxSynthesizerModel.ResolvePhonemizer(callers: null, languageOnly, "korean").Should().BeOfType<KoreanPhonemizer>();
     }
 
     [Fact]

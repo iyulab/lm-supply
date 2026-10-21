@@ -20,7 +20,7 @@ tests/LMSupply.Integration.Tests/Functional/CrossDomainScenarioTests.cs  # Korea
 tests/LMSupply.Integration.Tests/Functional/EmbedderFunctionalTests.cs  # Korean text is a multilingual embedding input
 tests/LMSupply.Integration.Tests/Functional/RerankerFunctionalTests.cs  # Korean query and documents are multilingual reranking inputs
 tests/LMSupply.Integration.Tests/Functional/ResourceManagementTests.cs  # Korean sentences are translation inputs
-tests/LMSupply.Integration.Tests/Functional/SynthesizerIntelligibilityFacts.cs  # Korean sentence is a speech synthesis input
+tests/LMSupply.Integration.Tests/Functional/SynthesizerIntelligibilityFacts.cs  # Chinese sentence is a speech synthesis input
 tests/LMSupply.Integration.Tests/Functional/SynthesizerVoiceRegistryFunctionalTests.cs  # Korean sentence is a speech synthesis input
 tests/LMSupply.Integration.Tests/Functional/TranslatorFunctionalTests.cs  # Korean source sentences are translation inputs
 tests/LMSupply.Integration.Tests/Helpers/TestDataHelper.cs  # Korean sentence is a shared test input constant
@@ -35,3 +35,11 @@ src/LMSupply.Translator/README.md  # Korean source sentence is the input of the 
 CHANGELOG.md  # Korean sentences are translator inputs quoted in release notes
 tests/LMSupply.Translator.Tests/Tokenization/TranslatorTokenizerSpecialTokenTests.cs  # Korean sentence is a tokenizer input
 tests/LMSupply.Decider.Tests/LiveDeciderTests.cs  # Korean sentences are decision inputs and expected answers
+src/LMSupply.Synthesizer/Core/Korean/Syllable.cs  # Hangul jamo are the parts the Korean phonemizer splits syllables into
+src/LMSupply.Synthesizer/Core/Korean/KoreanPronunciation.cs  # Hangul jamo and example words are the pronunciation rules' data
+src/LMSupply.Synthesizer/Core/Korean/KoreanText.cs  # Hangul numerals and letter names are what figures and Latin letters are read as
+src/LMSupply.Synthesizer/Core/Korean/KoreanIpaWriter.cs  # Hangul jamo are mapped to the symbols the Korean voice takes
+src/LMSupply.Synthesizer/Core/Korean/KoreanPhonemizer.cs  # Hangul jamo name the rules the phonemizer does not apply
+tests/LMSupply.Synthesizer.Tests/KoreanPhonemizerTests.cs  # Korean words and sentences are phonemizer inputs and expected pronunciations
+tests/LMSupply.Integration.Tests/Functional/SynthesizerKoreanAcceptanceTests.cs  # Korean sentences are speech synthesis inputs and the numerals they are compared in
+docs/synthesizer.md  # Korean words and sentences are examples of what the Korean phonemizer reads and says

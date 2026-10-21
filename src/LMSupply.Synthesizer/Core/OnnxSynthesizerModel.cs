@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using LMSupply.Inference;
 using LMSupply.Synthesizer.Core.English;
+using LMSupply.Synthesizer.Core.Korean;
 using LMSupply.Synthesizer.Models;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
@@ -144,7 +145,7 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
     }
 
     // Text becomes phonemes through the caller's phonemizer, or a built-in one: the text itself for a voice whose phonemes
-    // are its text, the English phonemizer for an English voice. A voice with none of them gets no audio: ids made up for
+    // are its text, the English or Korean phonemizer for a voice in that language. A voice with none of them gets no audio: ids made up for
     // its text would come out as noise.
     private async Task<IReadOnlyList<string>> PhonemizeAsync(string text, CancellationToken cancellationToken)
     {
@@ -165,10 +166,13 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
         if (EnglishPhonemizer.TryGetAccent(scheme, out var accent))
             return new EnglishPhonemizer(accent, voice.Encoder.Has, voiceName);
 
+        if (KoreanPhonemizer.IsKorean(scheme))
+            return new KoreanPhonemizer(voice.Encoder.Has, voiceName);
+
         throw new NotSupportedException(
             $"The voice '{voiceName}' takes '{scheme.Type}' phonemes (phonemizer voice '{scheme.Voice ?? "unspecified"}', " +
             $"language '{scheme.Language ?? "unspecified"}'), and this package has no phonemizer that turns text into them " +
-            "(its own covers English voices only). " +
+            "(its own cover English and Korean voices). " +
             "Set SynthesizerOptions.Phonemizer to an IPhonemizer that produces them, or pass phonemes to SynthesizePhonemesAsync.");
     }
 

@@ -2,8 +2,8 @@ namespace LMSupply.Synthesizer;
 
 /// <summary>
 /// Turns text into the phonemes a voice was trained on. A voice declares which phonemes those are
-/// (<see cref="ISynthesizerModel.PhonemeScheme"/>). The package produces them itself for English voices and for the
-/// <c>text</c> type; a voice in another language speaks text through the implementation set in
+/// (<see cref="ISynthesizerModel.PhonemeScheme"/>). The package produces them itself for English and Korean voices and
+/// for the <c>text</c> type; a voice in another language speaks text through the implementation set in
 /// <see cref="SynthesizerOptions.Phonemizer"/>, which also replaces the built-in one for any voice it is set for.
 /// </summary>
 public interface IPhonemizer

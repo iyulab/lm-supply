@@ -5,13 +5,14 @@ Local text-to-speech synthesis using VITS/Piper models.
 ## Features
 
 - **Zero-config**: Models download automatically from HuggingFace
-- **English text out of the box**: a built-in English phonemizer (pronunciation dictionary + letter-to-sound rules, in
-  the package, offline) writes each English voice's own phonemes
+- **English and Korean text out of the box**: a built-in English phonemizer (pronunciation dictionary + letter-to-sound
+  rules) and a built-in Korean one (the standard pronunciation's rules over the spelling), in the package and offline,
+  write each voice's own phonemes
 - **The voice's own contract**: phoneme ids, inference defaults, sample rate and speaker count are read from the voice's config
 - **Phoneme input and a phonemizer seam**: pass phonemes (`SynthesizePhonemesAsync`), or plug in the text-to-phoneme step (`IPhonemizer`)
 - **GPU Acceleration**: CUDA (NVIDIA), CoreML (macOS)
 - **Licensing stated per voice**: Piper's code is MIT; each voice's own license is in `SynthesizerModelInfo.License` (the default voice is public domain)
-- **Multiple Languages**: English (text and phonemes), Korean and Chinese (phonemes, or text through your phonemizer)
+- **Multiple Languages**: English and Korean (text and phonemes), Chinese (phonemes, or text through your phonemizer)
 
 ## Quick Start
 
@@ -39,6 +40,10 @@ for the default voice's `en` and for `en-gb-x-rp`). A word with two readings get
 [synthesizer guide](https://github.com/iyulab/lm-supply/blob/main/docs/synthesizer.md#english-text) for what is and is
 not handled.
 
+Text for the Korean voice is read the same way by a built-in Korean phonemizer: figures as Sino-Korean numbers, Latin
+letters by their names, and each word by the rules of the standard pronunciation that follow from its spelling (see the
+[guide](https://github.com/iyulab/lm-supply/blob/main/docs/synthesizer.md#korean-text)).
+
 For any other voice, set an `IPhonemizer` in `SynthesizerOptions.Phonemizer` (it replaces the built-in one for every
 voice); the model passes it the phonemes its voice declares (`ISynthesizerModel.PhonemeScheme`: the type, the phonemizer
 voice and the language).
@@ -47,9 +52,9 @@ voice and the language).
 using LMSupply.Synthesizer;
 
 var options = new SynthesizerOptions { Phonemizer = new MyPhonemizer() };
-await using var synthesizer = await LocalSynthesizer.LoadAsync("korean", options);
+await using var synthesizer = await LocalSynthesizer.LoadAsync("chinese", options);
 
-var text = File.ReadAllText("input.txt"); // Korean text
+var text = File.ReadAllText("input.txt"); // Chinese text
 await synthesizer.SynthesizeToFileAsync(text, "output.wav");
 
 sealed class MyPhonemizer : IPhonemizer
@@ -57,7 +62,7 @@ sealed class MyPhonemizer : IPhonemizer
     public ValueTask<IReadOnlyList<string>> PhonemizeAsync(
         string text, PhonemeScheme scheme, CancellationToken cancellationToken = default)
     {
-        // One string per sentence, in the voice's scheme (here "espeak" / "ko"); every code point is a phoneme,
+        // One string per sentence, in the voice's scheme (here "espeak" / "cmn"); every code point is a phoneme,
         // spaces and clause punctuation included.
         IReadOnlyList<string> sentences = [/* your text-to-phoneme step's output */];
         return new(sentences);
@@ -65,8 +70,8 @@ sealed class MyPhonemizer : IPhonemizer
 }
 ```
 
-Without a phonemizer, text for a voice that is neither English nor of the `text` phoneme type (the Korean and Chinese
-voices) throws `NotSupportedException`; it is never spoken as noise.
+Without a phonemizer, text for a voice that is neither English, Korean nor of the `text` phoneme type (the Chinese
+voice) throws `NotSupportedException`; it is never spoken as noise.
 
 ## Available Models
 

@@ -9,8 +9,13 @@ each English voice and transcribed by Whisper, a set of ordinary sentences, sent
 words the dictionary does not have reads back at a word error rate of 1-8% (at most 3% on the plain sentences and
 figures; most errors are unusual names spelled another way).
 
-A voice in another language (the Korean and Chinese voices) speaks phonemes (`SynthesizePhonemesAsync`), or text
-through an `IPhonemizer` you set; given text alone it throws `NotSupportedException` — it never speaks text as noise.
+Korean text is spoken too, through a built-in Korean phonemizer: the rules of the standard pronunciation over the
+spelling, also in pure .NET with no download (see [Korean text](#korean-text)). Spoken by the Korean voice and
+transcribed by Whisper, a set of everyday sentences and sentences with figures reads back at a character error rate of
+about 18%.
+
+The Chinese voice speaks phonemes (`SynthesizePhonemesAsync`), or text through an `IPhonemizer` you set; given text
+alone it throws `NotSupportedException` — it never speaks text as noise.
 
 ## Quick Start
 
@@ -28,7 +33,7 @@ Console.WriteLine($"Real-time factor: {result.RealTimeFactor:F1}x");
 await File.WriteAllBytesAsync("output.wav", result.ToWavBytes());
 ```
 
-For the other languages, pass phonemes or set a phonemizer — see [Phonemes and phonemizers](#phonemes-and-phonemizers).
+For Chinese, pass phonemes or set a phonemizer — see [Phonemes and phonemizers](#phonemes-and-phonemizers).
 
 ## Installation
 
@@ -40,9 +45,9 @@ dotnet add package LMSupply.Synthesizer
 
 - **VITS Models**: High-quality neural TTS using Piper voices
 - **The voice's own contract**: phoneme ids, inference defaults, sample rate and speaker count are read from the voice's config
-- **English text out of the box**: a built-in English phonemizer that writes each English voice's own phonemes
+- **English and Korean text out of the box**: built-in phonemizers that write each voice's own phonemes
 - **Phoneme input and a phonemizer seam**: pass phonemes, or plug in the text-to-phoneme step a voice needs
-- **Multiple Languages**: English (text and phonemes), Korean and Chinese (phonemes, or text through your phonemizer)
+- **Multiple Languages**: English and Korean (text and phonemes), Chinese (phonemes, or text through your phonemizer)
 - **Fast Inference**: Optimized ONNX models for real-time synthesis
 - **Streaming**: Generate audio sentence by sentence
 - **Multiple Formats**: WAV, raw PCM16, and float32 output
@@ -61,8 +66,8 @@ dotnet add package LMSupply.Synthesizer
 | `chinese` | Huayan | zh-CN | 22050 Hz | ~64MB | `espeak` / `cmn` | Mandarin Chinese female |
 
 The Phonemes column is what each voice's config declares (`phoneme_type` / `espeak.voice`); a loaded model reports it
-as `PhonemeScheme`. The five English voices speak text through the built-in English phonemizer; the Korean and Chinese
-voices need phonemes or a phonemizer of yours.
+as `PhonemeScheme`. The five English voices speak text through the built-in English phonemizer and the Korean voice
+through the built-in Korean one; the Chinese voice needs phonemes or a phonemizer of yours.
 
 ## English text
 
@@ -110,6 +115,36 @@ by every loaded voice.
 **Licences.** The CMU Pronouncing Dictionary is © Carnegie Mellon University under a 2-clause BSD-style licence; its
 licence text ships in the package (`licenses/cmudict/LICENSE` and `THIRD-PARTY-NOTICES.md`). The letter-to-sound rules
 are from NRL Report 7948 (Naval Research Laboratory, 1976), in the public domain. No eSpeak NG code or data is used.
+
+## Korean text
+
+The built-in Korean phonemizer is used for a voice of the `espeak` type whose phonemizer voice is `ko` (or, when the
+config names none, whose language is Korean), unless `SynthesizerOptions.Phonemizer` is set. It runs in three steps:
+
+1. **Reading the text.** Hangul is read as written (decomposed jamo are composed first). The text is split into
+   sentences at `. ? !` (and `…` and the full-width marks) and at line breaks, with pauses kept at `, ; :`. Figures are
+   read as Sino-Korean numbers: `2026` «이천이십육», `15000` «만오천», `1,234` with its separators, a decimal part
+   (`3.14` «삼점일사»), a leading minus («마이너스») and a percent sign («퍼센트»); a number with a leading zero, or
+   longer than 16 digits, is read digit by digit. Latin letters are spelled by their Korean names (`AI` «에이아이»).
+   Hanja, symbols and emoji are not said.
+2. **Pronouncing each word.** Within each word, the rules of the standard pronunciation that follow from the spelling:
+   a final consonant carried over to a following vowel (한국어 «한구거»), the seven final sounds and the reduction of
+   clusters (읽다 «익따»), aspiration with ㅎ (축하 «추카»), palatalization (같이 «가치»), tensing after a stop (국밥
+   «국빱») and after a verb stem's cluster (앉고 «안꼬»), nasal assimilation (습니다 «씀니다», 국립 «궁닙»), liquid
+   assimilation (신라 «실라»), and the vowels said otherwise than written (회의 «회이», 시계 «시게»).
+3. **Writing the voice's phonemes.** The symbols are those the Korean voice is heard to say best, chosen by
+   transcribing sentences written each way, not by running eSpeak NG: ㅏ is `ɐ`, a tense consonant is the lax one with
+   a length mark (`kː`), a lax stop is voiced between voiced sounds within a word, ㄹ is a tap between vowels and `l`
+   elsewhere, and no stress is marked.
+
+Not handled: a figure is always read with the Sino-Korean numerals, also before a counter that takes the native ones
+(`3시` is «삼시», not «세시»); what a word's pronunciation owes to its structure rather than its spelling — tensing
+after the future ending (할 수 «할쑤») and in Sino-Korean compounds (갈등 «갈뜽»), ㄴ inserted in a compound (솜이불
+«솜니불») — and the rules across the space between words. A word in Latin letters is spelled, not read as English.
+
+The phonemizer writes only symbols the voice has; a voice that lacks one throws `NotSupportedException`, naming the
+missing symbols (the catalog's Korean voice has them all). It uses no data beyond the rules in its code and no eSpeak
+NG code, data or output.
 
 ## Phonemes and phonemizers
 
@@ -181,17 +216,18 @@ public sealed class LexiconPhonemizer : IPhonemizer
 }
 ```
 
-A phonemizer you set is used for every voice, the English ones included. Without one:
+A phonemizer you set is used for every voice, the English and Korean ones included. Without one:
 
 | The voice | `SynthesizeAsync(text)` |
 |-----------|-------------------------|
 | `espeak`, English (`default`, `lessac`, `fast`, `quality`, `british`) | Works, through the built-in English phonemizer ([English text](#english-text)). |
+| `espeak`, Korean (`korean`) | Works, through the built-in Korean phonemizer ([Korean text](#korean-text)). |
 | `text` | Works. The phonemes are the characters of the text, lower-cased and decomposed (NFD), as one sentence. |
-| `espeak`, another language (`korean`, `chinese`) | Throws `NotSupportedException`, naming the voice's phoneme type and language. No audio is returned. |
+| `espeak`, another language (`chinese`) | Throws `NotSupportedException`, naming the voice's phoneme type and language. No audio is returned. |
 
 ## API Usage
 
-The examples below pass phonemes, which every voice takes; for an English voice, or with a phonemizer set, the text
+The examples below pass phonemes, which every voice takes; for an English or the Korean voice, or with a phonemizer set, the text
 methods (`SynthesizeAsync`, `SynthesizeToFileAsync`, `SynthesizeToStreamAsync`, `SynthesizeStreamingAsync`) work the
 same way.
 

@@ -6,6 +6,17 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **Synthesizer: the Korean voice speaks text.** A built-in Korean phonemizer turns Korean text into the phonemes the
+  `korean` voice was trained on, in pure .NET with no download: figures are read as Sino-Korean numbers and Latin
+  letters by their Korean names, each word is said by the rules of the standard pronunciation that follow from its
+  spelling (liaison, the seven final sounds and cluster reduction, aspiration, palatalization, tensing, nasal and
+  liquid assimilation), and the symbols written are the ones the voice is heard to say best. Spoken and transcribed by
+  Whisper, everyday sentences and sentences with figures read back at a character error rate of about 18%.
+  `SynthesizeAsync` and the other text methods on the Korean voice, which threw `NotSupportedException`, now return
+  speech; a phonemizer set in `SynthesizerOptions.Phonemizer` still replaces the built-in one. The Chinese voice still
+  needs phonemes or a phonemizer. See [Korean text](docs/synthesizer.md#korean-text) for what is not handled.
+
 ### Fixed
 - **A cached GGUF model loads with `HTTP_PROXY` / `HTTPS_PROXY` (or a system proxy) set.** The llama-server readiness
   check and the API client sent their loopback requests to the proxy, which cannot reach the caller's loopback, so the

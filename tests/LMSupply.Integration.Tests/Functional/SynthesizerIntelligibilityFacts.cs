@@ -10,9 +10,10 @@ namespace LMSupply.Integration.Tests.Functional;
 /// </summary>
 /// <remarks>
 /// A voice is run by the contract its config declares, so phonemes of the voice's scheme come out as speech, whether the
-/// caller passes them or a phonemizer produces them: the caller's, set in the options, or the package's own for English.
-/// A voice in a language the package has no phonemizer for refuses text, never speaks it as noise. The built-in English
-/// phonemizer is judged voice by voice in <see cref="SynthesizerEnglishAcceptanceTests"/>.
+/// caller passes them or a phonemizer produces them: the caller's, set in the options, or the package's own for English and
+/// Korean. A voice in a language the package has no phonemizer for refuses text, never speaks it as noise. The built-in
+/// phonemizers are judged by ear in <see cref="SynthesizerEnglishAcceptanceTests"/> and
+/// <see cref="SynthesizerKoreanAcceptanceTests"/>.
 /// </remarks>
 [Trait("Category", "Integration")]
 [Trait("Category", "Intelligibility")]
@@ -68,7 +69,7 @@ public sealed class SynthesizerIntelligibilityFacts(ITestOutputHelper output)
     }
 
     [Theory]
-    [InlineData("korean", "오늘 날씨가 정말 좋습니다.", "'espeak'", "'ko-KR'")]
+    [InlineData("chinese", "今天天气很好。", "'espeak'", "'zh-CN'")]
     public async Task TextWithoutAPhonemizer_IsRefused_NotSpokenAsNoise(string alias, string text, string phonemeType, string language)
     {
         await using var synthesizer = await LocalSynthesizer.LoadAsync(alias, cancellationToken: Ct);

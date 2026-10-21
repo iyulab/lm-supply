@@ -325,10 +325,11 @@ await foreach (var segment in transcriber.TranscribeStreamingAsync("audio.wav"))
 
 ### Text-to-Speech (Synthesizer)
 
-English text is spoken out of the box: the package turns it into the phonemes each English voice was trained on, with a
-built-in English phonemizer (a pronunciation dictionary and letter-to-sound rules, offline, no extra download). A voice in
-another language (Korean, Chinese) speaks phonemes, or text through an `IPhonemizer` you supply; given text alone it throws
-`NotSupportedException` rather than producing noise.
+English and Korean text are spoken out of the box: the package turns them into the phonemes each voice was trained on,
+with a built-in English phonemizer (a pronunciation dictionary and letter-to-sound rules) and a built-in Korean one (the
+standard pronunciation's rules over the spelling), offline, with no extra download. The Chinese voice speaks phonemes,
+or text through an `IPhonemizer` you supply; given text alone it throws `NotSupportedException` rather than producing
+noise.
 
 ```csharp
 using LMSupply.Synthesizer;
