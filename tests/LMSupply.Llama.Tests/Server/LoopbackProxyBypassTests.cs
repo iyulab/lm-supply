@@ -21,7 +21,7 @@ public sealed class LoopbackProxyBypassTests
     [InlineData("http://localhost:8080", true)]
     [InlineData("http://[::1]:8080", true)]
     [InlineData("http://127.5.0.1:8080", true)]
-    [InlineData("http://192.168.1.20:8080", false)]
+    [InlineData("http://192.0.2.20:8080", false)]
     [InlineData("https://llm.example.com", false)]
     [InlineData("not a url", false)]
     public void IsLoopback_RecognisesLoopbackAddresses(string url, bool expected)
