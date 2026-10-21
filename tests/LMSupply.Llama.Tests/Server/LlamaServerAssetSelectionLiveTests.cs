@@ -37,7 +37,7 @@ public sealed class LlamaServerAssetSelectionLiveTests
     public async Task Live_LatestRelease_HasExactlyOneArchivePerShippedBuild(
         LlamaServerPlatform platform, LlamaServerArchitecture arch, LlamaServerBackend backend)
     {
-        var (tag, assets) = await LatestAssetsAsync(TestContext.Current.CancellationToken);
+        var (tag, assets) = await LatestAssets.Value;
 
         var server = LlamaServerDownloader.GetAssetPattern(platform, arch, backend);
         assets.Where(name => server.IsMatch(name)).Should().ContainSingle(
@@ -50,6 +50,10 @@ public sealed class LlamaServerAssetSelectionLiveTests
         }
     }
 
+    // One lookup for every case: the release is the same for all of them, and GitHub allows an unauthenticated
+    // client 60 API requests an hour
+    private static readonly Lazy<Task<(string Tag, string[] Assets)>> LatestAssets = new(() => LatestAssetsAsync(CancellationToken.None));
+
     private static async Task<(string Tag, string[] Assets)> LatestAssetsAsync(CancellationToken cancellationToken)
     {
         using var downloader = new LlamaServerDownloader(Path.Combine(Path.GetTempPath(), "lmsupply-live-" + Guid.NewGuid().ToString("N")));
@@ -58,6 +62,12 @@ public sealed class LlamaServerAssetSelectionLiveTests
 
         using var http = new HttpClient();
         http.DefaultRequestHeaders.UserAgent.ParseAdd("LMSupply-Tests");
+        // The same token the downloader sends to the GitHub API, when one is set
+        if ((Environment.GetEnvironmentVariable("GITHUB_TOKEN") is { Length: > 0 } token ? token : Environment.GetEnvironmentVariable("GH_TOKEN")) is { Length: > 0 } set)
+        {
+            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", set);
+        }
+
         await using var body = await http.GetStreamAsync(
             $"https://api.github.com/repos/ggml-org/llama.cpp/releases/tags/{tag}", cancellationToken);
         using var release = await JsonDocument.ParseAsync(body, cancellationToken: cancellationToken);
