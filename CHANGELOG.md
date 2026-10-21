@@ -16,6 +16,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   generator, or yielding its text as `TextStreamChunk.Text` and a last chunk with the finish reason.
 
 ### Fixed
+- **The README and guides no longer call ONNX Runtime 1.30 the current runtime** (it is 1.31). The CUDA 13
+  requirement is stated as what it is — true of every GPU build since 1.27 — and the version LMSupply uses is named
+  in one place, `docs/GPU_PROVIDERS.md`.
 - **A GGUF model that started with fewer GPU layers after running out of GPU memory reports the layers it runs
   with.** When llama-server failed to start for lack of GPU memory, the load retried with about a quarter fewer layers,
   but `GeneratorModelInfo.GpuLayers` kept the count first planned — or none, when the caller had set the count

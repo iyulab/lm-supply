@@ -7,14 +7,14 @@ This guide explains execution providers in LMSupply and how to optimize GPU acce
 LMSupply uses ONNX Runtime for inference, which supports multiple execution providers for hardware acceleration.
 
 > **DirectML removed (0.67.0).** ONNX Runtime 1.25+ ships no DirectML execution provider and the
-> `Microsoft.ML.OnnxRuntime.DirectML` package line ends at 1.24.4, so no build of LMSupply on the
-> current runtime (1.30.0) can provision it. `ExecutionProvider.DirectML` was removed in 0.111.0; a
+> `Microsoft.ML.OnnxRuntime.DirectML` package line ends at 1.24.4, so no build of LMSupply on a
+> current runtime can provision it. `ExecutionProvider.DirectML` was removed in 0.111.0; a
 > setting that still holds it is refused with `NotSupportedException` on every path (ONNX session, GenAI,
 > llama-server), and `Auto`
 > no longer tries it — on a Windows machine without CUDA, ONNX sessions run on CPU and the library
 > says so once per process in `Trace`. GGUF/llama-server paths still use the GPU through Vulkan
 > (`LlamaBackendSelector`). A machine that had cached the 1.24.4 native from an older release was
-> running a managed 1.30.0 runtime against a 1.24.4 provider binary, which is not a supported
+> running a newer managed runtime against a 1.24.4 provider binary, which is not a supported
 > combination; it moves to CPU for ONNX sessions on upgrade.
 
 ---
@@ -72,7 +72,7 @@ Available values:
 
 ### 3.1 CUDA (NVIDIA)
 
-**Requirements (ONNX sessions):** ONNX Runtime 1.27 and later — LMSupply uses 1.30 — publish their GPU build for
+**Requirements (ONNX sessions):** ONNX Runtime 1.27 and later — LMSupply uses 1.31 — publish their GPU build for
 CUDA 13, so:
 - an NVIDIA driver that supports CUDA 13 (`nvidia-smi` shows «CUDA Version: 13.x» or higher); with an older driver
   LMSupply leaves CUDA out and logs `CUDA not used for ONNX sessions: the NVIDIA driver supports CUDA up to 12.x …`

@@ -138,7 +138,7 @@ Console.WriteLine($"Provider: {profile.RecommendedProvider}");
 
 | Cause | Solution |
 |-------|----------|
-| Driver supports only CUDA 12 | ONNX Runtime 1.30's GPU build needs CUDA 13: update to a driver whose `nvidia-smi` shows «CUDA Version: 13.x» |
+| Driver supports only CUDA 12 | ONNX Runtime's GPU build (1.27 and later) needs CUDA 13: update to a driver whose `nvidia-smi` shows «CUDA Version: 13.x» |
 | CUDA 13 runtime or cuDNN 9 not installed | Install the CUDA 13 runtime (cuBLAS) and cuDNN 9 for CUDA 13 — LMSupply downloads ONNX Runtime, not these (GGUF models need neither) |
 | Low VRAM | Need 4GB+ for CUDA selection |
 | WSL2 | Ensure CUDA WSL support is enabled |
