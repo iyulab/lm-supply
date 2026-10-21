@@ -68,7 +68,7 @@ public sealed partial class LlamaServerClient : IDisposable
             // The limit is applied per request (SendWithTimeoutAsync), not on the HttpClient, so that
             // views over this client (WithRequestTimeout) can carry their own limit on the same
             // connection pool.
-            _httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
+            _httpClient = LoopbackHttp.CreateClient(_baseUrl, Timeout.InfiniteTimeSpan);
             _ownsHttpClient = true;
             _requestTimeout = ValidateRequestTimeout(requestTimeout ?? LlamaServerConfig.DefaultRequestTimeout);
         }

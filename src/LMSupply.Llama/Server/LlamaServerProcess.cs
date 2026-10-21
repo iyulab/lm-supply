@@ -80,10 +80,7 @@ public sealed partial class LlamaServerProcess : IAsyncDisposable
             ProcessKillTimeout = config.ShutdownTimeout
         });
 
-        _httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(5)
-        };
+        _httpClient = LoopbackHttp.CreateClient($"http://{LoopbackHost}", TimeSpan.FromSeconds(5));
 
         if (config.RequireApiKey)
         {

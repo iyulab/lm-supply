@@ -6,6 +6,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Fixed
+- **A cached GGUF model loads with `HTTP_PROXY` / `HTTPS_PROXY` (or a system proxy) set.** The llama-server readiness
+  check and the API client sent their loopback requests to the proxy, which cannot reach the caller's loopback, so the
+  local server was never seen as ready and the load did not return. Requests to a loopback llama-server now bypass the
+  proxy; a `LlamaServerClient` pointed at a remote server keeps the default proxy behaviour.
+
 ## [0.134.0] - 2026-10-21
 
 ### Added
