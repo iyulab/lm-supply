@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.134.0] - 2026-10-21
+
 ### Added
 - **Model downloads and Hub requests honour `HF_ENDPOINT`**, the Hub base URL variable `huggingface_hub` reads — a
   mirror or an internal hub for a machine that cannot reach huggingface.co. Every Hub URL uses it: file downloads,
