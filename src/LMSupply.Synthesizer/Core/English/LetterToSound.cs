@@ -11,11 +11,14 @@ internal static partial class LetterToSound
 
     // Rules of our own, tried before the report's for the same letter: the report reads a word-final i as in «it», which
     // words borrowed into English do not say (taxi, sushi, emoji — the dictionary has that i as «ee» in nearly every
-    // word that ends in a consonant and i), and a final ai as in «rain» (bonsai, samurai).
+    // word that ends in a consonant and i), and a final ai as in «rain» (bonsai, samurai). Before a final a it reduces
+    // the vowel the stress of such a word falls on (corona, Kagawa).
     private static readonly Rule[] OwnRules =
     [
         new("^", "I", " ", "IY"),
         new("", "AI", " ", "AY"),
+        new("", "A", "WA ", "AA"),
+        new("", "ON", "A ", "OW N"),
     ];
 
     // After the rules it is grouped into: a static field is initialized in the order written.
@@ -24,7 +27,7 @@ internal static partial class LetterToSound
     // Endings that fix where the stress falls, counted in vowels from the end of the word.
     private static readonly (string Ending, int VowelFromEnd)[] StressByEnding =
     [
-        ("ical", 3), ("ity", 3), ("ify", 3), ("ional", 3), ("ian", 3), ("ial", 3), ("ious", 3), ("eous", 3),
+        ("ical", 3), ("ica", 3), ("ity", 3), ("ify", 3), ("ional", 3), ("ian", 3), ("ial", 3), ("ious", 3), ("eous", 3),
         ("ium", 3), ("ia", 3), ("io", 3),
         ("tion", 2), ("sion", 2), ("cian", 2), ("ic", 2), ("ics", 2), ("ish", 2),
         ("ee", 1), ("eer", 1), ("ese", 1), ("ette", 1), ("oon", 1), ("ique", 1), ("esque", 1),
@@ -248,10 +251,10 @@ internal static partial class LetterToSound
             }
         }
 
-        if (!byEnding && count >= 3 && EndsInConsonantAndI(word))
+        if (!byEnding && count >= 3 && EndsInConsonantAndOpenVowel(word))
         {
-            // Words borrowed with a final i keep the stress of their language, on the vowel before it (spaghetti,
-            // origami, emoji).
+            // Words borrowed with a final a, i or o keep the stress of their language, on the vowel before it (agenda,
+            // spaghetti, avocado).
             choice = count - 2;
             byEnding = true;
         }
@@ -278,8 +281,8 @@ internal static partial class LetterToSound
         return vowels[0];
     }
 
-    private static bool EndsInConsonantAndI(ReadOnlySpan<char> word) =>
-        word.Length >= 3 && word[^1] == 'i' && IsConsonantLetter(char.ToUpperInvariant(word[^2]));
+    private static bool EndsInConsonantAndOpenVowel(ReadOnlySpan<char> word) =>
+        word.Length >= 3 && (word[^1] is 'a' or 'i' or 'o') && IsConsonantLetter(char.ToUpperInvariant(word[^2]));
 
     private static bool StartsWithUnstressedPrefix(ReadOnlySpan<char> word)
     {

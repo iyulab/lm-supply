@@ -14,16 +14,24 @@ public class LetterToSoundAgreementTests
     [Fact]
     public void WordsEndingInAConsonantAndI_EndInEe_AndAreStressedLikeTheDictionary()
     {
-        var words = Dictionary.Value.Where(entry => entry.Key.Length >= 3 && entry.Key[^1] == 'i' && !IsVowel(entry.Key[^2])).ToList();
+        var words = EndingInAConsonantAnd('i');
 
         var finalVowel = Share(words, (rules, readings) => readings.Any(r => LastVowel(r) == LastVowel(rules)));
-        var stress = Share(
-            words.Where(entry => entry.Value.Any(r => VowelCount(r) == VowelCount(LetterToSound.Pronounce(entry.Key)))).ToList(),
-            (rules, readings) => readings.Any(r => VowelCount(r) == VowelCount(rules) && StressedVowel(r) == StressedVowel(rules)));
 
         words.Should().HaveCountGreaterThan(2500);
         finalVowel.Should().BeGreaterThan(0.9);
-        stress.Should().BeGreaterThan(0.9);
+        StressAgreement(words).Should().BeGreaterThan(0.9);
+    }
+
+    [Theory]
+    [InlineData('a')]
+    [InlineData('o')]
+    public void LongWordsEndingInAConsonantAndAOrO_AreStressedLikeTheDictionary(char last)
+    {
+        var words = EndingInAConsonantAnd(last).Where(entry => VowelCount(LetterToSound.Pronounce(entry.Key)) >= 3).ToList();
+
+        words.Should().HaveCountGreaterThan(2000);
+        StressAgreement(words).Should().BeGreaterThan(0.9);
     }
 
     [Fact]
@@ -42,12 +50,22 @@ public class LetterToSoundAgreementTests
     }
 
     [Fact]
-    public void AcrossTheDictionary_TheRulesSayAQuarterOfTheWordsExactly()
+    public void AcrossTheDictionary_TheRulesSayAQuarterOfTheWordsExactly_AndStressMostOfThemLikeIt()
     {
         var exact = Share([.. Dictionary.Value], (rules, readings) => readings.Any(r => r.SequenceEqual(rules)));
 
         exact.Should().BeGreaterThan(0.25);
+        StressAgreement([.. Dictionary.Value]).Should().BeGreaterThan(0.82);
     }
+
+    private static List<KeyValuePair<string, List<Phone[]>>> EndingInAConsonantAnd(char last) =>
+        [.. Dictionary.Value.Where(entry => entry.Key.Length >= 3 && entry.Key[^1] == last && !IsVowel(entry.Key[^2]))];
+
+    // Of the words the rules give as many vowels as one of the dictionary's readings, the share stressed on the same one.
+    private static double StressAgreement(List<KeyValuePair<string, List<Phone[]>>> words) =>
+        Share(
+            [.. words.Where(entry => entry.Value.Any(r => VowelCount(r) == VowelCount(LetterToSound.Pronounce(entry.Key))))],
+            (rules, readings) => readings.Any(r => VowelCount(r) == VowelCount(rules) && StressedVowel(r) == StressedVowel(rules)));
 
     private static double Share(
         List<KeyValuePair<string, List<Phone[]>>> words, Func<Phone[], List<Phone[]>, bool> agrees) =>

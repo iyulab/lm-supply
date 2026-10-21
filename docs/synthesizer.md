@@ -88,8 +88,8 @@ The built-in English phonemizer is used for a voice of the `espeak` type whose p
    (`-s`, `-'s`, `-ed`, `-ing`, `-ly`) and as two words written as one (`smartwatch`); anything else is read by the
    letter-to-sound rules of NRL Report 7948, corrected where the dictionary shows them wrong — a final i after a
    consonant is «ee» (`taxi`, `emoji`), a final ai is «eye» (`bonsai`), a doubled consonant is one sound — with a stress
-   rule of its own (a word of three syllables or more ending in a consonant and i is stressed on the syllable before
-   the last: `origami`). A word with two readings gets the dictionary's
+   rule of its own (a word of three syllables or more ending in a consonant and a, i or o is stressed on the syllable
+   before the last: `agenda`, `origami`, `avocado`; one ending in -ica on the one before that: `harmonica`). A word with two readings gets the dictionary's
    first one, whatever the sentence (`read` is always the present tense, `live` the verb); stress is each word's own,
    and the common function words (`the`, `of`, `to`, `a`, ...) are unstressed.
 3. **Writing the voice's phonemes.** The dictionary is American. For `en-us` its phonemes are written directly, with
