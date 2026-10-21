@@ -80,6 +80,27 @@ public class LetterToSoundAgreementTests
     }
 
     [Fact]
+    public void WordsWithGhInside_HaveTheDictionarysSoundsInNearlyHalf()
+    {
+        var words = Dictionary.Value.Where(entry => entry.Key.IndexOf("gh", 1, StringComparison.Ordinal) > 0).ToList();
+
+        words.Should().HaveCountGreaterThan(1000);
+        Share(words, (rules, readings) => readings.Any(r => r.Select(p => p.Symbol).SequenceEqual(rules.Select(p => p.Symbol))))
+            .Should().BeGreaterThan(0.46);
+    }
+
+    [Theory]
+    [InlineData("zorghum", "Z AO R G AH M")]
+    [InlineData("kellaghan", "K EH L AE G AE N")]
+    [InlineData("glough", "G L AW")]
+    [InlineData("zadough", "Z AE D OW")]
+    [InlineData("fenough", "F EH N AH F")]
+    public void AGh_IsAGOrSilent_AndAnOughIsSaidByWhatComesBeforeIt(string word, string phones)
+    {
+        string.Join(' ', LetterToSound.Pronounce(word).Select(p => p.Symbol)).Should().Be(phones);
+    }
+
+    [Fact]
     public void AFinalAi_IsSaidAsInEye()
     {
         LetterToSound.Pronounce("zorbai")[^1].Symbol.Should().Be(Arpa.AY);

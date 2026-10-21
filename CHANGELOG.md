@@ -54,6 +54,11 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   after un-, dis-, mis-, ex-, en-, im-, ab-, af-, ap-, at-, ob-, sup- and trans- as well (`unpaid`, `exceed`,
   `dismiss`), and after be-, de- and re- only before a consonant or cluster a syllable can begin with. Read against the
   shipped dictionary, the rules now stress 87% of its words as it does.
+- **Synthesizer: a gh or ough inside an English word the dictionary lacks is said as English says it.** The
+  letter-to-sound rules read a gh after a consonant as g and h (`Afghan` with an h), kept silent a gh between single
+  vowels (`Callaghan`, `Allegheny`), and said every ough as in «rough». A gh there is now a g, and an ough is said as in
+  «tough» after t, n and an initial r, as in «dough» after d, as in «cough» after c, and as in «bough» otherwise. Of the
+  shipped dictionary's words with a gh inside, the rules now say 48% with its sounds (was 44%).
 - **Generator: a streamed tool call on a Gemma 4 GGUF model is no longer lost.** `GenerateChatStreamAsync` ended the
   turn with finish reason `tool_calls` but no `ChatToolCallDelta`: the stream kept only the calls its Gemma 4 wrapper
   parser found in the text, and llama-server builds that parse the wrapper themselves send the call as structured

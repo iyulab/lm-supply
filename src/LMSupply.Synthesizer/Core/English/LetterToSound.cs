@@ -12,13 +12,27 @@ internal static partial class LetterToSound
     // Rules of our own, tried before the report's for the same letter: the report reads a word-final i as in «it», which
     // words borrowed into English do not say (taxi, sushi, emoji — the dictionary has that i as «ee» in nearly every
     // word that ends in a consonant and i), and a final ai as in «rain» (bonsai, samurai). Before a final a it reduces
-    // the vowel the stress of such a word falls on (corona, Kagawa).
+    // the vowel the stress of such a word falls on (corona, Kagawa). A gh it keeps silent after any vowel is a g after
+    // a consonant (Afghan) and between a single vowel and the next (Callaghan, Allegheny, spaghetti). The ough it reads
+    // as in «rough» is that only there and after t and n (tough, enough); after d it is «dough», after c «cough», and otherwise
+    // the ough of «bough» (Clough, Brougham).
     private static readonly Rule[] OwnRules =
     [
         new("^", "I", " ", "IY"),
         new("", "AI", " ", "AY"),
         new("", "A", "WA ", "AA"),
         new("", "ON", "A ", "OW N"),
+        new("^", "GH", "", "G"),
+        new("^A", "GH", "#", "G"),
+        new("^E", "GH", "#", "G"),
+        new("^O", "GH", "#", "G"),
+        new("", "OUGHT", "", "AO T"),
+        new(" R", "OUGH", "", "AH F"),
+        new("T", "OUGH", "", "AH F"),
+        new("N", "OUGH", "", "AH F"),
+        new("D", "OUGH", "", "OW"),
+        new("C", "OUGH", "", "AO F"),
+        new("", "OUGH", "", "AW"),
     ];
 
     // After the rules it is grouped into: a static field is initialized in the order written.

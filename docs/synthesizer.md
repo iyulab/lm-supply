@@ -87,7 +87,9 @@ The built-in English phonemizer is used for a voice of the `espeak` type whose p
    (about 126,000 words), with its stress. A word it does not have is tried as a regular ending on a word it has
    (`-s`, `-'s`, `-ed`, `-ing`, `-ly`) and as two words written as one (`smartwatch`); anything else is read by the
    letter-to-sound rules of NRL Report 7948, corrected where the dictionary shows them wrong — a final i after a
-   consonant is «ee» (`taxi`, `emoji`), a final ai is «eye» (`bonsai`), a doubled consonant is one sound — with a stress
+   consonant is «ee» (`taxi`, `emoji`), a final ai is «eye» (`bonsai`), a doubled consonant is one sound, a gh after a
+   consonant or between single vowels is a g (`Afghan`, `Callaghan`), an ough is said by the letter before it (`tough`,
+   `dough`, `cough`, and otherwise `bough`) — with a stress
    rule of its own (a word of three syllables or more ending in a consonant and a, i or o is stressed on the syllable
    before the last: `agenda`, `origami`, `avocado`; one ending in -ica on the one before that: `harmonica`; a word of
    two syllables that starts with a prefix such as be-, re-, un-, dis- or ex- on its root: `unpaid`, `exceed` — but
