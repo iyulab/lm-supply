@@ -271,6 +271,20 @@ A GGUF model whose llama-server exits (killed, crashed, out of memory) gets a ne
 
 Each llama-server LMSupply launches requires its own random key, so other processes and users on the same machine cannot call it; LMSupply's own requests carry it. A host that starts `LlamaServerProcess` itself and calls `Info.BaseUrl` sends `Authorization: Bearer <LlamaServerProcess.ApiKey>` (or sets `LlamaServerConfig.RequireApiKey = false`).
 
+A loaded generator is also a Microsoft.Extensions.AI `IChatClient` (`generator.AsChatClient()`), so a pipeline built with
+`ChatClientBuilder` or an agent framework uses a local model with no adapter of its own — tools, reasoning, images,
+JSON output and usage included, whole or streamed. The client does not own the generator:
+
+```csharp
+using LMSupply.Generator;
+using Microsoft.Extensions.AI;
+
+await using var generator = await LocalGenerator.LoadAsync("gguf:gemma4-default");
+IChatClient chat = generator.AsChatClient();
+
+var answer = await chat.GetResponseAsync("Name three primary colours.", new ChatOptions { MaxOutputTokens = 100 });
+```
+
 ### Translation
 
 ```csharp

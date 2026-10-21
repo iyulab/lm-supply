@@ -7,6 +7,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Added
+- **Generator: a loaded generator is a Microsoft.Extensions.AI `IChatClient`** — `generator.AsChatClient()` returns a
+  `LocalChatClient`, so `ChatClientBuilder` pipelines, `UseFunctionInvocation()` and agent frameworks use a local model
+  with no adapter of their own: instructions, images, tool calls and results, reasoning (`Reasoning.Effort` drives
+  `ThinkingMode`, reasoning returns as `TextReasoningContent`), sampling options, `ToolMode`, JSON `ResponseFormat`,
+  library-only options through `RawRepresentationFactory`, and usage with cached prompt tokens, whole or streamed. The
+  client does not own the generator. See [Microsoft.Extensions.AI](docs/generator.md#microsoftextensionsai).
 - **Synthesizer: the Korean voice speaks text.** A built-in Korean phonemizer turns Korean text into the phonemes the
   `korean` voice was trained on, in pure .NET with no download: figures are read as Sino-Korean numbers and Latin
   letters by their Korean names, each word is said by the rules of the standard pronunciation that follow from its

@@ -69,6 +69,13 @@ var messages = new[]
 string response = await generator.GenerateChatCompleteAsync(messages);
 ```
 
+## Microsoft.Extensions.AI
+
+`generator.AsChatClient()` is the loaded generator as an `IChatClient`, for a pipeline built with `ChatClientBuilder` or
+an agent framework: messages (images included), tools and tool results, reasoning, sampling options, JSON output, usage,
+whole or streamed. It does not own the generator. See the
+[generator guide](https://github.com/iyulab/lm-supply/blob/main/docs/generator.md#microsoftextensionsai).
+
 ## Available Models
 
 | Model | Parameters | License | Description |

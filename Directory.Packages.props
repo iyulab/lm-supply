@@ -53,7 +53,7 @@
     <!-- Console Host -->
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.3.1" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.13" />
-    <!-- The M.E.AI embedding contract LMSupply.Embedder implements. -->
+    <!-- The M.E.AI contracts LMSupply.Embedder (IEmbeddingGenerator) and LMSupply.Generator (IChatClient) implement. -->
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.11.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13" />

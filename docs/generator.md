@@ -242,6 +242,52 @@ var options = new GeneratorOptions { MaxContextLength = 4096, AutoSelectionGoal 
 long bytes = await LocalGenerator.GetDownloadSizeBytesAsync("auto", options);   // this device's first-run download
 ```
 
+## Microsoft.Extensions.AI
+
+`generator.AsChatClient()` returns a `LocalChatClient`, an `IChatClient` over a loaded generator, so a library that takes
+the standard contract — a pipeline built with `ChatClientBuilder`, `UseFunctionInvocation()` (both in the
+`Microsoft.Extensions.AI` package), an agent framework — uses a local model with no adapter of its own. The client offers
+tools to the model and returns the calls it asks for; running them is the caller's, or a function-invoking client's:
+
+```csharp
+using System.ComponentModel;
+using LMSupply.Generator;
+using Microsoft.Extensions.AI;
+
+await using var generator = await LocalGenerator.LoadAsync("gguf:gemma4-default");
+IChatClient chat = generator.AsChatClient();
+
+var options = new ChatOptions { Tools = [AIFunctionFactory.Create(GetWeather)], MaxOutputTokens = 300 };
+var response = await chat.GetResponseAsync("What is the weather in Busan?", options);
+
+foreach (var call in response.Messages.SelectMany(m => m.Contents).OfType<FunctionCallContent>())
+    Console.WriteLine($"{call.Name}({string.Join(", ", call.Arguments ?? new Dictionary<string, object?>())})");
+
+[Description("Gets the current weather for a city.")]
+static string GetWeather(string city) => $"sunny in {city}";
+```
+
+| Standard | In the library |
+|---|---|
+| `ChatOptions.Instructions` | a leading system message |
+| Message roles; `TextContent`; `DataContent` / `UriContent` with an `image/*` type | the same roles; text; image parts (a vision model) |
+| `FunctionCallContent` / `FunctionResultContent` | an assistant message's tool calls / a tool message; a structured result is flattened to text, with a note naming what was left out |
+| `MaxOutputTokens` | `MaxNewTokens` |
+| `Temperature`, `TopP`, `TopK`, `FrequencyPenalty`, `PresencePenalty`, `Seed`, `StopSequences` | their namesakes |
+| `Reasoning.Effort` | `None` → `ThinkingMode.Off`, any other effort → `On`, no reasoning options → the model's default |
+| `Reasoning.Output = None` | the model's reasoning is not extracted or returned; otherwise it comes back as `TextReasoningContent` |
+| `Tools` (every `AIFunctionDeclaration`) and `ToolMode` | `Tools` and `ToolChoice`; the client never invokes a tool itself |
+| `ResponseFormat` JSON | `JsonSchema` — the given schema, or a JSON object (llama-server backend) |
+| `RawRepresentationFactory` returning `GenerationOptions` | the starting options, with the standard ones applied over them: the way to set `RepetitionPenalty`, `MinP`, `Grammar`, … |
+| `ModelId` | must be this model's id (any case), otherwise `ArgumentException` |
+
+A response carries the model id, the finish reason (`Stop`, `ToolCalls`, `Length`) and, where the backend counts them
+(llama-server; not ONNX), the usage with `CachedInputTokenCount` for prompt tokens served from the server's cache. A
+streamed response yields text and reasoning as they arrive and the tool calls, assembled, with its final update, which
+also carries the usage. `RawRepresentation` is the library's own result or chunk. `GetService` answers
+`ChatClientMetadata` (provider `"LMSupply"`) and the wrapped generator; `Dispose()` does nothing — the generator belongs
+to whoever loaded it.
+
 ## Configuration Options
 
 ### Execution Provider
