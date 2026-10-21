@@ -299,6 +299,25 @@ Models are cached following HuggingFace Hub conventions:
 - Override via: `HF_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME` environment variables
 - Or set `DetectorOptions.CacheDirectory`
 
+### Before a download
+
+A host that asks before downloading reads what a load would fetch, without loading or downloading anything:
+
+```csharp
+var artifacts = new DetectorArtifacts(new DetectorOptions { Provider = ExecutionProvider.Cpu });
+if (!await artifacts.IsAvailableOfflineAsync("pose"))
+{
+    var remaining = await artifacts.GetRemainingDownloadAsync("pose");   // ModelBytes, RuntimeBytes, TotalBytes
+    // ... after the user agrees:
+    await artifacts.DownloadAsync("pose", progress);                      // the model file and the ONNX Runtime
+}
+```
+
+`LocalDetector.GetDownloadSizeBytesAsync`, `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync`
+and `DeleteModel` answer for the model file alone: the one file a load picks from the repository (the default model's
+repository also publishes the larger ones), at the length the repository lists. The registry's `SizeBytes` is an
+approximate figure for choosing a model, not what a download on this machine fetches.
+
 ## Upgrading from 0.61
 
 **RT-DETR scores move slightly, so a fixed threshold returns a different count.** Preprocessing used to

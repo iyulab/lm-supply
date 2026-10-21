@@ -1050,8 +1050,8 @@ RuntimeManager.Configure(new RuntimeManagerOptions
 A host that must not download before the user agrees asks each model package the same three questions through
 `LMSupply.Lifecycle.IModelArtifacts` — `GeneratorArtifacts(options)`, `EmbedderArtifacts(options)`, `RerankerArtifacts(options)`,
 `TranscriberArtifacts(options)`, `DiarizationArtifacts(options)` (the speaker-diarization pair, one id `"default"`),
-`CaptionerArtifacts(options)` and `OcrArtifacts(options)` (its id is a language code, as for
-`LocalOcr.LoadForLanguageAsync`), built with the options the later load will use:
+`CaptionerArtifacts(options)`, `OcrArtifacts(options)` (its id is a language code, as for
+`LocalOcr.LoadForLanguageAsync`) and `DetectorArtifacts(options)`, built with the options the later load will use:
 
 ```csharp
 using LMSupply;

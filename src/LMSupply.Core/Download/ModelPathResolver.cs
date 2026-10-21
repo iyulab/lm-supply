@@ -213,6 +213,26 @@ public sealed class ModelPathResolver : IDisposable
     }
 
     /// <summary>
+    /// The files <see cref="ResolveModelAsync"/> would download for the same arguments, with the lengths the repository lists
+    /// — chosen by the same discovery and preferences, so the plan and the download agree. Null for a local file or directory,
+    /// which downloads nothing. Downloads nothing; the listing it reads is cached for the download that follows.
+    /// </summary>
+    /// <exception cref="ModelNotFoundException">The repository does not exist, or (local files only) was never listed into this cache.</exception>
+    /// <exception cref="ModelDownloadException">The listing gives no length for a file the download takes.</exception>
+    public async Task<DownloadPlan?> PlanModelAsync(
+        string modelIdOrPath,
+        string expectedOnnxFile = "model.onnx",
+        ModelPreferences? preferences = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (File.Exists(modelIdOrPath) || Directory.Exists(modelIdOrPath))
+            return null;
+
+        preferences = WithRequestedFile(preferences ?? ModelPreferences.ForCurrentHardware(), expectedOnnxFile);
+        return await _downloader.PlanWithDiscoveryAsync(StripVariantSuffix(modelIdOrPath), preferences, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
     /// Resolves encoder-decoder model paths from a model ID or local path.
     /// </summary>
     /// <param name="modelIdOrPath">Model ID (HuggingFace) or local path.</param>
