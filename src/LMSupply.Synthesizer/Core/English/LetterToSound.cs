@@ -17,7 +17,9 @@ internal static partial class LetterToSound
     // as in «rough» is that only after t, n and an initial r (tough, enough, rough); after d it is «dough», after c
     // «cough», and otherwise the ough of «bough» (Clough, Brougham). An ei is the «eye» of the names a dictionary
     // lacks (Beilman, Heiser), not the «ee» of «receive», and an e before a consonant and -er or -ing is the «e» of «bet»
-    // (severing, tethering).
+    // (severing, tethering). A z after t is an s (Horowitz); a final s after the vowel of a plural is a z (cities,
+    // trustees, Fridays, valleys); one between vowels is an s before a final -on, -a, -i or -o and in -sive (Acheson,
+    // Mesa, Lasso, abusive), where the report has a z. A ch before l, r, t or s is a k (Chloe, Christ, Achtung).
     private static readonly Rule[] OwnRules =
     [
         new("^", "I", " ", "IY"),
@@ -38,6 +40,23 @@ internal static partial class LetterToSound
         new("", "EI", "", "AY"),
         new("", "E", "^ER", "EH"),
         new("", "E", "^ING", "EH"),
+        new("T", "Z", "", "S"),
+        new("IE", "S", " ", "Z"),
+        new("EE", "S", " ", "Z"),
+        new("AY", "S", " ", "Z"),
+        new("EY", "S", " ", "Z"),
+        new("OY", "S", " ", "Z"),
+        new("UE", "S", " ", "Z"),
+        new("OE", "S", " ", "Z"),
+        new("#", "S", "ON ", "S"),
+        new("#", "S", "IVE", "S"),
+        new("#", "S", "A ", "S"),
+        new("#", "S", "I ", "S"),
+        new("#", "S", "O ", "S"),
+        new("", "CH", "L", "K"),
+        new("", "CH", "R", "K"),
+        new("", "CH", "T", "K"),
+        new("", "CH", "S", "K"),
     ];
 
     // After the rules it is grouped into: a static field is initialized in the order written.

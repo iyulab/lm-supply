@@ -90,7 +90,8 @@ The built-in English phonemizer is used for a voice of the `espeak` type whose p
    consonant is «ee» (`taxi`, `emoji`), a final ai is «eye» (`bonsai`), a doubled consonant is one sound, a gh after a
    consonant or between single vowels is a g (`Afghan`, `Callaghan`), an ough is said by the letter before it (`tough`,
    `dough`, `cough`, and otherwise `bough`), an ei is «eye» (`Beilman`), a stressed o is «oh» before one consonant
-   and a vowel (`emoji`) and the o of «lot» before two (`accommodate`), an unstressed short a, e or o is a schwa (one beginning the word: a schwa
+   and a vowel (`emoji`) and the o of «lot» before two (`accommodate`), a z after t is an s (`Horowitz`), a final s after a plural's vowel
+   a z (`cities`), a ch before l, r, t or s a k (`Christ`), an unstressed short a, e or o is a schwa (one beginning the word: a schwa
    for a, «i» for e), an unstressed i before a vowel is «ee», and an unstressed diphthong keeps a secondary stress —
    with a stress
    rule of its own (a word of three syllables or more ending in a consonant and a, i or o is stressed on the syllable

@@ -71,6 +71,11 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   before two consonants as the u of «cut» (`accommodate`), an ei as in «receive» (`Beilman`), and an e before a
   consonant and -er or -ing as in «see». A stressed o there is now «oh», and the o of «lot» before two consonants, an
   ei is «eye», and that e the e of «bet».
+- **Synthesizer: an s, z or ch in an English word the dictionary lacks is said as English says it.** The
+  letter-to-sound rules said a z after t as z (`Horowitz`), a final s after the vowel of a plural as s (`cities`,
+  `Fridays`), and an s between vowels as z before a final -on, -a, -i or -o and in -sive (`Acheson`, `Mesa`,
+  `abusive`). Each is now said as the shipped dictionary has it, and so is a ch before l, r, t or s: a k (`Chloe`,
+  `Christ`), not the ch of «church».
 - **Generator: a streamed tool call on a Gemma 4 GGUF model is no longer lost.** `GenerateChatStreamAsync` ended the
   turn with finish reason `tool_calls` but no `ChatToolCallDelta`: the stream kept only the calls its Gemma 4 wrapper
   parser found in the text, and llama-server builds that parse the wrapper themselves send the call as structured

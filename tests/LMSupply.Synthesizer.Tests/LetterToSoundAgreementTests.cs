@@ -124,6 +124,26 @@ public class LetterToSoundAgreementTests
         LetterToSound.Pronounce(word).Single(p => p.Stress == 1).Symbol.ToString().Should().Be(vowel);
     }
 
+    [Theory]
+    [InlineData("borowitz", "S")]
+    [InlineData("zorbities", "Z")]
+    [InlineData("glondays", "Z")]
+    [InlineData("framison", "S")]
+    [InlineData("kelusive", "S")]
+    public void AnSOrZ_IsVoicedAsItsNeighboursHaveIt(string word, string last)
+    {
+        LetterToSound.Pronounce(word).Last(p => p.Symbol is Arpa.S or Arpa.Z).Symbol.ToString().Should().Be(last);
+    }
+
+    [Theory]
+    [InlineData("chlorbin")]
+    [InlineData("chronvel")]
+    [InlineData("fechter")]
+    public void AChBeforeL_R_TOrS_IsAK(string word)
+    {
+        LetterToSound.Pronounce(word).Should().Contain(p => p.Symbol == Arpa.K).And.NotContain(p => p.Symbol == Arpa.CH);
+    }
+
     [Fact]
     public void AFinalAi_IsSaidAsInEye()
     {
@@ -135,7 +155,7 @@ public class LetterToSoundAgreementTests
     {
         var exact = Share([.. Dictionary.Value], (rules, readings) => readings.Any(r => r.SequenceEqual(rules)));
 
-        exact.Should().BeGreaterThan(0.345);
+        exact.Should().BeGreaterThan(0.35);
         StressAgreement([.. Dictionary.Value]).Should().BeGreaterThan(0.865);
     }
 
