@@ -271,7 +271,36 @@ internal static partial class LetterToSound
         var (stem, suffixVowels) = Stem(word, vowels.Count);
         var stressed = PickStressedVowel(phones, vowels[..(vowels.Count - suffixVowels)], stem);
         foreach (var i in vowels)
-            phones[i] = phones[i] with { Stress = (byte)(i == stressed ? 1 : 0) };
+            phones[i] = i == stressed ? phones[i] with { Stress = 1 } : Unstressed(phones, i, word[0]);
+    }
+
+    // An unstressed vowel as the dictionary marks it. A short a, e or o inside the word is a schwa (Attenborough,
+    // Ellison, Madison: «ə», not the «æ», «ɛ», «ɑ» the rules give); one that begins the word is a schwa for a (abound),
+    // the i of «it» for e (eclectic), and an i there keeps a secondary stress (iconic). An i before another vowel is
+    // the i of «see» (accordion), and a diphthong is not reduced and keeps a secondary stress (Monday, Holloway).
+    private static Phone Unstressed(Phone[] phones, int at, char firstLetter)
+    {
+        var vowel = phones[at];
+        if (at == 0)
+        {
+            switch (firstLetter, vowel.Symbol)
+            {
+                case ('a', Arpa.AE):
+                    return new Phone(Arpa.AH, 0);
+                case ('e', Arpa.EH or Arpa.IY):
+                    return new Phone(Arpa.IH, 0);
+                case ('i', Arpa.IH):
+                    return vowel with { Stress = 2 };
+            }
+        }
+
+        return vowel.Symbol switch
+        {
+            Arpa.AE or Arpa.EH or Arpa.AA when at > 0 => new Phone(Arpa.AH, 0),
+            Arpa.IH when at + 1 < phones.Length && phones[at + 1].IsVowel => new Phone(Arpa.IY, 0),
+            Arpa.EY or Arpa.AY or Arpa.OY or Arpa.AW => vowel with { Stress = 2 },
+            _ => vowel with { Stress = 0 },
+        };
     }
 
     private static int PickStressedVowel(Phone[] phones, List<int> vowels, ReadOnlySpan<char> word)

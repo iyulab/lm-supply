@@ -59,6 +59,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   vowels (`Callaghan`, `Allegheny`), and said every ough as in «rough». A gh there is now a g, and an ough is said as in
   «tough» after t, n and an initial r, as in «dough» after d, as in «cough» after c, and as in «bough» otherwise. Of the
   shipped dictionary's words with a gh inside, the rules now say 48% with its sounds (was 44%).
+- **Synthesizer: the unstressed vowels of an English word the dictionary lacks are reduced as English reduces them.**
+  The letter-to-sound rules gave an unstressed short a, e or o its full sound (`Attenborough` with the «e» of «bet»,
+  `Madison` with the «o» of «lot», `emoji` with the «e» of «bet»), an unstressed i before a vowel as in «it»
+  (`accordion`), and no vowel a secondary stress. Such an a, e or o is now a schwa — at the start of the word, a schwa
+  for a and the «i» of «it» for e — an i before a vowel the «ee» of «see», and an unstressed diphthong keeps a
+  secondary stress (`Holloway`). Read against the shipped dictionary, the rules now say 34% of its words exactly (was
+  27%).
 - **Generator: a streamed tool call on a Gemma 4 GGUF model is no longer lost.** `GenerateChatStreamAsync` ended the
   turn with finish reason `tool_calls` but no `ChatToolCallDelta`: the stream kept only the calls its Gemma 4 wrapper
   parser found in the text, and llama-server builds that parse the wrapper themselves send the call as structured

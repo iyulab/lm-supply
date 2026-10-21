@@ -91,13 +91,26 @@ public class LetterToSoundAgreementTests
 
     [Theory]
     [InlineData("zorghum", "Z AO R G AH M")]
-    [InlineData("kellaghan", "K EH L AE G AE N")]
+    [InlineData("kellaghan", "K EH L AH G AH N")]
     [InlineData("glough", "G L AW")]
     [InlineData("zadough", "Z AE D OW")]
     [InlineData("fenough", "F EH N AH F")]
     public void AGh_IsAGOrSilent_AndAnOughIsSaidByWhatComesBeforeIt(string word, string phones)
     {
         string.Join(' ', LetterToSound.Pronounce(word).Select(p => p.Symbol)).Should().Be(phones);
+    }
+
+    [Theory]
+    [InlineData("zabbelton", "Z AE1 B AH0 L T AH0 N")]
+    [InlineData("anderbrock", "AE1 N D ER0 B R AH0 K")]
+    [InlineData("glumday", "G L AH1 M D EY2")]
+    [InlineData("adorbic", "AH0 D AO1 R B IH0 K")]
+    [InlineData("eclorbic", "IH0 K L AO1 R B IH0 K")]
+    [InlineData("itorbic", "IH2 T AO1 R B IH0 K")]
+    [InlineData("zabiola", "Z EY2 B IY0 AA1 L AH0")]
+    public void AnUnstressedShortVowel_IsASchwa_AndAnUnstressedDiphthongKeepsASecondaryStress(string word, string phones)
+    {
+        LetterToSound.Pronounce(word).Should().Equal(Arpabet.Parse(phones));
     }
 
     [Fact]
@@ -107,11 +120,11 @@ public class LetterToSoundAgreementTests
     }
 
     [Fact]
-    public void AcrossTheDictionary_TheRulesSayAQuarterOfTheWordsExactly_AndStressMostOfThemLikeIt()
+    public void AcrossTheDictionary_TheRulesSayAThirdOfTheWordsExactly_AndStressMostOfThemLikeIt()
     {
         var exact = Share([.. Dictionary.Value], (rules, readings) => readings.Any(r => r.SequenceEqual(rules)));
 
-        exact.Should().BeGreaterThan(0.27);
+        exact.Should().BeGreaterThan(0.335);
         StressAgreement([.. Dictionary.Value]).Should().BeGreaterThan(0.865);
     }
 

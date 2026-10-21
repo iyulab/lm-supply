@@ -29,7 +29,7 @@ public class EnglishPhonemizerTests
     [InlineData("Four sorry tourists are here.", "fˈɔːɹ sˈɑːɹi tˈʊɹəsts ɑːɹ hˈɪɹ.")]
     // Not in the dictionary: two words it has, and letter-to-sound rules with a stress of their own.
     [InlineData("smartwatch", "smˈɑːɹtwˌɑːtʃ")]
-    [InlineData("Zorblat", "zˈɔːɹblæt")]
+    [InlineData("Zorblat", "zˈɔːɹblət")]
     // Figures: a year in pairs, dollars and cents, a time of day, an ordinal, separators, a decimal and a percentage.
     [InlineData("In 1999 she paid $3.50 for 21 apples at 4:30.",
         "ɪn nˈaɪntˈiːn nˈaɪnti nˈaɪn ʃiː pˈeɪd θɹˈiː dˈɑːlɚz ænd fˈɪfti sˈɛnts fɔːɹ twˈɛnti wˈʌn ˈæpəlz æt fˈɔːɹ θˈɜːdˌiː.")]
@@ -59,7 +59,7 @@ public class EnglishPhonemizerTests
     [InlineData("Four sorry tourists are here.", "fˈɔː sˈɒɹi tˈʊəɹəsts ɑː hˈɪə.")]
     // The glide after t, d and n where the spelling has u or ew.
     [InlineData("Our new tune knew the duke.", "aʊə njˈuː tjˈuːn njˈuː ðə djˈuːk.")]
-    [InlineData("Zorblat", "zˈɔːblat")]
+    [InlineData("Zorblat", "zˈɔːblət")]
     [InlineData("Dr. Smith met Mr. Jones, e.g. at the U.S. office, etc.",
         "dˈɒktə smˈɪθ mˈɛt mˈɪstə dʒˈəʊnz, fɔːɹ ɪɡzˈampəl at ðə jˌuː ˈɛs ˈɒfɪs, ˈɛt sˈɛtəɹə.")]
     public void British(string text, string expected)
@@ -72,7 +72,7 @@ public class EnglishPhonemizerTests
     [Theory]
     [InlineData("The car is far, and the water is hotter than ever.", "ðə kˈɑːɹ ɪz fˈɑː, ænd ðə wˈɔːtəɹ ɪz hˈɒtə ðæn ˈɛvə.")]
     [InlineData("Four sorry tourists are here.", "fˈɔː sˈɒɹi tˈʊəɹəsts ɑː hˈɪə.")]
-    [InlineData("Zorblat", "zˈɔːblæt")]
+    [InlineData("Zorblat", "zˈɔːblət")]
     public void ReceivedPronunciation(string text, string expected)
     {
         string.Join(" | ", Say(SynthesizerModels.EnGbSemaine, text)).Should().Be(expected);
@@ -303,7 +303,7 @@ public class EnglishPhonemizerPartsTests
     }
 
     [Theory]
-    [InlineData("zorblat", "Z AO1 R B L AE0 T")]
+    [InlineData("zorblat", "Z AO1 R B L AH0 T")]
     [InlineData("pellington", "P EH1 L IH0 NG T AH0 N")]
     public void AWordNotInTheDictionary_IsReadByTheLetterToSoundRules(string word, string expected)
     {
