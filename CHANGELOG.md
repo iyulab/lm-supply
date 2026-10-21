@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.133.0] - 2026-10-21
+
 ### Added
 - **`ITextGenerator.GenerateStreamAsync(prompt)` streams a raw-prompt completion in structured chunks**
   (`TextStreamChunk`), as `GenerateChatStreamAsync` does for chat: text deltas with their log probabilities, the
