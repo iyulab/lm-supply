@@ -44,8 +44,14 @@ public sealed class GeneratorArtifacts : IModelArtifacts
     }
 
     /// <inheritdoc />
-    public Task<long> GetRemainingDownloadBytesAsync(string modelId, CancellationToken cancellationToken = default)
-        => LocalGenerator.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken);
+    public async Task<RemainingDownload> GetRemainingDownloadAsync(string modelId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        var model = await LocalGenerator.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken);
+        return new RemainingDownload(model, LocalGenerator.IsGgufTarget(modelId, _options.Clone())
+            ? await Server().GetRemainingDownloadBytesAsync(Backend(), cancellationToken)
+            : null);
+    }
 
     /// <inheritdoc />
     public async Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)

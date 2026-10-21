@@ -25,8 +25,8 @@ public sealed class CaptionerArtifacts : IModelArtifacts
         => LocalCaptioner.IsModelDownloadedAsync(modelId, _options, cancellationToken);
 
     /// <inheritdoc />
-    public Task<long> GetRemainingDownloadBytesAsync(string modelId, CancellationToken cancellationToken = default)
-        => LocalCaptioner.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken);
+    public async Task<RemainingDownload> GetRemainingDownloadAsync(string modelId, CancellationToken cancellationToken = default)
+        => new(await LocalCaptioner.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken), RuntimeBytes: null);
 
     /// <inheritdoc />
     public Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)

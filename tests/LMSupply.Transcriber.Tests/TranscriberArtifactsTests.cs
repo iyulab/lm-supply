@@ -67,7 +67,7 @@ public sealed class TranscriberArtifactsTests : IDisposable
         SeedCachedModel();
 
         (await artifacts.IsAvailableOfflineAsync("default", Ct)).Should().BeTrue();
-        (await artifacts.GetRemainingDownloadBytesAsync("default", Ct)).Should().Be(0);
+        (await artifacts.GetRemainingDownloadAsync("default", Ct)).ModelBytes.Should().Be(0);
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public sealed class TranscriberArtifactsTests : IDisposable
 
         (await transcriber.IsAvailableOfflineAsync("default", Ct))
             .Should().BeTrue("the speaker pair is its own kind — transcription is available without it");
-        (await transcriber.GetRemainingDownloadBytesAsync("default", Ct)).Should().Be(0);
+        (await transcriber.GetRemainingDownloadAsync("default", Ct)).ModelBytes.Should().Be(0);
         (await speakers.IsAvailableOfflineAsync(DiarizationArtifacts.DefaultModelId, Ct)).Should().BeFalse();
     }
 
@@ -104,13 +104,13 @@ public sealed class TranscriberArtifactsTests : IDisposable
         speakers.Kind.Should().Be("diarization");
 
         (await speakers.IsAvailableOfflineAsync(DiarizationArtifacts.DefaultModelId, Ct)).Should().BeFalse();
-        (await speakers.GetRemainingDownloadBytesAsync(DiarizationArtifacts.DefaultModelId, Ct))
+        (await speakers.GetRemainingDownloadAsync(DiarizationArtifacts.DefaultModelId, Ct)).ModelBytes
             .Should().Be(LocalTranscriber.DiarizationDownloadSizeBytes);
 
         SeedCachedDiarizationPair();
 
         (await speakers.IsAvailableOfflineAsync(DiarizationArtifacts.DefaultModelId, Ct)).Should().BeTrue();
-        (await speakers.GetRemainingDownloadBytesAsync(DiarizationArtifacts.DefaultModelId, Ct)).Should().Be(0);
+        (await speakers.GetRemainingDownloadAsync(DiarizationArtifacts.DefaultModelId, Ct)).ModelBytes.Should().Be(0);
         (await new TranscriberArtifacts(Options()).IsAvailableOfflineAsync("default", Ct))
             .Should().BeFalse("a cached pair does not make a transcriber model available");
     }

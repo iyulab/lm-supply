@@ -29,8 +29,8 @@ public sealed class OcrArtifacts : IModelArtifacts
         => LocalOcr.IsLanguageDownloadedAsync(modelId, _options, cancellationToken);
 
     /// <inheritdoc />
-    public Task<long> GetRemainingDownloadBytesAsync(string modelId, CancellationToken cancellationToken = default)
-        => LocalOcr.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken);
+    public async Task<RemainingDownload> GetRemainingDownloadAsync(string modelId, CancellationToken cancellationToken = default)
+        => new(await LocalOcr.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken), RuntimeBytes: null);
 
     /// <inheritdoc />
     public Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)

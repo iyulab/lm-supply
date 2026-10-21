@@ -35,8 +35,8 @@ public sealed class TranscriberArtifacts : IModelArtifacts
     }
 
     /// <inheritdoc />
-    public Task<long> GetRemainingDownloadBytesAsync(string modelId, CancellationToken cancellationToken = default)
-        => LocalTranscriber.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken);
+    public async Task<RemainingDownload> GetRemainingDownloadAsync(string modelId, CancellationToken cancellationToken = default)
+        => new(await LocalTranscriber.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken), RuntimeBytes: null);
 
     /// <inheritdoc />
     public Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)

@@ -38,6 +38,15 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   needs phonemes or a phonemizer. See [Korean text](docs/synthesizer.md#korean-text) for what is not handled.
 
 ### Changed
+- **Breaking — `IModelArtifacts.GetRemainingDownloadBytesAsync` is `GetRemainingDownloadAsync`, and it counts the
+  runtimes the download fetches.** It returns a `RemainingDownload`: `ModelBytes` (what the old method returned),
+  `RuntimeBytes` and `TotalBytes`. A consent prompt stated the model alone while `DownloadAsync` also fetched
+  llama-server for a GGUF model — on a machine without it, about 1.2 GB more on CUDA. `RuntimeBytes` is the llama-server
+  build a load would run (the pinned version or the latest) and, for CUDA, its runtime companion, read from the release
+  listing; 0 when they are cached or `ServerBinaryPath` supplies the server, and null when the listing cannot be read or
+  states no size. `LlamaServerUpdateService.GetRemainingDownloadBytesAsync(backend)` answers the server part alone.
+  Migration: `await artifacts.GetRemainingDownloadBytesAsync(id)` → `(await artifacts.GetRemainingDownloadAsync(id)).ModelBytes`,
+  or `.TotalBytes` for what the person agrees to download.
 - **Embedder and Reranker GGUF files written before 0.98.0 are moved into the Hugging Face cache layout.** The first
   lookup of a repository moves its files from the private `gguf-embeddings/` or `gguf-rerankers/` tree into the
   repository's `snapshots/main/` and removes the emptied tree, so other Hugging Face tools find them and nothing is

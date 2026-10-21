@@ -44,8 +44,14 @@ public sealed class RerankerArtifacts : IModelArtifacts
     }
 
     /// <inheritdoc />
-    public Task<long> GetRemainingDownloadBytesAsync(string modelId, CancellationToken cancellationToken = default)
-        => LocalReranker.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken);
+    public async Task<RemainingDownload> GetRemainingDownloadAsync(string modelId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        var model = await LocalReranker.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken);
+        return new RemainingDownload(model, LocalReranker.LoadsAsGguf(modelId)
+            ? await Server().GetRemainingDownloadBytesAsync(Backend(), cancellationToken)
+            : null);
+    }
 
     /// <inheritdoc />
     public async Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)

@@ -75,7 +75,7 @@ public sealed class OcrArtifactsTests : IDisposable
         SeedCached("en");
 
         (await artifacts.IsAvailableOfflineAsync("en", Ct)).Should().BeTrue();
-        (await artifacts.GetRemainingDownloadBytesAsync("en", Ct)).Should().Be(0);
+        (await artifacts.GetRemainingDownloadAsync("en", Ct)).ModelBytes.Should().Be(0);
         (await artifacts.IsAvailableOfflineAsync("ko", Ct)).Should().BeFalse("Korean reads with another recognizer, not cached");
     }
 

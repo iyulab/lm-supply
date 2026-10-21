@@ -22,10 +22,11 @@ public interface IModelArtifacts
     Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Bytes of model files a load of <paramref name="modelId"/> would still download (0 when they are cached). Runtimes such as
-    /// llama-server are not counted. May read the repository listing.
+    /// What <see cref="DownloadAsync"/> of <paramref name="modelId"/> would still fetch on this machine: the model's files and,
+    /// apart, the runtimes its load runs on. Both 0 when it is available offline. May read the repository and release
+    /// listings; downloads nothing.
     /// </summary>
-    Task<long> GetRemainingDownloadBytesAsync(string modelId, CancellationToken cancellationToken = default);
+    Task<RemainingDownload> GetRemainingDownloadAsync(string modelId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Downloads what a load of <paramref name="modelId"/> needs — the model's files and, for a GGUF model, llama-server — so

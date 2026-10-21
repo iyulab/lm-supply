@@ -120,6 +120,40 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         throw new InvalidOperationException($"Failed to get llama-server: {result.Error}");
     }
 
+    /// <summary>
+    /// Bytes <see cref="AcquireServerAsync"/> with downloads allowed would still fetch for <paramref name="backend"/>: 0 when
+    /// an external binary is configured, or the server a load with downloads disabled would run is cached together with, for
+    /// CUDA, its runtime companion; otherwise the build that would be downloaded — the pinned version, or the latest — and its
+    /// companion. Reads the cache and, when something is missing, the release listing; downloads nothing. Null when the size
+    /// cannot be told: the listing is unreachable or states none, or no server can be acquired (a pinned build below the
+    /// security floor).
+    /// </summary>
+    public async Task<long?> GetRemainingDownloadBytesAsync(LlamaServerBackend backend, CancellationToken cancellationToken = default)
+    {
+        if (!string.IsNullOrEmpty(_options.ServerBinaryPath))
+            return 0;
+
+        var cached = await GetServerPathAsync(backend, localFilesOnly: true, progress: null, cancellationToken);
+        try
+        {
+            if (cached.Success)
+            {
+                var version = cached.NewVersion ?? cached.PreviousVersion;
+                return Path.GetDirectoryName(cached.ServerPath) is { Length: > 0 } directory && !string.IsNullOrEmpty(version)
+                    ? await _downloader.GetCudaRuntimeDownloadBytesAsync(directory, cached.Backend, version, cancellationToken)
+                    : 0;
+            }
+
+            return cached.NotCached
+                ? await _downloader.GetServerDownloadBytesAsync(_options.PinnedVersion, backend, cancellationToken)
+                : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TimeoutException or System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
     private async Task<LlamaServerUpdateResult> GetServerPathAsync(
         LlamaServerBackend backend,
         bool localFilesOnly,

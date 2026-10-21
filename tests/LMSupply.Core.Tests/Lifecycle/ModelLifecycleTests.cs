@@ -343,7 +343,7 @@ public sealed class ModelLifecycleTests
             lock (Cached) return Task.FromResult(Cached.Contains(modelId));
         }
 
-        public Task<long> GetRemainingDownloadBytesAsync(string modelId, CancellationToken cancellationToken = default) => Task.FromResult(100L);
+        public Task<RemainingDownload> GetRemainingDownloadAsync(string modelId, CancellationToken cancellationToken = default) => Task.FromResult(new RemainingDownload(100, 0));
 
         public async Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)
         {

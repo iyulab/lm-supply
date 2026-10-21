@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using LMSupply.Lifecycle;
 using LMSupply.Llama.Server;
 using Xunit;
 
@@ -80,6 +81,22 @@ public sealed class EmbedderArtifactsTests : IDisposable
 
         (await artifacts.IsAvailableOfflineAsync("gguf:" + Repo, Ct)).Should().BeTrue();
         artifacts.Kind.Should().Be("embedder");
+    }
+
+    [Fact]
+    public async Task AGgufEmbedder_WithItsFileAndServerCached_HasNothingLeftToDownload()
+    {
+        SeedGguf();
+        SeedServer();
+        // The repository listing the size is read from, as a load caches it: the cached file at its listed length
+        var listing = Path.Combine(_hub, "models--example-org--tiny-embed-GGUF", ".lmsupply", "listings", "main.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(listing)!);
+        File.WriteAllText(listing, """[{"path":"tiny-embed.Q8_0.gguf","type":"file","size":4}]""");
+
+        var remaining = await Artifacts().GetRemainingDownloadAsync("gguf:" + Repo, Ct);
+
+        remaining.Should().Be(new RemainingDownload(0, 0), "a CPU server needs no companion, so the cache answers alone");
+        remaining.TotalBytes.Should().Be(0);
     }
 
     [Fact]

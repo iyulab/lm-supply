@@ -65,7 +65,7 @@ public sealed class CaptionerArtifactsTests : IDisposable
         SeedCachedFastModel();
 
         (await artifacts.IsAvailableOfflineAsync("fast", Ct)).Should().BeTrue();
-        (await artifacts.GetRemainingDownloadBytesAsync("fast", Ct)).Should().Be(0);
+        (await artifacts.GetRemainingDownloadAsync("fast", Ct)).ModelBytes.Should().Be(0);
     }
 
     [Fact]

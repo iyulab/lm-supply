@@ -41,12 +41,13 @@ public sealed class DiarizationArtifacts : IModelArtifacts
 
     /// <inheritdoc />
     /// <remarks>The pair's size when either file is missing or partial (a partial file counts in full), else 0.</remarks>
-    public async Task<long> GetRemainingDownloadBytesAsync(string modelId, CancellationToken cancellationToken = default)
+    public async Task<RemainingDownload> GetRemainingDownloadAsync(string modelId, CancellationToken cancellationToken = default)
     {
         Validate(modelId);
-        return await LocalTranscriber.IsDiarizationDownloadedAsync(_options, cancellationToken).ConfigureAwait(false)
+        var model = await LocalTranscriber.IsDiarizationDownloadedAsync(_options, cancellationToken).ConfigureAwait(false)
             ? 0
             : LocalTranscriber.DiarizationDownloadSizeBytes;
+        return new RemainingDownload(model, RuntimeBytes: null);
     }
 
     /// <inheritdoc />

@@ -423,6 +423,44 @@ public sealed class LlamaServerDownloader : IDisposable
     }
 
     /// <summary>
+    /// Bytes a first download of llama-server <paramref name="version"/> (the latest build when null) for
+    /// <paramref name="backend"/> would fetch: the build's archive and, for a CUDA build, the CUDA runtime companion in the
+    /// same release. Reads the release listing; downloads nothing. Null when no asset resolves or the listing states no size.
+    /// </summary>
+    internal async Task<long?> GetServerDownloadBytesAsync(string? version, LlamaServerBackend backend, CancellationToken cancellationToken)
+    {
+        var asset = (await ResolveAssetAsync(version, backend, cancellationToken)).Asset;
+        if (asset?.SizeBytes is not { } server)
+            return null;
+
+        // The build resolved may be the CPU fallback, which needs no companion: ask for the backend it is
+        return await GetCudaRuntimeDownloadBytesAsync(versionDir: null, asset.Backend, asset.Version, cancellationToken) is { } runtime
+            ? server + runtime
+            : null;
+    }
+
+    /// <summary>
+    /// Bytes <see cref="EnsureCudaRuntimeAsync"/> would fetch for a build in <paramref name="versionDir"/> (null: not yet
+    /// downloaded): 0 for a backend that needs no companion, when the runtime is already complete there, or when the release
+    /// has no companion asset (nothing would be fetched); otherwise the companion's size. Null when the listing states none.
+    /// </summary>
+    internal async Task<long?> GetCudaRuntimeDownloadBytesAsync(string? versionDir, LlamaServerBackend backend, string version, CancellationToken cancellationToken)
+    {
+        var pattern = GetCudartAssetPattern(GetCurrentPlatform(), GetCurrentArchitecture(), backend);
+        if (pattern == null || (versionDir != null && CudaRuntimePresent(versionDir)))
+            return 0;
+
+        using var doc = await GetJsonAsync($"{ReleasesUrl}/tags/{version}", cancellationToken);
+        foreach (var asset in doc.RootElement.GetProperty("assets").EnumerateArray())
+        {
+            if (asset.GetProperty("name").GetString() is { } name && pattern.IsMatch(name))
+                return asset.TryGetProperty("size", out var size) ? size.GetInt64() : null;
+        }
+
+        return 0;
+    }
+
+    /// <summary>
     /// Downloads and extracts llama-server to the cache directory.
     /// Returns the path to the llama-server executable.
     /// </summary>
