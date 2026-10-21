@@ -53,6 +53,32 @@ public class LetterToSoundAgreementTests
         StressedVowel(LetterToSound.Pronounce(withEnding)).Should().Be(StressedVowel(LetterToSound.Pronounce(word)));
     }
 
+    [Theory]
+    [InlineData("un")]
+    [InlineData("dis")]
+    [InlineData("ex")]
+    [InlineData("re")]
+    public void TwoSyllableWordsWithAPrefix_AreStressedLikeTheDictionary(string prefix)
+    {
+        var words = Dictionary.Value
+            .Where(entry => entry.Key.StartsWith(prefix, StringComparison.Ordinal) && VowelCount(LetterToSound.Pronounce(entry.Key)) == 2)
+            .ToList();
+
+        words.Should().HaveCountGreaterThan(80);
+        StressAgreement(words).Should().BeGreaterThan(0.75);
+    }
+
+    [Theory]
+    [InlineData("becklin", 0)]
+    [InlineData("rendlin", 0)]
+    [InlineData("destrobe", 1)]
+    [InlineData("unglorn", 1)]
+    [InlineData("exalb", 1)]
+    public void APrefix_IsUnstressedOnlyWhereTheRootCanBeginAfterIt(string word, int stressed)
+    {
+        StressedVowel(LetterToSound.Pronounce(word)).Should().Be(stressed);
+    }
+
     [Fact]
     public void AFinalAi_IsSaidAsInEye()
     {
@@ -64,8 +90,8 @@ public class LetterToSoundAgreementTests
     {
         var exact = Share([.. Dictionary.Value], (rules, readings) => readings.Any(r => r.SequenceEqual(rules)));
 
-        exact.Should().BeGreaterThan(0.25);
-        StressAgreement([.. Dictionary.Value]).Should().BeGreaterThan(0.85);
+        exact.Should().BeGreaterThan(0.27);
+        StressAgreement([.. Dictionary.Value]).Should().BeGreaterThan(0.865);
     }
 
     private static List<KeyValuePair<string, List<Phone[]>>> EndingInAConsonantAnd(char last) =>

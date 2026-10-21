@@ -33,7 +33,19 @@ internal static partial class LetterToSound
         ("ee", 1), ("eer", 1), ("ese", 1), ("ette", 1), ("oon", 1), ("ique", 1), ("esque", 1),
     ];
 
-    private static readonly string[] UnstressedPrefixes = ["be", "de", "re"];
+    // Prefixes a two-syllable word is not stressed on, the stress going to the root (become, unpaid, exceed, dismiss).
+    // One that ends in a vowel is a prefix only before consonants that can begin a syllable: before others the vowel is
+    // the word's own, closed and stressed (beckon, belfry, dentist, record — beck-, bel-, den-, rec-).
+    private static readonly string[] UnstressedPrefixes =
+        ["be", "de", "re", "un", "dis", "mis", "ex", "en", "im", "ab", "af", "ap", "at", "ob", "sup", "trans"];
+
+    // The consonant clusters a syllable can begin with, after a prefix that ends in a vowel (bespeak, destroy, refrain).
+    private static readonly string[] SyllableOnsets =
+    [
+        "scr", "spl", "spr", "str", "squ", "shr", "thr",
+        "bl", "br", "ch", "cl", "cr", "dr", "fl", "fr", "gl", "gr", "pl", "pr", "qu", "sc", "sh", "sk", "sl", "sm", "sn",
+        "sp", "st", "sw", "th", "tr", "tw", "wh", "wr",
+    ];
 
     // Endings that leave the stress where the word without them has it (nation, nations; visit, visiting), longest first,
     // with the vowels each one says. An -es is one only after a hissing sound (watches, boxes), and says its vowel; an
@@ -223,9 +235,10 @@ internal static partial class LetterToSound
     /// <summary>
     /// Gives the word one primary stress. The rules' schwa never takes it. An ending that fixes the stress decides
     /// (<c>-tion</c>, <c>-ic</c>, <c>-ity</c>, <c>-ee</c>, ...); otherwise it falls on the first syllable, on the second of
-    /// a two-syllable word that starts with <c>be-</c>, <c>de-</c> or <c>re-</c>, and on the third from the end of a word
-    /// of four syllables or more. A word of three syllables or more that ends in a consonant and <c>a</c>, <c>i</c> or
-    /// <c>o</c> is stressed on the vowel before the last. Endings that do not move the stress (<c>-s</c>, <c>-ed</c>,
+    /// a two-syllable word that starts with a prefix such as <c>be-</c>, <c>re-</c>, <c>un-</c>, <c>dis-</c> or <c>ex-</c>
+    /// (<see cref="UnstressedPrefixes"/>), and on the third from the end of a word of four syllables or more. A word of
+    /// three syllables or more that ends in a consonant and <c>a</c>, <c>i</c> or <c>o</c> is stressed on the vowel
+    /// before the last. Endings that do not move the stress (<c>-s</c>, <c>-ed</c>,
     /// <c>-ing</c>, <c>-er</c>, <c>-ly</c>, <c>-ness</c>, <c>-ment</c>, ...) are set aside first: the rules apply to
     /// what is left, and the ending's vowels are never stressed.
     /// </summary>
@@ -349,7 +362,26 @@ internal static partial class LetterToSound
     {
         foreach (var prefix in UnstressedPrefixes)
         {
-            if (word.Length > prefix.Length + 2 && word.StartsWith(prefix) && !IsVowelLetter(char.ToUpperInvariant(word[prefix.Length])))
+            if (word.Length > prefix.Length + 2 && word.StartsWith(prefix) && BeginsTheRoot(word[prefix.Length..], prefix))
+                return true;
+        }
+
+        return false;
+    }
+
+    // Whether the letters after a prefix can begin the root: a consonant, and after a prefix that ends in a vowel a single
+    // one or a cluster a syllable begins with. An x of ex- runs into the vowel after it (exact, exist).
+    private static bool BeginsTheRoot(ReadOnlySpan<char> rest, string prefix)
+    {
+        if (!IsConsonantLetter(char.ToUpperInvariant(rest[0])))
+            return prefix == "ex";
+        if (!IsVowelLetter(char.ToUpperInvariant(prefix[^1])))
+            return rest[0] != 'h' || prefix == "ex";
+        if (IsVowelLetter(char.ToUpperInvariant(rest[1])) || rest[1] == 'y')
+            return true;
+        foreach (var onset in SyllableOnsets)
+        {
+            if (rest.StartsWith(onset) && rest.Length > onset.Length && IsVowelLetter(char.ToUpperInvariant(rest[onset.Length])))
                 return true;
         }
 

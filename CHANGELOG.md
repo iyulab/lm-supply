@@ -48,6 +48,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   doubled consonant one sound. Read against the shipped dictionary, the rules now stress 86% of its words as it does
   (was 79%) — 91-95% of the long words ending in a consonant and a, i or o (was 4-30%) — and say 27% of them exactly
   (was 23%).
+- **Synthesizer: a two-syllable English word with a prefix the dictionary lacks is stressed on its root.** The
+  letter-to-sound rules stressed the root only after be-, de- and re-, and there also when the letters after them
+  cannot begin a syllable (`beckon`, `dentist`, where the vowel is the word's own). The root now takes the stress
+  after un-, dis-, mis-, ex-, en-, im-, ab-, af-, ap-, at-, ob-, sup- and trans- as well (`unpaid`, `exceed`,
+  `dismiss`), and after be-, de- and re- only before a consonant or cluster a syllable can begin with. Read against the
+  shipped dictionary, the rules now stress 87% of its words as it does.
 - **Generator: a streamed tool call on a Gemma 4 GGUF model is no longer lost.** `GenerateChatStreamAsync` ended the
   turn with finish reason `tool_calls` but no `ChatToolCallDelta`: the stream kept only the calls its Gemma 4 wrapper
   parser found in the text, and llama-server builds that parse the wrapper themselves send the call as structured
