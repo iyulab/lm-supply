@@ -107,10 +107,21 @@ public class LetterToSoundAgreementTests
     [InlineData("adorbic", "AH0 D AO1 R B IH0 K")]
     [InlineData("eclorbic", "IH0 K L AO1 R B IH0 K")]
     [InlineData("itorbic", "IH2 T AO1 R B IH0 K")]
-    [InlineData("zabiola", "Z EY2 B IY0 AA1 L AH0")]
+    [InlineData("zabiola", "Z EY2 B IY0 OW1 L AH0")]
     public void AnUnstressedShortVowel_IsASchwa_AndAnUnstressedDiphthongKeepsASecondaryStress(string word, string phones)
     {
         LetterToSound.Pronounce(word).Should().Equal(Arpabet.Parse(phones));
+    }
+
+    [Theory]
+    [InlineData("emoji", "OW")]
+    [InlineData("alamosa", "OW")]
+    [InlineData("accommodate", "AA")]
+    [InlineData("beilman", "AY")]
+    [InlineData("zebering", "EH")]
+    public void TheStressedVowel_IsSaidAsItsSpellingAroundItHasIt(string word, string vowel)
+    {
+        LetterToSound.Pronounce(word).Single(p => p.Stress == 1).Symbol.ToString().Should().Be(vowel);
     }
 
     [Fact]
@@ -124,7 +135,7 @@ public class LetterToSoundAgreementTests
     {
         var exact = Share([.. Dictionary.Value], (rules, readings) => readings.Any(r => r.SequenceEqual(rules)));
 
-        exact.Should().BeGreaterThan(0.335);
+        exact.Should().BeGreaterThan(0.345);
         StressAgreement([.. Dictionary.Value]).Should().BeGreaterThan(0.865);
     }
 

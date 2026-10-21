@@ -14,8 +14,10 @@ internal static partial class LetterToSound
     // word that ends in a consonant and i), and a final ai as in «rain» (bonsai, samurai). Before a final a it reduces
     // the vowel the stress of such a word falls on (corona, Kagawa). A gh it keeps silent after any vowel is a g after
     // a consonant (Afghan) and between a single vowel and the next (Callaghan, Allegheny, spaghetti). The ough it reads
-    // as in «rough» is that only there and after t and n (tough, enough); after d it is «dough», after c «cough», and otherwise
-    // the ough of «bough» (Clough, Brougham).
+    // as in «rough» is that only after t, n and an initial r (tough, enough, rough); after d it is «dough», after c
+    // «cough», and otherwise the ough of «bough» (Clough, Brougham). An ei is the «eye» of the names a dictionary
+    // lacks (Beilman, Heiser), not the «ee» of «receive», and an e before a consonant and -er or -ing is the «e» of «bet»
+    // (severing, tethering).
     private static readonly Rule[] OwnRules =
     [
         new("^", "I", " ", "IY"),
@@ -33,6 +35,9 @@ internal static partial class LetterToSound
         new("D", "OUGH", "", "OW"),
         new("C", "OUGH", "", "AO F"),
         new("", "OUGH", "", "AW"),
+        new("", "EI", "", "AY"),
+        new("", "E", "^ER", "EH"),
+        new("", "E", "^ING", "EH"),
     ];
 
     // After the rules it is grouped into: a static field is initialized in the order written.
@@ -82,6 +87,8 @@ internal static partial class LetterToSound
         text[^1] = ' ';
 
         var phones = new List<Phone>(word.Length);
+        // The letters of the word each phone was read from, so the stress can see the spelling of the vowel it falls on.
+        var spans = new List<Range>(word.Length);
         var index = 1;
         while (index < text.Length - 1)
         {
@@ -101,6 +108,8 @@ internal static partial class LetterToSound
                     }
 
                     phones.AddRange(rule.Phones);
+                    for (var p = 0; p < rule.Phones.Length; p++)
+                        spans.Add(new Range(index - 1, end - 1));
                     next = end;
                     break;
                 }
@@ -113,11 +122,14 @@ internal static partial class LetterToSound
         for (var i = phones.Count - 1; i > 0; i--)
         {
             if (!phones[i].IsVowel && phones[i] == phones[i - 1])
+            {
                 phones.RemoveAt(i);
+                spans.RemoveAt(i);
+            }
         }
 
         var result = phones.ToArray();
-        AssignStress(result, word);
+        AssignStress(result, word, spans);
         return result;
     }
 
@@ -256,7 +268,7 @@ internal static partial class LetterToSound
     /// <c>-ing</c>, <c>-er</c>, <c>-ly</c>, <c>-ness</c>, <c>-ment</c>, ...) are set aside first: the rules apply to
     /// what is left, and the ending's vowels are never stressed.
     /// </summary>
-    private static void AssignStress(Phone[] phones, ReadOnlySpan<char> word)
+    private static void AssignStress(Phone[] phones, ReadOnlySpan<char> word, List<Range> spans)
     {
         var vowels = new List<int>(8);
         for (var i = 0; i < phones.Length; i++)
@@ -271,8 +283,36 @@ internal static partial class LetterToSound
         var (stem, suffixVowels) = Stem(word, vowels.Count);
         var stressed = PickStressedVowel(phones, vowels[..(vowels.Count - suffixVowels)], stem);
         foreach (var i in vowels)
-            phones[i] = i == stressed ? phones[i] with { Stress = 1 } : Unstressed(phones, i, word[0]);
+            phones[i] = i == stressed ? Stressed(phones[i], word, spans[i]) : Unstressed(phones, i, word[0]);
     }
+
+    // A stressed o is long in an open syllable, before one consonant and a vowel (emoji, Alamosa: «oh», not the «ah» of
+    // «lot» the rules give), and short before two (accommodate: the «ah» of «lot», not the «uh» of «cut»). An o before a
+    // consonant and a final e is the rules' own (home).
+    private static Phone Stressed(Phone vowel, ReadOnlySpan<char> word, Range letters)
+    {
+        // The o alone, not a vowel pair (ou, oa): a rule may read the consonant after it too (-om, -on).
+        var start = letters.GetOffsetAndLength(word.Length).Offset;
+        if (word[start] != 'o' || (start + 1 < word.Length && IsVowelOrY(word[start + 1])))
+            return vowel with { Stress = 1 };
+
+        var after = word[(start + 1)..];
+        var consonants = 0;
+        while (consonants < after.Length && !IsVowelOrY(after[consonants]))
+            consonants++;
+        var rest = after[consonants..];
+        if (rest.IsEmpty || rest is "e")
+            return vowel with { Stress = 1 };
+
+        return (consonants, vowel.Symbol) switch
+        {
+            (1, Arpa.AA) => new Phone(Arpa.OW, 1),
+            ( >= 2, Arpa.AH) => new Phone(Arpa.AA, 1),
+            _ => vowel with { Stress = 1 },
+        };
+    }
+
+    private static bool IsVowelOrY(char c) => c is 'a' or 'e' or 'i' or 'o' or 'u' or 'y';
 
     // An unstressed vowel as the dictionary marks it. A short a, e or o inside the word is a schwa (Attenborough,
     // Ellison, Madison: «ə», not the «æ», «ɛ», «ɑ» the rules give); one that begins the word is a schwa for a (abound),

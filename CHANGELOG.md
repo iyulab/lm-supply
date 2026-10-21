@@ -66,6 +66,11 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   for a and the «i» of «it» for e — an i before a vowel the «ee» of «see», and an unstressed diphthong keeps a
   secondary stress (`Holloway`). Read against the shipped dictionary, the rules now say 34% of its words exactly (was
   27%).
+- **Synthesizer: the stressed vowel of an English word the dictionary lacks follows its spelling.** The
+  letter-to-sound rules said a stressed o before one consonant and a vowel as the o of «lot» (`emoji`, `Alamosa`), one
+  before two consonants as the u of «cut» (`accommodate`), an ei as in «receive» (`Beilman`), and an e before a
+  consonant and -er or -ing as in «see». A stressed o there is now «oh», and the o of «lot» before two consonants, an
+  ei is «eye», and that e the e of «bet».
 - **Generator: a streamed tool call on a Gemma 4 GGUF model is no longer lost.** `GenerateChatStreamAsync` ended the
   turn with finish reason `tool_calls` but no `ChatToolCallDelta`: the stream kept only the calls its Gemma 4 wrapper
   parser found in the text, and llama-server builds that parse the wrapper themselves send the call as structured
