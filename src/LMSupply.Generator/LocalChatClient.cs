@@ -51,7 +51,15 @@ namespace LMSupply.Generator;
 /// <b>Responses.</b> A response carries the model id, the finish reason (stop, tool calls or length) and, where the
 /// backend counts them (llama-server; not ONNX), the token usage with the prompt tokens served from the server's cache.
 /// A streamed response yields text and reasoning as they come and the tool calls, assembled, with the final update, which
-/// also carries the usage. Each response and update keeps the library's own result as its raw representation.
+/// also carries the usage. Each response and update keeps the library's own result as its raw representation. A tool
+/// call the model wrote without a function name is left out; one without an id is given a <c>call_</c> id, so a
+/// function-invoking client can pair its result with it; arguments that are not a JSON object come back as no
+/// arguments.
+/// </para>
+/// <para>
+/// <b>Services.</b> <see cref="GetService"/> hands out the <see cref="ChatClientMetadata"/> and the generator under any
+/// type it implements — <see cref="ITextGenerator"/>, or <see cref="IGeneratorModel"/> for a loaded model, which tells
+/// a caller sizing a token budget the model's <see cref="IGeneratorModel.MaxContextLength"/>.
 /// </para>
 /// </remarks>
 public sealed class LocalChatClient : IChatClient
@@ -93,7 +101,10 @@ public sealed class LocalChatClient : IChatClient
         if (!string.IsNullOrEmpty(result.Content))
             contents.Add(new TextContent(result.Content));
         foreach (var call in result.ToolCalls ?? [])
-            contents.Add(new FunctionCallContent(call.Id, call.FunctionName, ParseArguments(call.Arguments)));
+        {
+            if (ToCallContent(call.Id, call.FunctionName, call.Arguments) is { } content)
+                contents.Add(content);
+        }
 
         return new ChatResponse(new AIChatMessage(AIChatRole.Assistant, contents))
         {
@@ -347,16 +358,20 @@ public sealed class LocalChatClient : IChatClient
 
         foreach (var (id, name, arguments) in calls.Values)
         {
-            // A delta that never named its function cannot be called.
-            if (string.IsNullOrEmpty(name))
-                continue;
-            contents.Add(new FunctionCallContent(
-                string.IsNullOrEmpty(id) ? $"call_{Guid.NewGuid():N}" : id, name, ParseArguments(arguments.ToString())));
+            if (ToCallContent(id, name, arguments.ToString()) is { } content)
+                contents.Add(content);
         }
 
         calls = null;
         return contents;
     }
+
+    // A call that never named its function cannot be invoked and is left out. A call without an id gets one, since a
+    // function-invoking client pairs each result with its call by id.
+    private static FunctionCallContent? ToCallContent(string? id, string? name, string? arguments) =>
+        string.IsNullOrEmpty(name)
+            ? null
+            : new FunctionCallContent(string.IsNullOrEmpty(id) ? $"call_{Guid.NewGuid():N}" : id, name, ParseArguments(arguments));
 
     private static string SerializeArguments(IDictionary<string, object?>? arguments) =>
         arguments is null

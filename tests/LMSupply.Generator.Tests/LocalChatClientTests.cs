@@ -237,6 +237,37 @@ public class LocalChatClientTests
     }
 
     [Fact]
+    public async Task AToolCallWithoutAnId_IsGivenOne_AndOneWithoutAName_IsLeftOut()
+    {
+        Answer(new ChatCompletionResult
+        {
+            ToolCalls = [new ChatToolCall("", "weather", "{}"), new ChatToolCall("c", "", "{}")],
+            FinishReason = "tool_calls",
+        });
+
+        var response = await AskAsync();
+
+        var call = response.Messages.Single().Contents.OfType<FunctionCallContent>().Should().ContainSingle().Which;
+        call.Name.Should().Be("weather");
+        call.CallId.Should().StartWith("call_").And.HaveLength("call_".Length + 32);
+    }
+
+    [Fact]
+    public async Task AStreamedToolCallWithoutAnId_IsGivenOne_AndOneWithoutAName_IsLeftOut()
+    {
+        Stream(
+            new ChatStreamChunk { ToolCalls = [new ChatToolCallDelta { Index = 0, Name = "weather", Arguments = "{}" }] },
+            new ChatStreamChunk { ToolCalls = [new ChatToolCallDelta { Index = 1, Id = "nameless", Arguments = "{}" }] },
+            new ChatStreamChunk { FinishReason = "tool_calls" });
+
+        var updates = await _generator.AsChatClient().GetStreamingResponseAsync([new(AIChatRole.User, "hi")], cancellationToken: Ct).ToListAsync(Ct);
+
+        var call = updates[^1].Contents.OfType<FunctionCallContent>().Should().ContainSingle().Which;
+        call.Name.Should().Be("weather");
+        call.CallId.Should().StartWith("call_");
+    }
+
+    [Fact]
     public async Task AStream_YieldsTextAndReasoningAsTheyCome_AndTheAssembledToolCallsAndUsageAtTheEnd()
     {
         Stream(
@@ -294,5 +325,18 @@ public class LocalChatClientTests
 
         client.Dispose();
         _generator.ReceivedCalls().Should().NotContain(c => c.GetMethodInfo().Name == nameof(IAsyncDisposable.DisposeAsync));
+    }
+
+    [Fact]
+    public void ALoadedModel_IsHandedOutAsItself_SoACallerReadsItsContextLength()
+    {
+        var model = Substitute.For<IGeneratorModel>();
+        model.ModelId.Returns(Model);
+        model.MaxContextLength.Returns(32768);
+
+        var client = model.AsChatClient();
+
+        client.GetService<IGeneratorModel>()!.MaxContextLength.Should().Be(32768);
+        _generator.AsChatClient().GetService<IGeneratorModel>().Should().BeNull();
     }
 }

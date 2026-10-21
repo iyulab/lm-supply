@@ -284,9 +284,13 @@ static string GetWeather(string city) => $"sunny in {city}";
 A response carries the model id, the finish reason (`Stop`, `ToolCalls`, `Length`) and, where the backend counts them
 (llama-server; not ONNX), the usage with `CachedInputTokenCount` for prompt tokens served from the server's cache. A
 streamed response yields text and reasoning as they arrive and the tool calls, assembled, with its final update, which
-also carries the usage. `RawRepresentation` is the library's own result or chunk. `GetService` answers
-`ChatClientMetadata` (provider `"LMSupply"`) and the wrapped generator; `Dispose()` does nothing — the generator belongs
-to whoever loaded it.
+also carries the usage. `RawRepresentation` is the library's own result or chunk. A tool call the model wrote without a
+function name is left out, one without an id is given a `call_…` id (a function-invoking client pairs each result with
+its call by id), and arguments that are not a JSON object come back as no arguments.
+
+`GetService` answers `ChatClientMetadata` (provider `"LMSupply"`) and the wrapped generator under any type it implements
+— `GetService<IGeneratorModel>()` on a loaded model gives a token-budgeting layer the context window
+(`MaxContextLength`). `Dispose()` does nothing — the generator belongs to whoever loaded it.
 
 ## Configuration Options
 
