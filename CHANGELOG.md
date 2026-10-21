@@ -30,9 +30,11 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `avocado`), read a final i after a consonant as in «it» and a final ai as in «rain», reduced the stressed vowel of
   words such as `corona`, and said each letter of a doubled consonant (`bassetti` with two s sounds). A word of three
   syllables or more ending in a consonant and a, i or o is now stressed on the syllable before the last (one ending in
-  -ica on the one before that), a final i after a consonant is «ee», a final ai «eye», and a doubled consonant one
-  sound. Read against the shipped dictionary, the rules now stress 83% of its words as it does (was 79%) — 91-95% of
-  the long words ending in a consonant and a, i or o (was 4-30%) — and say 26% of them exactly (was 23%).
+  -ica on the one before that), endings that do not move the stress (`-s`, `-ed`, `-ing`, `-er`, `-ly`, `-ness`,
+  `-ment`, ...) are set aside before the stress is placed, a final i after a consonant is «ee», a final ai «eye», and a
+  doubled consonant one sound. Read against the shipped dictionary, the rules now stress 86% of its words as it does
+  (was 79%) — 91-95% of the long words ending in a consonant and a, i or o (was 4-30%) — and say 27% of them exactly
+  (was 23%).
 - **Generator: a streamed tool call on a Gemma 4 GGUF model is no longer lost.** `GenerateChatStreamAsync` ended the
   turn with finish reason `tool_calls` but no `ChatToolCallDelta`: the stream kept only the calls its Gemma 4 wrapper
   parser found in the text, and llama-server builds that parse the wrapper themselves send the call as structured

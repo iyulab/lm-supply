@@ -35,6 +35,15 @@ internal static partial class LetterToSound
 
     private static readonly string[] UnstressedPrefixes = ["be", "de", "re"];
 
+    // Endings that leave the stress where the word without them has it (nation, nations; visit, visiting), longest first,
+    // with the vowels each one says. An -es is one only after a hissing sound (watches, boxes), and says its vowel; an
+    // -ed says one only after t or d (wanted, not walked).
+    private static readonly (string Suffix, int Vowels)[] StressNeutralSuffixes =
+    [
+        ("ments", 1), ("ment", 1), ("nesses", 2), ("ness", 1), ("less", 1), ("fully", 2), ("ful", 1), ("ings", 1),
+        ("ing", 1), ("ers", 1), ("er", 1), ("ly", 1), ("ed", 1), ("es", 1), ("s", 0),
+    ];
+
     /// <summary>
     /// Pronounces <paramref name="word"/>: lower-case letters <c>a</c>–<c>z</c>, and apostrophes, which are silent.
     /// </summary>
@@ -215,8 +224,10 @@ internal static partial class LetterToSound
     /// Gives the word one primary stress. The rules' schwa never takes it. An ending that fixes the stress decides
     /// (<c>-tion</c>, <c>-ic</c>, <c>-ity</c>, <c>-ee</c>, ...); otherwise it falls on the first syllable, on the second of
     /// a two-syllable word that starts with <c>be-</c>, <c>de-</c> or <c>re-</c>, and on the third from the end of a word
-    /// of four syllables or more. A word of three syllables or more that ends in a consonant and <c>i</c> is stressed on
-    /// the vowel before the last.
+    /// of four syllables or more. A word of three syllables or more that ends in a consonant and <c>a</c>, <c>i</c> or
+    /// <c>o</c> is stressed on the vowel before the last. Endings that do not move the stress (<c>-s</c>, <c>-ed</c>,
+    /// <c>-ing</c>, <c>-er</c>, <c>-ly</c>, <c>-ness</c>, <c>-ment</c>, ...) are set aside first: the rules apply to
+    /// what is left, and the ending's vowels are never stressed.
     /// </summary>
     private static void AssignStress(Phone[] phones, ReadOnlySpan<char> word)
     {
@@ -230,7 +241,8 @@ internal static partial class LetterToSound
         if (vowels.Count == 0)
             return;
 
-        var stressed = PickStressedVowel(phones, vowels, word);
+        var (stem, suffixVowels) = Stem(word, vowels.Count);
+        var stressed = PickStressedVowel(phones, vowels[..(vowels.Count - suffixVowels)], stem);
         foreach (var i in vowels)
             phones[i] = phones[i] with { Stress = (byte)(i == stressed ? 1 : 0) };
     }
@@ -279,6 +291,55 @@ internal static partial class LetterToSound
 
         // Every vowel is a schwa: the first one carries the word.
         return vowels[0];
+    }
+
+    // The word without the stress-neutral endings it ends in — up to three (care-less-ness), each leaving at least three
+    // letters and a vowel — and how many vowels they say. A stem whose y became i before the ending is given its y back
+    // (accompanied, accompany), so the endings that fix the stress see the word they belong to.
+    private static (string Stem, int SuffixVowels) Stem(ReadOnlySpan<char> word, int vowels)
+    {
+        var length = word.Length;
+        var suffixVowels = 0;
+        var startsWithE = false;
+        for (var stripped = 0; stripped < 3; stripped++)
+        {
+            var found = false;
+            foreach (var (suffix, said) in StressNeutralSuffixes)
+            {
+                var rest = word[..length];
+                if (rest.Length < suffix.Length + 3 || !rest.EndsWith(suffix) || !IsSuffixHere(rest, suffix))
+                    continue;
+                var saying = suffix == "ed" && rest[^3] is not ('t' or 'd') ? 0 : said;
+                if (vowels - suffixVowels - saying < 1)
+                    continue;
+                length -= suffix.Length;
+                suffixVowels += saying;
+                startsWithE = suffix[0] == 'e';
+                found = true;
+                break;
+            }
+
+            if (!found)
+                break;
+        }
+
+        var stem = word[..length].ToString();
+        if (startsWithE && stem.Length > 3 && stem[^1] == 'i' && IsConsonantLetter(char.ToUpperInvariant(stem[^2])))
+            stem = string.Concat(stem.AsSpan(0, stem.Length - 1), "y");
+        return (stem, suffixVowels);
+    }
+
+    private static bool IsSuffixHere(ReadOnlySpan<char> word, string suffix)
+    {
+        var before = word[^(suffix.Length + 1)];
+        return suffix switch
+        {
+            // A hissing sound before -es: the e is the ending's (boxes, watches); otherwise it belongs to the word.
+            "es" => before is 's' or 'x' or 'z' || (before == 'h' && word[^4] is 'c' or 's'),
+            // Not the s of -ss, -us, -is (glass, census, tennis).
+            "s" => before is not ('s' or 'u' or 'i'),
+            _ => true,
+        };
     }
 
     private static bool EndsInConsonantAndOpenVowel(ReadOnlySpan<char> word) =>

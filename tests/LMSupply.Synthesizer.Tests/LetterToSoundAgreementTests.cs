@@ -43,6 +43,16 @@ public class LetterToSoundAgreementTests
         Dictionary.Value["bassetti"].Should().Contain(r => r.Count(p => p.Symbol == Arpa.S) == phones.Count(p => p.Symbol == Arpa.S));
     }
 
+    [Theory]
+    [InlineData("zorblation", "zorblations")]
+    [InlineData("pellington", "pellingtons")]
+    [InlineData("glorbify", "glorbified")]
+    [InlineData("brindlemoor", "brindlemoorings")]
+    public void AStressNeutralEnding_LeavesTheStressWhereTheWordWithoutItHasIt(string word, string withEnding)
+    {
+        StressedVowel(LetterToSound.Pronounce(withEnding)).Should().Be(StressedVowel(LetterToSound.Pronounce(word)));
+    }
+
     [Fact]
     public void AFinalAi_IsSaidAsInEye()
     {
@@ -55,7 +65,7 @@ public class LetterToSoundAgreementTests
         var exact = Share([.. Dictionary.Value], (rules, readings) => readings.Any(r => r.SequenceEqual(rules)));
 
         exact.Should().BeGreaterThan(0.25);
-        StressAgreement([.. Dictionary.Value]).Should().BeGreaterThan(0.82);
+        StressAgreement([.. Dictionary.Value]).Should().BeGreaterThan(0.85);
     }
 
     private static List<KeyValuePair<string, List<Phone[]>>> EndingInAConsonantAnd(char last) =>
