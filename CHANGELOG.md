@@ -20,6 +20,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   for an unreachable source catches `ModelHostUnreachableException` (a `ModelDownloadException`).
 
 ### Added
+- **`RuntimeManager.IsRuntimeAvailableOfflineAsync`, `GetRuntimeDownloadBytesAsync` and `DownloadRuntimeAsync`** answer, for
+  one runtime package and provider, whether a load would find it without downloading, how many bytes it would download, and
+  fetch it without loading it; `OnnxRuntimeArtifacts` answers the same for the provider an ONNX session of an
+  `ExecutionProvider` is created on. `LlamaServerUpdateService.GetRemainingDownloadBytesAsync(backend)` answers for llama-server.
 - **Generator: a loaded generator is a Microsoft.Extensions.AI `IChatClient`** — `generator.AsChatClient()` returns a
   `LocalChatClient`, so `ChatClientBuilder` pipelines, `UseFunctionInvocation()` and agent frameworks use a local model
   with no adapter of their own: instructions, images, tool calls and results, reasoning (`Reasoning.Effort` drives
@@ -38,15 +42,20 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   needs phonemes or a phonemizer. See [Korean text](docs/synthesizer.md#korean-text) for what is not handled.
 
 ### Changed
-- **Breaking — `IModelArtifacts.GetRemainingDownloadBytesAsync` is `GetRemainingDownloadAsync`, and it counts the
-  runtimes the download fetches.** It returns a `RemainingDownload`: `ModelBytes` (what the old method returned),
-  `RuntimeBytes` and `TotalBytes`. A consent prompt stated the model alone while `DownloadAsync` also fetched
-  llama-server for a GGUF model — on a machine without it, about 1.2 GB more on CUDA. `RuntimeBytes` is the llama-server
-  build a load would run (the pinned version or the latest) and, for CUDA, its runtime companion, read from the release
-  listing; 0 when they are cached or `ServerBinaryPath` supplies the server, and null when the listing cannot be read or
-  states no size. `LlamaServerUpdateService.GetRemainingDownloadBytesAsync(backend)` answers the server part alone.
-  Migration: `await artifacts.GetRemainingDownloadBytesAsync(id)` → `(await artifacts.GetRemainingDownloadAsync(id)).ModelBytes`,
-  or `.TotalBytes` for what the person agrees to download.
+- **Breaking — `IModelArtifacts.GetRemainingDownloadBytesAsync` is `GetRemainingDownloadAsync`, and the model kinds count
+  the runtime a load runs on.** A consent prompt stated the model alone while the download — or the first load — also
+  fetched a runtime: llama-server for a GGUF model (about 1.2 GB more on CUDA with its runtime companion), the ONNX Runtime
+  native package for an ONNX one (about 160 MB for the CPU package of 1.31.0). It returns a `RemainingDownload`: `ModelBytes` (what the old method
+  returned), `RuntimeBytes` and `TotalBytes`. `RuntimeBytes` is the llama-server build a load would run (the pinned version or
+  the latest) and its CUDA companion, read from the release listing; or the ONNX Runtime package for the provider the session
+  would be created on (and ONNX Runtime GenAI for an ONNX generator), as the package feed states its length. It is 0 when
+  they are cached or supplied by the application, and null when that cannot be told or a load would not download them.
+  `IsAvailableOfflineAsync` of an ONNX model now also requires its runtime in the cache — a load with downloads disabled
+  fetched the ONNX Runtime package on a machine without it — and `DownloadAsync` fetches it. An ONNX generator without
+  `LMSupply.Generator.Onnx` registered is not available offline: such a load fails. Migration:
+  `await artifacts.GetRemainingDownloadBytesAsync(id)` → `(await artifacts.GetRemainingDownloadAsync(id)).ModelBytes`, or
+  `.TotalBytes` for what the person agrees to download; an `IOnnxGeneratorBackend` implementation adds
+  `IsRuntimeAvailableOfflineAsync`, `GetRuntimeDownloadBytesAsync` and `DownloadRuntimeAsync`.
 - **Embedder and Reranker GGUF files written before 0.98.0 are moved into the Hugging Face cache layout.** The first
   lookup of a repository moves its files from the private `gguf-embeddings/` or `gguf-rerankers/` tree into the
   repository's `snapshots/main/` and removes the emptied tree, so other Hugging Face tools find them and nothing is

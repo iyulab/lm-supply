@@ -33,10 +33,11 @@ public sealed class DiarizationArtifacts : IModelArtifacts
     private string CacheDirectory => _options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
 
     /// <inheritdoc />
-    public Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
+    public async Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
     {
         Validate(modelId);
-        return LocalTranscriber.IsDiarizationDownloadedAsync(_options, cancellationToken);
+        return await LocalTranscriber.IsDiarizationDownloadedAsync(_options, cancellationToken)
+               && await OnnxRuntimeArtifacts.IsAvailableOfflineAsync(_options.Provider, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -47,14 +48,15 @@ public sealed class DiarizationArtifacts : IModelArtifacts
         var model = await LocalTranscriber.IsDiarizationDownloadedAsync(_options, cancellationToken).ConfigureAwait(false)
             ? 0
             : LocalTranscriber.DiarizationDownloadSizeBytes;
-        return new RemainingDownload(model, RuntimeBytes: null);
+        return new RemainingDownload(model, await OnnxRuntimeArtifacts.GetRemainingDownloadBytesAsync(_options.Provider, cancellationToken));
     }
 
     /// <inheritdoc />
-    public Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)
+    public async Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         Validate(modelId);
-        return Diarization.SpeakerDiarizer.DownloadAsync(CacheDirectory, _options.DisableAutoDownload, progress, cancellationToken);
+        await Diarization.SpeakerDiarizer.DownloadAsync(CacheDirectory, _options.DisableAutoDownload, progress, cancellationToken);
+        await OnnxRuntimeArtifacts.DownloadAsync(_options.Provider, progress, cancellationToken);
     }
 
     /// <inheritdoc />

@@ -1,3 +1,5 @@
+using LMSupply.Lifecycle;
+using LMSupply.Testing;
 using System.Text.Json;
 using AwesomeAssertions;
 using LMSupply.Download;
@@ -18,6 +20,7 @@ public sealed class CaptionerArtifactsTests : IDisposable
 
     public void Dispose()
     {
+        try { Directory.Delete(_cache + "-runtime", recursive: true); } catch { /* best-effort temp cleanup */ }
         if (Directory.Exists(_cache))
             Directory.Delete(_cache, recursive: true);
     }
@@ -57,6 +60,7 @@ public sealed class CaptionerArtifactsTests : IDisposable
     [Fact]
     public async Task ACachedModel_IsAvailableOffline_AndAnEmptyCacheIsNot()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         var artifacts = new CaptionerArtifacts(Options());
         artifacts.Kind.Should().Be("captioner");
         (await artifacts.IsAvailableOfflineAsync("fast", Ct)).Should().BeFalse("nothing is cached");
@@ -69,8 +73,29 @@ public sealed class CaptionerArtifactsTests : IDisposable
     }
 
     [Fact]
+    public async Task ACachedModel_WhoseRuntimeIsNotOnTheMachine_IsNotAvailableOffline()
+    {
+        SeedCachedFastModel();
+        var artifacts = new CaptionerArtifacts(Options());
+
+        using (BundledRuntime.Use(_cache + "-runtime", present: false))
+        {
+            (await artifacts.IsAvailableOfflineAsync("fast", Ct)).Should().BeFalse("a load would still need the ONNX Runtime");
+            (await artifacts.GetRemainingDownloadAsync("fast", Ct)).Should().Be(new RemainingDownload(0, null),
+                "an application runtime directory that lacks it is not something a load downloads");
+        }
+
+        using (BundledRuntime.Use(_cache + "-runtime"))
+        {
+            (await artifacts.IsAvailableOfflineAsync("fast", Ct)).Should().BeTrue();
+            (await artifacts.GetRemainingDownloadAsync("fast", Ct)).TotalBytes.Should().Be(0);
+        }
+    }
+
+    [Fact]
     public async Task AMissingFile_IsNotAvailableOffline()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         SeedCachedFastModel(skipOneFile: true);
 
         (await LocalCaptioner.IsModelDownloadedAsync("fast", Options(), Ct)).Should().BeFalse("one file the load opens is missing");
@@ -79,6 +104,7 @@ public sealed class CaptionerArtifactsTests : IDisposable
     [Fact]
     public async Task Download_WithEverythingCached_KeepsItAvailableOffline()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         SeedCachedFastModel();
         // Downloads disabled: the download must be satisfied from the cache, so this proves nothing is fetched.
         var artifacts = new CaptionerArtifacts(Options(downloadsDisabled: true));
@@ -91,6 +117,7 @@ public sealed class CaptionerArtifactsTests : IDisposable
     [Fact]
     public async Task Delete_RemovesThisLibrarysFiles_SoTheModelIsNoLongerAvailableOffline()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         SeedCachedFastModel();
         var artifacts = new CaptionerArtifacts(Options());
 

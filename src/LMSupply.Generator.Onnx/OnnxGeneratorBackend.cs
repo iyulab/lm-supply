@@ -1,3 +1,4 @@
+using LMSupply.Lifecycle;
 using LMSupply.Download;
 using LMSupply.Generator;
 using LMSupply.Generator.Abstractions;
@@ -87,40 +88,56 @@ public static class OnnxGeneratorBackend
             IProgress<DownloadProgress>? progress,
             CancellationToken cancellationToken)
         {
+            // Base onnxruntime binaries first (genai depends on these), then GenAI at the managed assembly's version (not
+            // the NuGet latest)
+            foreach (var package in await RuntimePackagesAsync(RuntimeManager.Instance, provider, cancellationToken))
+            {
+                await RuntimeManager.Instance.EnsureRuntimeAsync(
+                    package.Package,
+                    version: package.Version,
+                    provider: package.Slot,
+                    progress: progress,
+                    cancellationToken: cancellationToken);
+            }
+        }
+
+        public async Task<bool> IsRuntimeAvailableOfflineAsync(ExecutionProvider provider, CancellationToken cancellationToken)
+            => await OnnxRuntimeArtifacts.IsAvailableOfflineAsync(
+                await RuntimePackagesAsync(OnnxRuntimeArtifacts.Manager, provider, cancellationToken), cancellationToken);
+
+        public async Task<long?> GetRuntimeDownloadBytesAsync(ExecutionProvider provider, CancellationToken cancellationToken)
+            => await OnnxRuntimeArtifacts.GetRemainingDownloadBytesAsync(
+                await RuntimePackagesAsync(OnnxRuntimeArtifacts.Manager, provider, cancellationToken), cancellationToken);
+
+        public async Task DownloadRuntimeAsync(ExecutionProvider provider, IProgress<DownloadProgress>? progress, CancellationToken cancellationToken)
+            => await OnnxRuntimeArtifacts.DownloadAsync(
+                await RuntimePackagesAsync(OnnxRuntimeArtifacts.Manager, provider, cancellationToken), progress, cancellationToken);
+
+        // The runtime packages a GenAI session of the provider runs on: ONNX Runtime and GenAI, in the provider's slot
+        private static async Task<IReadOnlyList<OnnxRuntimeArtifacts.RuntimePackage>> RuntimePackagesAsync(
+            RuntimeManager manager, ExecutionProvider provider, CancellationToken cancellationToken)
+        {
             ExecutionProviderSupport.ThrowIfUnsupported(provider);
             if (provider == ExecutionProvider.OpenVino)
                 throw new NotSupportedException(ExecutionProviderSupport.OpenVinoGenerationMessage);
 
             // Initialize RuntimeManager to detect hardware
-            await RuntimeManager.Instance.InitializeAsync(cancellationToken);
+            await manager.InitializeAsync(cancellationToken);
 
             // Resolve Auto to actual provider
             var actualProvider = provider == ExecutionProvider.Auto
-                ? RuntimeManager.Instance.RecommendedProvider
+                ? manager.RecommendedProvider
                 : provider;
 
             // Map provider to string for manifest lookup
             var providerString = actualProvider switch
             {
-                ExecutionProvider.Cuda => RuntimeManager.Instance.GetDefaultProvider(), // cuda11 or cuda12
+                ExecutionProvider.Cuda => manager.GetDefaultProvider(), // cuda11 or cuda12
                 ExecutionProvider.CoreML => "cpu", // CoreML uses CPU binaries
                 _ => "cpu"
             };
 
-            // Download base onnxruntime binaries first (genai depends on these)
-            await RuntimeManager.Instance.EnsureRuntimeAsync(
-                "onnxruntime",
-                provider: providerString,
-                progress: progress,
-                cancellationToken: cancellationToken);
-
-            // Download GenAI runtime binaries at the managed assembly's version (not the NuGet latest)
-            await RuntimeManager.Instance.EnsureRuntimeAsync(
-                "onnxruntime-genai",
-                version: GenAiVersion,
-                provider: providerString,
-                progress: progress,
-                cancellationToken: cancellationToken);
+            return [new("onnxruntime", providerString), new("onnxruntime-genai", providerString, GenAiVersion)];
         }
     }
 }

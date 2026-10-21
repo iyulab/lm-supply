@@ -1,3 +1,4 @@
+using LMSupply.Lifecycle;
 using AwesomeAssertions;
 using LMSupply.Generator.Gguf;
 using LMSupply.Llama.Server;
@@ -59,12 +60,48 @@ public sealed class GeneratorArtifactsTests : IDisposable
     }
 
     [Fact]
-    public async Task AnOnnxModelDirectory_NeedsNoServer()
+    public async Task AnOnnxModelDirectory_NeedsNoServer_ButItsBackendsRuntime()
     {
         var onnxDir = Path.Combine(_dir, "onnx-model");
         Directory.CreateDirectory(onnxDir);
+        OnnxGeneratorBackendRegistry.ResetForTests();
+        try
+        {
+            (await Artifacts().IsAvailableOfflineAsync(onnxDir, Ct)).Should().BeFalse("without the ONNX backend a load fails");
+            (await Artifacts().GetRemainingDownloadAsync(onnxDir, Ct)).RuntimeBytes.Should().BeNull();
 
-        (await Artifacts().IsAvailableOfflineAsync(onnxDir, Ct)).Should().BeTrue();
+            OnnxGeneratorBackendRegistry.Register(new RuntimeOnlyBackend(cached: true));
+            (await Artifacts().IsAvailableOfflineAsync(onnxDir, Ct)).Should().BeTrue("no server is needed, only the backend's runtime");
+            (await Artifacts().GetRemainingDownloadAsync(onnxDir, Ct)).Should().Be(new RemainingDownload(0, 0));
+
+            OnnxGeneratorBackendRegistry.ResetForTests();
+            OnnxGeneratorBackendRegistry.Register(new RuntimeOnlyBackend(cached: false));
+            (await Artifacts().IsAvailableOfflineAsync(onnxDir, Ct)).Should().BeFalse();
+            (await Artifacts().GetRemainingDownloadAsync(onnxDir, Ct)).RuntimeBytes.Should().Be(RuntimeOnlyBackend.Bytes);
+        }
+        finally
+        {
+            OnnxGeneratorBackendRegistry.ResetForTests();
+        }
+    }
+
+    // An ONNX backend that only answers about its runtime: cached, or a fixed size still to download
+    private sealed class RuntimeOnlyBackend(bool cached) : Abstractions.IOnnxGeneratorBackend
+    {
+        public const long Bytes = 300_000_000;
+
+        public Abstractions.IGeneratorModel CreateModel(string modelId, string modelPath, Abstractions.IChatFormatter chatFormatter, GeneratorOptions options, string? configBasePath = null)
+            => throw new NotSupportedException();
+
+        public Abstractions.IOnnxGeneratorModelFactory CreateFactory(string cacheDirectory, ExecutionProvider provider) => throw new NotSupportedException();
+
+        public Task EnsureRuntimeAsync(ExecutionProvider provider, IProgress<DownloadProgress>? progress, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<bool> IsRuntimeAvailableOfflineAsync(ExecutionProvider provider, CancellationToken cancellationToken) => Task.FromResult(cached);
+
+        public Task<long?> GetRuntimeDownloadBytesAsync(ExecutionProvider provider, CancellationToken cancellationToken) => Task.FromResult<long?>(cached ? 0 : Bytes);
+
+        public Task DownloadRuntimeAsync(ExecutionProvider provider, IProgress<DownloadProgress>? progress, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     [Fact]

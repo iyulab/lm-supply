@@ -29,4 +29,7 @@
     <None Include="Fixtures\**\*.jpg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Shared\BundledRuntime.cs" Link="Shared\BundledRuntime.cs" />
+  </ItemGroup>
 </Project>

@@ -469,7 +469,7 @@ public static class OnnxSessionFactory
     /// This works before ONNX Runtime is loaded.
     /// </summary>
     /// <returns>Tuple of (isAvailable, missingLibraries)</returns>
-    private static (bool Available, string[] MissingLibraries) CheckCudaRuntimeAvailability()
+    internal static (bool Available, string[] MissingLibraries) CheckCudaRuntimeAvailability()
     {
         if (!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux())
             return (false, new[] { "CUDA not supported on this platform" });

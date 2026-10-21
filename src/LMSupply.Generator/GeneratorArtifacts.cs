@@ -30,7 +30,7 @@ public sealed class GeneratorArtifacts : IModelArtifacts
         if (!LocalGenerator.IsModelDownloaded(modelId, _options))
             return false;
         if (!LocalGenerator.IsGgufTarget(modelId, _options.Clone()))
-            return true;
+            return OnnxBackend() is { } onnx && await onnx.IsRuntimeAvailableOfflineAsync(_options.Provider, cancellationToken);
 
         try
         {
@@ -50,7 +50,7 @@ public sealed class GeneratorArtifacts : IModelArtifacts
         var model = await LocalGenerator.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken);
         return new RemainingDownload(model, LocalGenerator.IsGgufTarget(modelId, _options.Clone())
             ? await Server().GetRemainingDownloadBytesAsync(Backend(), cancellationToken)
-            : null);
+            : OnnxBackend() is { } onnx ? await onnx.GetRuntimeDownloadBytesAsync(_options.Provider, cancellationToken) : null);
     }
 
     /// <inheritdoc />
@@ -60,10 +60,16 @@ public sealed class GeneratorArtifacts : IModelArtifacts
         await LocalGenerator.DownloadModelAsync(modelId, _options, progress, cancellationToken);
         if (LocalGenerator.IsGgufTarget(modelId, _options.Clone()))
             await Server().AcquireServerAsync(Backend(), localFilesOnly: false, progress, cancellationToken);
+        else if (OnnxBackend() is { } onnx)
+            await onnx.DownloadRuntimeAsync(_options.Provider, progress, cancellationToken);
     }
 
     /// <inheritdoc />
     public bool Delete(string modelId) => LocalGenerator.DeleteModel(modelId, _options);
+
+    // The ONNX backend a load of an ONNX model runs on; without one registered such a load fails, so there is no runtime to count
+    private static Abstractions.IOnnxGeneratorBackend? OnnxBackend() =>
+        OnnxGeneratorBackendRegistry.IsRegistered ? OnnxGeneratorBackendRegistry.Require() : null;
 
     private LlamaServerUpdateService Server() => LlamaServerUpdateService.Resolve(_options.ServerUpdateOptions);
 

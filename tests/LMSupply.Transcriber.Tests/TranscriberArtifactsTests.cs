@@ -1,3 +1,4 @@
+using LMSupply.Testing;
 using System.Text.Json;
 using AwesomeAssertions;
 using LMSupply.Download;
@@ -17,6 +18,7 @@ public sealed class TranscriberArtifactsTests : IDisposable
 
     public void Dispose()
     {
+        try { Directory.Delete(_cache + "-runtime", recursive: true); } catch { /* best-effort temp cleanup */ }
         if (Directory.Exists(_cache))
             Directory.Delete(_cache, recursive: true);
     }
@@ -60,6 +62,7 @@ public sealed class TranscriberArtifactsTests : IDisposable
     [Fact]
     public async Task ACachedModel_IsAvailableOffline_AndAnEmptyCacheIsNot()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         var artifacts = new TranscriberArtifacts(Options());
         artifacts.Kind.Should().Be("transcriber");
         (await artifacts.IsAvailableOfflineAsync("default", Ct)).Should().BeFalse();
@@ -73,6 +76,7 @@ public sealed class TranscriberArtifactsTests : IDisposable
     [Fact]
     public async Task WithDiarizationPreloaded_TheTranscriberKindStillCoversTheModelOnly()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         SeedCachedModel();
         var transcriber = new TranscriberArtifacts(Options(preloadDiarization: true));
         var speakers = new DiarizationArtifacts(Options(preloadDiarization: true));
@@ -100,6 +104,7 @@ public sealed class TranscriberArtifactsTests : IDisposable
     [Fact]
     public async Task TheDiarizationKind_ReportsThePairApartFromAnyTranscriber()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         var speakers = new DiarizationArtifacts(Options());
         speakers.Kind.Should().Be("diarization");
 
@@ -118,6 +123,7 @@ public sealed class TranscriberArtifactsTests : IDisposable
     [Fact]
     public async Task TheDiarizationKind_WithDownloadsDisabled_DownloadsNothing()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         var speakers = new DiarizationArtifacts(Options(downloadsDisabled: true));
 
         await FluentActions.Awaiting(() => speakers.DownloadAsync(DiarizationArtifacts.DefaultModelId, cancellationToken: Ct))
@@ -131,6 +137,7 @@ public sealed class TranscriberArtifactsTests : IDisposable
     [Fact]
     public async Task TheDiarizationKind_DeletesThePairOnly()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         SeedCachedModel();
         SeedCachedDiarizationPair();
         var speakers = new DiarizationArtifacts(Options());
@@ -145,6 +152,7 @@ public sealed class TranscriberArtifactsTests : IDisposable
     [Fact]
     public async Task TheDiarizationKind_RefusesAnotherModelId()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         var speakers = new DiarizationArtifacts(Options());
 
         await FluentActions.Awaiting(() => speakers.IsAvailableOfflineAsync("whisper-base", Ct)).Should().ThrowAsync<ArgumentException>();
@@ -154,6 +162,7 @@ public sealed class TranscriberArtifactsTests : IDisposable
     [Fact]
     public async Task Download_WithEverythingCached_KeepsItAvailableOffline()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         SeedCachedModel();
         // Downloads disabled: the download must be satisfied from the cache, so this proves nothing is fetched.
         var artifacts = new TranscriberArtifacts(Options(downloadsDisabled: true));
@@ -166,6 +175,7 @@ public sealed class TranscriberArtifactsTests : IDisposable
     [Fact]
     public async Task Delete_RemovesThisLibrarysFiles_SoTheModelIsNoLongerAvailableOffline()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         SeedCachedModel();
         var artifacts = new TranscriberArtifacts(Options());
 

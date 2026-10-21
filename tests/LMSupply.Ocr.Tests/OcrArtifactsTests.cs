@@ -1,3 +1,4 @@
+using LMSupply.Testing;
 using System.Text.Json;
 using AwesomeAssertions;
 using LMSupply.Download;
@@ -20,6 +21,7 @@ public sealed class OcrArtifactsTests : IDisposable
 
     public void Dispose()
     {
+        try { Directory.Delete(_cache + "-runtime", recursive: true); } catch { /* best-effort temp cleanup */ }
         if (Directory.Exists(_cache))
             Directory.Delete(_cache, recursive: true);
     }
@@ -68,6 +70,7 @@ public sealed class OcrArtifactsTests : IDisposable
     [Fact]
     public async Task ACachedLanguage_IsAvailableOffline_AndAnotherScriptIsNot()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         var artifacts = new OcrArtifacts(Options());
         artifacts.Kind.Should().Be("ocr");
         (await artifacts.IsAvailableOfflineAsync("en", Ct)).Should().BeFalse("nothing is cached");
@@ -82,6 +85,7 @@ public sealed class OcrArtifactsTests : IDisposable
     [Fact]
     public async Task Download_WithEverythingCached_KeepsItAvailableOffline()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         SeedCached("en");
         // Downloads disabled: the download must be satisfied from the cache, so this proves nothing is fetched.
         var artifacts = new OcrArtifacts(Options(downloadsDisabled: true));
@@ -94,6 +98,7 @@ public sealed class OcrArtifactsTests : IDisposable
     [Fact]
     public async Task DeletingALanguage_RemovesItsRecognizer_AndKeepsTheSharedDetectionModel()
     {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
         SeedCached("en", "ko");
         var artifacts = new OcrArtifacts(Options());
 

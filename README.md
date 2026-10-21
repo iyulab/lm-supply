@@ -1064,7 +1064,7 @@ var progress = new Progress<DownloadProgress>(p => Console.WriteLine($"{p.FileNa
 if (!await generators.IsAvailableOfflineAsync("gguf:default"))      // weights and, for GGUF, llama-server cached?
 {
     var remaining = await generators.GetRemainingDownloadAsync("gguf:default");    // for the consent prompt
-    // remaining.ModelBytes, remaining.RuntimeBytes (llama-server; null when it cannot be told), remaining.TotalBytes
+    // remaining.ModelBytes, remaining.RuntimeBytes (null when it cannot be told), remaining.TotalBytes
     // ... after the user agrees:
     await generators.DownloadAsync("gguf:default", progress);       // weights + llama-server
 }
@@ -1074,8 +1074,10 @@ await using var model = await LocalGenerator.LoadAsync("gguf:default", new Gener
 
 «Available offline» is exactly what a load with `DisableAutoDownload` needs, so that load then makes no network request.
 `GetRemainingDownloadAsync` states what `DownloadAsync` would fetch on this machine, model files and runtimes apart: for a
-GGUF model the llama-server build and, for CUDA, its runtime companion (about 1.2 GB together on CUDA), 0 once cached.
-Runtime bytes are null when the release listing cannot be read.
+GGUF model the llama-server build and, for CUDA, its runtime companion (about 1.2 GB together on CUDA); for an ONNX model the
+ONNX Runtime native package for the provider its session would use (about 160 MB for the CPU package of 1.31.0), and ONNX Runtime GenAI for an
+ONNX generator — 0 once cached. Runtime bytes are null when the release listing or package feed cannot be read, or when a
+load would not download the runtime (`RuntimeManagerOptions` disables it, or names a runtime directory that lacks it).
 The speaker-diarization pair is a kind of its own (`"diarization"`), not part of the transcriber's — whatever
 `PreloadDiarization` says — so «transcription available» and «speaker labels available» are two statuses, each with its own
 consent and download. A host whose loads preload diarization treats the transcriber as ready when both kinds are.

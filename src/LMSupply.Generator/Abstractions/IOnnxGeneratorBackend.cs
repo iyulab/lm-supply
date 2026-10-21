@@ -36,4 +36,19 @@ public interface IOnnxGeneratorBackend
         ExecutionProvider provider,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether the native binaries <see cref="EnsureRuntimeAsync"/> provisions for <paramref name="provider"/> are on this
+    /// machine, so it would download nothing. Reads the cache only.
+    /// </summary>
+    Task<bool> IsRuntimeAvailableOfflineAsync(ExecutionProvider provider, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Bytes <see cref="EnsureRuntimeAsync"/> for <paramref name="provider"/> would download: 0 when they are cached. Reads the
+    /// package feed; downloads nothing. Null when that cannot be told.
+    /// </summary>
+    Task<long?> GetRuntimeDownloadBytesAsync(ExecutionProvider provider, CancellationToken cancellationToken);
+
+    /// <summary>Downloads the native binaries <see cref="EnsureRuntimeAsync"/> provisions into the cache, without loading them.</summary>
+    Task DownloadRuntimeAsync(ExecutionProvider provider, IProgress<DownloadProgress>? progress, CancellationToken cancellationToken);
 }

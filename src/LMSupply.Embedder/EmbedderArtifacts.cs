@@ -30,7 +30,7 @@ public sealed class EmbedderArtifacts : IModelArtifacts
         if (!LocalEmbedder.IsModelDownloaded(modelId, _options.CacheDirectory))
             return false;
         if (!LocalEmbedder.IsGgufModel(modelId))
-            return true;
+            return await OnnxRuntimeArtifacts.IsAvailableOfflineAsync(_options.Provider, cancellationToken);
 
         try
         {
@@ -50,7 +50,7 @@ public sealed class EmbedderArtifacts : IModelArtifacts
         var model = await LocalEmbedder.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken);
         return new RemainingDownload(model, LocalEmbedder.IsGgufModel(modelId)
             ? await Server().GetRemainingDownloadBytesAsync(Backend(), cancellationToken)
-            : null);
+            : await OnnxRuntimeArtifacts.GetRemainingDownloadBytesAsync(_options.Provider, cancellationToken));
     }
 
     /// <inheritdoc />
@@ -60,6 +60,8 @@ public sealed class EmbedderArtifacts : IModelArtifacts
         await LocalEmbedder.DownloadModelAsync(modelId, _options, progress, cancellationToken);
         if (LocalEmbedder.IsGgufModel(modelId))
             await Server().AcquireServerAsync(Backend(), localFilesOnly: false, progress, cancellationToken);
+        else
+            await OnnxRuntimeArtifacts.DownloadAsync(_options.Provider, progress, cancellationToken);
     }
 
     /// <inheritdoc />

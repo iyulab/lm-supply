@@ -21,16 +21,21 @@ public sealed class CaptionerArtifacts : IModelArtifacts
     public string Kind => "captioner";
 
     /// <inheritdoc />
-    public Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
-        => LocalCaptioner.IsModelDownloadedAsync(modelId, _options, cancellationToken);
+    public async Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
+        => await LocalCaptioner.IsModelDownloadedAsync(modelId, _options, cancellationToken)
+           && await OnnxRuntimeArtifacts.IsAvailableOfflineAsync(_options.Provider, cancellationToken);
 
     /// <inheritdoc />
     public async Task<RemainingDownload> GetRemainingDownloadAsync(string modelId, CancellationToken cancellationToken = default)
-        => new(await LocalCaptioner.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken), RuntimeBytes: null);
+        => new(await LocalCaptioner.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken),
+            await OnnxRuntimeArtifacts.GetRemainingDownloadBytesAsync(_options.Provider, cancellationToken));
 
     /// <inheritdoc />
-    public Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)
-        => LocalCaptioner.DownloadModelAsync(modelId, _options, progress, cancellationToken);
+    public async Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        await LocalCaptioner.DownloadModelAsync(modelId, _options, progress, cancellationToken);
+        await OnnxRuntimeArtifacts.DownloadAsync(_options.Provider, progress, cancellationToken);
+    }
 
     /// <inheritdoc />
     public bool Delete(string modelId) => LocalCaptioner.DeleteModel(modelId, _options);

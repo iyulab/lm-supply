@@ -25,16 +25,21 @@ public sealed class OcrArtifacts : IModelArtifacts
     public string Kind => "ocr";
 
     /// <inheritdoc />
-    public Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
-        => LocalOcr.IsLanguageDownloadedAsync(modelId, _options, cancellationToken);
+    public async Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
+        => await LocalOcr.IsLanguageDownloadedAsync(modelId, _options, cancellationToken)
+           && await OnnxRuntimeArtifacts.IsAvailableOfflineAsync(_options.Provider, cancellationToken);
 
     /// <inheritdoc />
     public async Task<RemainingDownload> GetRemainingDownloadAsync(string modelId, CancellationToken cancellationToken = default)
-        => new(await LocalOcr.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken), RuntimeBytes: null);
+        => new(await LocalOcr.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken),
+            await OnnxRuntimeArtifacts.GetRemainingDownloadBytesAsync(_options.Provider, cancellationToken));
 
     /// <inheritdoc />
-    public Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)
-        => LocalOcr.DownloadForLanguageAsync(modelId, _options, progress, cancellationToken);
+    public async Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        await LocalOcr.DownloadForLanguageAsync(modelId, _options, progress, cancellationToken);
+        await OnnxRuntimeArtifacts.DownloadAsync(_options.Provider, progress, cancellationToken);
+    }
 
     /// <inheritdoc />
     public bool Delete(string modelId) => LocalOcr.DeleteLanguageModel(modelId, _options);

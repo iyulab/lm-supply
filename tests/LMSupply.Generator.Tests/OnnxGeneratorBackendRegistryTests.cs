@@ -66,5 +66,14 @@ public sealed class OnnxGeneratorBackendRegistryTests
 
         public Task EnsureRuntimeAsync(ExecutionProvider provider, IProgress<LMSupply.DownloadProgress>? progress, CancellationToken cancellationToken)
             => throw new NotSupportedException("stub — not exercised by these tests");
+
+        public Task<bool> IsRuntimeAvailableOfflineAsync(ExecutionProvider provider, CancellationToken cancellationToken)
+            => throw new NotSupportedException("stub — not exercised by these tests");
+
+        public Task<long?> GetRuntimeDownloadBytesAsync(ExecutionProvider provider, CancellationToken cancellationToken)
+            => throw new NotSupportedException("stub — not exercised by these tests");
+
+        public Task DownloadRuntimeAsync(ExecutionProvider provider, IProgress<LMSupply.DownloadProgress>? progress, CancellationToken cancellationToken)
+            => throw new NotSupportedException("stub — not exercised by these tests");
     }
 }

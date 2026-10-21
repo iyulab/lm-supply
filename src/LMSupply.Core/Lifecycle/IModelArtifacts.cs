@@ -6,9 +6,10 @@ namespace LMSupply.Lifecycle;
 /// embedder's), so a host that manages several models asks them all the same way.
 /// </summary>
 /// <remarks>
-/// «Available offline» means a load with downloads disabled (<c>DisableAutoDownload</c>) opens cached files only and makes no
-/// network request — the model's files and, for a GGUF model, the llama-server it runs on. <see cref="DownloadAsync"/> fetches
-/// exactly that, so after it the model is available offline. Nothing here loads a model or starts a server.
+/// «Available offline» means a load with downloads disabled (<c>DisableAutoDownload</c>) opens cached files only and downloads
+/// nothing — the model's files and the runtime it runs on: llama-server for a GGUF model, the ONNX Runtime native package (and,
+/// for an ONNX generator, ONNX Runtime GenAI) for an ONNX one. <see cref="DownloadAsync"/> fetches exactly that, so after it the
+/// model is available offline. Nothing here loads a model, a native runtime or a server.
 /// </remarks>
 public interface IModelArtifacts
 {
@@ -29,14 +30,14 @@ public interface IModelArtifacts
     Task<RemainingDownload> GetRemainingDownloadAsync(string modelId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Downloads what a load of <paramref name="modelId"/> needs — the model's files and, for a GGUF model, llama-server — so
-    /// that it is available offline afterwards. Already cached files are not fetched again.
+    /// Downloads what a load of <paramref name="modelId"/> needs — the model's files and its runtime — so that it is available
+    /// offline afterwards. Already cached files are not fetched again.
     /// </summary>
     Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deletes what LMSupply downloaded of <paramref name="modelId"/>'s files, so a load downloads them again (or, with downloads
-    /// disabled, fails). Files another tool put in the shared cache, a local path, and runtimes such as llama-server are kept.
+    /// disabled, fails). Files another tool put in the shared cache, a local path, and runtimes, which models share, are kept.
     /// </summary>
     /// <returns>Whether anything was deleted.</returns>
     /// <exception cref="IOException">A file is open, for example by a running server (Windows).</exception>

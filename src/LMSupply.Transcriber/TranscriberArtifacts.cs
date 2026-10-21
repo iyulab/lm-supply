@@ -28,19 +28,24 @@ public sealed class TranscriberArtifacts : IModelArtifacts
     public string Kind => "transcriber";
 
     /// <inheritdoc />
-    public Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
+    public async Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
-        return LocalTranscriber.IsModelDownloadedAsync(modelId, _options, cancellationToken);
+        return await LocalTranscriber.IsModelDownloadedAsync(modelId, _options, cancellationToken)
+               && await OnnxRuntimeArtifacts.IsAvailableOfflineAsync(_options.Provider, cancellationToken);
     }
 
     /// <inheritdoc />
     public async Task<RemainingDownload> GetRemainingDownloadAsync(string modelId, CancellationToken cancellationToken = default)
-        => new(await LocalTranscriber.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken), RuntimeBytes: null);
+        => new(await LocalTranscriber.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken),
+            await OnnxRuntimeArtifacts.GetRemainingDownloadBytesAsync(_options.Provider, cancellationToken));
 
     /// <inheritdoc />
-    public Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)
-        => LocalTranscriber.DownloadModelAsync(modelId, _options, progress, cancellationToken);
+    public async Task DownloadAsync(string modelId, IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        await LocalTranscriber.DownloadModelAsync(modelId, _options, progress, cancellationToken);
+        await OnnxRuntimeArtifacts.DownloadAsync(_options.Provider, progress, cancellationToken);
+    }
 
     /// <inheritdoc />
     public bool Delete(string modelId) => LocalTranscriber.DeleteModel(modelId, _options);

@@ -30,7 +30,7 @@ public sealed class RerankerArtifacts : IModelArtifacts
         if (!LocalReranker.IsModelDownloaded(modelId, _options.CacheDirectory))
             return false;
         if (!LocalReranker.LoadsAsGguf(modelId))
-            return true;
+            return await OnnxRuntimeArtifacts.IsAvailableOfflineAsync(_options.Provider, cancellationToken);
 
         try
         {
@@ -50,7 +50,7 @@ public sealed class RerankerArtifacts : IModelArtifacts
         var model = await LocalReranker.GetRemainingDownloadBytesAsync(modelId, _options, cancellationToken);
         return new RemainingDownload(model, LocalReranker.LoadsAsGguf(modelId)
             ? await Server().GetRemainingDownloadBytesAsync(Backend(), cancellationToken)
-            : null);
+            : await OnnxRuntimeArtifacts.GetRemainingDownloadBytesAsync(_options.Provider, cancellationToken));
     }
 
     /// <inheritdoc />
@@ -60,6 +60,8 @@ public sealed class RerankerArtifacts : IModelArtifacts
         await LocalReranker.DownloadModelAsync(modelId, _options, progress, cancellationToken);
         if (LocalReranker.LoadsAsGguf(modelId))
             await Server().AcquireServerAsync(Backend(), localFilesOnly: false, progress, cancellationToken);
+        else
+            await OnnxRuntimeArtifacts.DownloadAsync(_options.Provider, progress, cancellationToken);
     }
 
     /// <inheritdoc />

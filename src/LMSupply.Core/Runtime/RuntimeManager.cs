@@ -357,6 +357,113 @@ public sealed class RuntimeManager : IAsyncDisposable
     }
 
     /// <summary>
+    /// Whether <see cref="EnsureRuntimeAsync"/> for <paramref name="package"/> and <paramref name="provider"/> would find its
+    /// runtime on this machine without downloading it: supplied complete in <see cref="RuntimeManagerOptions.RuntimeDirectory"/>,
+    /// or cached at the version a load asks for — the one given, the pinned one, or the loaded managed runtime's. With
+    /// <see cref="RuntimeManagerOptions.DisableAutoDownload"/> and nothing pinned, any cached version stands in, as it does for
+    /// such a load. Reads the cache only.
+    /// </summary>
+    /// <param name="package">As for <see cref="EnsureRuntimeAsync"/>: <c>"onnxruntime"</c>, <c>"onnxruntime-genai"</c> or <c>"onnxruntime-ep"</c>.</param>
+    /// <param name="provider">The provider package slot, such as <c>"cpu"</c> or <c>"cuda12"</c>.</param>
+    /// <param name="version">The version a load would name, or null for the one it would resolve.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<bool> IsRuntimeAvailableOfflineAsync(
+        string package, string provider, string? version = null, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        return (await FindRuntimeOfflineAsync(NormalizePackageType(package), provider, version, cancellationToken)).Found;
+    }
+
+    /// <summary>
+    /// Bytes <see cref="EnsureRuntimeAsync"/> for <paramref name="package"/> and <paramref name="provider"/> would download: 0 when
+    /// <see cref="IsRuntimeAvailableOfflineAsync"/> holds, otherwise the package at the version a load would resolve, as the
+    /// package feed states its length. Downloads nothing. Null when that cannot be told — the feed is unreachable or states no
+    /// length — or when a load would not download it at all (a <see cref="RuntimeManagerOptions.RuntimeDirectory"/> that lacks
+    /// it, or <see cref="RuntimeManagerOptions.DisableAutoDownload"/>): such a load fails instead.
+    /// </summary>
+    /// <param name="package">As for <see cref="IsRuntimeAvailableOfflineAsync"/>.</param>
+    /// <param name="provider">As for <see cref="IsRuntimeAvailableOfflineAsync"/>.</param>
+    /// <param name="version">As for <see cref="IsRuntimeAvailableOfflineAsync"/>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<long?> GetRuntimeDownloadBytesAsync(
+        string package, string provider, string? version = null, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        var (found, wanted, config) = await FindRuntimeOfflineAsync(NormalizePackageType(package), provider, version, cancellationToken);
+        if (found)
+            return 0;
+        if (!string.IsNullOrEmpty(_options.RuntimeDirectory) || _options.DisableAutoDownload)
+            return null;
+
+        try
+        {
+            var resolved = wanted ?? await ResolveVersionAsync(config.PackageId, cancellationToken);
+            return await _nugetDownloader.GetPackageBytesAsync(config.PackageId, resolved, cancellationToken);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or InvalidOperationException
+                                   || (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested))
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Downloads the runtime <see cref="EnsureRuntimeAsync"/> for <paramref name="package"/> and <paramref name="provider"/>
+    /// would load into the cache, without loading it, so that a later load finds it offline. Already cached, it fetches
+    /// nothing.
+    /// </summary>
+    /// <param name="package">As for <see cref="IsRuntimeAvailableOfflineAsync"/>.</param>
+    /// <param name="provider">As for <see cref="IsRuntimeAvailableOfflineAsync"/>.</param>
+    /// <param name="version">As for <see cref="IsRuntimeAvailableOfflineAsync"/>.</param>
+    /// <param name="progress">Receives the download, tagged <see cref="DownloadKind.Runtime"/>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task DownloadRuntimeAsync(
+        string package, string provider, string? version = null,
+        IProgress<DownloadProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        await ResolveRuntimeForProviderAsync(provider, NormalizePackageType(package), version, progress, cancellationToken);
+    }
+
+    // What ResolveRuntimeForProviderAsync would take without a download, and the version it would ask for
+    private async Task<(bool Found, string? Wanted, RuntimePackageRegistry.PackageConfig Config)> FindRuntimeOfflineAsync(
+        string packageType, string provider, string? version, CancellationToken cancellationToken)
+    {
+        ExecutionProviderSupport.ThrowIfUnsupported(provider);
+        await InitializeAsync(cancellationToken);
+        var config = RuntimePackageRegistry.GetPackageConfig(packageType, provider, _platform!.RuntimeIdentifier)
+            ?? throw new InvalidOperationException($"No package configuration found for {packageType}/{provider}");
+        var pinned = config.PinnedVersion is not null || _options.PinnedVersion is not null
+            || (version is not null && config.RequiresExactVersion);
+        var wanted = version ?? config.PinnedVersion ?? _options.PinnedVersion
+            ?? (packageType == RuntimePackageRegistry.PackageTypes.OnnxRuntime ? LoadedOnnxRuntimeVersion() : null);
+
+        if (!string.IsNullOrEmpty(_options.RuntimeDirectory))
+        {
+            try
+            {
+                UseRuntimeDirectory(_options.RuntimeDirectory, provider, packageType, config);
+                return (true, wanted, config);
+            }
+            catch (ModelLoadException)
+            {
+                return (false, wanted, config);
+            }
+        }
+
+        // A load that may download fetches the version it asks for rather than run another one cached
+        var exactOnly = _options.DisableAutoDownload ? pinned : wanted is not null;
+        return (_nugetDownloader.FindCached(provider, _platform!, wanted, packageType, exactOnly) is not null, wanted, config);
+    }
+
+    // The managed ONNX Runtime's version, loading its assembly first: before any session, nothing may have loaded it yet
+    private static string? LoadedOnnxRuntimeVersion()
+    {
+        _ = typeof(Microsoft.ML.OnnxRuntime.InferenceSession).Assembly;
+        return TryGetOnnxRuntimeVersion();
+    }
+
+    /// <summary>
     /// Provisions the runtime for a specific provider and registers it with <see cref="NativeLoader"/>.
     /// </summary>
     private async Task<string> DownloadRuntimeForProviderAsync(

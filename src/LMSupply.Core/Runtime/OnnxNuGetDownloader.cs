@@ -378,6 +378,19 @@ public sealed class OnnxNuGetDownloader : IDisposable
     /// Used as a fallback when the requested version is not cached.
     /// </summary>
     /// <summary>
+    /// The length of <paramref name="packageId"/> <paramref name="version"/>'s package as the feed states it, read without
+    /// downloading it; null when the feed states none.
+    /// </summary>
+    /// <exception cref="HttpRequestException">The feed is unreachable or has no such package.</exception>
+    internal async Task<long?> GetPackageBytesAsync(string packageId, string version, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Head, NuGetPackageResolver.GetPackageDownloadUrl(packageId, version));
+        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        return response.Content.Headers.ContentLength;
+    }
+
+    /// <summary>
     /// Finds a cached runtime without any network call. With <paramref name="version"/>, that version is preferred;
     /// unless <paramref name="exactOnly"/>, the newest cached version stands in when it is absent (or when no version
     /// is known). Returns null when nothing usable is cached.

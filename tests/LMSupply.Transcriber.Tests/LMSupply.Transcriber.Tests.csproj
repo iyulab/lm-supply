@@ -42,4 +42,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Shared\BundledRuntime.cs" Link="Shared\BundledRuntime.cs" />
+  </ItemGroup>
 </Project>
