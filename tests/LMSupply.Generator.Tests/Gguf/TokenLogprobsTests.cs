@@ -47,7 +47,7 @@ public class TokenLogprobsTests
     {
         var chunks = new List<ChatStreamChunk>();
         await foreach (var c in LlamaServerGeneratorModel.ShapeChatStream(
-            source, options, toolStreamParser: null, suppressServerCallsWhenParserActive: false, Ct))
+            source, options, toolStreamParser: null, Ct))
             chunks.Add(c);
         return chunks;
     }

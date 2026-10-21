@@ -71,37 +71,17 @@ public interface IChatFormatter
     /// entirely on llama-server's native tool-call extraction.</returns>
     /// <remarks>
     /// When a non-null parser is returned, the active GGUF generator
-    /// (<c>LlamaServerGeneratorModel</c>) treats the parser's output as the
-    /// authoritative tool-call source for the turn and SUPPRESSES server-emitted
-    /// tool-call deltas (which on Gemma 4 are typically half-formed name-only
-    /// pattern matches that never invoke).
+    /// (<c>LlamaServerGeneratorModel</c>) feeds it every text delta of the turn: wrapper
+    /// text never reaches the caller, and the calls the parser extracts are used for the
+    /// chunks where the server sent no tool-call delta of its own. Server deltas win
+    /// wherever they are present.
     ///
-    /// Gemma 4 emits its native
-    /// <c>&lt;|tool_call&gt;call:NAME{ARGS_JSON}&lt;tool_call|&gt;</c> wrapper into the
-    /// text channel; without this hook the wrapper tokens leak as plain text and
-    /// no tool ever invokes.
+    /// A llama-server build that does not parse a model's native wrapper (Gemma 4's
+    /// <c>&lt;|tool_call&gt;call:NAME{ARGS_JSON}&lt;tool_call|&gt;</c>, ChatML's
+    /// <c>&lt;tool_call&gt;</c>) leaves it in the text channel; without this hook the
+    /// wrapper tokens leak as plain text and no tool ever invokes.
     /// </remarks>
     IToolCallStreamParser? CreateToolCallStreamParser() => null;
-
-    /// <summary>
-    /// Whether the active GGUF generator should discard server-emitted
-    /// <c>ToolCallDeltas</c> unconditionally whenever <see cref="CreateToolCallStreamParser"/>
-    /// returns a non-null parser. Defaults to <c>true</c>, preserving the original Gemma 4
-    /// behavior where the server's grammar-constrained tool-call channel never produces a
-    /// usable delta and the parser is always the sole source for the turn.
-    /// </summary>
-    /// <remarks>
-    /// A formatter whose model's grammar-constrained channel DOES usually work (unlike Gemma 4)
-    /// should override this to <c>false</c>: unconditional suppression would silently discard a
-    /// working server-side tool call on every turn just because a parser is registered to catch
-    /// the model's rarer native-wrapper fallback. When <c>false</c>, the generator resolves each
-    /// chunk independently — server deltas win when present; the parser's output is used only on
-    /// chunks where the server gave nothing (see <c>ToolCallStreamCoexistence.Resolve</c>).
-    /// Qwen/ChatML's grammar path succeeds on
-    /// the majority of turns (5 of 7 in a measured run), so Gemma 4's unconditional-suppression policy would
-    /// regress a working majority path to fix a minority native-wrapper leak.
-    /// </remarks>
-    bool SuppressServerToolCallsWhenParserActive => true;
 
     /// <summary>
     /// Returns the token string that activates the model's built-in thinking mode

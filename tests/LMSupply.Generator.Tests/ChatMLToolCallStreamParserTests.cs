@@ -208,15 +208,4 @@ public class ChatMLToolCallStreamParserTests
         first.Should().NotBeSameAs(second,
             because: "each turn must get its own stateful parser — sharing state across turns would corrupt buffer/tool-index counters");
     }
-
-    [Fact]
-    public void ChatMLFormatter_SuppressServerToolCallsWhenParserActive_IsFalse()
-    {
-        // The defining difference from Gemma 4: Qwen's grammar channel usually works, so the
-        // generator must NOT discard server deltas just because this parser is registered.
-        var formatter = new ChatMLFormatter();
-
-        formatter.SuppressServerToolCallsWhenParserActive.Should().BeFalse(
-            because: "unconditional suppression would regress Qwen's working majority path (5/7) to fix the minority native-wrapper leak (2/7)");
-    }
 }

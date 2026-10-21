@@ -806,6 +806,11 @@ await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-default");  
 // Tool definitions use OpenAI-compatible format via llama-server
 ```
 
+Tool calls arrive whole (`GenerateChatWithToolsAsync`) or streamed (`GenerateChatStreamAsync`, as `ChatToolCallDelta`s by
+index). When llama-server parses a model's tool-call wrapper itself, its deltas are passed on; when a build leaves the
+wrapper in the text (Gemma 4's `<|tool_call>…<tool_call|>`, ChatML's `<tool_call>`), the formatter's parser takes it
+out of the text and emits the call.
+
 > **Gemma 4 W1 advisory (v0.34.3+):** When loading any `gguf:gemma4-*` alias, a W1-level warning is emitted via `Trace.TraceWarning` at load time. Upstream llama.cpp PRs #21375 (chat-template/rope) and #21882 (instruction-following) are not yet in a stable release; tool-use with Korean instructional prompts and Q4_K_M quants may produce empty responses. Subscribe to `System.Diagnostics.Trace` listeners to receive this advisory. For production tool-calling workloads, `gguf:qwen2.5-7b` is a reliable alternative until the upstream PRs land.
 
 > **Gemma 4 tool prompt injection:** `Gemma4ChatFormatter` automatically injects tool parameter hints as a system message, working around Gemma 4's tendency to emit empty tool arguments under llama-server's native Jinja template. The fragment content adapts to `GenerationOptions.Thinking`: when not `ThinkingMode.On` (default `Auto`), the full `Required parameters (MUST be provided): name (type)` block is injected; when `ThinkingMode.On`, only a compact per-tool required-params hint is injected (e.g. `search_knowledge: query (string)`) since the Jinja2 structured schema already covers full definitions, reducing system-prompt pressure on small models.

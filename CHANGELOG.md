@@ -18,6 +18,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   needs phonemes or a phonemizer. See [Korean text](docs/synthesizer.md#korean-text) for what is not handled.
 
 ### Fixed
+- **Generator: a streamed tool call on a Gemma 4 GGUF model is no longer lost.** `GenerateChatStreamAsync` ended the
+  turn with finish reason `tool_calls` but no `ChatToolCallDelta`: the stream kept only the calls its Gemma 4 wrapper
+  parser found in the text, and llama-server builds that parse the wrapper themselves send the call as structured
+  deltas, with no wrapper in the text. Server deltas now win wherever they are present, for every chat format, and the
+  wrapper parser fills in the chunks where the server sent none. **Breaking** for a custom `IChatFormatter` that
+  overrode `SuppressServerToolCallsWhenParserActive`: the member is removed — delete the override.
 - **A cached GGUF model loads with `HTTP_PROXY` / `HTTPS_PROXY` (or a system proxy) set.** The llama-server readiness
   check and the API client sent their loopback requests to the proxy, which cannot reach the caller's loopback, so the
   local server was never seen as ready and the load did not return. Requests to a loopback llama-server now bypass the

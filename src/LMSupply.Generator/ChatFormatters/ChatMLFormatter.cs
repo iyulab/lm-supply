@@ -59,12 +59,9 @@ public sealed class ChatMLFormatter : IChatFormatter
     /// <inheritdoc />
     /// <remarks>
     /// Qwen's grammar-constrained tool-call channel is the primary working path (observed 5/7
-    /// turns), unlike Gemma 4's. A non-null parser here only catches the minority of turns where
-    /// the model leaks its native <c>&lt;tool_call&gt;</c> wrapper as plain text instead — see
-    /// <see cref="SuppressServerToolCallsWhenParserActive"/>.
+    /// turns). The parser here only catches the minority of turns where the model leaks its native
+    /// <c>&lt;tool_call&gt;</c> wrapper as plain text instead; server deltas win wherever they are
+    /// present (see <c>ToolCallStreamCoexistence</c>).
     /// </remarks>
     public IToolCallStreamParser? CreateToolCallStreamParser() => new ChatMLToolCallStreamParser();
-
-    /// <inheritdoc />
-    public bool SuppressServerToolCallsWhenParserActive => false;
 }

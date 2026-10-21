@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using LMSupply.Generator.Abstractions;
+using LMSupply.Generator.ChatFormatters;
 using LMSupply.Generator.Internal.Llama;
 using LMSupply.Generator.Models;
 using LMSupply.Llama.Server;
@@ -37,7 +38,7 @@ public class ChatStreamShapingTests
     {
         var chunks = new List<ChatStreamChunk>();
         await foreach (var c in LlamaServerGeneratorModel.ShapeChatStream(
-            source, options ?? new GenerationOptions(), parser, suppressServerCallsWhenParserActive: false, Ct))
+            source, options ?? new GenerationOptions(), parser, Ct))
             chunks.Add(c);
         return chunks;
     }
@@ -138,6 +139,41 @@ public class ChatStreamShapingTests
         chunks[^1].FinishReason.Should().Be("length");
         chunks[^1].Usage.Should().BeNull("the stream was cut before the server reported its count");
         chunks.Should().OnlyContain(c => c.Timings == null, "the server's timings describe a completion the consumer did not get");
+    }
+
+    [Fact]
+    public async Task Gemma4_TheServersStructuredToolCallDeltas_PassThrough_WithItsWrapperParserActive()
+    {
+        // A llama-server build that parses Gemma 4's wrapper itself streams the call as tool-call deltas, with no text.
+        var chunks = await ShapeAsync(
+            Stream(
+                new ChatStreamData { ToolCallDeltas = [new ToolCallDelta { Index = 0, Id = "c1", Function = new FunctionCallDelta { Name = "weather", Arguments = "{\"city\":" } }] },
+                new ChatStreamData { ToolCallDeltas = [new ToolCallDelta { Index = 0, Function = new FunctionCallDelta { Arguments = "\"Busan\"}" } }] },
+                new ChatStreamData { FinishReason = "tool_calls" }),
+            parser: new Gemma4ChatFormatter().CreateToolCallStreamParser());
+
+        var deltas = chunks.SelectMany(c => c.ToolCalls ?? []).ToList();
+        deltas.Should().HaveCount(2);
+        (deltas[0].Id, deltas[0].Name).Should().Be(("c1", "weather"));
+        string.Concat(deltas.Select(d => d.Arguments)).Should().Be("{\"city\":\"Busan\"}");
+        chunks[^1].FinishReason.Should().Be("tool_calls");
+    }
+
+    [Fact]
+    public async Task Gemma4_AWrapperLeftInTheText_IsStillParsedIntoACall_AndKeptOutOfTheText()
+    {
+        // A build that does not parse the wrapper forwards it as text: the formatter's parser recovers the call.
+        var chunks = await ShapeAsync(
+            Stream(
+                new ChatStreamData { TextDelta = "<|tool_call>call:weather{\"city\":" },
+                new ChatStreamData { TextDelta = "\"Busan\"}<tool_call|>" },
+                new ChatStreamData { FinishReason = "tool_calls" }),
+            parser: new Gemma4ChatFormatter().CreateToolCallStreamParser());
+
+        var call = chunks.SelectMany(c => c.ToolCalls ?? []).Should().ContainSingle().Which;
+        call.Name.Should().Be("weather");
+        call.Arguments.Should().Contain("Busan");
+        string.Concat(chunks.Select(c => c.Text)).Should().BeEmpty();
     }
 
     /// <summary>Holds the last three characters of every delta and releases them on flush.</summary>

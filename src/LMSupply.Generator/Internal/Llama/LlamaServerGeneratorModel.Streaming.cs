@@ -25,8 +25,7 @@ internal sealed partial class LlamaServerGeneratorModel
             var source = (await ClientAsync(cancellationToken)).GenerateChatStreamAsync(serverMessages, chatOptions, cancellationToken);
 
             await foreach (var chunk in ShapeChatStream(
-                source, options, _chatFormatter.CreateToolCallStreamParser(),
-                _chatFormatter.SuppressServerToolCallsWhenParserActive, cancellationToken))
+                source, options, _chatFormatter.CreateToolCallStreamParser(), cancellationToken))
             {
                 yield return chunk;
             }
@@ -46,7 +45,6 @@ internal sealed partial class LlamaServerGeneratorModel
         IAsyncEnumerable<ChatStreamData> source,
         GenerationOptions options,
         IToolCallStreamParser? toolStreamParser,
-        bool suppressServerCallsWhenParserActive,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // Client-side token limit as safety net
@@ -59,12 +57,8 @@ internal sealed partial class LlamaServerGeneratorModel
             ? new ReasoningTokenFilter(options.ExtractReasoningTokens)
             : null;
 
-        // toolStreamParser is the formatter-supplied tool-call wrapper parser, if any. When present AND
-        // the formatter's grammar channel never produces a usable delta (the Gemma 4 case,
-        // SuppressServerToolCallsWhenParserActive == true), the parser is the sole tool-call
-        // source for the turn. When the formatter's grammar channel usually works (the
-        // ChatML/Qwen case, == false), server deltas win per-chunk and the parser only fills
-        // in the chunks where the server gave nothing — see ToolCallStreamCoexistence.
+        // toolStreamParser is the formatter-supplied tool-call wrapper parser, if any: server deltas win per chunk and
+        // the parser only fills in the chunks where the server gave nothing — see ToolCallStreamCoexistence.
 
         // The finish reason is held back to one final chunk that also carries the server's usage: with
         // include_usage the usage arrives on a separate chunk after finish_reason, and the parser/filter
@@ -142,30 +136,7 @@ internal sealed partial class LlamaServerGeneratorModel
 
             // Route remaining text through the formatter-supplied wrapper parser.
             if (toolStreamParser is not null)
-            {
-                if (suppressServerCallsWhenParserActive)
-                {
-                    // Gemma 4 class: the parser is the sole source whenever it is registered.
-                    if (text is not null)
-                    {
-                        var parsed = toolStreamParser.Feed(text);
-                        text = parsed.Text;
-                        if (parsed.ToolCalls is { Count: > 0 })
-                        {
-                            toolCallDeltas = parsed.ToolCalls;
-                        }
-                    }
-                }
-                else
-                {
-                    // ChatML/Qwen class: server deltas win per chunk; the parser only fills
-                    // in chunks where the server gave nothing.
-                    var (resolvedText, resolvedCalls) =
-                        ToolCallStreamCoexistence.Resolve(text, serverToolCallDeltas, toolStreamParser);
-                    text = resolvedText;
-                    toolCallDeltas = resolvedCalls;
-                }
-            }
+                (text, toolCallDeltas) = ToolCallStreamCoexistence.Resolve(text, serverToolCallDeltas, toolStreamParser);
 
             // Yield structured chunk
             if (text is not null || reasoningDelta is not null || toolCallDeltas is not null || logprobs is not null)

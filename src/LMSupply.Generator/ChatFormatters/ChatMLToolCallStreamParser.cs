@@ -15,7 +15,6 @@ namespace LMSupply.Generator.ChatFormatters;
 /// single strict-JSON object with <c>name</c> and <c>arguments</c> keys, not Gemma 4's
 /// <c>call:NAME{ARGS}</c> custom shape. Registered only as a fallback for the minority of turns
 /// where the server's grammar-constrained channel does not produce a delta — see
-/// <c>IChatFormatter.SuppressServerToolCallsWhenParserActive</c> and
 /// <c>ToolCallStreamCoexistence</c> for how the generator decides which source wins per chunk.
 ///
 /// A grammar-unconstrained Qwen response can leak its native <c>&lt;tool_call&gt;</c> wrapper as

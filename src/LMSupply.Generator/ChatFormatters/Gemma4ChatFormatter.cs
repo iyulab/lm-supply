@@ -78,14 +78,12 @@ public sealed class Gemma4ChatFormatter : IChatFormatter
     /// <inheritdoc />
     /// <remarks>
     /// Gemma 4 emits tool calls inside its native
-    /// <c>&lt;|tool_call&gt;call:NAME{ARGS_JSON}&lt;tool_call|&gt;</c> wrapper.
-    /// llama-server forwards those wrapper tokens verbatim in the text channel
-    /// (often together with spurious half-formed name-only tool-call deltas
-    /// extracted from elsewhere in the stream), so chunks never reach the
-    /// invoke layer upstream. <see cref="Gemma4ToolCallStreamParser"/> closes
-    /// the gap by consuming the wrappers and emitting fully formed
-    /// <c>ChatToolCallDelta</c> events. The generator suppresses server-side
-    /// tool-call deltas when this parser is active.
+    /// <c>&lt;|tool_call&gt;call:NAME{ARGS_JSON}&lt;tool_call|&gt;</c> wrapper. Current llama-server
+    /// builds parse the wrapper themselves and stream structured tool-call deltas, which the
+    /// generator passes on. A build that forwards the wrapper tokens verbatim in the text channel
+    /// instead leaves the call in the text; <see cref="Gemma4ToolCallStreamParser"/> consumes such
+    /// wrappers and emits fully formed <c>ChatToolCallDelta</c> events for the chunks where the
+    /// server gave none (see <c>ToolCallStreamCoexistence</c>).
     /// </remarks>
     public IToolCallStreamParser CreateToolCallStreamParser()
     {
