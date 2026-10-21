@@ -83,7 +83,11 @@ public class KoreanPhonemizerTests
     // ── reading text ────────────────────────────────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("2026년", "이천이십육년")]
+    // A last 육 after a final consonant is read with the inserted ㄴ the pronunciation has (이십육 is said 이심뉵).
+    [InlineData("2026년", "이천이십뉵년")]
+    [InlineData("106", "백뉵")]
+    [InlineData("6", "육")]
+    [InlineData("60", "육십")]
     [InlineData("10000원", "만원")]
     [InlineData("15000", "만오천")]
     [InlineData("100000000", "일억")]
@@ -113,6 +117,7 @@ public class KoreanPhonemizerTests
     [InlineData("저는 한국어를 공부하고 있어요.", "tɕʌnɯn hɐnɡuɡʌɾɯl koŋbuhɐɡo isːʌjo.")]
     // A tap between vowels, l after ㄹ; a lax consonant voiceless at a word's start and voiced after a vowel or a nasal.
     [InlineData("우리 달리기", "uɾi tɐlliɡi")]
+    [InlineData("16", "simnjuk")]
     public void Text_IsWrittenInTheVoicesSymbols(string text, string phonemes) =>
         Phonemizer().Phonemize(text).Should().Equal(phonemes);
 

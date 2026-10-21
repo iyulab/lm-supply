@@ -15,8 +15,8 @@ namespace LMSupply.Integration.Tests.Functional;
 [Trait("Domain", "Synthesizer")]
 public sealed class SynthesizerKoreanAcceptanceTests(ITestOutputHelper output)
 {
-    // Measured (Whisper "quality", CPU), character error rate over all 165 characters: 0.176 in each of 3 runs (prose
-    // 0.171-0.178, figures 0.167-0.194). Runs differ because the voice samples noise. The errors that recur are a vowel
+    // Measured (Whisper "quality", CPU), character error rate over all 165 characters: 0.109-0.176 in 5 runs (prose
+    // 0.171-0.178 in the first 3, figures 0.167-0.222). Runs differ because the voice samples noise. The errors that recur are a vowel
     // after a vowel heard as one (서울은 → 서른), ㅊ after a vowel heard as ㅈ (같이 → 갈지, 이천 → 이전) and 회의 heard
     // as other words. For comparison, the same symbols with ㅏ written a (the plain IPA letter) measured about 0.5 on the
     // first 12 sentences. The bound leaves room for about 1.7 times the measured rate.

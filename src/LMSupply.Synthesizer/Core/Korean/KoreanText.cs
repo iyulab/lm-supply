@@ -190,8 +190,11 @@ internal static class KoreanText
             if (digit == 0)
                 continue;
 
-            // 십, 백, 천 alone, not 일십; a one is said only as the last digit.
-            if (digit > 1 || place == 0)
+            // 십, 백, 천 alone, not 일십; a one is said only as the last digit. A last 육 after a final consonant takes the ㄴ
+            // the standard pronunciation inserts there (십육 is said 심뉵), written so the rules nasalize what comes before.
+            if (digit == 6 && place == 0 && word.Length > 0 && Syllable.IsSyllable(word[^1]) && Syllable.Of(word[^1]).Coda != Syllable.None)
+                word.Append('뉵');
+            else if (digit > 1 || place == 0)
                 word.Append(Digits[digit]);
             word.Append(Places[place]);
         }

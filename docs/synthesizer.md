@@ -123,7 +123,8 @@ config names none, whose language is Korean), unless `SynthesizerOptions.Phonemi
 
 1. **Reading the text.** Hangul is read as written (decomposed jamo are composed first). The text is split into
    sentences at `. ? !` (and `…` and the full-width marks) and at line breaks, with pauses kept at `, ; :`. Figures are
-   read as Sino-Korean numbers: `2026` «이천이십육», `15000` «만오천», `1,234` with its separators, a decimal part
+   read as Sino-Korean numbers: `2026` «이천이십육» (said with the ㄴ the standard pronunciation inserts before a last
+   육, «이천이심뉵»), `15000` «만오천», `1,234` with its separators, a decimal part
    (`3.14` «삼점일사»), a leading minus («마이너스») and a percent sign («퍼센트»); a number with a leading zero, or
    longer than 16 digits, is read digit by digit. Latin letters are spelled by their Korean names (`AI` «에이아이»).
    Hanja, symbols and emoji are not said.
