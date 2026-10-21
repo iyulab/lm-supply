@@ -233,6 +233,23 @@ public sealed class HuggingFaceDownloaderIntegrityTests : IDisposable
     }
 
     [Fact]
+    public async Task DiscoveryPath_ACacheDirectoryWrittenInAnotherForm_Downloads()
+    {
+        // The same directory as a user writes it: through a "." segment and, on Windows, with forward slashes
+        // (HF_HUB_CACHE=C:/…). A file of the repository must count as inside it, not as a path climbing out.
+        var written = Path.Combine(Path.GetDirectoryName(_cacheDir)!, ".", Path.GetFileName(_cacheDir));
+        if (OperatingSystem.IsWindows())
+            written = written.Replace('\\', '/');
+        var hub = new Hub();
+        using var downloader = new HuggingFaceDownloader(written, hub);
+
+        var (dir, _) = await downloader.DownloadWithDiscoveryAsync(Repo, cancellationToken: Ct);
+
+        Assert.Equal(Model, await File.ReadAllBytesAsync(Path.Combine(dir, "model.onnx"), Ct));
+        Assert.Equal(Model, await File.ReadAllBytesAsync(ModelPath, Ct));
+    }
+
+    [Fact]
     public async Task AFileTheRepositoryDoesNotHave_LeavesNoPartBehind()
     {
         var hub = new Hub();

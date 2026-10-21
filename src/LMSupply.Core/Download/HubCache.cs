@@ -114,8 +114,8 @@ internal static class HubCache
             return;
 
         var refsDir = Path.GetFullPath(Path.Combine(repoDir, "refs"));
-        var refPath = Path.GetFullPath(Path.Combine(refsDir, revision.Replace('/', Path.DirectorySeparatorChar)));
-        if (!refPath.StartsWith(refsDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        var refPath = PathContainment.Resolve(refsDir, revision);
+        if (refPath is null)
             return;
 
         try
@@ -276,11 +276,8 @@ internal static class HubCache
     /// </summary>
     public static string GetPathInSnapshot(string snapshotDir, string repoPath)
     {
-        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(snapshotDir));
-        var path = Path.GetFullPath(Path.Combine(root, repoPath.Replace('/', Path.DirectorySeparatorChar)));
-        if (!path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException($"Path traversal detected in file path: {repoPath}");
-        return path;
+        return PathContainment.Resolve(snapshotDir, repoPath)
+            ?? throw new InvalidOperationException($"Path traversal detected in file path: {repoPath}");
     }
 
     /// <summary>Adds (or updates) one file in the manifest of a hub-layout snapshot this library downloaded into.</summary>

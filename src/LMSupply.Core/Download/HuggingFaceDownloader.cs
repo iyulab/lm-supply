@@ -137,12 +137,10 @@ public sealed class HuggingFaceDownloader : IDisposable
         {
             fileIndex++;
 
-            // Preserve the full relative path structure (e.g., "unet/model.onnx_data")
-            var localPath = Path.GetFullPath(Path.Combine(modelDir, file.Replace('/', Path.DirectorySeparatorChar)));
-
-            // Validate against path traversal (e.g., "../../../etc/passwd")
-            if (!localPath.StartsWith(modelDir, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException($"Path traversal detected in file path: {file}");
+            // Preserve the full relative path structure (e.g., "unet/model.onnx_data"); refuse one that resolves
+            // outside the model directory (e.g., "../../../etc/passwd").
+            var localPath = PathContainment.Resolve(modelDir, file)
+                ?? throw new InvalidOperationException($"Path traversal detected in file path: {file}");
 
             // The listing discovery just fetched says how long every file must be.
             var expectedSize = discovery.FileSizes.TryGetValue(file, out var listed) && listed > 0 ? listed : (long?)null;

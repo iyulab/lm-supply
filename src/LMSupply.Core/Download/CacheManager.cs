@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using LMSupply.Core.Download;
 using LMSupply.Json;
 
 namespace LMSupply.Download;
@@ -181,11 +182,10 @@ public static class CacheManager
     {
         var repoDir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(GetRepositoryDirectory(cacheDir, repoId)));
         var snapshotsDir = Path.Combine(repoDir, "snapshots");
-        var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
-        if (!full.StartsWith(snapshotsDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        if (!PathContainment.IsInside(snapshotsDir, directory))
             return true;
 
-        var name = full[(snapshotsDir.Length + 1)..].Split(Path.DirectorySeparatorChar)[0];
+        var name = Path.GetRelativePath(snapshotsDir, Path.GetFullPath(directory)).Split(Path.DirectorySeparatorChar)[0];
         if (string.Equals(name, revision, StringComparison.OrdinalIgnoreCase))
             return false;
 
@@ -239,8 +239,8 @@ public static class CacheManager
     private static string? TryReadRef(string repoDir, string revision)
     {
         var refsDir = Path.GetFullPath(Path.Combine(repoDir, "refs"));
-        var refPath = Path.GetFullPath(Path.Combine(refsDir, ToLocalPath(revision)));
-        if (!refPath.StartsWith(refsDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        var refPath = PathContainment.Resolve(refsDir, revision);
+        if (refPath is null)
             return null;
 
         try
@@ -380,14 +380,8 @@ public static class CacheManager
         if (string.IsNullOrEmpty(subfolder))
             return snapshotDir;
 
-        var root = Path.GetFullPath(snapshotDir);
-        var dir = Path.GetFullPath(Path.Combine(root, subfolder.Replace('/', Path.DirectorySeparatorChar)));
-        var rootWithSeparator = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
-
-        if (!dir.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException($"Path traversal detected in subfolder: {subfolder}");
-
-        return dir;
+        return PathContainment.Resolve(snapshotDir, subfolder)
+            ?? throw new InvalidOperationException($"Path traversal detected in subfolder: {subfolder}");
     }
 
     /// <summary>
@@ -677,9 +671,7 @@ public static class CacheManager
                 return null;
 
             var target = Path.GetFullPath(info.LinkTarget, Path.GetDirectoryName(Path.GetFullPath(entry))!);
-            return target.StartsWith(Path.TrimEndingDirectorySeparator(blobsDir) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                ? target
-                : null;
+            return PathContainment.IsInside(blobsDir, target) ? target : null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -804,13 +796,12 @@ public static class CacheManager
     public static long Reclaim(string cacheDir, IEnumerable<ReclaimableFile> files)
     {
         ArgumentNullException.ThrowIfNull(files);
-        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(cacheDir));
         long freed = 0;
 
         foreach (var file in files)
         {
             var path = Path.GetFullPath(file.Path);
-            if (!path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            if (!PathContainment.IsInside(cacheDir, path))
             {
                 Trace.TraceWarning($"[CacheManager] Not reclaiming '{file.Path}': outside the cache directory.");
                 continue;

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using LMSupply.Core.Download;
 
 namespace LMSupply.Embedder;
 
@@ -95,10 +96,8 @@ internal sealed record VectorSpaceDescriptor(
         if (!string.IsNullOrEmpty(root))
         {
             var full = Path.GetFullPath(modelPath);
-            var fullRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
-            relative = full.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                || full.StartsWith(fullRoot + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                ? full[(fullRoot.Length + 1)..]
+            relative = PathContainment.IsInside(root, full)
+                ? Path.GetRelativePath(Path.GetFullPath(root), full)
                 : Path.GetFileName(full);
         }
         else

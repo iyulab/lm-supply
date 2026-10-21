@@ -45,6 +45,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   check and the API client sent their loopback requests to the proxy, which cannot reach the caller's loopback, so the
   local server was never seen as ready and the load did not return. Requests to a loopback llama-server now bypass the
   proxy; a `LlamaServerClient` pointed at a remote server keeps the default proxy behaviour.
+- **A Hub download works with a cache directory written in another form.** With `HF_HUB_CACHE` or `HF_HOME` written
+  with forward slashes on Windows (`C:/…`), or through a `.` segment anywhere, every download failed with «Path
+  traversal detected in file path»: the check compared each file's full path with the directory as written. Every
+  check that a path lies inside a cache directory now compares both in full form, so the same directory written either
+  way contains the same files; a sibling directory whose name only begins with the cache's no longer counts as inside
+  it, and outside Windows a directory differing only in case is another directory.
 
 ## [0.134.0] - 2026-10-21
 
