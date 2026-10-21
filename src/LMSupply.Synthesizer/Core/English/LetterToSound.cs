@@ -9,6 +9,16 @@ internal static partial class LetterToSound
     // A vowel the rules produced, before the stress is assigned. The rules' schwa is unstressed from the start.
     private const byte Unassigned = 3;
 
+    // Rules of our own, tried before the report's for the same letter: the report reads a word-final i as in «it», which
+    // words borrowed into English do not say (taxi, sushi, emoji — the dictionary has that i as «ee» in nearly every
+    // word that ends in a consonant and i), and a final ai as in «rain» (bonsai, samurai).
+    private static readonly Rule[] OwnRules =
+    [
+        new("^", "I", " ", "IY"),
+        new("", "AI", " ", "AY"),
+    ];
+
+    // After the rules it is grouped into: a static field is initialized in the order written.
     private static readonly Rule[][] RulesByLetter = GroupByLetter();
 
     // Endings that fix where the stress falls, counted in vowels from the end of the word.
@@ -59,6 +69,13 @@ internal static partial class LetterToSound
             }
 
             index = next;
+        }
+
+        // A doubled consonant letter is one sound (bassetti, bobbi): the report's rules read each letter of the pair.
+        for (var i = phones.Count - 1; i > 0; i--)
+        {
+            if (!phones[i].IsVowel && phones[i] == phones[i - 1])
+                phones.RemoveAt(i);
         }
 
         var result = phones.ToArray();
@@ -195,7 +212,8 @@ internal static partial class LetterToSound
     /// Gives the word one primary stress. The rules' schwa never takes it. An ending that fixes the stress decides
     /// (<c>-tion</c>, <c>-ic</c>, <c>-ity</c>, <c>-ee</c>, ...); otherwise it falls on the first syllable, on the second of
     /// a two-syllable word that starts with <c>be-</c>, <c>de-</c> or <c>re-</c>, and on the third from the end of a word
-    /// of four syllables or more.
+    /// of four syllables or more. A word of three syllables or more that ends in a consonant and <c>i</c> is stressed on
+    /// the vowel before the last.
     /// </summary>
     private static void AssignStress(Phone[] phones, ReadOnlySpan<char> word)
     {
@@ -230,6 +248,14 @@ internal static partial class LetterToSound
             }
         }
 
+        if (!byEnding && count >= 3 && EndsInConsonantAndI(word))
+        {
+            // Words borrowed with a final i keep the stress of their language, on the vowel before it (spaghetti,
+            // origami, emoji).
+            choice = count - 2;
+            byEnding = true;
+        }
+
         if (!byEnding)
         {
             if (count == 2 && StartsWithUnstressedPrefix(word))
@@ -252,6 +278,9 @@ internal static partial class LetterToSound
         return vowels[0];
     }
 
+    private static bool EndsInConsonantAndI(ReadOnlySpan<char> word) =>
+        word.Length >= 3 && word[^1] == 'i' && IsConsonantLetter(char.ToUpperInvariant(word[^2]));
+
     private static bool StartsWithUnstressedPrefix(ReadOnlySpan<char> word)
     {
         foreach (var prefix in UnstressedPrefixes)
@@ -268,7 +297,7 @@ internal static partial class LetterToSound
         var groups = new List<Rule>[26];
         for (var i = 0; i < groups.Length; i++)
             groups[i] = [];
-        foreach (var rule in CreateRules())
+        foreach (var rule in OwnRules.Concat(CreateRules()))
             groups[rule.Match[0] - 'A'].Add(rule);
         return [.. groups.Select(g => g.ToArray())];
     }

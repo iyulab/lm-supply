@@ -25,6 +25,14 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   needs phonemes or a phonemizer. See [Korean text](docs/synthesizer.md#korean-text) for what is not handled.
 
 ### Fixed
+- **Synthesizer: English words the dictionary lacks that end in i, or spell a consonant twice, are said as English
+  says them.** The letter-to-sound rules read a final i after a consonant as in «it» and a final ai as in «rain», put
+  the stress of a long borrowed word such as `origami` on its first syllable, and said each letter of a doubled
+  consonant (`bassetti` with two s sounds). A final i after a consonant is now «ee», a final ai «eye», a doubled
+  consonant one sound, and a word of three syllables or more ending in a consonant and i is stressed on the syllable
+  before the last. Read against the shipped dictionary, words ending in i now end in the dictionary's vowel 94% of the time
+  (was 1%) and take its stress 95% of the time (was 30%), and across the dictionary the rules say 26% of the words
+  exactly (was 23%).
 - **Generator: a streamed tool call on a Gemma 4 GGUF model is no longer lost.** `GenerateChatStreamAsync` ended the
   turn with finish reason `tool_calls` but no `ChatToolCallDelta`: the stream kept only the calls its Gemma 4 wrapper
   parser found in the text, and llama-server builds that parse the wrapper themselves send the call as structured
