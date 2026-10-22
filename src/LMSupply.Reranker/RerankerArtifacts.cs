@@ -27,7 +27,7 @@ public sealed class RerankerArtifacts : IModelArtifacts
     public async Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
-        if (!LocalReranker.IsModelDownloaded(modelId, _options.CacheDirectory))
+        if (!await LocalReranker.IsModelDownloadedAsync(modelId, _options, cancellationToken))
             return false;
         if (!LocalReranker.LoadsAsGguf(modelId))
             return await OnnxRuntimeArtifacts.IsAvailableOfflineAsync(_options.Provider, cancellationToken);
@@ -65,7 +65,7 @@ public sealed class RerankerArtifacts : IModelArtifacts
     }
 
     /// <inheritdoc />
-    public bool Delete(string modelId) => LocalReranker.DeleteModel(modelId, _options.CacheDirectory);
+    public bool Delete(string modelId) => LocalReranker.DeleteModel(modelId, _options);
 
     private LlamaServerUpdateService Server() => LlamaServerUpdateService.Resolve(_options.ServerUpdateOptions);
 

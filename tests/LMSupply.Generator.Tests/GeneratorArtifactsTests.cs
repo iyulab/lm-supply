@@ -139,7 +139,7 @@ public sealed class GeneratorArtifactsTests : IDisposable
         var artifacts = Artifacts();
         var info = GgufModelRegistry.Resolve("gguf:gemma4-fast", ExecutionProvider.Cpu)!;
         SeedHubGguf(info.RepoId, info.DefaultFile);
-        LocalGenerator.IsModelDownloaded("gguf:gemma4-fast", new GeneratorOptions { Provider = ExecutionProvider.Cpu, CacheDirectory = Path.Combine(_dir, "hub") })
+        (await LocalGenerator.IsModelDownloadedAsync("gguf:gemma4-fast", new GeneratorOptions { Provider = ExecutionProvider.Cpu, CacheDirectory = Path.Combine(_dir, "hub") }, cancellationToken: TestContext.Current.CancellationToken))
             .Should().BeTrue("the seed is what a load of the alias opens");
 
         artifacts.Delete("gguf:gemma4-fast").Should().BeTrue();
@@ -150,7 +150,7 @@ public sealed class GeneratorArtifactsTests : IDisposable
     }
 
     [Fact]
-    public void Delete_OfOneOfTwoAliasesSharingARepository_DeletesWhatThatAliasLoads_AndKeepsTheOther()
+    public async Task Delete_OfOneOfTwoAliasesSharingARepository_DeletesWhatThatAliasLoads_AndKeepsTheOther()
     {
         // gguf:gemma4-default (Q4_0) and gguf:gemma4-balanced (Q8_0) are two quantizations of one repository.
         var options = new GeneratorOptions { Provider = ExecutionProvider.Cpu, CacheDirectory = Path.Combine(_dir, "hub") };
@@ -170,7 +170,7 @@ public sealed class GeneratorArtifactsTests : IDisposable
         var snapshot = Path.Combine(_dir, "hub", "models--" + first.RepoId.Replace("/", "--"), "snapshots", "main");
         foreach (var file in new[] { first.DefaultFile, second.DefaultFile })
             File.Exists(Path.Combine(snapshot, file)).Should().Be(!planned.Contains(file), file);
-        LocalGenerator.IsModelDownloaded("gguf:gemma4-default", options).Should().BeFalse();
+        (await LocalGenerator.IsModelDownloadedAsync("gguf:gemma4-default", options, cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
     }
 
     [Fact]

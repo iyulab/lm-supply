@@ -156,7 +156,7 @@ public static class LocalGenerator
     /// <remarks>
     /// Reads the repository listing (one request, cached for a day and reused by the download that follows); downloads
     /// and loads nothing. The figure is the whole download whatever the cache already holds —
-    /// <see cref="IsModelDownloaded"/> answers what is present. A local path downloads nothing, so it is 0. The
+    /// <see cref="IsModelDownloadedAsync"/> answers what is present. A local path downloads nothing, so it is 0. The
     /// llama-server runtime, which a first GGUF load also provisions (once per host, shared by every model), is not
     /// counted. With <see cref="GeneratorOptions.DisableAutoDownload"/> the listing comes from the cache only, as the
     /// load's choice does.
@@ -280,10 +280,21 @@ public static class LocalGenerator
     /// The options the load will use. <see cref="LMSupplyOptionsBase.Provider"/> decides the memory budget
     /// that picks a GGUF file, and <see cref="LMSupplyOptionsBase.CacheDirectory"/> where to look.
     /// </param>
-    public static bool IsModelDownloaded(string modelId, GeneratorOptions? options = null)
+    /// <param name="cancellationToken">Cancels the check.</param>
+    public static Task<bool> IsModelDownloadedAsync(
+        string modelId,
+        GeneratorOptions? options = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
-        options = options?.Clone() ?? new GeneratorOptions();
+        cancellationToken.ThrowIfCancellationRequested();
+        // The answer comes from the cache alone, read synchronously; the method is
+        // asynchronous so it has the shape of every domain's check.
+        return Task.FromResult(IsModelDownloadedCore(modelId, options?.Clone() ?? new GeneratorOptions()));
+    }
+
+    private static bool IsModelDownloadedCore(string modelId, GeneratorOptions options)
+    {
 
         // Mirrors DownloadModelAsync's resolution — see LoadAsync for why each check sits where it does.
         if (GeneratorModelRegistry.Default.TryGetUserAliasTarget(modelId, out var userAliasTarget))
@@ -308,7 +319,7 @@ public static class LocalGenerator
             var selected = !string.IsNullOrEmpty(options.PreferredAutoModelId)
                 ? options.PreferredAutoModelId
                 : SelectAutoModel(options).ModelId;
-            return IsModelDownloaded(selected, options);
+            return IsModelDownloadedCore(selected, options);
         }
 
         GeneratorModelRegistry.Default.TryResolve(modelId, out var resolvedModel);
@@ -329,7 +340,7 @@ public static class LocalGenerator
 
     /// <summary>
     /// Whether <paramref name="modelId"/> loads as a GGUF model (on llama-server) rather than an ONNX one — the branch
-    /// <see cref="IsModelDownloaded"/> takes, step for step. <paramref name="options"/> is consumed (its quantization hint
+    /// <see cref="IsModelDownloadedAsync"/> takes, step for step. <paramref name="options"/> is consumed (its quantization hint
     /// may be set), so pass a copy.
     /// </summary>
     internal static bool IsGgufTarget(string modelId, GeneratorOptions options)
@@ -381,7 +392,7 @@ public static class LocalGenerator
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The id resolves as <see cref="IsModelDownloaded"/> resolves it (registry alias, <c>gguf:</c> alias, <c>"default"</c>/<c>"auto"</c>,
+    /// The id resolves as <see cref="IsModelDownloadedAsync"/> resolves it (registry alias, <c>gguf:</c> alias, <c>"default"</c>/<c>"auto"</c>,
     /// repository id). A <c>gguf:</c> registry alias deletes the files a load of it opens on this host (every shard of a split
     /// model): several aliases share a repository (<c>gguf:gemma4-default</c> and <c>gguf:gemma4-balanced</c> are two
     /// quantizations of one), and the others' files stay — the repository's private state goes with its last file
@@ -419,7 +430,7 @@ public static class LocalGenerator
     }
 
     // What a load of modelId downloads into — a GGUF registry model (one of possibly several sharing its repository) or a
-    // repository — or neither, for a local path or an id nothing resolves. IsModelDownloaded's resolution, step for step.
+    // repository — or neither, for a local path or an id nothing resolves. IsModelDownloadedAsync's resolution, step for step.
     private static (string? RepoId, Gguf.GgufModelInfo? RegistryModel) CacheTarget(string modelId, GeneratorOptions options)
     {
         if (GeneratorModelRegistry.Default.TryGetUserAliasTarget(modelId, out var userAliasTarget))

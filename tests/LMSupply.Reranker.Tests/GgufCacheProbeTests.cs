@@ -5,7 +5,7 @@ using LMSupply.Reranker.Utils;
 namespace LMSupply.Reranker.Tests;
 
 /// <summary>
-/// <see cref="LocalReranker.IsModelDownloaded"/> is the probe a consumer uses to keep a download out of a
+/// <see cref="LocalReranker.IsModelDownloadedAsync"/> is the probe a consumer uses to keep a download out of a
 /// user-facing call. For a GGUF id it has to answer from the same cache layout and the same file choice an
 /// offline load opens — a probe that says "no" for a model the loader would open keeps the consumer's gate
 /// shut forever, and one that says "yes" for a file the loader would reject opens it onto a failure.
@@ -32,15 +32,15 @@ public sealed class GgufCacheProbeTests : IDisposable
     }
 
     [Fact]
-    public void ACachedGgufModel_IsReportedAsDownloaded_AndAnUncachedOneIsNot()
+    public async Task ACachedGgufModel_IsReportedAsDownloaded_AndAnUncachedOneIsNot()
     {
-        LocalReranker.IsModelDownloaded("gguf:" + Repo, _cacheDir).Should().BeFalse("nothing is cached yet");
+        (await LocalReranker.IsModelDownloadedAsync("gguf:" + Repo, new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse("nothing is cached yet");
 
         Place("some-reranker-Q4_K_M.gguf");
 
-        LocalReranker.IsModelDownloaded("gguf:" + Repo, _cacheDir).Should().BeTrue();
-        LocalReranker.IsModelDownloaded(Repo, _cacheDir).Should().BeTrue("a repository named *-GGUF takes the GGUF route without the prefix, as it does on load");
-        LocalReranker.IsModelDownloaded("gguf:example/another-reranker-GGUF", _cacheDir).Should().BeFalse();
+        (await LocalReranker.IsModelDownloadedAsync("gguf:" + Repo, new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
+        (await LocalReranker.IsModelDownloadedAsync(Repo, new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue("a repository named *-GGUF takes the GGUF route without the prefix, as it does on load");
+        (await LocalReranker.IsModelDownloadedAsync("gguf:example/another-reranker-GGUF", new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class GgufCacheProbeTests : IDisposable
         // The earlier private tree is moved into the repository's snapshot on the first lookup
         opened.Should().Be(Path.Combine(CacheManager.GetModelDirectory(_cacheDir, Repo), Path.GetFileName(preferred)));
         GgufDownloader.TrySelectFromLocalCache(_cacheDir, Repo, LocalReranker.DefaultGgufQuantization).Should().Be(opened);
-        LocalReranker.IsModelDownloaded("gguf:" + Repo, _cacheDir).Should().BeTrue();
+        (await LocalReranker.IsModelDownloadedAsync("gguf:" + Repo, new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
     }
 
     [Fact]
@@ -101,13 +101,13 @@ public sealed class GgufCacheProbeTests : IDisposable
     }
 
     [Fact]
-    public void ALocalGgufFile_IsDownloadedExactlyWhenItExists()
+    public async Task ALocalGgufFile_IsDownloadedExactlyWhenItExists()
     {
         var path = Place("local.gguf");
 
-        LocalReranker.IsModelDownloaded(path, _cacheDir).Should().BeTrue();
-        LocalReranker.IsModelDownloaded("gguf:" + path, _cacheDir).Should().BeTrue();
-        LocalReranker.IsModelDownloaded(Path.Combine(_cacheDir, "missing.gguf"), _cacheDir).Should().BeFalse();
+        (await LocalReranker.IsModelDownloadedAsync(path, new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
+        (await LocalReranker.IsModelDownloadedAsync("gguf:" + path, new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
+        (await LocalReranker.IsModelDownloadedAsync(Path.Combine(_cacheDir, "missing.gguf"), new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public sealed class GgufCacheProbeTests : IDisposable
         Place("some-reranker-Q4_K_M.gguf.part");
         Place("some-reranker-Q4_K_M.gguf", "version https://git-lfs.github.com/spec/v1\noid sha256:0000\nsize 459000000\n");
 
-        LocalReranker.IsModelDownloaded("gguf:" + Repo, _cacheDir).Should().BeFalse();
+        (await LocalReranker.IsModelDownloadedAsync("gguf:" + Repo, new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
 
         using var offline = new GgufDownloader(_cacheDir, localFilesOnly: true);
         var load = () => offline.DownloadAsync(Repo, LocalReranker.DefaultGgufQuantization,

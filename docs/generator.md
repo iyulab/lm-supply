@@ -214,7 +214,7 @@ await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-default", op
 Pass the same `Provider` both times: GGUF auto-quantization picks the file from the provider's
 memory budget, so a different provider can warm a different file. Local paths are returned as-is.
 
-`LocalGenerator.IsModelDownloaded(modelId, options)` answers the question a consent gate asks —
+`LocalGenerator.IsModelDownloadedAsync(modelId, options)` answers the question a consent gate asks —
 would `LoadAsync` with this id and these options download anything? — from the cache alone (no
 network, no runtime). It follows the same resolution, so it is about the *file the load opens*,
 not the repository: `gguf:gemma4-balanced` (Q8_0) is not downloaded just because
@@ -223,7 +223,7 @@ cached. An ONNX model counts once a completed download of it is in the cache. `f
 *may* download; the answer never errs toward `true`.
 
 ```csharp
-if (!LocalGenerator.IsModelDownloaded("gguf:qwen3-default", options))
+if (!await LocalGenerator.IsModelDownloadedAsync("gguf:qwen3-default", options))
     await LocalGenerator.DownloadModelAsync("gguf:qwen3-default", options, progress);  // after consent
 ```
 

@@ -217,19 +217,22 @@ public static class LocalDecider
             : 0;
 
     /// <summary>
-    /// Whether a load with the same id and options would open a cached file only: the GGUF file it picks is in the cache, or
-    /// the model is a local file. Makes no network request.
+    /// Whether a load with the same id and options would open a cached file only: the GGUF file it picks is in the cache at
+    /// the length the repository lists, or the model is a local file. Makes no network request; never errs toward
+    /// <see langword="true"/>. The llama-server build is not checked — <see cref="DeciderArtifacts"/> checks it.
     /// </summary>
-    public static bool IsModelDownloaded(string modelIdOrPath, DeciderOptions? options = null)
+    public static async Task<bool> IsModelDownloadedAsync(
+        string modelIdOrPath, DeciderOptions? options = null, CancellationToken cancellationToken = default)
     {
         options = options?.Clone() ?? new DeciderOptions();
+        // Plan from the cached listing only: the check must not reach the network.
+        options.DisableAutoDownload = true;
         try
         {
-            var (localFile, repoId) = ResolveTarget(modelIdOrPath);
-            return localFile is not null
-                   || SingleFileGgufDownloader.TrySelectFromLocalCache(CacheDirectory(options), repoId!, Quantization(options), legacyTreeName: null) is not null;
+            return await PlanAsync(modelIdOrPath, options, cancellationToken).ConfigureAwait(false) is not { } planned
+                   || planned.Plan.GetRemainingBytes(planned.CacheDirectory) == 0;
         }
-        catch (ModelNotFoundException)
+        catch (Exception ex) when (ex is ModelNotFoundException or ModelDownloadException)
         {
             return false;
         }

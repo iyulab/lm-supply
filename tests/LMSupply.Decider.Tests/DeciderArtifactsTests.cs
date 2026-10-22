@@ -63,14 +63,14 @@ public sealed class DeciderArtifactsTests : IDisposable
         (await LocalDecider.GetDownloadSizeBytesAsync(Repo, Options(), Ct)).Should().Be(1000, "Q4_K_M is the default");
         (await LocalDecider.GetDownloadSizeBytesAsync("gguf:" + Repo, Options(quantization: "Q8_0"), Ct)).Should().Be(2000);
         (await LocalDecider.GetRemainingDownloadBytesAsync(Repo, Options(), Ct)).Should().Be(1000);
-        LocalDecider.IsModelDownloaded(Repo, Options()).Should().BeFalse();
+        (await LocalDecider.IsModelDownloadedAsync(Repo, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
 
         SeedModel(length: 400);
         (await LocalDecider.GetRemainingDownloadBytesAsync(Repo, Options(), Ct)).Should().Be(1000, "a partial file counts in full");
 
         SeedModel();
         (await LocalDecider.GetRemainingDownloadBytesAsync(Repo, Options(), Ct)).Should().Be(0);
-        LocalDecider.IsModelDownloaded(Repo, Options()).Should().BeTrue();
+        (await LocalDecider.IsModelDownloadedAsync(Repo, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
     }
 
     [Fact]
@@ -98,26 +98,26 @@ public sealed class DeciderArtifactsTests : IDisposable
         File.WriteAllBytes(local, [1, 2, 3]);
 
         (await LocalDecider.GetDownloadSizeBytesAsync(local, Options(), Ct)).Should().Be(0);
-        LocalDecider.IsModelDownloaded(local, Options()).Should().BeTrue();
+        (await LocalDecider.IsModelDownloadedAsync(local, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
         LocalDecider.DeleteModel(local, Options()).Should().BeFalse();
         File.Exists(local).Should().BeTrue();
     }
 
     [Fact]
-    public void Delete_removes_this_librarys_files_of_the_repository()
+    public async Task Delete_removes_this_librarys_files_of_the_repository()
     {
         SeedListing();
         SeedModel();
 
         new DeciderArtifacts(Options()).Delete(Repo).Should().BeTrue();
-        LocalDecider.IsModelDownloaded(Repo, Options()).Should().BeFalse();
+        (await LocalDecider.IsModelDownloadedAsync(Repo, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
         LocalDecider.DeleteModel(Repo, Options()).Should().BeFalse("nothing is left to delete");
     }
 
     [Fact]
-    public void A_name_that_is_neither_a_file_nor_a_repository_is_not_downloaded()
+    public async Task A_name_that_is_neither_a_file_nor_a_repository_is_not_downloaded()
     {
-        LocalDecider.IsModelDownloaded("not-a-model", Options()).Should().BeFalse();
+        (await LocalDecider.IsModelDownloadedAsync("not-a-model", Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
         Directory.Exists(Hub).Should().BeFalse("the check reads the cache only and writes nothing");
     }
 }

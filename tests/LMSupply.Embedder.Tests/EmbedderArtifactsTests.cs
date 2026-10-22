@@ -6,7 +6,7 @@ using Xunit;
 namespace LMSupply.Embedder.Tests;
 
 /// <summary>
-/// <see cref="EmbedderArtifacts"/> and the GGUF branch of <see cref="LocalEmbedder.IsModelDownloaded"/>: a GGUF embedder is
+/// <see cref="EmbedderArtifacts"/> and the GGUF branch of <see cref="LocalEmbedder.IsModelDownloadedAsync"/>: a GGUF embedder is
 /// downloaded when the file an offline load opens is cached, and available offline when llama-server is cached too; a delete
 /// removes this library's snapshot and keeps another tool's.
 /// Network-free — a seeded Hugging Face cache and a private llama-server cache.
@@ -60,14 +60,14 @@ public sealed class EmbedderArtifactsTests : IDisposable
     }
 
     [Fact]
-    public void ACachedGgufRepository_IsDownloaded_AndAMissingOneIsNot()
+    public async Task ACachedGgufRepository_IsDownloaded_AndAMissingOneIsNot()
     {
-        LocalEmbedder.IsModelDownloaded("gguf:" + Repo, _hub).Should().BeFalse();
+        (await LocalEmbedder.IsModelDownloadedAsync("gguf:" + Repo, new EmbedderOptions { CacheDirectory = _hub }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
 
         SeedGguf();
 
-        LocalEmbedder.IsModelDownloaded("gguf:" + Repo, _hub).Should().BeTrue("the file an offline load opens is cached");
-        LocalEmbedder.IsModelDownloaded(Repo, _hub).Should().BeTrue("a repository named -GGUF is a GGUF model too");
+        (await LocalEmbedder.IsModelDownloadedAsync("gguf:" + Repo, new EmbedderOptions { CacheDirectory = _hub }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue("the file an offline load opens is cached");
+        (await LocalEmbedder.IsModelDownloadedAsync(Repo, new EmbedderOptions { CacheDirectory = _hub }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue("a repository named -GGUF is a GGUF model too");
     }
 
     [Fact]
@@ -142,7 +142,7 @@ public sealed class EmbedderArtifactsTests : IDisposable
         var file = Path.Combine(_dir, "local.gguf");
         File.WriteAllBytes(file, "GGUF"u8.ToArray());
 
-        LocalEmbedder.DeleteModel(file, _hub).Should().BeFalse();
+        LocalEmbedder.DeleteModel(file, new EmbedderOptions { CacheDirectory = _hub }).Should().BeFalse();
 
         File.Exists(file).Should().BeTrue();
     }

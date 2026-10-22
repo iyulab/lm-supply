@@ -17,7 +17,7 @@ public sealed class GgufRerankerLiveTests
     [Fact]
     public async Task TheBuiltInAlias_LoadsTheSameModel()
     {
-        if (!LocalReranker.IsModelDownloaded("multilingual-fast"))
+        if (!await LocalReranker.IsModelDownloadedAsync("multilingual-fast", cancellationToken: TestContext.Current.CancellationToken))
         {
             Assert.Skip("multilingual-fast is not in the local cache; this test never downloads.");
         }
@@ -43,7 +43,7 @@ public sealed class GgufRerankerLiveTests
     [Fact]
     public async Task ARealGgufReranker_ScoresOnTheDocumentedScale()
     {
-        if (!LocalReranker.IsModelDownloaded(Model))
+        if (!await LocalReranker.IsModelDownloadedAsync(Model, cancellationToken: TestContext.Current.CancellationToken))
         {
             Assert.Skip($"{Model} is not in the local cache; this test never downloads.");
         }

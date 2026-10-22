@@ -25,7 +25,7 @@ public sealed class DeciderArtifacts : IModelArtifacts
     /// <inheritdoc />
     public async Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
     {
-        if (!LocalDecider.IsModelDownloaded(modelId, _options))
+        if (!await LocalDecider.IsModelDownloadedAsync(modelId, _options, cancellationToken))
             return false;
 
         try

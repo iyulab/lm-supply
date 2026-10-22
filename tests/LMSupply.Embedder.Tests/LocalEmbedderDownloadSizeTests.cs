@@ -74,6 +74,27 @@ public sealed class LocalEmbedderDownloadSizeTests : IDisposable
     }
 
     [Fact]
+    public async Task IsModelDownloaded_IsTheSamePlan_AndNeverErrsTowardTrue()
+    {
+        EmbedderModelRegistry.Default.TryResolveCatalog("default", out var info, out _).Should().BeTrue();
+        var model = string.IsNullOrEmpty(info!.Subfolder) ? "model.onnx" : $"{info.Subfolder}/model.onnx";
+        var tokenizer = string.IsNullOrEmpty(info.Subfolder) ? "tokenizer.json" : $"{info.Subfolder}/tokenizer.json";
+        var snapshot = CacheManager.GetModelDirectory(_cacheDir, info.RepoId);
+        Place(snapshot, model, 9_000);
+        Place(snapshot, tokenizer, 700);
+
+        (await LocalEmbedder.IsModelDownloadedAsync("default", Options(), Ct)).Should().BeFalse(
+            "with no listing cached the check cannot tell which files the load picks, and it does not ask the network");
+
+        SeedListing(info.RepoId, (model, 9_000), ("tokenizer.json", 700));
+        (await LocalEmbedder.IsModelDownloadedAsync("default", Options(), Ct)).Should().BeTrue();
+
+        Place(snapshot, model, 10);
+        (await LocalEmbedder.IsModelDownloadedAsync("default", Options(), Ct)).Should().BeFalse(
+            "a file at another length than the listing's is fetched again");
+    }
+
+    [Fact]
     public async Task RemainingBytes_ARootConfigFileCachedBesideTheSubfolderModel_IsNotRemaining()
     {
         // A subfolder load fetches a config file the repository has only at its root and stores it beside the model

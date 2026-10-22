@@ -112,7 +112,7 @@ if (!await artifacts.IsAvailableOfflineAsync("org/model-GGUF"))
 }
 ```
 
-`LocalDecider.GetDownloadSizeBytesAsync`, `GetRemainingDownloadBytesAsync`, `IsModelDownloaded`, `DownloadModelAsync` and
+`LocalDecider.GetDownloadSizeBytesAsync`, `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync` and
 `DeleteModel` answer for the GGUF file alone: the quantization a load picks, at the length the repository lists.
 `RuntimeBytes` is the llama-server build a load would run.
 

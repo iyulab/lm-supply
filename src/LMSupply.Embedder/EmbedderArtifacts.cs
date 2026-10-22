@@ -27,7 +27,7 @@ public sealed class EmbedderArtifacts : IModelArtifacts
     public async Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
-        if (!LocalEmbedder.IsModelDownloaded(modelId, _options.CacheDirectory))
+        if (!await LocalEmbedder.IsModelDownloadedAsync(modelId, _options, cancellationToken))
             return false;
         if (!LocalEmbedder.IsGgufModel(modelId))
             return await OnnxRuntimeArtifacts.IsAvailableOfflineAsync(_options.Provider, cancellationToken);
@@ -65,7 +65,7 @@ public sealed class EmbedderArtifacts : IModelArtifacts
     }
 
     /// <inheritdoc />
-    public bool Delete(string modelId) => LocalEmbedder.DeleteModel(modelId, _options.CacheDirectory);
+    public bool Delete(string modelId) => LocalEmbedder.DeleteModel(modelId, _options);
 
     private LlamaServerUpdateService Server() => LlamaServerUpdateService.Resolve(_options.ServerUpdateOptions);
 

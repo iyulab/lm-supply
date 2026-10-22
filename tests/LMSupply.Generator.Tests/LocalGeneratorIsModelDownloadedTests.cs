@@ -5,7 +5,7 @@ using LMSupply.Generator.Gguf;
 namespace LMSupply.Generator.Tests;
 
 /// <summary>
-/// <see cref="LocalGenerator.IsModelDownloaded"/> answers a consent gate: <c>true</c> only when the load
+/// <see cref="LocalGenerator.IsModelDownloadedAsync"/> answers a consent gate: <c>true</c> only when the load
 /// with the same id and options opens cached files. Each test builds its own cache directory, so the
 /// answer never depends on what this machine has downloaded. Sizes do not matter to the probe (the
 /// files here are a few bytes); the one registry model used, <c>gguf:qwen3-fast</c>, fits any host.
@@ -34,23 +34,23 @@ public sealed class LocalGeneratorIsModelDownloadedTests : IDisposable
     }
 
     [Fact]
-    public void RegistryAlias_NothingCached_IsFalse()
+    public async Task RegistryAlias_NothingCached_IsFalse()
     {
-        LocalGenerator.IsModelDownloaded(Alias, Options()).Should().BeFalse();
+        (await LocalGenerator.IsModelDownloadedAsync(Alias, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
     }
 
     [Fact]
-    public void RegistryAlias_DefaultFileCached_IsTrue()
+    public async Task RegistryAlias_DefaultFileCached_IsTrue()
     {
         var info = GgufModelRegistry.Resolve(Alias)!;
         Put(info.RepoId, info.DefaultFile);
 
-        LocalGenerator.IsModelDownloaded(Alias, Options()).Should().BeTrue();
+        (await LocalGenerator.IsModelDownloadedAsync(Alias, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
     }
 
     // Downloaded by another Hugging Face tool: refs/main names the commit, snapshots/{commit} holds the file.
     [Fact]
-    public void RegistryAlias_DefaultFileInAHubSnapshot_IsTrue()
+    public async Task RegistryAlias_DefaultFileInAHubSnapshot_IsTrue()
     {
         const string commit = "89abcdef0123456789abcdef0123456789abcdef";
         var info = GgufModelRegistry.Resolve(Alias)!;
@@ -61,43 +61,43 @@ public sealed class LocalGeneratorIsModelDownloadedTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, "GGUF-test-bytes"u8.ToArray());
 
-        LocalGenerator.IsModelDownloaded(Alias, Options()).Should().BeTrue();
+        (await LocalGenerator.IsModelDownloadedAsync(Alias, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
         Directory.Exists(Snapshot(info.RepoId)).Should().BeFalse();
     }
 
     [Fact]
-    public void RegistryAlias_OnlyAnotherQuantOfTheSameRepoCached_IsFalse()
+    public async Task RegistryAlias_OnlyAnotherQuantOfTheSameRepoCached_IsFalse()
     {
         // The repository is "cached", but not the file this alias loads.
         var info = GgufModelRegistry.Resolve(Alias)!;
         Put(info.RepoId, info.DefaultFile.Replace("Q4_K_M", "Q8_0"));
 
-        LocalGenerator.IsModelDownloaded(Alias, Options()).Should().BeFalse(
+        (await LocalGenerator.IsModelDownloadedAsync(Alias, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse(
             "the alias's default fits any host, so a load fetches it instead of using the other quantization");
     }
 
     [Fact]
-    public void RegistryAlias_CompanionFileOnly_IsFalse()
+    public async Task RegistryAlias_CompanionFileOnly_IsFalse()
     {
         var info = GgufModelRegistry.Resolve(Alias)!;
         Put(info.RepoId, "mmproj-F16.gguf");
 
-        LocalGenerator.IsModelDownloaded(Alias, Options()).Should().BeFalse();
+        (await LocalGenerator.IsModelDownloadedAsync(Alias, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
     }
 
     [Fact]
-    public void RegistryAlias_LfsPointerInPlaceOfTheFile_IsFalse()
+    public async Task RegistryAlias_LfsPointerInPlaceOfTheFile_IsFalse()
     {
         var info = GgufModelRegistry.Resolve(Alias)!;
         var path = Path.Combine(Snapshot(info.RepoId), info.DefaultFile);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, "version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 123\n");
 
-        LocalGenerator.IsModelDownloaded(Alias, Options()).Should().BeFalse();
+        (await LocalGenerator.IsModelDownloadedAsync(Alias, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
     }
 
     [Fact]
-    public void SplitRegistryModel_CountsOnlyWhenEveryShardIsCached()
+    public async Task SplitRegistryModel_CountsOnlyWhenEveryShardIsCached()
     {
         const string alias = "gguf:xlarge";
         var info = GgufModelRegistry.Resolve(alias)!;
@@ -105,59 +105,59 @@ public sealed class LocalGeneratorIsModelDownloadedTests : IDisposable
 
         Put(info.RepoId, shards[0]);
         Put(info.RepoId, shards[1]);
-        LocalGenerator.IsModelDownloaded(alias, Options()).Should().BeFalse("one shard is still missing");
+        (await LocalGenerator.IsModelDownloadedAsync(alias, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse("one shard is still missing");
 
         Put(info.RepoId, shards[2]);
-        LocalGenerator.IsModelDownloaded(alias, Options()).Should().BeTrue();
+        (await LocalGenerator.IsModelDownloadedAsync(alias, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
     }
 
     [Fact]
-    public void UserAlias_FollowsItsTarget()
+    public async Task UserAlias_FollowsItsTarget()
     {
         var info = GgufModelRegistry.Resolve(Alias)!;
         Put(info.RepoId, info.DefaultFile);
         var name = "isdl-" + Guid.NewGuid().ToString("N");
         GeneratorModelRegistry.Default.RegisterAlias(name, Alias);
 
-        LocalGenerator.IsModelDownloaded(name, Options()).Should().BeTrue();
+        (await LocalGenerator.IsModelDownloadedAsync(name, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
     }
 
     [Fact]
-    public void RawGgufRepository_AnyCachedGguf_IsTrue()
+    public async Task RawGgufRepository_AnyCachedGguf_IsTrue()
     {
         const string repo = "someone/Some-Model-GGUF";
-        LocalGenerator.IsModelDownloaded(repo, Options()).Should().BeFalse();
+        (await LocalGenerator.IsModelDownloadedAsync(repo, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
 
         Put(repo, "Some-Model-Q5_K_M.gguf");
-        LocalGenerator.IsModelDownloaded(repo, Options()).Should().BeTrue(
+        (await LocalGenerator.IsModelDownloadedAsync(repo, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue(
             "a load of a raw repository takes a cached GGUF before it lists the repository");
     }
 
     [Fact]
-    public void RawGgufRepository_OnlyImportanceMatrixCached_IsFalse()
+    public async Task RawGgufRepository_OnlyImportanceMatrixCached_IsFalse()
     {
         // Quantizers publish *-imatrix.gguf next to their quants: calibration data, not a model.
         const string repo = "someone/Other-Model-GGUF";
         Put(repo, "Other-Model-imatrix.gguf");
 
-        LocalGenerator.IsModelDownloaded(repo, Options()).Should().BeFalse();
+        (await LocalGenerator.IsModelDownloadedAsync(repo, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
     }
 
     [Fact]
-    public void UnregisteredGgufPrefix_IsFalse()
+    public async Task UnregisteredGgufPrefix_IsFalse()
     {
-        LocalGenerator.IsModelDownloaded("gguf:not-a-registered-alias", Options()).Should().BeFalse();
+        (await LocalGenerator.IsModelDownloadedAsync("gguf:not-a-registered-alias", Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
     }
 
     [Fact]
-    public void LocalPath_IsTrueWhenItExists()
+    public async Task LocalPath_IsTrueWhenItExists()
     {
         var path = Path.Combine(_cacheDir, "local.gguf");
-        LocalGenerator.IsModelDownloaded(path, Options()).Should().BeFalse();
+        (await LocalGenerator.IsModelDownloadedAsync(path, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
 
         Directory.CreateDirectory(_cacheDir);
         File.WriteAllBytes(path, [1, 2, 3]);
-        LocalGenerator.IsModelDownloaded(path, Options()).Should().BeTrue();
+        (await LocalGenerator.IsModelDownloadedAsync(path, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public sealed class LocalGeneratorIsModelDownloadedTests : IDisposable
         Directory.CreateDirectory(snapshot);
         await File.WriteAllBytesAsync(Path.Combine(snapshot, "model.onnx"), [1, 2, 3, 4], TestContext.Current.CancellationToken);
 
-        LocalGenerator.IsModelDownloaded(repo, Options()).Should().BeFalse(
+        (await LocalGenerator.IsModelDownloadedAsync(repo, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse(
             "files without the manifest a completed download writes do not show the model is whole");
 
         await DownloadManifest.WriteAsync(snapshot, new DownloadManifest
@@ -177,12 +177,12 @@ public sealed class LocalGeneratorIsModelDownloadedTests : IDisposable
             RepoId = repo,
             Files = [new ManifestFileEntry { Path = "model.onnx", Size = 4 }, new ManifestFileEntry { Path = "genai_config.json", Size = 2 }],
         }, cancellationToken: TestContext.Current.CancellationToken);
-        LocalGenerator.IsModelDownloaded(repo, Options()).Should().BeFalse("a listed file is missing");
+        (await LocalGenerator.IsModelDownloadedAsync(repo, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse("a listed file is missing");
 
         await File.WriteAllBytesAsync(Path.Combine(snapshot, "genai_config.json"), [(byte)'{', (byte)'}'], TestContext.Current.CancellationToken);
-        LocalGenerator.IsModelDownloaded(repo, Options()).Should().BeTrue();
+        (await LocalGenerator.IsModelDownloadedAsync(repo, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
 
         await File.WriteAllBytesAsync(Path.Combine(snapshot, "model.onnx"), [1, 2], TestContext.Current.CancellationToken);
-        LocalGenerator.IsModelDownloaded(repo, Options()).Should().BeFalse("a file shorter than the listed length is not the file");
+        (await LocalGenerator.IsModelDownloadedAsync(repo, Options(), cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse("a file shorter than the listed length is not the file");
     }
 }

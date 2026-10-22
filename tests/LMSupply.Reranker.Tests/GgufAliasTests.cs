@@ -53,15 +53,15 @@ public sealed class GgufAliasTests : IDisposable
     }
 
     [Fact]
-    public void TheProbe_FollowsTheAlias()
+    public async Task TheProbe_FollowsTheAlias()
     {
-        LocalReranker.IsModelDownloaded(Alias, _cacheDir).Should().BeFalse();
+        (await LocalReranker.IsModelDownloadedAsync(Alias, new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse();
 
         Place(TargetRepo, "bge-reranker-v2-m3-Q4_K_M.gguf");
 
-        LocalReranker.IsModelDownloaded(Alias, _cacheDir).Should().BeTrue();
-        LocalReranker.IsModelDownloaded(Alias.ToUpperInvariant(), _cacheDir).Should().BeTrue("aliases are case-insensitive");
-        LocalReranker.IsModelDownloaded(Alias + ":Q8_0", _cacheDir).Should().BeTrue("a quantization qualifier does not change which model this is");
+        (await LocalReranker.IsModelDownloadedAsync(Alias, new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
+        (await LocalReranker.IsModelDownloadedAsync(Alias.ToUpperInvariant(), new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue("aliases are case-insensitive");
+        (await LocalReranker.IsModelDownloadedAsync(Alias + ":Q8_0", new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue("a quantization qualifier does not change which model this is");
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public sealed class GgufAliasTests : IDisposable
     }
 
     [Fact]
-    public void AUserAlias_OfTheSameName_Wins()
+    public async Task AUserAlias_OfTheSameName_Wins()
     {
         const string elsewhere = "example/my-own-reranker-GGUF";
         Place(elsewhere, "mine-Q4_K_M.gguf");
@@ -87,25 +87,25 @@ public sealed class GgufAliasTests : IDisposable
         LocalReranker.Registry.RegisterAlias(Alias, "gguf:" + elsewhere);
         try
         {
-            LocalReranker.IsModelDownloaded(Alias, _cacheDir).Should().BeTrue("the caller's alias points at a cached model");
+            (await LocalReranker.IsModelDownloadedAsync(Alias, new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue("the caller's alias points at a cached model");
         }
         finally
         {
             LocalReranker.Registry.RemoveAlias(Alias);
         }
 
-        LocalReranker.IsModelDownloaded(Alias, _cacheDir).Should().BeFalse("with the user alias gone the built-in target is not cached here");
+        (await LocalReranker.IsModelDownloadedAsync(Alias, new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeFalse("with the user alias gone the built-in target is not cached here");
     }
 
     [Fact]
-    public void AUserAlias_MayPointAtTheBuiltInAlias()
+    public async Task AUserAlias_MayPointAtTheBuiltInAlias()
     {
         Place(TargetRepo, "bge-reranker-v2-m3-Q4_K_M.gguf");
 
         LocalReranker.Registry.RegisterAlias("my-reranker", Alias);
         try
         {
-            LocalReranker.IsModelDownloaded("my-reranker", _cacheDir).Should().BeTrue();
+            (await LocalReranker.IsModelDownloadedAsync("my-reranker", new RerankerOptions { CacheDirectory = _cacheDir }, cancellationToken: TestContext.Current.CancellationToken)).Should().BeTrue();
         }
         finally
         {

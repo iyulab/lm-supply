@@ -178,13 +178,13 @@ public class LocalEmbedderApiTests
     }
 
     [Fact]
-    public void IsModelDownloaded_ReturnsFalseForNonCachedModel()
+    public async Task IsModelDownloaded_ReturnsFalseForNonCachedModel()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"embedder-cache-{Guid.NewGuid():N}");
         try
         {
             // Empty cache dir → no model can be downloaded
-            var result = LocalEmbedder.IsModelDownloaded("default", tempDir);
+            var result = await LocalEmbedder.IsModelDownloadedAsync("default", new EmbedderOptions { CacheDirectory = tempDir }, cancellationToken: TestContext.Current.CancellationToken);
             result.Should().BeFalse();
         }
         finally
@@ -195,12 +195,12 @@ public class LocalEmbedderApiTests
     }
 
     [Fact]
-    public void IsModelDownloaded_ReturnsFalseForUnknownModel()
+    public async Task IsModelDownloaded_ReturnsFalseForUnknownModel()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"embedder-cache-{Guid.NewGuid():N}");
         try
         {
-            var result = LocalEmbedder.IsModelDownloaded("nonexistent/model-xyz", tempDir);
+            var result = await LocalEmbedder.IsModelDownloadedAsync("nonexistent/model-xyz", new EmbedderOptions { CacheDirectory = tempDir }, cancellationToken: TestContext.Current.CancellationToken);
             result.Should().BeFalse();
         }
         finally

@@ -145,13 +145,13 @@ var results = await reranker.RerankAsync(
 Other cross-encoder GGUF repositories take the same route (for example
 `gpustack/jina-reranker-v2-base-multilingual-GGUF`); the row above is the one this repository's tests load.
 
-`LocalReranker.IsModelDownloaded` and `DownloadModelAsync` accept these ids in every form `LoadAsync` does
+`LocalReranker.IsModelDownloadedAsync` and `DownloadModelAsync` accept these ids in every form `LoadAsync` does
 (`gguf:org/repo`, a `*-GGUF` repository, a local `.gguf` path), so a download-consent gate works the same
 for a GGUF model as for an ONNX alias:
 
 ```csharp
 const string model = "gguf:gpustack/bge-reranker-v2-m3-GGUF";
-if (!LocalReranker.IsModelDownloaded(model))
+if (!await LocalReranker.IsModelDownloadedAsync(model))
     await LocalReranker.DownloadModelAsync(model, progress: progress);   // outside any user-facing call
 
 await using var reranker = await LocalReranker.LoadAsync(

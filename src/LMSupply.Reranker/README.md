@@ -41,7 +41,7 @@ foreach (var result in results)
 
 Sizes are what a load downloads (the ONNX exports are fp32). `multilingual-fast` additionally fetches the
 llama-server binary on first use. Scores are on the same 0..1 scale on both routes, and
-`LocalReranker.IsModelDownloaded` / `DownloadModelAsync` work for every alias above.
+`LocalReranker.IsModelDownloadedAsync` / `DownloadModelAsync` work for every alias above.
 
 For languages other than English and Chinese use `multilingual` or `multilingual-fast`: `quality` and `large`
 tokenize any language but were not trained on it, and on a Korean corpus `quality` can rank worse than no

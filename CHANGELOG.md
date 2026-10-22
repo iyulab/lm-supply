@@ -25,7 +25,7 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   config. The catalog's voices share one repository, so deleting a voice deletes its folder's files and keeps the other
   voices. See [Before a download](docs/synthesizer.md#before-a-download).
 - **Decider: a host can ask before a download.** `DeciderArtifacts` and `LocalDecider.GetDownloadSizeBytesAsync`,
-  `GetRemainingDownloadBytesAsync`, `IsModelDownloaded`, `DownloadModelAsync` and `DeleteModel`: the GGUF file a load picks
+  `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync` and `DeleteModel`: the GGUF file a load picks
   and, in `DeciderArtifacts`, the llama-server build it runs on. See [Before a download](docs/decider.md#before-a-download).
 - **ImageGenerator: a host can ask before a download.** `ImageGeneratorArtifacts` and `LocalImageGenerator.GetDownloadSizeBytesAsync`,
   `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync` and `DeleteModel`: the pipeline's ONNX
@@ -50,6 +50,20 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `await artifacts.GetRemainingDownloadBytesAsync(id)` → `(await artifacts.GetRemainingDownloadAsync(id)).ModelBytes`, or
   `.TotalBytes` for what the person agrees to download; an `IOnnxGeneratorBackend` implementation adds
   `IsRuntimeAvailableOfflineAsync`, `GetRuntimeDownloadBytesAsync` and `DownloadRuntimeAsync`.
+- **Breaking — every domain's download check is `IsModelDownloadedAsync(id, options, cancellationToken)`, and every
+  `DeleteModel` takes the domain's options.** `LocalGenerator`, `LocalEmbedder` and `LocalReranker` had a synchronous
+  `IsModelDownloaded`, and the embedder's and reranker's took a cache directory where the other domains take options. The
+  embedder's and reranker's check now plans the files the load picks, as their `GetRemainingDownloadBytesAsync` does, from the
+  listing cached at the last download: true only when every one of them is cached at the listed length, or the model is on
+  local disk. It used to look for any snapshot with a `model.onnx` and a tokenizer, which read a model as downloaded when
+  the load would pick another file (a quantized build, another subfolder) or a file was cut short. A model in the cache
+  without a listing of this library's (fetched by another tool) now reads as not downloaded; the download it prompts fetches
+  only the listing and what is missing. The provider and quantization hint in the options now count, as they do for the
+  load. The generator's answer is unchanged. Migration: `LocalGenerator.IsModelDownloaded(id, options)` →
+  `await LocalGenerator.IsModelDownloadedAsync(id, options)`; `LocalEmbedder.IsModelDownloaded(id, cacheDir)` →
+  `await LocalEmbedder.IsModelDownloadedAsync(id, new EmbedderOptions { CacheDirectory = cacheDir })`, likewise for
+  `LocalReranker`; `LocalEmbedder.DeleteModel(id, cacheDir)` → `LocalEmbedder.DeleteModel(id, new EmbedderOptions { CacheDirectory = cacheDir })`,
+  likewise for `LocalReranker`.
 - **Embedder and Reranker GGUF files written before 0.98.0 are moved into the Hugging Face cache layout.** The first
   lookup of a repository moves its files from the private `gguf-embeddings/` or `gguf-rerankers/` tree into the
   repository's `snapshots/main/` and removes the emptied tree, so other Hugging Face tools find them and nothing is

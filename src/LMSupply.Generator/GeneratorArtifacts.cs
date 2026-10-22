@@ -27,7 +27,7 @@ public sealed class GeneratorArtifacts : IModelArtifacts
     public async Task<bool> IsAvailableOfflineAsync(string modelId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
-        if (!LocalGenerator.IsModelDownloaded(modelId, _options))
+        if (!await LocalGenerator.IsModelDownloadedAsync(modelId, _options, cancellationToken))
             return false;
         if (!LocalGenerator.IsGgufTarget(modelId, _options.Clone()))
             return OnnxBackend() is { } onnx && await onnx.IsRuntimeAvailableOfflineAsync(_options.Provider, cancellationToken);

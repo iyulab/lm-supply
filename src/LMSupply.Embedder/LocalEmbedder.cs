@@ -165,7 +165,7 @@ public static class LocalEmbedder
     /// <remarks>
     /// Reads the repository listing (one request, cached for a day and reused by the download that follows); downloads
     /// and loads nothing. The figure is the whole download whatever the cache already holds;
-    /// <see cref="IsModelDownloaded"/> answers what is present. A local path downloads nothing, so it is 0. Runtimes a
+    /// <see cref="IsModelDownloadedAsync"/> answers what is present. A local path downloads nothing, so it is 0. Runtimes a
     /// first load also provisions (the native ONNX Runtime, or llama-server for a GGUF model), once per host and shared
     /// by every model, are not counted. With <see cref="EmbedderOptions.DisableAutoDownload"/> the listing comes from the
     /// cache only, as the load's choice does.
@@ -654,55 +654,40 @@ public static class LocalEmbedder
         => OnnxSessionFactory.CheckOnnxRuntimeAvailability();
 
     /// <summary>
-    /// Checks whether a model is already downloaded and available in the local cache.
-    /// This does NOT load the model into memory or initialize the ONNX Runtime.
+    /// Whether a <see cref="LoadAsync"/> with the same id and options would open cached files only: every file it picks is in
+    /// the cache at the length the repository lists (planned from the listing cached at the last download), or the model is
+    /// on local disk. Makes no network request and loads no runtime; never errs toward <see langword="true"/> — a model
+    /// another tool downloaded, with no listing of this library's, reads as not downloaded.
     /// </summary>
-    /// <param name="modelId">
-    /// A model alias (e.g., "default"), a known model ID, or a HuggingFace repo ID.
+    /// <param name="modelIdOrPath">Anything <see cref="LoadAsync"/> accepts.</param>
+    /// <param name="options">
+    /// The options the load will use: <see cref="LMSupplyOptionsBase.Provider"/> and
+    /// <see cref="LMSupplyOptionsBase.QuantizationHint"/> pick the files, <see cref="LMSupplyOptionsBase.CacheDirectory"/>
+    /// where to look.
     /// </param>
-    /// <param name="cacheDirectory">Custom cache directory, or <see langword="null"/> for default.</param>
-    /// <returns><see langword="true"/> if the model files exist in cache and are not LFS pointers.</returns>
-    public static bool IsModelDownloaded(string modelId, string? cacheDirectory = null)
+    /// <param name="cancellationToken">Cancels the check.</param>
+    public static async Task<bool> IsModelDownloadedAsync(
+        string modelIdOrPath,
+        EmbedderOptions? options = null,
+        CancellationToken cancellationToken = default)
     {
-        var cacheDir = cacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        options = options?.Clone() ?? new EmbedderOptions();
+        // Plan from the cached listing only: the check must not reach the network.
+        options.DisableAutoDownload = true;
 
-        // A GGUF model counts when the file an offline load opens is cached (llama-server is not checked here).
-        if (IsGgufModel(modelId))
+        var target = PrepareLoadTarget(modelIdOrPath, options);
+        try
         {
-            var repoIdOrPath = StripGgufPrefix(modelId);
-            return File.Exists(repoIdOrPath)
-                || (repoIdOrPath.Contains('/')
-                    && SingleFileGgufDownloader.TrySelectFromLocalCache(cacheDir, repoIdOrPath, null, GgufDownloader.LegacyTreeName) is not null);
+            var plan = await PlanDownloadAsync(target, options, cancellationToken);
+            return plan is null
+                ? File.Exists(IsGgufModel(target) ? StripGgufPrefix(target) : target)
+                : plan.GetRemainingBytes(options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory()) == 0;
         }
-
-        // Resolve alias to repo ID
-        string repoId;
-        string? subfolder = null;
-        if (EmbedderModelRegistry.Default.TryResolve(modelId, out var modelInfo))
+        catch (Exception ex) when (ex is ModelNotFoundException or ModelDownloadException)
         {
-            repoId = modelInfo!.RepoId;
-            subfolder = modelInfo.Subfolder;
+            return false;
         }
-        else
-        {
-            repoId = modelId;
-        }
-
-        // Any snapshot of the repository in the cache — this library's own, or one another Hugging Face tool
-        // wrote under the commit "main" points at.
-        return CacheManager.GetSnapshotDirectories(cacheDir, repoId).Any(snapshotDir =>
-        {
-            // When a subfolder is specified, model.onnx lives inside it
-            var modelDir = subfolder != null ? Path.Combine(snapshotDir, subfolder) : snapshotDir;
-
-            // Check for the essential model file
-            if (!CacheManager.IsCachedFile(Path.Combine(modelDir, "model.onnx")))
-                return false;
-
-            // Check for at least one tokenizer file (model dir first, then snapshot root)
-            return DirectoryHasTokenizer(modelDir)
-                || (subfolder != null && DirectoryHasTokenizer(snapshotDir));
-        });
     }
 
     /// <summary>
@@ -710,19 +695,19 @@ public static class LocalEmbedder
     /// it again.
     /// </summary>
     /// <remarks>
-    /// The id resolves as <see cref="IsModelDownloaded"/> resolves it (registry alias or repository id, <c>gguf:</c> repository)
+    /// The id resolves as <see cref="IsModelDownloadedAsync"/> resolves it (registry alias or repository id, <c>gguf:</c> repository)
     /// to one repository, and <see cref="CacheManager.DeleteModel"/> deletes this library's files of it — every variant it
     /// downloaded, and nothing another tool put in the shared cache. Not deleted: a local path (the files are yours), and
     /// llama-server, which every GGUF model shares. A file a running server or session has open cannot be deleted on Windows;
     /// the delete then throws <see cref="IOException"/>.
     /// </remarks>
     /// <param name="modelId">A model alias (e.g., "default"), a known model ID, a HuggingFace repo ID, or a <c>gguf:</c> repo ID.</param>
-    /// <param name="cacheDirectory">Custom cache directory, or <see langword="null"/> for default.</param>
+    /// <param name="options">The options loads use; only <see cref="LMSupplyOptionsBase.CacheDirectory"/> is read.</param>
     /// <returns>Whether anything was deleted.</returns>
-    public static bool DeleteModel(string modelId, string? cacheDirectory = null)
+    public static bool DeleteModel(string modelId, EmbedderOptions? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
-        var cacheDir = cacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        var cacheDir = options?.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
 
         string? repoId;
         if (IsGgufModel(modelId))

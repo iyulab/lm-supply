@@ -220,12 +220,12 @@ public class ModelRegistryTests
     }
 
     [Fact]
-    public void LocalReranker_IsModelDownloaded_ReturnsFalseForEmptyCache()
+    public async Task LocalReranker_IsModelDownloaded_ReturnsFalseForEmptyCache()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"reranker-cache-{Guid.NewGuid():N}");
         try
         {
-            var result = LocalReranker.IsModelDownloaded("default", tempDir);
+            var result = await LocalReranker.IsModelDownloadedAsync("default", new RerankerOptions { CacheDirectory = tempDir }, cancellationToken: TestContext.Current.CancellationToken);
             result.Should().BeFalse();
         }
         finally
@@ -236,12 +236,12 @@ public class ModelRegistryTests
     }
 
     [Fact]
-    public void LocalReranker_IsModelDownloaded_ReturnsFalseForUnknownModel()
+    public async Task LocalReranker_IsModelDownloaded_ReturnsFalseForUnknownModel()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"reranker-cache-{Guid.NewGuid():N}");
         try
         {
-            var result = LocalReranker.IsModelDownloaded("nonexistent/model-xyz", tempDir);
+            var result = await LocalReranker.IsModelDownloadedAsync("nonexistent/model-xyz", new RerankerOptions { CacheDirectory = tempDir }, cancellationToken: TestContext.Current.CancellationToken);
             result.Should().BeFalse();
         }
         finally

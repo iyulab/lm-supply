@@ -403,7 +403,7 @@ model keeps its own. Shipping a model for offline use through the catalog id wit
 `LocalEmbedder.GetDownloadSizeBytesAsync(modelIdOrPath, options)` is the number of bytes a first load would fetch: the
 files that load picks on this host, at the lengths the repository lists. It reads the repository listing (cached, and
 reused by the download that follows) and downloads nothing. The figure is the whole download whatever the cache already
-holds, and `IsModelDownloaded` answers what is present. A local path is 0. Runtimes a first load also provisions (the
+holds, and `IsModelDownloadedAsync` answers what is present. A local path is 0. Runtimes a first load also provisions (the
 native ONNX Runtime, or llama-server for GGUF) are not counted.
 
 `LocalEmbedder.GetRemainingDownloadBytesAsync(modelIdOrPath, options)` is what that load would still fetch now: the same

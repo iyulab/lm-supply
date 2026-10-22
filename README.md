@@ -132,7 +132,7 @@ float[] stored = await e5.EmbedPassageAsync("a document to index");    // "passa
 long bytes = await LocalEmbedder.GetDownloadSizeBytesAsync("default");
 // What that load would still fetch now: 0 once cached, the missing part of a partly cached model
 long remaining = await LocalEmbedder.GetRemainingDownloadBytesAsync("default");
-bool cached = LocalEmbedder.IsModelDownloaded("default");
+bool cached = await LocalEmbedder.IsModelDownloadedAsync("default");
 string? license = EmbedderModelRegistry.Default.Resolve("default").License;   // "MIT"
 ```
 
@@ -432,7 +432,7 @@ GGUF reranker models are auto-detected by `-GGUF` or `_gguf` in repo name.
 |------------------|---------|----------|
 | `gpustack/bge-reranker-v2-m3-GGUF` | 8K | Multilingual, long docs (Q4_K_M: 438 MB) |
 
-Scores are on the same 0..1 scale as the ONNX route, and `LocalReranker.IsModelDownloaded` /
+Scores are on the same 0..1 scale as the ONNX route, and `LocalReranker.IsModelDownloadedAsync` /
 `DownloadModelAsync` accept the same GGUF ids `LoadAsync` does. See the [Reranker Guide](docs/reranker.md).
 
 ### Generator
@@ -965,7 +965,7 @@ Models are cached following HuggingFace Hub conventions:
   plain files to `snapshots/{revision}/` exactly as earlier versions did. GGUF models (Generator, Embedder, Reranker)
   are written the same way; the private trees earlier versions used for Embedder and Reranker GGUF files
   (`gguf-embeddings/`, `gguf-rerankers/`) and existing `snapshots/main/` directories are still read, and nothing is
-  moved out of them. `IsModelDownloaded`, the loaders and `CacheManager.ModelFileExists` look in every one of these
+  moved out of them. `IsModelDownloadedAsync`, the loaders and `CacheManager.ModelFileExists` look in every one of these
   places; `CacheManager.GetSnapshotDirectories` returns the snapshot directories looked in, in order.
 - **Other tools' files are never modified.** A snapshot is LMSupply's own when LMSupply recorded a download into it
   (a manifest) or when it is named after a revision (`snapshots/main/`, which only LMSupply writes); any other snapshot
@@ -1130,9 +1130,9 @@ A `gguf:` registry alias deletes the file it loads on this host (every shard of 
 `gguf:gemma4-balanced` are two quantizations of one repository, and deleting one keeps the other; any other id names one
 model per repository and deletes LMSupply's files of it. A delete removes LMSupply's own files only — another tool's snapshot
 in the shared cache, a local path and llama-server stay (a model still `Ready` after `DeleteAsync` loads from those). Without
-a lifecycle, `LocalGenerator.DeleteModel(id, options)`, `LocalEmbedder.DeleteModel(id, cacheDir)`,
-`LocalReranker.DeleteModel(id, cacheDir)`, `LocalTranscriber.DeleteModel(id, options)` and `LocalCaptioner.DeleteModel(id, options)`
-resolve the id the way their `IsModelDownloaded`/`IsModelDownloadedAsync` does (OCR: `LocalOcr.DeleteLanguageModel(language, options)`
+a lifecycle, `LocalGenerator.DeleteModel(id, options)`, `LocalEmbedder.DeleteModel(id, options)`,
+`LocalReranker.DeleteModel(id, options)`, `LocalTranscriber.DeleteModel(id, options)` and `LocalCaptioner.DeleteModel(id, options)`
+resolve the id the way their `IsModelDownloadedAsync` does (OCR: `LocalOcr.DeleteLanguageModel(language, options)`
 deletes that language's recognizer and keeps the detection model every language shares; languages of one script share a
 recognizer) (a transcriber keeps the shared diarization pair) and call `CacheManager.DeleteModelFiles(cacheDir, repoId, files)` or `CacheManager.DeleteModel`. On Windows a file a running server has open cannot be deleted (`IOException`) — dispose the model
 first.

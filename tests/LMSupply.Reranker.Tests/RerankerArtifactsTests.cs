@@ -117,8 +117,8 @@ public sealed class RerankerArtifactsTests : IDisposable
         var file = Path.Combine(_dir, "local.gguf");
         File.WriteAllBytes(file, "GGUF"u8.ToArray());
 
-        LocalReranker.DeleteModel(file, _hub).Should().BeFalse();
-        LocalReranker.DeleteModel("default", _hub).Should().BeFalse("nothing of the default model is cached");
+        LocalReranker.DeleteModel(file, new RerankerOptions { CacheDirectory = _hub }).Should().BeFalse();
+        LocalReranker.DeleteModel("default", new RerankerOptions { CacheDirectory = _hub }).Should().BeFalse("nothing of the default model is cached");
 
         File.Exists(file).Should().BeTrue();
     }

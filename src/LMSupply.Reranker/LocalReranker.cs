@@ -23,7 +23,7 @@ public static class LocalReranker
 
     /// <summary>
     /// The quantization a GGUF repository is loaded at when it offers several. One constant, because the
-    /// loader, <see cref="DownloadModelAsync"/> and <see cref="IsModelDownloaded"/> have to pick the same file.
+    /// loader, <see cref="DownloadModelAsync"/> and <see cref="IsModelDownloadedAsync"/> have to pick the same file.
     /// </summary>
     internal const string DefaultGgufQuantization = "Q4_K_M";
 
@@ -304,50 +304,41 @@ public static class LocalReranker
         => OnnxSessionFactory.CheckOnnxRuntimeAvailability();
 
     /// <summary>
-    /// Checks whether a model is already downloaded and available in the local cache.
-    /// This does NOT load the model into memory or initialize the ONNX Runtime.
+    /// Whether a <see cref="LoadAsync"/> with the same id and options would open cached files only: every file it picks is in
+    /// the cache at the length the repository lists (planned from the listing cached at the last download), or the model is
+    /// on local disk. Makes no network request and loads no runtime; never errs toward <see langword="true"/>.
     /// </summary>
     /// <remarks>
-    /// The answer is the one a load with <see cref="RerankerOptions.DisableAutoDownload"/> would act on:
-    /// <see langword="true"/> exactly when that load finds its file. That holds for GGUF ids too — the
-    /// probe looks where the GGUF loader looks and picks the quantization the loader picks.
+    /// The answer is the one a load with <see cref="RerankerOptions.DisableAutoDownload"/> would act on — the files are chosen
+    /// by the same plan the load downloads through. That holds for GGUF ids too: the quantization the loader picks.
     /// </remarks>
-    /// <param name="modelId">
+    /// <param name="modelIdOrPath">
     /// A model alias (e.g., "default"), a known model ID, a HuggingFace repo ID, or a GGUF model in any
     /// form <see cref="LoadAsync"/> accepts (<c>gguf:org/repo</c>, a <c>*-GGUF</c> repo, a local <c>.gguf</c> path).
     /// </param>
-    /// <param name="cacheDirectory">Custom cache directory, or <see langword="null"/> for default.</param>
-    /// <returns><see langword="true"/> if the model files exist in cache and are not LFS pointers.</returns>
-    public static bool IsModelDownloaded(string modelId, string? cacheDirectory = null)
+    /// <param name="options">
+    /// The options the load will use: provider and quantization hint pick the files, the cache directory where to look.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the check.</param>
+    public static async Task<bool> IsModelDownloadedAsync(
+        string modelIdOrPath,
+        RerankerOptions? options = null,
+        CancellationToken cancellationToken = default)
     {
-        var cacheDir = cacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-
-        modelId = FollowUserAlias(modelId);
-        if (IsGgufModel(modelId))
-        {
-            var ggufTarget = StripGgufPrefix(modelId);
-            if (File.Exists(ggufTarget))
-                return CacheManager.IsCachedFile(ggufTarget);
-
-            return ggufTarget.Contains('/')
-                && GgufDownloader.TrySelectFromLocalCache(cacheDir, ggufTarget, DefaultGgufQuantization) != null;
-        }
-
-        // Resolve alias to model info
-        var registry = RerankerModelRegistry.Default;
-        RerankerModelInfo modelInfo;
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        options = options?.Clone() ?? new RerankerOptions();
+        // Plan from the cached listing only: the check must not reach the network.
+        options.DisableAutoDownload = true;
         try
         {
-            modelInfo = registry.Resolve(modelId);
+            var plans = await PlanDownloadsAsync(modelIdOrPath, options, cancellationToken).ConfigureAwait(false);
+            var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+            return plans.All(p => p.GetRemainingBytes(cacheDir) == 0);
         }
-        catch (ModelNotFoundException)
+        catch (Exception ex) when (ex is ModelNotFoundException or ModelDownloadException)
         {
-            // Unknown model — check raw repo ID
-            return CacheManager.ModelFileExists(cacheDir, modelId, "model.onnx");
+            return false;
         }
-
-        using var manager = new ModelManager(cacheDir, autoDownload: false);
-        return manager.GetCachedModel(modelInfo) != null;
     }
 
     /// <summary>
@@ -355,20 +346,20 @@ public static class LocalReranker
     /// it again.
     /// </summary>
     /// <remarks>
-    /// The id resolves as <see cref="IsModelDownloaded"/> resolves it — a user alias first, then a GGUF id (<c>gguf:</c>
+    /// The id resolves as <see cref="IsModelDownloadedAsync"/> resolves it — a user alias first, then a GGUF id (<c>gguf:</c>
     /// repository, a <c>*-GGUF</c> repository, a built-in GGUF alias) or a registry alias / repository id — to one repository,
     /// and <see cref="CacheManager.DeleteModel"/> deletes this library's files of it, and nothing another tool put in the
     /// shared cache. Not deleted: a local path (the files are yours), a registry model's separate tokenizer repository, and
     /// llama-server, which every GGUF model shares. A file a running server or session has open cannot be deleted on
     /// Windows; the delete then throws <see cref="IOException"/>.
     /// </remarks>
-    /// <param name="modelId">A model id in any form <see cref="IsModelDownloaded"/> accepts.</param>
-    /// <param name="cacheDirectory">Custom cache directory, or <see langword="null"/> for default.</param>
+    /// <param name="modelId">A model id in any form <see cref="IsModelDownloadedAsync"/> accepts.</param>
+    /// <param name="options">The options loads use; only <see cref="LMSupplyOptionsBase.CacheDirectory"/> is read.</param>
     /// <returns>Whether anything was deleted.</returns>
-    public static bool DeleteModel(string modelId, string? cacheDirectory = null)
+    public static bool DeleteModel(string modelId, RerankerOptions? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
-        var cacheDir = cacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+        var cacheDir = options?.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
 
         modelId = FollowUserAlias(modelId);
         string? repoId;
@@ -476,7 +467,7 @@ public static class LocalReranker
     /// Chooses the backend the way <see cref="DownloadModelAsync"/> does (a user alias is followed first, and
     /// <c>auto</c> may resolve to the GGUF build when a llama-server binary is already cached). Reads the repository
     /// listings (cached for a day and reused by the download that follows); downloads and loads nothing. The figure is
-    /// the whole download whatever the cache already holds — <see cref="IsModelDownloaded"/> answers what is present. A
+    /// the whole download whatever the cache already holds — <see cref="IsModelDownloadedAsync"/> answers what is present. A
     /// local path downloads nothing, so it is 0. Runtimes a first load also provisions (the native ONNX Runtime, or
     /// llama-server for a GGUF model), once per host and shared by every model, are not counted. With
     /// <see cref="RerankerOptions.DisableAutoDownload"/> the listings come from the cache only, as the load's do.
