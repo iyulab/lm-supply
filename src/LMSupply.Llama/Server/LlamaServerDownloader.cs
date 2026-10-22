@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using LMSupply.Download;
+using LMSupply.Exceptions;
 using LMSupply.Runtime;
 
 namespace LMSupply.Llama.Server;
@@ -130,8 +131,9 @@ public sealed class LlamaServerDownloader : IDisposable
     public async Task<string?> GetLatestVersionAsync(CancellationToken cancellationToken = default)
         => (await ResolveLatestVersionAsync(cancellationToken)).Version;
 
-    // The latest build tag, or why there is none: the cause reaches the caller's failure text instead of only the trace.
-    private async Task<(string? Version, string? Failure)> ResolveLatestVersionAsync(CancellationToken cancellationToken)
+    // The latest build tag, or why there is none: the cause reaches the caller's failure text instead of only the trace,
+    // and the exception reaches EnsureServerAsync, which raises a host that could not be reached at all as such.
+    private async Task<(string? Version, Exception? Failure)> ResolveLatestVersionAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -149,7 +151,7 @@ public sealed class LlamaServerDownloader : IDisposable
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             Trace.TraceInformation($"[LlamaServerDownloader] Latest release fetch failed: {ex.Message}");
-            return (null, ex.Message);
+            return (null, ex);
         }
     }
 
@@ -317,28 +319,44 @@ public sealed class LlamaServerDownloader : IDisposable
         string? version = null,
         LlamaServerBackend? preferredBackend = null,
         CancellationToken cancellationToken = default)
+        => (await ResolveAssetCoreAsync(version, preferredBackend, cancellationToken)).Resolution;
+
+    private async Task<(LlamaServerAssetResolution Resolution, Exception? LookupFailure)> ResolveAssetCoreAsync(
+        string? version,
+        LlamaServerBackend? preferredBackend,
+        CancellationToken cancellationToken)
     {
         var platform = GetCurrentPlatform();
         var arch = GetCurrentArchitecture();
         var requested = preferredBackend ?? GetPreferredBackend(platform);
 
         var requestedVersion = version;
-        string? lookupFailure = null;
+        Exception? lookupFailure = null;
         if (version is null)
             (version, lookupFailure) = await ResolveLatestVersionAsync(cancellationToken);
         if (version == null)
         {
-            return LlamaServerAssetResolution.Failed(
+            return (LlamaServerAssetResolution.Failed(
                 platform, arch, requested,
                 releaseTag: null,
                 reason: LlamaServerAcquisitionFailure.ReleaseNotResolved,
                 failure: requestedVersion is not null
                     ? $"release '{requestedVersion}' could not be resolved"
                     : lookupFailure is not null
-                        ? $"no llama.cpp release could be resolved: {lookupFailure}"
-                        : "no llama.cpp release could be resolved (no build release with assets was found)");
+                        ? $"no llama.cpp release could be resolved: {lookupFailure.Message}"
+                        : "no llama.cpp release could be resolved (no build release with assets was found)"), lookupFailure);
         }
 
+        return (await ResolveReleaseAssetAsync(platform, arch, requested, version, cancellationToken), null);
+    }
+
+    private async Task<LlamaServerAssetResolution> ResolveReleaseAssetAsync(
+        LlamaServerPlatform platform,
+        LlamaServerArchitecture arch,
+        LlamaServerBackend requested,
+        string version,
+        CancellationToken cancellationToken)
+    {
         if (!IsBuildTag(version))
         {
             using var release = await GetJsonAsync($"{ReleasesUrl}/tags/{version}", cancellationToken);
@@ -564,11 +582,53 @@ public sealed class LlamaServerDownloader : IDisposable
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        var resolution = await ResolveAssetAsync(version, preferredBackend, cancellationToken);
-        if (resolution.Asset == null)
-            throw new LlamaServerAcquisitionException(resolution);
+        var asset = await ResolveAssetOrThrowAsync(version, preferredBackend, cancellationToken);
+        return await DownloadAsync(asset, progress, cancellationToken);
+    }
 
-        return await DownloadAsync(resolution.Asset, progress, cancellationToken);
+    /// <summary>
+    /// The asset to download, or the failure that says why there is none: <see cref="ModelHostUnreachableException"/>
+    /// when the release could not be looked up because GitHub could not be reached at all, otherwise
+    /// <see cref="LlamaServerAcquisitionException"/>.
+    /// </summary>
+    internal async Task<LlamaServerAsset> ResolveAssetOrThrowAsync(
+        string? version, LlamaServerBackend? preferredBackend, CancellationToken cancellationToken)
+    {
+        LlamaServerAssetResolution resolution;
+        Exception? lookupFailure;
+        try
+        {
+            (resolution, lookupFailure) = await ResolveAssetCoreAsync(version, preferredBackend, cancellationToken);
+        }
+        catch (Exception ex) when (IsHostUnreachable(ex, cancellationToken))
+        {
+            throw ReleaseHostUnreachable(ex);
+        }
+
+        if (resolution.Asset == null)
+        {
+            // No build could be named because GitHub could not be reached at all: the same typed failure a model
+            // download raises, naming the host, rather than an acquisition failure that reads like a missing build.
+            if (lookupFailure is not null && IsHostUnreachable(lookupFailure, cancellationToken))
+                throw ReleaseHostUnreachable(lookupFailure);
+            throw new LlamaServerAcquisitionException(resolution);
+        }
+
+        return resolution.Asset;
+    }
+
+    // The release lookup gets no answer from GitHub: no connection, or the API timeout this downloader applies.
+    private static bool IsHostUnreachable(Exception ex, CancellationToken cancellationToken)
+        => ex is TimeoutException || ResumableFileDownload.IsNetworkFailure(ex, cancellationToken);
+
+    private static ModelHostUnreachableException ReleaseHostUnreachable(Exception inner)
+    {
+        if (inner is ModelHostUnreachableException typed)
+            return typed;
+        var host = new Uri(GitHubApiBase).Host;
+        return new ModelHostUnreachableException(
+            $"Could not acquire llama-server: the release host {host} could not be reached ({inner.Message}), so no " +
+            "llama-server build could be chosen. Load once with network access to cache a build.", modelId: null, host, inner);
     }
 
     /// <summary>

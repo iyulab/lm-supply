@@ -768,6 +768,9 @@ public sealed class HuggingFaceDownloader : IDisposable
     /// </summary>
     private static ModelHostUnreachableException Unreachable(string repoId, string file, string directory, Exception inner)
     {
+        // The shared download already typed the failure; say it once, with the Hub's advice, over the network error.
+        if (inner is ModelHostUnreachableException { InnerException: { } network })
+            inner = network;
         var host = HubEndpoint.Host;
         return new($"Could not download '{file}' of model '{repoId}': the model host {host} could not be reached ({inner.Message}) " +
             $"and the file is not in the local cache ({directory}). If this network cannot reach {host}, set {HubEndpoint.EnvironmentVariable} " +

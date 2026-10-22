@@ -55,7 +55,7 @@ public sealed class LlamaServerApiTimeoutTests : IDisposable
         // GitHub is unreachable — and it fails after the configured 200 ms, not the HTTP client's 100 s.
         var act = () => service.GetServerPathAsync(LlamaServerBackend.Cpu, cancellationToken: guard.Token);
 
-        await act.Should().ThrowAsync<LlamaServerAcquisitionException>();
+        (await act.Should().ThrowAsync<LMSupply.Exceptions.ModelHostUnreachableException>()).Which.Host.Should().Be("api.github.com");
         clock.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(5));
     }
 

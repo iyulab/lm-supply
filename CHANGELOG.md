@@ -6,6 +6,17 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Changed
+- **Breaking: every download whose source cannot be reached at all now fails with `ModelHostUnreachableException` naming
+  that host** — GGUF models, llama-server builds and the ONNX Runtime packages, not only the ONNX
+  model files. A GGUF load surfaced the raw `HttpRequestException`; a llama-server build whose release GitHub could not
+  answer (no connection, or the API timeout) failed as `LlamaServerAcquisitionException` with `ReleaseNotResolved`; an ONNX
+  Runtime package with no cached version failed as `InvalidOperationException`. Each now raises the typed exception with
+  `Host` = `huggingface.co` (or the `HF_ENDPOINT` host), `api.github.com` or the build's download host, or `api.nuget.org`,
+  and the network error as its inner exception. A source that answers with an error (404, 403, 5xx) fails as before.
+  Migration: code that caught `HttpRequestException`, `LlamaServerAcquisitionException` or `InvalidOperationException`
+  for an unreachable source catches `ModelHostUnreachableException` (a `ModelDownloadException`).
+
 ### Added
 - **Generator: a loaded generator is a Microsoft.Extensions.AI `IChatClient`** — `generator.AsChatClient()` returns a
   `LocalChatClient`, so `ChatClientBuilder` pipelines, `UseFunctionInvocation()` and agent frameworks use a local model

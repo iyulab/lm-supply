@@ -94,7 +94,30 @@ public sealed class OnnxNuGetDownloaderVersionPreferenceTests : IDisposable
 
         var load = () => downloader.DownloadAsync("cpu", Windows, version: "1.30.0", cancellationToken: TestContext.Current.CancellationToken);
 
-        await load.Should().ThrowAsync<InvalidOperationException>().WithMessage("*feed is unreachable*no cached version*");
+        // The feed host could not be reached at all: the typed failure every model download raises, with the host.
+        var failure = (await load.Should().ThrowAsync<LMSupply.Exceptions.ModelHostUnreachableException>()
+            .WithMessage("*api.nuget.org could not be reached*no cached version*")).Which;
+        failure.Host.Should().Be("api.nuget.org");
+        failure.InnerException.Should().BeOfType<HttpRequestException>();
+    }
+
+    [Fact]
+    public async Task FeedAnsweringWithAnError_NothingCached_IsNotAnUnreachableHost()
+    {
+        // A feed that answers (500) is reachable: the failure is not the unreachable-host type, so a host does not
+        // tell its user that this network cannot reach the source when the source is there and failing.
+        using var downloader = new OnnxNuGetDownloader(_cacheDir, new FailingFeedHandler());
+
+        var load = () => downloader.DownloadAsync("cpu", Windows, version: "1.30.0", cancellationToken: TestContext.Current.CancellationToken);
+
+        var failure = (await load.Should().ThrowAsync<Exception>()).Which;
+        failure.Should().NotBeOfType<LMSupply.Exceptions.ModelHostUnreachableException>();
+    }
+
+    private sealed class FailingFeedHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
     }
 
     /// <summary>A flat-container feed: an index of versions and one nupkg body, or an unreachable network.</summary>

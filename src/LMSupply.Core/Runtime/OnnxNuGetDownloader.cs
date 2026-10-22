@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using LMSupply.Download;
+using LMSupply.Exceptions;
 
 namespace LMSupply.Runtime;
 
@@ -93,7 +94,7 @@ public sealed class OnnxNuGetDownloader : IDisposable
         // unreachable feed - never a substitute for a download that would succeed. Preferring "whatever
         // is cached" ran managed 1.30.0 on a native 1.24.4 for as long as the cache existed.
         string? requestedVersion = version ?? config.PinnedVersion;
-        string? feedFailure = null;
+        Exception? feedFailure = null;
         if (requestedVersion is null)
         {
             try
@@ -102,7 +103,7 @@ public sealed class OnnxNuGetDownloader : IDisposable
             }
             catch (Exception ex) when (IsFeedUnreachable(ex, cancellationToken))
             {
-                feedFailure = ex.Message;
+                feedFailure = ex;
             }
         }
 
@@ -143,7 +144,7 @@ public sealed class OnnxNuGetDownloader : IDisposable
             }
             catch (Exception ex) when (IsFeedUnreachable(ex, cancellationToken))
             {
-                feedFailure = ex.Message;
+                feedFailure = ex;
             }
         }
 
@@ -154,14 +155,25 @@ public sealed class OnnxNuGetDownloader : IDisposable
         {
             var wanted = requestedVersion is null ? "the version the loaded runtime expects" : $"the requested {requestedVersion}";
             Trace.TraceWarning(
-                $"[OnnxNuGetDownloader] Package feed unreachable ({feedFailure}); using cached {existingCache} instead of {wanted}. " +
+                $"[OnnxNuGetDownloader] Package feed unreachable ({feedFailure?.Message}); using cached {existingCache} instead of {wanted}. " +
                 $"The managed and native ONNX Runtime versions may differ until the feed is reachable again.");
             ReportCacheHit(progress, config.NativeLibraryName);
             return existingCache;
         }
 
+        // The feed host could not be reached at all: the same typed failure every model download raises, naming the
+        // host, so a host can tell «this network cannot reach the source» from a feed that answered with an error.
+        if (feedFailure is not null && ResumableFileDownload.IsNetworkFailure(feedFailure, cancellationToken))
+        {
+            var host = (feedFailure as ModelHostUnreachableException)?.Host ?? NuGetPackageResolver.FeedHost;
+            throw new ModelHostUnreachableException(
+                $"Cannot provision {config.PackageId}: the package feed host {host} could not be reached " +
+                $"({(feedFailure as ModelHostUnreachableException)?.InnerException?.Message ?? feedFailure.Message}) and no cached version exists.",
+                config.PackageId, host, feedFailure is ModelHostUnreachableException { InnerException: { } network } ? network : feedFailure);
+        }
+
         throw new InvalidOperationException(
-            $"Cannot provision {config.PackageId}: the package feed is unreachable ({feedFailure}) and no cached version exists.");
+            $"Cannot provision {config.PackageId}: the package feed is unreachable ({feedFailure?.Message}) and no cached version exists.");
     }
 
     /// <summary>
@@ -170,7 +182,8 @@ public sealed class OnnxNuGetDownloader : IDisposable
     /// </summary>
     private static bool IsFeedUnreachable(Exception ex, CancellationToken cancellationToken)
         => !cancellationToken.IsCancellationRequested
-           && ex is HttpRequestException or TaskCanceledException or System.Net.Sockets.SocketException or IOException;
+           && ex is HttpRequestException or TaskCanceledException or System.Net.Sockets.SocketException or IOException
+               or ModelHostUnreachableException;
 
     /// <summary>
     /// Resolves the version to use, either from assembly or NuGet API.

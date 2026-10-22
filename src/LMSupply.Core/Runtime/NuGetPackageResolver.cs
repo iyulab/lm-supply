@@ -12,6 +12,9 @@ public sealed class NuGetPackageResolver : IDisposable
 {
     private const string NuGetFlatContainerBase = "https://api.nuget.org/v3-flatcontainer";
 
+    /// <summary>The host the package feed is served from.</summary>
+    internal static string FeedHost => new Uri(NuGetFlatContainerBase).Host;
+
     private readonly HttpClient _httpClient;
     private readonly Dictionary<string, (string[] Versions, DateTimeOffset CachedAt)> _versionCache = new();
     private readonly SemaphoreSlim _cacheLock = new(1, 1);

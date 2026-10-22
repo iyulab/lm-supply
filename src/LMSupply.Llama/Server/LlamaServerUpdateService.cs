@@ -338,9 +338,7 @@ public sealed class LlamaServerUpdateService : IAsyncDisposable
         // download lands under, so it is also what the state file must record. (Re-asking "latest"
         // afterwards was a second network call that could name a different build than the one
         // just downloaded, and fell back to "unknown" on any hiccup.)
-        var resolution = await _downloader.ResolveAssetAsync(version: null, preferredBackend: backend, cancellationToken);
-        var asset = resolution.Asset
-            ?? throw new LlamaServerAcquisitionException(resolution);
+        var asset = await _downloader.ResolveAssetOrThrowAsync(version: null, preferredBackend: backend, cancellationToken);
 
         var serverPath = await _downloader.DownloadAsync(asset, progress, cancellationToken);
         var version = asset.Version;

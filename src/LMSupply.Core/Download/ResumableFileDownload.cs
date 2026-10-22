@@ -96,7 +96,7 @@ internal static class ResumableFileDownload
     /// is not a network failure — the server is there and said something about the file.
     /// </summary>
     internal static bool IsNetworkFailure(Exception exception, CancellationToken cancellationToken) =>
-        exception is HttpRequestException { StatusCode: null } or HttpIOException
+        exception is ModelHostUnreachableException or HttpRequestException { StatusCode: null } or HttpIOException
         || (exception is OperationCanceledException && !cancellationToken.IsCancellationRequested);
 
     /// <summary>
@@ -117,43 +117,64 @@ internal static class ResumableFileDownload
             var lastLength = PartLength(tempPath);
             var stalls = 0;
 
-            for (var attempt = 1; ; attempt++)
+            try
             {
-                try
+                for (var attempt = 1; ; attempt++)
                 {
-                    await AttemptAsync(httpClient, request, cancellationToken).ConfigureAwait(false);
-                    return;
-                }
-                catch (HttpRequestException ex) when (request.IsTransient(ex) && attempt < request.MaxRetries)
-                {
-                    // Exponential backoff below.
-                }
-                catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested && attempt < request.MaxRetries)
-                {
-                    // Timeout, not user cancellation.
-                }
-                catch (Exception ex) when (ex is IOException or TruncatedDownloadException)
-                {
-                    // A body that ended early — EOF before the announced length, or a dropped connection —
-                    // leaves a valid prefix in the ".part", and so does another process still writing it.
-                    // Resuming that prefix is progress, so the budget counts stalls rather than attempts: an
-                    // attempt after which the ".part" is no longer than before is a stall, and MaxStalls
-                    // stalls in a row (or MaxResumeAttempts attempts overall) give up.
-                    var length = PartLength(tempPath);
-                    stalls = length > lastLength ? 0 : stalls + 1;
-                    lastLength = length;
-                    if (stalls >= MaxStalls || attempt >= MaxResumeAttempts)
-                        throw;
-                }
+                    try
+                    {
+                        await AttemptAsync(httpClient, request, cancellationToken).ConfigureAwait(false);
+                        return;
+                    }
+                    catch (HttpRequestException ex) when (request.IsTransient(ex) && attempt < request.MaxRetries)
+                    {
+                        // Exponential backoff below.
+                    }
+                    catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested && attempt < request.MaxRetries)
+                    {
+                        // Timeout, not user cancellation.
+                    }
+                    catch (Exception ex) when (ex is IOException or TruncatedDownloadException)
+                    {
+                        // A body that ended early — EOF before the announced length, or a dropped connection —
+                        // leaves a valid prefix in the ".part", and so does another process still writing it.
+                        // Resuming that prefix is progress, so the budget counts stalls rather than attempts: an
+                        // attempt after which the ".part" is no longer than before is a stall, and MaxStalls
+                        // stalls in a row (or MaxResumeAttempts attempts overall) give up.
+                        var length = PartLength(tempPath);
+                        stalls = length > lastLength ? 0 : stalls + 1;
+                        lastLength = length;
+                        if (stalls >= MaxStalls || attempt >= MaxResumeAttempts)
+                            throw;
+                    }
 
-                var delay = TimeSpan.FromSeconds(Math.Pow(2, Math.Min(attempt, 4)));
-                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                    var delay = TimeSpan.FromSeconds(Math.Pow(2, Math.Min(attempt, 4)));
+                    await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex) when (ex is not ModelHostUnreachableException && IsNetworkFailure(ex, cancellationToken))
+            {
+                // Every download in this library comes through here — Hub files, GGUF models, llama-server builds —
+                // so this is the one place a source that cannot be reached at all becomes a typed failure naming
+                // the host, whichever host it is.
+                throw HostUnreachable(request, ex);
             }
         }
         finally
         {
             gate.Release();
         }
+    }
+
+    /// <summary>
+    /// The failure of a download whose source could not be reached at all (see <see cref="IsNetworkFailure"/>).
+    /// </summary>
+    internal static ModelHostUnreachableException HostUnreachable(Request request, Exception inner)
+    {
+        var host = Uri.TryCreate(request.Url, UriKind.Absolute, out var uri) ? uri.Host : request.Url;
+        return new ModelHostUnreachableException(
+            $"Could not download '{request.FileName}': the host {host} could not be reached ({inner.Message}).",
+            request.ModelId, host, inner);
     }
 
     /// <summary>

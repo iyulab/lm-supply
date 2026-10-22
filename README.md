@@ -888,7 +888,9 @@ For private HuggingFace repositories, set the `HF_TOKEN` environment variable.
 Downloads and Hub requests go to `https://huggingface.co`, or to the URL in the `HF_ENDPOINT` environment variable
 when it is set — the variable `huggingface_hub` reads — for a mirror or an internal hub on a network that cannot reach
 huggingface.co. A model that is not cached and whose host cannot be reached at all (no connection, name resolution,
-proxy, TLS, timeout) fails with `ModelHostUnreachableException` (a `ModelDownloadException`) carrying the `Host`;
+proxy, TLS, timeout) fails with `ModelHostUnreachableException` (a `ModelDownloadException`) carrying the `Host` —
+for ONNX and GGUF models alike, and for the llama-server build (`api.github.com` or its download host) and the ONNX
+Runtime packages (`api.nuget.org`) a first load may need;
 a host that answered — a missing file, a refused request — still fails as before.
 
 ---
