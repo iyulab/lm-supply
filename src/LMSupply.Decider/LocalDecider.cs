@@ -222,7 +222,7 @@ public static class LocalDecider
     /// </summary>
     public static bool IsModelDownloaded(string modelIdOrPath, DeciderOptions? options = null)
     {
-        options ??= new DeciderOptions();
+        options = options?.Clone() ?? new DeciderOptions();
         try
         {
             var (localFile, repoId) = ResolveTarget(modelIdOrPath);
@@ -266,7 +266,7 @@ public static class LocalDecider
     private static async Task<(DownloadPlan Plan, string CacheDirectory)?> PlanAsync(
         string modelIdOrPath, DeciderOptions? options, CancellationToken cancellationToken)
     {
-        options ??= new DeciderOptions();
+        options = options?.Clone() ?? new DeciderOptions();
         var (localFile, repoId) = ResolveTarget(modelIdOrPath);
         if (localFile is not null)
             return null;
