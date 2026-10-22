@@ -11,6 +11,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   naming the hub** (as file downloads have since 0.135.0) instead of a raw `HttpRequestException`. This covers a GGUF repository
   given without a file name and every other load that chooses its files from a listing (`ModelDiscoveryService.ListRepositoryFilesAsync`).
   A hub that answers with an error status fails as before.
+- **An embedder or reranker model this library downloaded into a subfolder reads as downloaded again when no repository
+  listing is cached.** `IsModelDownloadedAsync` (and an offline plan) answered `false` for such a model — every embedder or
+  reranker downloaded before the listing moved beside the manifests (0.112.0), or whose listing was removed — although the
+  load opens it, so a host asking before a download offered one for a model the person already had. The check now reads
+  the manifest kept for the subfolder (`.lmsupply/manifests/{snapshot}__{subfolder}.json`, or the subfolder's own
+  `.lmsupply-manifest.json` from earlier versions), as it already read a snapshot-root manifest; a file at another length
+  than the manifest records still reads as not downloaded.
 
 ## [0.136.0] - 2026-10-22
 

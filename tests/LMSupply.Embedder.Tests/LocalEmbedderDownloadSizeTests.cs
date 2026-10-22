@@ -94,6 +94,47 @@ public sealed class LocalEmbedderDownloadSizeTests : IDisposable
             "a file at another length than the listing's is fetched again");
     }
 
+    // An earlier download of this library records its files in a manifest kept per subfolder
+    // (`.lmsupply/manifests/{snapshot}__{subfolder}.json`). With no listing cached — a cache from before listings moved
+    // beside the manifests, or one whose listing was removed — that manifest is the record of what was downloaded, as it
+    // is for the load with downloads disabled; the check read only the snapshot-root manifest and answered «not
+    // downloaded» for a model the load opens.
+    [Fact]
+    public async Task IsModelDownloaded_WithoutAListing_ReadsTheSubfolderManifestOfAnEarlierDownload()
+    {
+        EmbedderModelRegistry.Default.TryResolveCatalog("default", out var info, out _).Should().BeTrue();
+        info!.Subfolder.Should().NotBeNullOrEmpty("this fact is about a model downloaded into a subfolder");
+        var snapshot = CacheManager.GetModelDirectory(_cacheDir, info.RepoId);
+        Place(snapshot, $"{info.Subfolder}/model.onnx", 9_000);
+        Place(snapshot, $"{info.Subfolder}/tokenizer.json", 700);
+        var manifests = Path.Combine(_cacheDir, "models--" + info.RepoId.Replace("/", "--"), ".lmsupply", "manifests");
+        Directory.CreateDirectory(manifests);
+        File.WriteAllText(
+            Path.Combine(manifests, $"{Path.GetFileName(snapshot)}__{info.Subfolder}.json"),
+            $$"""{"version":2,"repoId":"{{info.RepoId}}","revision":"main","files":[{"path":"model.onnx","size":9000},{"path":"tokenizer.json","size":700}],"absentFiles":[]}""");
+
+        (await LocalEmbedder.IsModelDownloadedAsync("default", Options(), Ct)).Should().BeTrue(
+            "the manifest of the earlier download lists every file at the length on disk");
+
+        Place(snapshot, $"{info.Subfolder}/model.onnx", 10);
+        (await LocalEmbedder.IsModelDownloadedAsync("default", Options(), Ct)).Should().BeFalse(
+            "a file at another length than the manifest's is fetched again");
+    }
+
+    [Fact]
+    public async Task IsModelDownloaded_WithoutAListing_ReadsAManifestAnEarlierVersionKeptInsideTheSubfolder()
+    {
+        EmbedderModelRegistry.Default.TryResolveCatalog("default", out var info, out _).Should().BeTrue();
+        var snapshot = CacheManager.GetModelDirectory(_cacheDir, info!.RepoId);
+        Place(snapshot, $"{info.Subfolder}/model.onnx", 9_000);
+        Place(snapshot, $"{info.Subfolder}/tokenizer.json", 700);
+        File.WriteAllText(
+            Path.Combine(snapshot, info.Subfolder!, ".lmsupply-manifest.json"),
+            $$"""{"version":2,"repoId":"{{info.RepoId}}","revision":"main","files":[{"path":"model.onnx","size":9000},{"path":"tokenizer.json","size":700}]}""");
+
+        (await LocalEmbedder.IsModelDownloadedAsync("default", Options(), Ct)).Should().BeTrue();
+    }
+
     [Fact]
     public async Task RemainingBytes_ARootConfigFileCachedBesideTheSubfolderModel_IsNotRemaining()
     {

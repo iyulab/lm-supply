@@ -1046,10 +1046,15 @@ public sealed class ModelDiscoveryService : IDisposable
 
         if (_cacheDir is not null)
         {
-            var manifest = await DownloadManifest.ReadAsync(
-                CacheManager.FindOwnSnapshot(_cacheDir, repoId, revision) ?? CacheManager.GetModelDirectory(_cacheDir, repoId, revision), cancellationToken);
+            var ownSnapshot = CacheManager.FindOwnSnapshot(_cacheDir, repoId, revision) ?? CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
+            var manifest = await DownloadManifest.ReadAsync(ownSnapshot, cancellationToken);
             if (manifest is { Files.Count: > 0 })
                 return [.. manifest.Files.Select(f => new RepoFile { Path = f.Path, Type = "file", Size = f.Size })];
+
+            // A download of a subfolder (an embedder's or reranker's onnx/) records its manifest per subfolder, with paths
+            // inside that subfolder.
+            if (ListSubfolderManifests(ownSnapshot) is { Count: > 0 } subfolderFiles)
+                return subfolderFiles;
 
             // A snapshot another Hugging Face tool wrote for this revision lists itself: what it holds is what
             // that tool downloaded, each file complete (the hub cache moves a file into place only when it is).
@@ -1059,6 +1064,42 @@ public sealed class ModelDiscoveryService : IDisposable
 
         throw new ModelNotFoundException(
             $"Model '{repoId}' is not in the local cache and downloads are disabled.", repoId);
+    }
+
+    /// <summary>
+    /// The files the manifests of <paramref name="snapshotDir"/>'s subfolders record, as repository paths
+    /// (<c>{subfolder}/{file}</c>) with the lengths recorded; empty when there is none. Each directory of the snapshot is
+    /// asked for its manifest as a load of it reads one (<see cref="DownloadManifest.Read"/>: the repository's private
+    /// directory, then a manifest inside the directory from an earlier version), so a manifest's name is matched to the
+    /// directory it describes rather than decoded.
+    /// </summary>
+    private static List<RepoFile> ListSubfolderManifests(string snapshotDir)
+    {
+        if (!Directory.Exists(snapshotDir)
+            || !DownloadManifest.TryLocateInCache(snapshotDir, out _, out _, out var subfolder)
+            || subfolder is not null)
+            return [];
+
+        var files = new List<RepoFile>();
+        try
+        {
+            foreach (var directory in Directory.EnumerateDirectories(snapshotDir, "*", SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(snapshotDir, directory).Replace(Path.DirectorySeparatorChar, '/');
+                if (relative.Split('/').Any(part => part.StartsWith('.')))
+                    continue;
+                if (DownloadManifest.Read(directory) is not { Files.Count: > 0 } manifest)
+                    continue;
+                files.AddRange(manifest.Files.Select(f => new RepoFile { Path = $"{relative}/{f.Path}", Type = "file", Size = f.Size }));
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceInformation($"[ModelDiscoveryService] Subfolder manifest read failed: {e.Message}");
+            return [];
+        }
+
+        return files;
     }
 
     /// <summary>
