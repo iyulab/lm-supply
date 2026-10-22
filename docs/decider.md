@@ -98,6 +98,24 @@ build once (or reports it when downloads are disabled). For an instruct model, a
 a recent one is recommended: it reuses the state's evaluation across the questions of a call for models with sliding-window
 or recurrent layers too.
 
+### Before a download
+
+A host that asks before downloading reads what a load would fetch, without loading or downloading anything:
+
+```csharp
+var artifacts = new DeciderArtifacts(new DeciderOptions { Provider = ExecutionProvider.Cpu });
+if (!await artifacts.IsAvailableOfflineAsync("org/model-GGUF"))
+{
+    var remaining = await artifacts.GetRemainingDownloadAsync("org/model-GGUF");   // ModelBytes, RuntimeBytes, TotalBytes
+    // ... after the user agrees:
+    await artifacts.DownloadAsync("org/model-GGUF", progress);                      // the GGUF file and llama-server
+}
+```
+
+`LocalDecider.GetDownloadSizeBytesAsync`, `GetRemainingDownloadBytesAsync`, `IsModelDownloaded`, `DownloadModelAsync` and
+`DeleteModel` answer for the GGUF file alone: the quantization a load picks, at the length the repository lists.
+`RuntimeBytes` is the llama-server build a load would run.
+
 ## Choosing a model
 
 Any instruct GGUF that llama-server runs can be used. Smaller models read clear-cut questions well and fall apart on

@@ -179,16 +179,113 @@ public static class LocalDecider
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
+        var (localFile, repoId) = ResolveTarget(modelIdOrPath);
+        if (localFile is not null)
+        {
+            progress?.Report(DownloadProgress.FileInPlace(Path.GetFileName(localFile), localFile));
+            return (Path.GetFileNameWithoutExtension(localFile), localFile);
+        }
+
+        using var downloader = new GgufDownloader(CacheDirectory(options), localFilesOnly: options.DisableAutoDownload);
+        var path = await downloader.DownloadAsync(repoId!, Quantization(options), progress, cancellationToken).ConfigureAwait(false);
+        return (repoId!.Split('/').Last(), path);
+    }
+
+    /// <summary>
+    /// Bytes <see cref="LoadAsync"/> would download for the same id and options into an empty cache: the GGUF file it picks
+    /// from the repository (at <see cref="LMSupplyOptionsBase.QuantizationHint"/>, Q4_K_M by default), at the length the
+    /// repository lists. 0 for a local file.
+    /// </summary>
+    /// <remarks>
+    /// Reads the repository listing; downloads and loads nothing. The llama-server build a first load also provisions is not
+    /// counted — <see cref="DeciderArtifacts"/> counts it.
+    /// </remarks>
+    /// <exception cref="ModelNotFoundException">The model is neither a local file nor a repository, or (downloads disabled) is not cached.</exception>
+    public static async Task<long> GetDownloadSizeBytesAsync(
+        string modelIdOrPath, DeciderOptions? options = null, CancellationToken cancellationToken = default)
+        => (await PlanAsync(modelIdOrPath, options, cancellationToken).ConfigureAwait(false))?.Plan.TotalBytes ?? 0;
+
+    /// <summary>
+    /// Bytes a load with the same id and options would still download now: the file of <see cref="GetDownloadSizeBytesAsync"/>
+    /// when the cache does not hold it at the length the repository lists; 0 when cached or a local file. A partly downloaded
+    /// file counts in full. The llama-server build is not counted.
+    /// </summary>
+    public static async Task<long> GetRemainingDownloadBytesAsync(
+        string modelIdOrPath, DeciderOptions? options = null, CancellationToken cancellationToken = default)
+        => await PlanAsync(modelIdOrPath, options, cancellationToken).ConfigureAwait(false) is { } planned
+            ? planned.Plan.GetRemainingBytes(planned.CacheDirectory)
+            : 0;
+
+    /// <summary>
+    /// Whether a load with the same id and options would open a cached file only: the GGUF file it picks is in the cache, or
+    /// the model is a local file. Makes no network request.
+    /// </summary>
+    public static bool IsModelDownloaded(string modelIdOrPath, DeciderOptions? options = null)
+    {
+        options ??= new DeciderOptions();
+        try
+        {
+            var (localFile, repoId) = ResolveTarget(modelIdOrPath);
+            return localFile is not null
+                   || SingleFileGgufDownloader.TrySelectFromLocalCache(CacheDirectory(options), repoId!, Quantization(options), legacyTreeName: null) is not null;
+        }
+        catch (ModelNotFoundException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Downloads the GGUF file a load with the same id and options opens, without loading anything, so a load with downloads
+    /// disabled opens a cached file only. A cached file is not fetched again; a local file downloads nothing. The load
+    /// downloads through the same path. The llama-server build is not fetched — <see cref="DeciderArtifacts"/> fetches it.
+    /// </summary>
+    /// <exception cref="ModelNotFoundException">The model is neither a local file nor a repository, or (downloads disabled) is not cached.</exception>
+    public static async Task DownloadModelAsync(
+        string modelIdOrPath, DeciderOptions? options = null, IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        options = options?.Clone() ?? new DeciderOptions();
+        await ResolveModelFileAsync(modelIdOrPath, options, progress, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Deletes what LMSupply downloaded of the model's repository from the cache — every quantization of it, and nothing
+    /// another tool put in the shared cache — so the next load downloads it again. A local file is kept.
+    /// </summary>
+    /// <returns>Whether anything was deleted.</returns>
+    /// <exception cref="IOException">A file is open, for example by a running llama-server (Windows).</exception>
+    public static bool DeleteModel(string modelIdOrPath, DeciderOptions? options = null)
+    {
+        var (localFile, repoId) = ResolveTarget(modelIdOrPath);
+        return localFile is null && CacheManager.DeleteModel(CacheDirectory(options ?? new DeciderOptions()), repoId!);
+    }
+
+    // The plan of the file a load picks, with the cache it goes to; null for a local file
+    private static async Task<(DownloadPlan Plan, string CacheDirectory)?> PlanAsync(
+        string modelIdOrPath, DeciderOptions? options, CancellationToken cancellationToken)
+    {
+        options ??= new DeciderOptions();
+        var (localFile, repoId) = ResolveTarget(modelIdOrPath);
+        if (localFile is not null)
+            return null;
+
+        var cacheDir = CacheDirectory(options);
+        using var downloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+        return (await downloader.PlanAsync(repoId!, Quantization(options), cancellationToken).ConfigureAwait(false), cacheDir);
+    }
+
+    // A local .gguf file, or the repository a load downloads from
+    private static (string? LocalFile, string? RepoId) ResolveTarget(string modelIdOrPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
         var target = modelIdOrPath.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ? modelIdOrPath[5..] : modelIdOrPath;
 
         if (File.Exists(target))
-        {
-            progress?.Report(DownloadProgress.FileInPlace(Path.GetFileName(target), target));
-            return (Path.GetFileNameWithoutExtension(target), target);
-        }
+            return (target, null);
 
-        var repoId = target;
-        if (!repoId.Contains('/') || repoId.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase))
+        if (!target.Contains('/') || target.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase))
         {
             throw new ModelNotFoundException(
                 $"Decider model not found: '{modelIdOrPath}'. Provide a local path to a .gguf file or a HuggingFace " +
@@ -196,10 +293,12 @@ public static class LocalDecider
                 modelIdOrPath);
         }
 
-        var quantization = string.IsNullOrWhiteSpace(options.QuantizationHint) ? DefaultGgufQuantization : options.QuantizationHint;
-        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-        using var downloader = new GgufDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
-        var path = await downloader.DownloadAsync(repoId, quantization, progress, cancellationToken).ConfigureAwait(false);
-        return (repoId.Split('/').Last(), path);
+        return (null, target);
     }
+
+    private static string Quantization(DeciderOptions options) =>
+        string.IsNullOrWhiteSpace(options.QuantizationHint) ? DefaultGgufQuantization : options.QuantizationHint;
+
+    private static string CacheDirectory(DeciderOptions options) =>
+        options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
 }

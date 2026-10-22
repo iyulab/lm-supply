@@ -24,6 +24,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync` and `DeleteModel`: a voice's model and
   config. The catalog's voices share one repository, so deleting a voice deletes its folder's files and keeps the other
   voices. See [Before a download](docs/synthesizer.md#before-a-download).
+- **Decider: a host can ask before a download.** `DeciderArtifacts` and `LocalDecider.GetDownloadSizeBytesAsync`,
+  `GetRemainingDownloadBytesAsync`, `IsModelDownloaded`, `DownloadModelAsync` and `DeleteModel`: the GGUF file a load picks
+  and, in `DeciderArtifacts`, the llama-server build it runs on. See [Before a download](docs/decider.md#before-a-download).
 - **`RuntimeManager.IsRuntimeAvailableOfflineAsync`, `GetRuntimeDownloadBytesAsync` and `DownloadRuntimeAsync`** answer, for
   one runtime package and provider, whether a load would find it without downloading, how many bytes it would download, and
   fetch it without loading it; `OnnxRuntimeArtifacts` answers the same for the provider an ONNX session of an

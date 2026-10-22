@@ -105,6 +105,7 @@ public class DocsSnippetCompileTests
     private static readonly Dictionary<string, Dictionary<string, string>> DocumentStandIns = new(StringComparer.Ordinal)
     {
         ["docs/captioner.md"] = new() { ["captioner"] = "ICaptionerModel captioner = null!;" },
+        ["docs/decider.md"] = new() { ["progress"] = "IProgress<DownloadProgress> progress = null!;" },
         ["docs/detector.md"] = new()
         {
             ["detector"] = "IDetectorModel detector = null!;",
