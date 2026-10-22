@@ -24,7 +24,11 @@ public enum ModelSelectionReason
 }
 
 /// <summary>
-/// One candidate evaluated during auto-selection.
+/// One model judged against this machine — a candidate of auto-selection, or any model through
+/// <see cref="GgufModelRegistry.Evaluate(GgufModelInfo, ExecutionProvider, int?)"/>. A stable contract an application may show
+/// people: <see cref="Fits"/> = runs fully on the GPU, <see cref="FitsInSystemRam"/> without <see cref="Fits"/> = runs from system
+/// memory (CPU or partial offload, slower), neither = too large for this machine; the byte figures are estimates at the
+/// context length the judgement used.
 /// </summary>
 public sealed record ModelSelectionCandidate
 {
@@ -52,8 +56,10 @@ public sealed record ModelSelectionCandidate
 
 /// <summary>
 /// Result of auto-selecting a GGUF model, including the chosen model,
-/// budget information, and the candidates that were evaluated.
-/// Intended for diagnostic logging.
+/// budget information, and the candidates that were evaluated. A stable contract: an application may show
+/// <see cref="Selected"/> as the recommendation, <see cref="Reason"/> as why, and each candidate's judgement
+/// (<see cref="ModelSelectionCandidate"/>). Candidates are the auto-selection pool; judge any other model with
+/// <see cref="GgufModelRegistry.Evaluate(GgufModelInfo, ExecutionProvider, int?)"/>.
 /// </summary>
 public sealed record ModelSelectionResult
 {

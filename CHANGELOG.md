@@ -6,6 +6,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **Any GGUF model can be judged against this machine, not only the auto-selection pool.** `GgufModelRegistry.Evaluate(model, provider, contextLength)`
+  applies the rule `auto` uses to a catalog entry outside the pool or a model described by its own `GgufModelInfo`, and
+  `Evaluate(model, availableVramBytes, systemRamBytes, contextLength)` judges against given budgets; both return a
+  `ModelSelectionCandidate`. `ModelSelectionResult` and `ModelSelectionCandidate` are now documented as a contract an
+  application may show (`Fits` = GPU, `FitsInSystemRam` only = system memory, neither = too large), not as diagnostics.
+
 ### Fixed
 - **A repository listing whose hub cannot be reached, with no file list cached, now fails with `ModelHostUnreachableException`
   naming the hub** (as file downloads have since 0.135.0) instead of a raw `HttpRequestException`. This covers a GGUF repository

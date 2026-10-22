@@ -462,6 +462,41 @@ public static class GgufModelRegistry
             : GetAutoSelection(profile.GpuInfo, profile.SystemMemoryBytes, budgetContext, excludeKnownIssues: null, goal);
     }
 
+    /// <summary>
+    /// Judges any GGUF model against this machine with the rule auto-selection applies to its pool — a catalog entry
+    /// outside the pool (<see cref="GetAllModels"/>, <see cref="Resolve(string)"/>), or a model described by its own
+    /// <see cref="GgufModelInfo"/> (parameter count, quantization or size). The budget is the one
+    /// <see cref="GetAutoSelection(ExecutionProvider, int?, AutoSelectionGoal)"/> uses for <paramref name="provider"/>: an explicit
+    /// <see cref="ExecutionProvider.Cpu"/> judges system memory alone; any other provider judges the detected GPU and system memory.
+    /// </summary>
+    /// <param name="model">The model to judge.</param>
+    /// <param name="provider">The provider the load would ask for.</param>
+    /// <param name="contextLength">The context the KV cache is sized for; null = <see cref="DefaultBudgetContextLength"/>.</param>
+    public static ModelSelectionCandidate Evaluate(GgufModelInfo model, ExecutionProvider provider = ExecutionProvider.Auto, int? contextLength = null)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        var profile = HardwareProfile.For(provider);
+        var availableVram = provider == ExecutionProvider.Cpu
+            ? 0L
+            : VramBudget.GetAvailableBytes(profile.GpuInfo, VramBudget.GetRecommendedSafetyMargin(profile.GpuInfo));
+        return Evaluate(model, availableVram, profile.SystemMemoryBytes, contextLength ?? DefaultBudgetContextLength);
+    }
+
+    /// <summary>
+    /// Judges <paramref name="model"/> against explicit budgets — the deterministic form of
+    /// <see cref="Evaluate(GgufModelInfo, ExecutionProvider, int?)"/> (and of the per-candidate judgement in
+    /// <see cref="GetAutoSelection(GpuInfo, long, int, IReadOnlyCollection{string}?, AutoSelectionGoal)"/>).
+    /// </summary>
+    /// <param name="model">The model to judge.</param>
+    /// <param name="availableVramBytes">The VRAM budget (after the safety margin); 0 = no GPU.</param>
+    /// <param name="systemRamBytes">Total system memory; the reserve (<see cref="SystemRamReservedBytes"/>) is taken off it. 0 = no RAM path.</param>
+    /// <param name="contextLength">The context the KV cache is sized for.</param>
+    public static ModelSelectionCandidate Evaluate(GgufModelInfo model, long availableVramBytes, long systemRamBytes, int contextLength)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        return EvaluateCandidate(model, availableVramBytes, SystemRamBudgetBytes(systemRamBytes), contextLength);
+    }
+
     private static ModelSelectionResult Select(
         long availableVram,
         double safetyMargin,
