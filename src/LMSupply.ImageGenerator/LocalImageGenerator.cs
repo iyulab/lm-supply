@@ -1,5 +1,6 @@
 using LMSupply.Core.Download;
 using LMSupply.Download;
+using LMSupply.Exceptions;
 using LMSupply.ImageGenerator.Models;
 
 namespace LMSupply.ImageGenerator;
@@ -86,7 +87,7 @@ public static class LocalImageGenerator
         else
         {
             // Download from HuggingFace
-            modelPath = await DownloadModelAsync(
+            modelPath = await DownloadRepositoryAsync(
                 modelInfo.ModelId,
                 options,
                 progress,
@@ -127,32 +128,124 @@ public static class LocalImageGenerator
     }
 
     /// <summary>
-    /// Downloads a model from HuggingFace using automatic file discovery.
+    /// Bytes <see cref="LoadAsync"/> would download for the same id and options into an empty cache: the ONNX models, their
+    /// external data and the config and tokenizer files discovery picks from the repository, at the lengths it lists. 0 for
+    /// a model on local disk.
     /// </summary>
     /// <remarks>
-    /// Uses the HuggingFace API to discover all model files including:
-    /// - ONNX model files (text_encoder, unet, vae_decoder)
-    /// - External data files (.onnx_data) containing model weights
-    /// - Tokenizer and configuration files
-    /// This approach is more robust than hardcoding file paths.
+    /// Reads the repository listing (cached for the download that follows); downloads and loads nothing. The native ONNX
+    /// Runtime a first load also provisions is not counted — <see cref="ImageGeneratorArtifacts"/> counts it. With
+    /// <see cref="ImageGeneratorOptions.DisableAutoDownload"/> the listing comes from the cache only, as the load's does.
     /// </remarks>
-    private static async Task<string> DownloadModelAsync(
+    /// <exception cref="ModelNotFoundException">The repository does not exist, or (downloads disabled) it was never listed into this cache.</exception>
+    public static async Task<long> GetDownloadSizeBytesAsync(
+        string modelIdOrPath, ImageGeneratorOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var (repoId, resolved) = Prepare(modelIdOrPath, options);
+        return repoId is null ? 0 : (await PlanAsync(repoId, resolved, cancellationToken)).TotalBytes;
+    }
+
+    /// <summary>
+    /// Bytes a load with the same id and options would still download now: the files of <see cref="GetDownloadSizeBytesAsync"/>
+    /// the cache does not hold at the length the repository lists; 0 when cached or on local disk. A partly downloaded file
+    /// counts in full. Runtimes are not counted.
+    /// </summary>
+    public static async Task<long> GetRemainingDownloadBytesAsync(
+        string modelIdOrPath, ImageGeneratorOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var (repoId, resolved) = Prepare(modelIdOrPath, options);
+        return repoId is null ? 0 : (await PlanAsync(repoId, resolved, cancellationToken)).GetRemainingBytes(CacheDirectory(resolved));
+    }
+
+    /// <summary>
+    /// Whether a load with the same id and options would open cached files only: every file it picks is in the cache at the
+    /// length the repository lists, or the model is on local disk. Makes no network request; never errs toward
+    /// <see langword="true"/>.
+    /// </summary>
+    public static async Task<bool> IsModelDownloadedAsync(
+        string modelIdOrPath, ImageGeneratorOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var (repoId, resolved) = Prepare(modelIdOrPath, options);
+        if (repoId is null)
+            return true;
+
+        // Plan from the cached listing only: the check must not reach the network.
+        resolved.DisableAutoDownload = true;
+        try
+        {
+            return (await PlanAsync(repoId, resolved, cancellationToken)).GetRemainingBytes(CacheDirectory(resolved)) == 0;
+        }
+        catch (Exception ex) when (ex is ModelNotFoundException or ModelDownloadException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Downloads the files a load with the same id and options opens, without loading anything, so a load with downloads
+    /// disabled opens cached files only. Cached files are not fetched again; a model on local disk downloads nothing. The
+    /// load downloads through the same path.
+    /// </summary>
+    /// <exception cref="ModelNotFoundException">The repository does not exist, or (downloads disabled) is not cached.</exception>
+    public static async Task DownloadModelAsync(
+        string modelIdOrPath, ImageGeneratorOptions? options = null, IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (repoId, resolved) = Prepare(modelIdOrPath, options);
+        if (repoId is not null)
+            await DownloadRepositoryAsync(repoId, resolved, progress, cancellationToken);
+    }
+
+    /// <summary>
+    /// Deletes what LMSupply downloaded of the model's repository from the cache, so the next load downloads it again — and
+    /// nothing another tool put in the shared cache. A model on local disk is kept.
+    /// </summary>
+    /// <returns>Whether anything was deleted.</returns>
+    /// <exception cref="IOException">A file is open, for example by a loaded generator (Windows).</exception>
+    public static bool DeleteModel(string modelIdOrPath, ImageGeneratorOptions? options = null)
+    {
+        var (repoId, resolved) = Prepare(modelIdOrPath, options);
+        return repoId is not null && repoId.Contains('/') && CacheManager.DeleteModel(CacheDirectory(resolved), repoId);
+    }
+
+    // The repository a load downloads (null for a model on local disk), with the options it runs under
+    private static (string? RepoId, ImageGeneratorOptions Options) Prepare(string modelIdOrPath, ImageGeneratorOptions? options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        options = options?.Clone() ?? new ImageGeneratorOptions();
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+        var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
+        return (IsLocalPath(baseId) ? null : ImageGeneratorModelRegistry.Default.Resolve(baseId).ModelId, options);
+    }
+
+    // The files DownloadRepositoryAsync fetches, chosen by the same discovery. Downloads nothing.
+    private static async Task<DownloadPlan> PlanAsync(string repoId, ImageGeneratorOptions options, CancellationToken cancellationToken)
+    {
+        using var downloader = new HuggingFaceDownloader(CacheDirectory(options), localFilesOnly: options.DisableAutoDownload);
+        return await downloader.PlanWithDiscoveryAsync(repoId, preferences: DiscoveryPreferences, cancellationToken: cancellationToken);
+    }
+
+    private static string CacheDirectory(ImageGeneratorOptions options) =>
+        options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+
+    // Discovery finds every file of the pipeline: its ONNX models, their external data, and the config and tokenizer files
+    private static ModelPreferences DiscoveryPreferences => new()
+    {
+        QuantizationPriority = [Quantization.Default],
+        PreferredProvider = ExecutionProvider.Cpu
+    };
+
+    // The download of a repository by discovery. Shared by the load and DownloadModelAsync.
+    private static async Task<string> DownloadRepositoryAsync(
         string repoId,
         ImageGeneratorOptions options,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
-        using var downloader = new HuggingFaceDownloader(options.CacheDirectory, localFilesOnly: options.DisableAutoDownload);
-
-        // Use discovery-based download to automatically find all model files
-        // including ONNX models, external data files, and config/tokenizer files
+        using var downloader = new HuggingFaceDownloader(CacheDirectory(options), localFilesOnly: options.DisableAutoDownload);
         var (modelPath, _) = await downloader.DownloadWithDiscoveryAsync(
             repoId,
-            preferences: new ModelPreferences
-            {
-                QuantizationPriority = [Quantization.Default],
-                PreferredProvider = ExecutionProvider.Cpu
-            },
+            preferences: DiscoveryPreferences,
             revision: "main",
             progress: progress,
             cancellationToken: cancellationToken);

@@ -97,6 +97,26 @@ var options = new ImageGeneratorOptions
 await using var generator = await LocalImageGenerator.LoadAsync("default", options);
 ```
 
+## Before a Download
+
+A host that asks before downloading reads what a load would fetch, without loading or downloading anything:
+
+```csharp
+using LMSupply;   // ExecutionProvider
+
+var artifacts = new ImageGeneratorArtifacts(new ImageGeneratorOptions { Provider = ExecutionProvider.Cpu });
+if (!await artifacts.IsAvailableOfflineAsync("default"))
+{
+    var remaining = await artifacts.GetRemainingDownloadAsync("default");   // ModelBytes, RuntimeBytes, TotalBytes
+    // ... after the user agrees:
+    await artifacts.DownloadAsync("default", progress);                      // the pipeline and the ONNX Runtime
+}
+```
+
+`LocalImageGenerator.GetDownloadSizeBytesAsync`, `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`,
+`DownloadModelAsync` and `DeleteModel` answer for the pipeline's files alone — its ONNX models with their external data,
+and the config and tokenizer files — at the lengths the repository lists.
+
 ## Requirements
 
 - .NET 10.0+

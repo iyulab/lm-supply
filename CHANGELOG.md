@@ -27,6 +27,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 - **Decider: a host can ask before a download.** `DeciderArtifacts` and `LocalDecider.GetDownloadSizeBytesAsync`,
   `GetRemainingDownloadBytesAsync`, `IsModelDownloaded`, `DownloadModelAsync` and `DeleteModel`: the GGUF file a load picks
   and, in `DeciderArtifacts`, the llama-server build it runs on. See [Before a download](docs/decider.md#before-a-download).
+- **ImageGenerator: a host can ask before a download.** `ImageGeneratorArtifacts` and `LocalImageGenerator.GetDownloadSizeBytesAsync`,
+  `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync` and `DeleteModel`: the pipeline's ONNX
+  models, their external data and its config and tokenizer files, planned by the same discovery as the load.
 - **`RuntimeManager.IsRuntimeAvailableOfflineAsync`, `GetRuntimeDownloadBytesAsync` and `DownloadRuntimeAsync`** answer, for
   one runtime package and provider, whether a load would find it without downloading, how many bytes it would download, and
   fetch it without loading it; `OnnxRuntimeArtifacts` answers the same for the provider an ONNX session of an

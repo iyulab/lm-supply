@@ -47,7 +47,11 @@ public partial class ReadmeSnippetCompileTests
     private static readonly Dictionary<string, Dictionary<string, string>> DocumentStandIns = new(StringComparer.Ordinal)
     {
         ["src/LMSupply.Generator/README.md"] = new() { ["generator"] = "LMSupply.Generator.Abstractions.IGeneratorModel generator = null!;" },
-        ["src/LMSupply.ImageGenerator/README.md"] = new() { ["generator"] = "LMSupply.ImageGenerator.IImageGeneratorModel generator = null!;" },
+        ["src/LMSupply.ImageGenerator/README.md"] = new()
+        {
+            ["generator"] = "LMSupply.ImageGenerator.IImageGeneratorModel generator = null!;",
+            ["progress"] = "IProgress<LMSupply.DownloadProgress> progress = null!;",
+        },
         ["src/LMSupply.Ocr/README.md"] = new() { ["ocr"] = "LMSupply.Ocr.IOcr ocr = null!;" },
     };
 
