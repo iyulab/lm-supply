@@ -322,11 +322,21 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
         var result = await resolver.ResolveModelAsync(
             _modelInfo.Id,
             expectedOnnxFile: _modelInfo.OnnxFile,
+            preferences: FilePreferences(_options),
             progress: _downloadProgress,
             cancellationToken: cancellationToken);
 
         return result.ModelPath;
     }
+
+    /// <summary>
+    /// How a load ranks the builds a repository publishes when the model names no distinctive file: by the quantization the
+    /// options ask for, else as the provider runs them. Shared by the load and the lifecycle members, so both pick one file.
+    /// </summary>
+    internal static ModelPreferences FilePreferences(SegmenterOptions options) =>
+        string.IsNullOrWhiteSpace(options.QuantizationHint)
+            ? ModelPreferences.ForProvider(options.Provider)
+            : ModelPreferences.ForQuantizationHint(options.QuantizationHint);
 
     private void ConfigureSessionOptions(SessionOptions options)
     {

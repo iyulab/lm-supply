@@ -58,6 +58,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   build paths the llama-server state keeps for releases before 0.122.
 
 ### Fixed
+- **Segmenter: a semantic model's quantization hint, or a `:variant` qualifier, picks the build the load takes.** Both
+  were read and then dropped: among the builds a repository publishes (`model.onnx`, `model_quantized.onnx`, …) the load
+  ranked by this machine's defaults whatever was asked, and ranked a CPU load as an automatic one. It now ranks by the hint
+  when there is one, and otherwise as the requested provider runs them; the size and availability members pick the same file.
 - **Synthesizer: a two-syllable English word with a prefix the dictionary lacks is stressed on its root.** The
   letter-to-sound rules stressed the root only after be-, de- and re-, and there also when the letters after them
   cannot begin a syllable (`beckon`, `dentist`, where the vowel is the word's own). The root now takes the stress

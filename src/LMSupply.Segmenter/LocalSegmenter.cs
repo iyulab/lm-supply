@@ -181,7 +181,9 @@ public static class LocalSegmenter
         }
 
         using var resolver = new LMSupply.Core.Download.ModelPathResolver(resolved.CacheDirectory, localFilesOnly: resolved.DisableAutoDownload);
-        await resolver.ResolveModelAsync(info.Id, expectedOnnxFile: info.OnnxFile, progress: progress, cancellationToken: cancellationToken);
+        await resolver.ResolveModelAsync(
+            info.Id, expectedOnnxFile: info.OnnxFile, preferences: OnnxSegmenterModel.FilePreferences(resolved), progress: progress,
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -206,7 +208,8 @@ public static class LocalSegmenter
         ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
         options = options?.Clone() ?? new SegmenterOptions();
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
-        var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
+        var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
+        options.QuantizationHint ??= qualifier;
         return (SegmenterModelRegistry.Default.Resolve(baseId), options);
     }
 
@@ -229,7 +232,8 @@ public static class LocalSegmenter
         }
 
         using var resolver = new LMSupply.Core.Download.ModelPathResolver(resolved.CacheDirectory, localFilesOnly: resolved.DisableAutoDownload);
-        return (await resolver.PlanModelAsync(info.Id, info.OnnxFile, cancellationToken: cancellationToken), cacheDirectory);
+        return (await resolver.PlanModelAsync(
+            info.Id, info.OnnxFile, OnnxSegmenterModel.FilePreferences(resolved), cancellationToken: cancellationToken), cacheDirectory);
     }
 
     /// <summary>

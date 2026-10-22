@@ -20,7 +20,8 @@ public sealed class SegmenterArtifactsTests : IDisposable
         try { Directory.Delete(_cache, recursive: true); } catch { /* best-effort temp cleanup */ }
     }
 
-    private SegmenterOptions Options() => new() { CacheDirectory = _cache, Provider = ExecutionProvider.Cpu };
+    private SegmenterOptions Options(string? quantization = null) =>
+        new() { CacheDirectory = _cache, Provider = ExecutionProvider.Cpu, QuantizationHint = quantization };
 
     private string RepoDir(string repo) => Path.Combine(_cache, "models--" + repo.Replace("/", "--"));
 
@@ -43,13 +44,26 @@ public sealed class SegmenterArtifactsTests : IDisposable
     {
         const string repo = "optimum/segformer-b0-finetuned-ade-512-512";
         SeedListing(repo, ("model.onnx", 1000), ("model_quantized.onnx", 500));
+        // Without a hint the build is chosen by what this machine runs well, so the facts name the precision they mean
+        var fullPrecision = Options("fp32");
 
-        (await LocalSegmenter.GetDownloadSizeBytesAsync("default", Options(), Ct)).Should().Be(1000, "the load asks for model.onnx");
-        (await LocalSegmenter.IsModelDownloadedAsync("default", Options(), Ct)).Should().BeFalse();
+        (await LocalSegmenter.GetDownloadSizeBytesAsync("default", fullPrecision, Ct)).Should().Be(1000, "full precision is model.onnx");
+        (await LocalSegmenter.IsModelDownloadedAsync("default", fullPrecision, Ct)).Should().BeFalse();
 
         SeedFile(repo, "model.onnx", 1000);
-        (await LocalSegmenter.GetRemainingDownloadBytesAsync("default", Options(), Ct)).Should().Be(0);
-        (await LocalSegmenter.IsModelDownloadedAsync("default", Options(), Ct)).Should().BeTrue();
+        (await LocalSegmenter.GetRemainingDownloadBytesAsync("default", fullPrecision, Ct)).Should().Be(0);
+        (await LocalSegmenter.IsModelDownloadedAsync("default", fullPrecision, Ct)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task The_quantization_hint_or_a_qualifier_picks_the_build_as_the_load_does()
+    {
+        const string repo = "optimum/segformer-b0-finetuned-ade-512-512";
+        SeedListing(repo, ("model.onnx", 1000), ("model_quantized.onnx", 500));
+
+        (await LocalSegmenter.GetDownloadSizeBytesAsync("default", Options("int8"), Ct)).Should().Be(500);
+        (await LocalSegmenter.GetDownloadSizeBytesAsync("default:int8", Options(), Ct)).Should().Be(500);
+        (await LocalSegmenter.GetDownloadSizeBytesAsync("default:fp32", Options(), Ct)).Should().Be(1000);
     }
 
     [Fact]
