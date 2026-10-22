@@ -51,6 +51,28 @@ public sealed class RuntimeManager : IAsyncDisposable
         }
     }
 
+    private static readonly AsyncLocal<RuntimeManager?> s_scoped = new();
+
+    /// <summary>
+    /// The manager sessions and runtime questions in this async flow go through: <see cref="Instance"/>, unless a test
+    /// scoped another with <see cref="Scope"/> — so a test can stand in a runtime without the machine's cache or the feed.
+    /// </summary>
+    internal static RuntimeManager Current => s_scoped.Value ?? Instance;
+
+    /// <summary>Makes <paramref name="manager"/> <see cref="Current"/> in this async flow, until disposed.</summary>
+    /// <remarks>Call it from the flow itself, not from inside an awaited method: an async-local set there does not flow back.</remarks>
+    internal static IDisposable Scope(RuntimeManager manager)
+    {
+        var previous = s_scoped.Value;
+        s_scoped.Value = manager;
+        return new ScopeRestore(previous);
+    }
+
+    private sealed class ScopeRestore(RuntimeManager? previous) : IDisposable
+    {
+        public void Dispose() => s_scoped.Value = previous;
+    }
+
     /// <summary>
     /// Sets the options of the process-wide <see cref="Instance"/>: where the native ONNX Runtime comes from
     /// (<see cref="RuntimeManagerOptions.RuntimeDirectory"/>), whether it may be fetched from nuget.org

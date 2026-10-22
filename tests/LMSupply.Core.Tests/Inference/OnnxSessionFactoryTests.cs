@@ -1,3 +1,4 @@
+using LMSupply.Testing;
 using AwesomeAssertions;
 using LMSupply.Exceptions;
 using LMSupply.Inference;
@@ -15,6 +16,8 @@ public class OnnxSessionFactoryTests
     [Fact]
     public async Task Auto_ShouldUseFallbackChainFromGpuInfo()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // Arrange
         await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
@@ -30,6 +33,8 @@ public class OnnxSessionFactoryTests
     [Fact]
     public async Task GetFallbackProviders_OnNvidiaGpu_ShouldHaveCudaFirst()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // Arrange
         await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
@@ -52,6 +57,8 @@ public class OnnxSessionFactoryTests
     [Fact]
     public async Task GetFallbackProviders_NeverIncludesDirectML_EvenOnADirect3D12Gpu()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // 0.67.0: the DirectML provider is gone from ONNX Runtime 1.25+, so a Direct3D 12 capable GPU
         // must not put it in the Auto chain — before this, every Auto session on a Windows box without
         // CUDA tried to fetch a package that 404s and landed on CPU with one Trace line.
@@ -68,6 +75,8 @@ public class OnnxSessionFactoryTests
     [Fact]
     public async Task CreateWithInfoAsync_ExplicitDirectML_ThrowsNotSupported_BeforeTouchingTheModel()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // The refusal happens before provisioning or any file access: the model path here does not
         // exist, and a session on a different provider would fail on that instead.
         var act = async () => await OnnxSessionFactory.CreateWithInfoAsync(
@@ -89,6 +98,8 @@ public class OnnxSessionFactoryTests
     [Fact]
     public async Task GetFallbackProviders_CpuShouldAlwaysBeLast()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // Arrange
         await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
@@ -103,6 +114,8 @@ public class OnnxSessionFactoryTests
     [Fact]
     public async Task RuntimeManagerChain_ShouldMatchGpuInfoChain()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // Arrange
         await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
@@ -130,6 +143,8 @@ public class OnnxSessionFactoryTests
     [Fact]
     public async Task FallbackChain_ShouldBeOrdered_GpuBeforeCpu()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // Arrange
         await RuntimeManager.Instance.InitializeAsync(TestContext.Current.CancellationToken);
         var gpu = RuntimeManager.Instance.Gpu;
@@ -183,6 +198,8 @@ public class OnnxSessionFactoryTests
     [Fact]
     public async Task CreateWithInfoAsync_WithSkipProviders_ShouldAcceptOverload()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // The skipProviders overload exists so OnnxInferenceEngine can request a
         // re-creation that excludes a provider that crashed at inference time.
         // Verify the overload is callable with a non-empty skip list and reaches
@@ -210,6 +227,8 @@ public class OnnxSessionFactoryTests
     [Fact]
     public async Task CreateWithInfoAsync_WithNullSkipProviders_ShouldBeEquivalentToOriginalOverload()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // Null skipProviders must behave exactly like the original overload — no provider exclusion.
         Func<Task> action = async () => await OnnxSessionFactory.CreateWithInfoAsync(
             modelPath: "/nonexistent/model.onnx",
@@ -262,6 +281,8 @@ public class OnnxSessionFactoryTests
     [Fact]
     public async Task CreateWithInfoAsync_ExplicitGpuProvider_WhenSessionCreateThrows_FallsBackToCpu()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // This test simulates a *session-construction*-time GPU failure (e.g. a driver mismatch at
         // runtime) on top of a GPU runtime that DOES provision successfully — it is not exercising
         // (and cannot exercise, by construction) a *provisioning*-time failure, where the requested

@@ -90,9 +90,9 @@ public static class OnnxGeneratorBackend
         {
             // Base onnxruntime binaries first (genai depends on these), then GenAI at the managed assembly's version (not
             // the NuGet latest)
-            foreach (var package in await RuntimePackagesAsync(RuntimeManager.Instance, provider, cancellationToken))
+            foreach (var package in await RuntimePackagesAsync(RuntimeManager.Current, provider, cancellationToken))
             {
-                await RuntimeManager.Instance.EnsureRuntimeAsync(
+                await RuntimeManager.Current.EnsureRuntimeAsync(
                     package.Package,
                     version: package.Version,
                     provider: package.Slot,
@@ -103,15 +103,15 @@ public static class OnnxGeneratorBackend
 
         public async Task<bool> IsRuntimeAvailableOfflineAsync(ExecutionProvider provider, CancellationToken cancellationToken)
             => await OnnxRuntimeArtifacts.IsAvailableOfflineAsync(
-                await RuntimePackagesAsync(OnnxRuntimeArtifacts.Manager, provider, cancellationToken), cancellationToken);
+                await RuntimePackagesAsync(RuntimeManager.Current, provider, cancellationToken), cancellationToken);
 
         public async Task<long?> GetRuntimeDownloadBytesAsync(ExecutionProvider provider, CancellationToken cancellationToken)
             => await OnnxRuntimeArtifacts.GetRemainingDownloadBytesAsync(
-                await RuntimePackagesAsync(OnnxRuntimeArtifacts.Manager, provider, cancellationToken), cancellationToken);
+                await RuntimePackagesAsync(RuntimeManager.Current, provider, cancellationToken), cancellationToken);
 
         public async Task DownloadRuntimeAsync(ExecutionProvider provider, IProgress<DownloadProgress>? progress, CancellationToken cancellationToken)
             => await OnnxRuntimeArtifacts.DownloadAsync(
-                await RuntimePackagesAsync(OnnxRuntimeArtifacts.Manager, provider, cancellationToken), progress, cancellationToken);
+                await RuntimePackagesAsync(RuntimeManager.Current, provider, cancellationToken), progress, cancellationToken);
 
         // The runtime packages a GenAI session of the provider runs on: ONNX Runtime and GenAI, in the provider's slot
         private static async Task<IReadOnlyList<OnnxRuntimeArtifacts.RuntimePackage>> RuntimePackagesAsync(

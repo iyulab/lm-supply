@@ -1,3 +1,4 @@
+using LMSupply.Testing;
 using System.Diagnostics;
 using System.Reflection;
 using AwesomeAssertions;
@@ -72,6 +73,8 @@ public class OnnxInferenceEngineTimeoutRecoveryTests
     [Fact]
     public void TryRecoverAfterTimeout_CoreMLActiveUnderAuto_EntersFallbackAndLogsTimeout()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var capture = new WarningCapture();
         Trace.Listeners.Add(capture);
         try
@@ -98,6 +101,8 @@ public class OnnxInferenceEngineTimeoutRecoveryTests
     [Fact]
     public void TryRecoverAfterTimeout_ExplicitCpuRequested_DoesNothing()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var capture = new WarningCapture();
         Trace.Listeners.Add(capture);
         try
@@ -121,6 +126,8 @@ public class OnnxInferenceEngineTimeoutRecoveryTests
     [Fact]
     public void TryRecoverAfterTimeout_CpuAlreadyActiveUnderAuto_DoesNothing()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var capture = new WarningCapture();
         Trace.Listeners.Add(capture);
         try
@@ -142,6 +149,8 @@ public class OnnxInferenceEngineTimeoutRecoveryTests
     [Fact]
     public void TryRecoverAfterTimeout_SameProviderTwice_SecondCallGivesUp()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var capture = new WarningCapture();
         Trace.Listeners.Add(capture);
         try

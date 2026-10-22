@@ -7,7 +7,7 @@ namespace LMSupply.Lifecycle;
 /// The ONNX Runtime native packages an ONNX model's session runs on, as a model kind's <see cref="IModelArtifacts"/> counts
 /// them: whether they are on this machine, how much is still to download, and the download — for the provider a session of
 /// the given <see cref="ExecutionProvider"/> is created on (Auto: CUDA when the hardware, driver and CUDA libraries allow it,
-/// else CPU). The packages are fetched from the package feed by <see cref="RuntimeManager.Instance"/>, whose options decide
+/// else CPU). The packages are fetched from the package feed by the process-wide <see cref="RuntimeManager.Instance"/>, whose options decide
 /// where they are cached and whether they may be downloaded.
 /// </summary>
 public static class OnnxRuntimeArtifacts
@@ -61,22 +61,7 @@ public static class OnnxRuntimeArtifacts
 
     internal readonly record struct RuntimePackage(string Package, string Slot, string? Version = null);
 
-    private static readonly AsyncLocal<RuntimeManager?> s_manager = new();
-
-    internal static RuntimeManager Manager => s_manager.Value ?? RuntimeManager.Instance;
-
-    /// <summary>Answers from <paramref name="manager"/> instead of the process-wide one in this async flow, until disposed.</summary>
-    internal static IDisposable UseManager(RuntimeManager manager)
-    {
-        var previous = s_manager.Value;
-        s_manager.Value = manager;
-        return new Restore(previous);
-    }
-
-    private sealed class Restore(RuntimeManager? previous) : IDisposable
-    {
-        public void Dispose() => s_manager.Value = previous;
-    }
+    private static RuntimeManager Manager => RuntimeManager.Current;
 
     // The packages OnnxSessionFactory provisions for a session of the provider, in the order it provisions them
     internal static async Task<IReadOnlyList<RuntimePackage>> PackagesAsync(ExecutionProvider provider, CancellationToken cancellationToken)

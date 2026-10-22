@@ -1,3 +1,4 @@
+using LMSupply.Testing;
 using System.Diagnostics;
 using System.Reflection;
 using AwesomeAssertions;
@@ -72,6 +73,8 @@ public class OnnxInferenceEngineTests
     [Fact]
     public void TryFallback_WithExplicitCoreMLProvider_EmitsWarningAndAttemptsProviderRecovery()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // Scenario (post-0.34.8): engine was requested with CoreML but initialised on CPU
         // due to init-stage fallback. An OnnxRuntimeException during inference should enter
         // TryFallback (warning emitted) and attempt session recreation.
@@ -123,6 +126,8 @@ public class OnnxInferenceEngineTests
     [Fact]
     public void InferenceFallbackGuard_CpuProvider_ExcludedFromCatchClause()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // The catch clause condition `_requestedProvider != ExecutionProvider.Cpu` must
         // evaluate to false for Cpu — ensuring CPU never enters an infinite retry loop.
         var requestedProvider = ExecutionProvider.Cpu;
@@ -133,6 +138,8 @@ public class OnnxInferenceEngineTests
     [Fact]
     public void InferenceFallbackGuard_GpuProviders_AllowedInCatchClause()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // After the fix, all explicit GPU providers must satisfy `!= Cpu` so they can
         // enter the inference-time fallback path.
         var gpuProviders = new[]

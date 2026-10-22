@@ -1,3 +1,4 @@
+using LMSupply.Testing;
 using System.Diagnostics;
 using System.Reflection;
 using AwesomeAssertions;
@@ -43,6 +44,8 @@ public class RecoverableOnnxSessionTests
     [Fact]
     public void TryRecoverAfterTimeout_GpuActiveUnderAuto_EntersFallback_UsesCallerPrefix()
     {
+        // No runtime download: a fallback session fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var capture = new WarningCapture();
         Trace.Listeners.Add(capture);
         try
@@ -62,6 +65,8 @@ public class RecoverableOnnxSessionTests
     [InlineData(ExecutionProvider.Auto, "CPUExecutionProvider")]
     public void TryRecoverAfterTimeout_NothingBelowCpu_DoesNothing(ExecutionProvider requested, string active)
     {
+        // No runtime download: a fallback session fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var capture = new WarningCapture();
         Trace.Listeners.Add(capture);
         try
@@ -77,6 +82,8 @@ public class RecoverableOnnxSessionTests
     [Fact]
     public void TryFallback_GpuCrash_EntersFallback_AndBlacklistsProviderForTimeoutToo()
     {
+        // No runtime download: a fallback session fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var capture = new WarningCapture();
         Trace.Listeners.Add(capture);
         try
@@ -96,6 +103,8 @@ public class RecoverableOnnxSessionTests
     [Fact]
     public void Run_CancelledToken_ThrowsOperationCanceled_WithoutFallback()
     {
+        // No runtime download: a fallback session fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         using var session = Create(ExecutionProvider.Auto, "CoreMLExecutionProvider", "CPUExecutionProvider");
         using var cts = new CancellationTokenSource();
         cts.Cancel();
@@ -109,6 +118,8 @@ public class RecoverableOnnxSessionTests
     [Fact]
     public void Run_CpuRequested_CrashSurfacesWithoutFallbackAttempt()
     {
+        // No runtime download: a fallback session fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var capture = new WarningCapture();
         Trace.Listeners.Add(capture);
         try
@@ -126,6 +137,8 @@ public class RecoverableOnnxSessionTests
     [Fact]
     public async Task Dispose_RunStillInFlightOnCurrentHandle_LeaksInsteadOfDisposing()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // A caller-side timeout unblocks the caller but leaves the
         // native call running -- and TryRecoverAfterTimeout only moves that handle aside when a
         // fallback exists. On a CPU-requested session (the reported configuration) it returns
@@ -168,6 +181,8 @@ public class RecoverableOnnxSessionTests
     [Fact]
     public void Dispose_NoRunInFlight_ReclaimsNormally()
     {
+        // No runtime download: a fallback session fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // The other half: with the gate free there is nothing to protect, so Dispose must reclaim
         // rather than leak -- otherwise the fix above would turn every teardown into a leak.
         var capture = new WarningCapture();
@@ -187,6 +202,8 @@ public class RecoverableOnnxSessionTests
     [Fact]
     public void Run_AfterDispose_Throws()
     {
+        // No runtime download: a fallback session fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var session = Create(ExecutionProvider.Cpu, "CPUExecutionProvider");
         session.Dispose();
 
@@ -198,6 +215,8 @@ public class RecoverableOnnxSessionTests
     [Fact]
     public async Task Run_GpuCrash_FallbackFails_RethrowsOriginal_AndReleasesGate()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var capture = new WarningCapture();
         Trace.Listeners.Add(capture);
         try
@@ -225,6 +244,8 @@ public class RecoverableOnnxSessionTests
     [Fact]
     public void SharedBlacklist_SiblingFailure_MakesOtherSessionLeaveProviderBeforeItsNextRun()
     {
+        // No runtime download: a fallback session fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var capture = new WarningCapture();
         Trace.Listeners.Add(capture);
         try
@@ -256,6 +277,8 @@ public class RecoverableOnnxSessionTests
     [Fact]
     public void FromResult_SeedsBlacklist_WithProvidersTheLoadTimeChainSawFail()
     {
+        // No runtime download: a fallback session fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var shared = new ProviderBlacklist();
         var loadedOnCpuAfterDmlRefusedIt = new SessionCreationResult
         {
@@ -275,6 +298,8 @@ public class RecoverableOnnxSessionTests
     [Fact]
     public void PrivateBlacklist_IsPerSession_ByDefault()
     {
+        // No runtime download: a fallback session fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         using var a = Create(ExecutionProvider.Auto, "CoreMLExecutionProvider", "CPUExecutionProvider");
         using var b = Create(ExecutionProvider.Auto, "CoreMLExecutionProvider", "CPUExecutionProvider");
 

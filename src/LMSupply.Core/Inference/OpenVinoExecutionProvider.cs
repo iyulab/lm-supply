@@ -40,7 +40,7 @@ internal static class OpenVinoExecutionProvider
         if (IsRegistered)
             return;
 
-        var library = await RuntimeManager.Instance.EnsureExecutionProviderPluginAsync(
+        var library = await RuntimeManager.Current.EnsureExecutionProviderPluginAsync(
             RuntimePackageRegistry.Providers.OpenVino, progress, cancellationToken).ConfigureAwait(false);
 
         await s_gate.WaitAsync(cancellationToken).ConfigureAwait(false);

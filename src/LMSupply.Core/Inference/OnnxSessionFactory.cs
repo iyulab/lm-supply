@@ -137,7 +137,7 @@ public static class OnnxSessionFactory
         CancellationToken cancellationToken = default)
     {
         // Ensure runtime binaries are available
-        await RuntimeManager.Instance.InitializeAsync(cancellationToken);
+        await RuntimeManager.Current.InitializeAsync(cancellationToken);
 
         var loading = new LoadingReport(progress, modelPath);
 
@@ -166,7 +166,7 @@ public static class OnnxSessionFactory
         // GPU provider is active.
         try
         {
-            await RuntimeManager.Instance.EnsureRuntimeAsync(
+            await RuntimeManager.Current.EnsureRuntimeAsync(
                 "onnxruntime",
                 provider: providerString,
                 progress: progress,
@@ -215,7 +215,7 @@ public static class OnnxSessionFactory
             var msg = ex.Message.Length > 100 ? ex.Message[..100] + "..." : ex.Message;
             Trace.TraceWarning($"[OnnxSessionFactory] {provider} session init failed: {msg}. Falling back to CPU.");
 
-            await RuntimeManager.Instance.EnsureRuntimeAsync(
+            await RuntimeManager.Current.EnsureRuntimeAsync(
                 "onnxruntime", provider: "cpu", progress: progress, cancellationToken: cancellationToken);
 
             session = await Task.Factory.StartNew(
@@ -274,9 +274,9 @@ public static class OnnxSessionFactory
         int deviceId,
         CancellationToken cancellationToken)
     {
-        var fallbackChain = RuntimeManager.Instance.Gpu?.GetFallbackProviders()
+        var fallbackChain = RuntimeManager.Current.Gpu?.GetFallbackProviders()
             ?? new[] { ExecutionProvider.Cpu };
-        ExecutionProviderSupport.TraceDirectMLUnavailableOnce(RuntimeManager.Instance.Gpu, fallbackChain);
+        ExecutionProviderSupport.TraceDirectMLUnavailableOnce(RuntimeManager.Current.Gpu, fallbackChain);
 
         Exception? lastException = null;
         var triedProviders = new List<string>();
@@ -322,7 +322,7 @@ public static class OnnxSessionFactory
                 };
 
                 // Download runtime binaries
-                await RuntimeManager.Instance.EnsureRuntimeAsync(
+                await RuntimeManager.Current.EnsureRuntimeAsync(
                     "onnxruntime",
                     provider: providerString,
                     progress: progress,
@@ -428,7 +428,7 @@ public static class OnnxSessionFactory
         // Final fallback to CPU
         Trace.TraceInformation($"[Fallback] Using CPU (tried: {string.Join(" -> ", triedProviders)})");
 
-        await RuntimeManager.Instance.EnsureRuntimeAsync(
+        await RuntimeManager.Current.EnsureRuntimeAsync(
             "onnxruntime", provider: "cpu", progress: progress, cancellationToken: cancellationToken);
 
         loading.Once();
@@ -482,7 +482,7 @@ public static class OnnxSessionFactory
         var cudaMajorVersion = Runtime.OnnxRuntimeCuda.RequiredCudaMajorForLoadedRuntime;
         var missing = new List<string>();
 
-        if (Runtime.RuntimeManager.Instance.IsInitialized && Runtime.RuntimeManager.Instance.Gpu is { Vendor: Runtime.GpuVendor.Nvidia } gpu
+        if (Runtime.RuntimeManager.Current.IsInitialized && Runtime.RuntimeManager.Current.Gpu is { Vendor: Runtime.GpuVendor.Nvidia } gpu
             && Runtime.OnnxRuntimeCuda.DriverShortfall(gpu.CudaDriverVersionMajor, gpu.CudaDriverVersionMinor, cudaMajorVersion) is { } shortfall)
         {
             missing.Add(shortfall);

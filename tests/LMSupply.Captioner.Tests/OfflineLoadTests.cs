@@ -1,3 +1,4 @@
+using LMSupply.Testing;
 using AwesomeAssertions;
 using LMSupply.Download;
 using LMSupply.Exceptions;
@@ -25,6 +26,8 @@ public sealed class OfflineLoadTests : IDisposable
     [Fact]
     public async Task DisableAutoDownload_WithTheModelNotCached_FailsTheLoadInsteadOfDownloading()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var options = new CaptionerOptions { CacheDirectory = _cacheDir, DisableAutoDownload = true };
 
         var load = () => LocalCaptioner.LoadAsync("default", options, cancellationToken: Ct);
@@ -37,6 +40,8 @@ public sealed class OfflineLoadTests : IDisposable
     [Fact]
     public async Task DisableAutoDownload_WithAnUncachedRepoId_FailsTheLoadInsteadOfDownloading()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         var options = new CaptionerOptions { CacheDirectory = _cacheDir, DisableAutoDownload = true };
 
         var load = () => LocalCaptioner.LoadAsync("Xenova/vit-gpt2-image-captioning", options, cancellationToken: Ct);
@@ -51,6 +56,8 @@ public sealed class OfflineLoadTests : IDisposable
     [Fact]
     public async Task DisableAutoDownload_WithTheModelCached_PassesTheDownloadStage_AndWritesNothing()
     {
+        // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
+        using var runtime = BundledRuntime.Absent();
         // ViT-GPT2's layout (two graphs): the file list below is that model's.
         var model = LocalCaptioner.Registry.Resolve("fast");
         var modelDir = Path.Combine(CacheManager.GetModelDirectory(_cacheDir, model.RepoId), model.Subfolder ?? string.Empty);
