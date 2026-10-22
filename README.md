@@ -1051,7 +1051,7 @@ A host that must not download before the user agrees asks each model package the
 `LMSupply.Lifecycle.IModelArtifacts` — `GeneratorArtifacts(options)`, `EmbedderArtifacts(options)`, `RerankerArtifacts(options)`,
 `TranscriberArtifacts(options)`, `DiarizationArtifacts(options)` (the speaker-diarization pair, one id `"default"`),
 `CaptionerArtifacts(options)`, `OcrArtifacts(options)` (its id is a language code, as for
-`LocalOcr.LoadForLanguageAsync`), `DetectorArtifacts(options)` and `SegmenterArtifacts(options)`, built with the options
+`LocalOcr.LoadForLanguageAsync`), `DetectorArtifacts(options)`, `SegmenterArtifacts(options)` and `TranslatorArtifacts(options)`, built with the options
 the later load will use:
 
 ```csharp

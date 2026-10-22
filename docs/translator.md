@@ -180,6 +180,24 @@ Models are cached following HuggingFace Hub conventions:
 - Override via: `HF_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME` environment variables
 - Or set `TranslatorOptions.CacheDirectory`
 
+### Before a download
+
+A host that asks before downloading reads what a load would fetch, without loading or downloading anything:
+
+```csharp
+var artifacts = new TranslatorArtifacts(new TranslatorOptions { Provider = ExecutionProvider.Cpu });
+if (!await artifacts.IsAvailableOfflineAsync("ko-en"))
+{
+    var remaining = await artifacts.GetRemainingDownloadAsync("ko-en");   // ModelBytes, RuntimeBytes, TotalBytes
+    // ... after the user agrees:
+    await artifacts.DownloadAsync("ko-en", progress);                      // the model files and the ONNX Runtime
+}
+```
+
+`LocalTranslator.GetDownloadSizeBytesAsync`, `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync`
+and `DeleteModel` answer for the model files alone, as the load takes them: the encoder, decoder and tokenizer files it
+picks from the repository (the quantization the hint or the hardware selects), at the lengths the repository lists.
+
 ## Architecture Notes
 
 The translator uses encoder-decoder MarianMT architecture with:

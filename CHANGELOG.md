@@ -16,6 +16,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync` and `DeleteModel`, for semantic and
   interactive models alike: the files each load takes (one file picked from the repository, or MobileSAM's encoder,
   decoder and configuration). See [Before a download](docs/segmenter.md#before-a-download).
+- **Translator: a host can ask before a download.** `TranslatorArtifacts` and `LocalTranslator.GetDownloadSizeBytesAsync`,
+  `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync` and `DeleteModel`: the encoder, decoder
+  and tokenizer files a load picks (the quantization its hint or the hardware selects), planned by the same discovery as
+  the load. See [Before a download](docs/translator.md#before-a-download).
 - **`RuntimeManager.IsRuntimeAvailableOfflineAsync`, `GetRuntimeDownloadBytesAsync` and `DownloadRuntimeAsync`** answer, for
   one runtime package and provider, whether a load would find it without downloading, how many bytes it would download, and
   fetch it without loading it; `OnnxRuntimeArtifacts` answers the same for the provider an ONNX session of an

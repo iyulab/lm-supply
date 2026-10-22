@@ -169,7 +169,11 @@ public class DocsSnippetCompileTests
             ["result"] = "TranscriptionResult result = null!;",
             ["args"] = "string[] args = [];",
         },
-        ["docs/translator.md"] = new() { ["translator"] = "ITranslatorModel translator = null!;" },
+        ["docs/translator.md"] = new()
+        {
+            ["translator"] = "ITranslatorModel translator = null!;",
+            ["progress"] = "IProgress<DownloadProgress> progress = null!;",
+        },
         ["docs/MODEL_LIFECYCLE.md"] = new()
         {
             ["model"] = "IEmbeddingModel model = null!;",

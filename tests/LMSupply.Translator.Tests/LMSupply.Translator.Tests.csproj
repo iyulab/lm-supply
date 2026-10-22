@@ -25,6 +25,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\BundledRuntime.cs" Link="Shared\BundledRuntime.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="Tokenization/Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

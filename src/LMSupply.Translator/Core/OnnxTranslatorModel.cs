@@ -347,84 +347,113 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
 
     private async Task<string> ResolveModelPathAsync(CancellationToken cancellationToken)
     {
-        // If it's a local path, return directory
-        if (Directory.Exists(_modelInfo.Id))
-        {
-            // For local paths, use explicit file names if provided
-            _resolvedEncoderFile = _modelInfo.EncoderFile;
-            _resolvedDecoderFile = _modelInfo.DecoderFile;
-            return _modelInfo.Id;
-        }
-
-        var parentDir = Path.GetDirectoryName(_modelInfo.Id);
-        if (parentDir != null && Directory.Exists(parentDir))
-        {
-            _resolvedEncoderFile = _modelInfo.EncoderFile;
-            _resolvedDecoderFile = _modelInfo.DecoderFile;
-            return parentDir;
-        }
-
-        // Download from HuggingFace — or, with DisableAutoDownload, read the cache only
-        using var downloader = new HuggingFaceDownloader(_options.CacheDirectory, localFilesOnly: _options.DisableAutoDownload);
-
-        if (_modelInfo.UseAutoDiscovery)
-        {
-            // Use auto-discovery for ONNX files
-            var hwPrefs = ModelPreferences.ForProvider(_options.Provider);
-            var preferences = new ModelPreferences
-            {
-                PreferredSubfolder = _modelInfo.Subfolder,
-                DecoderVariantPriority = [_modelInfo.PreferredDecoderVariant, DecoderVariant.Standard, DecoderVariant.Merged],
-                QuantizationPriority = _options.QuantizationHint is { } hint
-                    ? ModelPreferences.ForQuantizationHint(hint).QuantizationPriority
-                    : hwPrefs.QuantizationPriority,
-                PreferredProvider = _options.Provider != ExecutionProvider.Auto
-                    ? _options.Provider : hwPrefs.PreferredProvider
-            };
-
-            var (modelDir, discovery) = await downloader.DownloadWithDiscoveryAsync(
-                _modelInfo.Id,
-                preferences: preferences,
-                progress: _downloadProgress,
-                cancellationToken: cancellationToken);
-
-            // Store discovered file paths (preserve relative path structure for subfolder support)
-            _resolvedEncoderFile = discovery.PrimaryEncoderFile is not null
-                ? discovery.PrimaryEncoderFile.Replace('/', Path.DirectorySeparatorChar)
-                : throw new InvalidOperationException($"No encoder model found in repository '{_modelInfo.Id}'");
-
-            _resolvedDecoderFile = discovery.PrimaryDecoderFile is not null
-                ? discovery.PrimaryDecoderFile.Replace('/', Path.DirectorySeparatorChar)
-                : throw new InvalidOperationException($"No decoder model found in repository '{_modelInfo.Id}'");
-
-            return modelDir;
-        }
-        else
-        {
-            // Use explicit file list (legacy behavior)
-            var encoderFile = _modelInfo.EncoderFile ?? "encoder_model.onnx";
-            var decoderFile = _modelInfo.DecoderFile ?? "decoder_model.onnx";
-
-            var modelDir = await downloader.DownloadModelAsync(
-                _modelInfo.Id,
-                files:
-                [
-                    encoderFile,
-                    decoderFile,
-                    "config.json",
-                    "vocab.json",
-                    "tokenizer.json",
-                    _modelInfo.TokenizerFile
-                ],
-                progress: _downloadProgress,
-                cancellationToken: cancellationToken);
-
-            _resolvedEncoderFile = encoderFile;
-            _resolvedDecoderFile = decoderFile;
-
-            return modelDir;
-        }
+        var (modelDir, encoderFile, decoderFile) = await DownloadAsync(_modelInfo, _options, _downloadProgress, cancellationToken);
+        _resolvedEncoderFile = encoderFile;
+        _resolvedDecoderFile = decoderFile;
+        return modelDir;
     }
+
+    /// <summary>
+    /// The directory a model on local disk is read from (the id itself, or the directory that holds it), or null for a
+    /// repository the load downloads.
+    /// </summary>
+    internal static string? LocalDirectory(TranslatorModelInfo modelInfo)
+    {
+        if (Directory.Exists(modelInfo.Id))
+            return modelInfo.Id;
+
+        var parentDir = Path.GetDirectoryName(modelInfo.Id);
+        return parentDir != null && Directory.Exists(parentDir) ? parentDir : null;
+    }
+
+    /// <summary>
+    /// The download a load makes — or, with <see cref="TranslatorOptions.DisableAutoDownload"/>, the cache read — and the
+    /// encoder and decoder files it opens, relative to the directory. Shared by the load and
+    /// <see cref="LocalTranslator.DownloadModelAsync"/>, so both take the same files.
+    /// </summary>
+    internal static async Task<(string ModelDir, string EncoderFile, string DecoderFile)> DownloadAsync(
+        TranslatorModelInfo modelInfo, TranslatorOptions options, IProgress<DownloadProgress>? progress, CancellationToken cancellationToken)
+    {
+        if (LocalDirectory(modelInfo) is { } localDir)
+            return (localDir, modelInfo.EncoderFile ?? "encoder_model.onnx", modelInfo.DecoderFile ?? "decoder_model.onnx");
+
+        using var downloader = new HuggingFaceDownloader(CacheDirectory(options), localFilesOnly: options.DisableAutoDownload);
+
+        if (modelInfo.UseAutoDiscovery)
+        {
+            var (modelDir, discovery) = await downloader.DownloadWithDiscoveryAsync(
+                modelInfo.Id,
+                preferences: DiscoveryPreferences(modelInfo, options),
+                progress: progress,
+                cancellationToken: cancellationToken);
+
+            // Discovered file paths keep their relative structure, for models in a subfolder
+            var encoderFile = discovery.PrimaryEncoderFile is not null
+                ? discovery.PrimaryEncoderFile.Replace('/', Path.DirectorySeparatorChar)
+                : throw new InvalidOperationException($"No encoder model found in repository '{modelInfo.Id}'");
+
+            var decoderFile = discovery.PrimaryDecoderFile is not null
+                ? discovery.PrimaryDecoderFile.Replace('/', Path.DirectorySeparatorChar)
+                : throw new InvalidOperationException($"No decoder model found in repository '{modelInfo.Id}'");
+
+            return (modelDir, encoderFile, decoderFile);
+        }
+
+        var explicitDir = await downloader.DownloadModelAsync(
+            modelInfo.Id,
+            files: RequiredFiles(modelInfo),
+            progress: progress,
+            cancellationToken: cancellationToken);
+
+        return (explicitDir, modelInfo.EncoderFile ?? "encoder_model.onnx", modelInfo.DecoderFile ?? "decoder_model.onnx");
+    }
+
+    /// <summary>
+    /// The files <see cref="DownloadAsync"/> would fetch for the same model and options, with their listed lengths; null for
+    /// a model on local disk. Chosen by the same discovery or file list, so the plan and the download cannot disagree.
+    /// Downloads nothing.
+    /// </summary>
+    internal static async Task<DownloadPlan?> PlanAsync(
+        TranslatorModelInfo modelInfo, TranslatorOptions options, CancellationToken cancellationToken)
+    {
+        if (LocalDirectory(modelInfo) is not null)
+            return null;
+
+        using var downloader = new HuggingFaceDownloader(CacheDirectory(options), localFilesOnly: options.DisableAutoDownload);
+        return modelInfo.UseAutoDiscovery
+            ? await downloader.PlanWithDiscoveryAsync(
+                modelInfo.Id, preferences: DiscoveryPreferences(modelInfo, options), cancellationToken: cancellationToken)
+            : await downloader.PlanModelAsync(modelInfo.Id, files: RequiredFiles(modelInfo), cancellationToken: cancellationToken);
+    }
+
+    internal static string CacheDirectory(TranslatorOptions options) =>
+        options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+
+    private static ModelPreferences DiscoveryPreferences(TranslatorModelInfo modelInfo, TranslatorOptions options)
+    {
+        var hwPrefs = ModelPreferences.ForProvider(options.Provider);
+        return new ModelPreferences
+        {
+            PreferredSubfolder = modelInfo.Subfolder,
+            DecoderVariantPriority = [modelInfo.PreferredDecoderVariant, DecoderVariant.Standard, DecoderVariant.Merged],
+            QuantizationPriority = options.QuantizationHint is { } hint
+                ? ModelPreferences.ForQuantizationHint(hint).QuantizationPriority
+                : hwPrefs.QuantizationPriority,
+            PreferredProvider = options.Provider != ExecutionProvider.Auto
+                ? options.Provider : hwPrefs.PreferredProvider
+        };
+    }
+
+    // The files of a model that names them rather than being discovered
+    private static string[] RequiredFiles(TranslatorModelInfo modelInfo) =>
+    [
+        modelInfo.EncoderFile ?? "encoder_model.onnx",
+        modelInfo.DecoderFile ?? "decoder_model.onnx",
+        "config.json",
+        "vocab.json",
+        "tokenizer.json",
+        modelInfo.TokenizerFile
+    ];
 
     private void ConfigureSessionOptions(SessionOptions options)
     {
