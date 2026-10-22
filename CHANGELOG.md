@@ -6,19 +6,6 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
-## [0.135.0] - 2026-10-22
-
-### Changed
-- **Breaking: every download whose source cannot be reached at all now fails with `ModelHostUnreachableException` naming
-  that host** — GGUF models, llama-server builds and the ONNX Runtime packages, not only the ONNX
-  model files. A GGUF load surfaced the raw `HttpRequestException`; a llama-server build whose release GitHub could not
-  answer (no connection, or the API timeout) failed as `LlamaServerAcquisitionException` with `ReleaseNotResolved`; an ONNX
-  Runtime package with no cached version failed as `InvalidOperationException`. Each now raises the typed exception with
-  `Host` = `huggingface.co` (or the `HF_ENDPOINT` host), `api.github.com` or the build's download host, or `api.nuget.org`,
-  and the network error as its inner exception. A source that answers with an error (404, 403, 5xx) fails as before.
-  Migration: code that caught `HttpRequestException`, `LlamaServerAcquisitionException` or `InvalidOperationException`
-  for an unreachable source catches `ModelHostUnreachableException` (a `ModelDownloadException`).
-
 ### Added
 - **Detector: a host can ask before a download.** `DetectorArtifacts` is the detector's `IModelArtifacts` (detection, face,
   plate and pose models alike), and `LocalDetector` gains `GetDownloadSizeBytesAsync`, `GetRemainingDownloadBytesAsync`,
@@ -33,22 +20,6 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   one runtime package and provider, whether a load would find it without downloading, how many bytes it would download, and
   fetch it without loading it; `OnnxRuntimeArtifacts` answers the same for the provider an ONNX session of an
   `ExecutionProvider` is created on. `LlamaServerUpdateService.GetRemainingDownloadBytesAsync(backend)` answers for llama-server.
-- **Generator: a loaded generator is a Microsoft.Extensions.AI `IChatClient`** — `generator.AsChatClient()` returns a
-  `LocalChatClient`, so `ChatClientBuilder` pipelines, `UseFunctionInvocation()` and agent frameworks use a local model
-  with no adapter of their own: instructions, images, tool calls and results, reasoning (`Reasoning.Effort` drives
-  `ThinkingMode`, reasoning returns as `TextReasoningContent`), sampling options, `ToolMode`, JSON `ResponseFormat`,
-  library-only options through `RawRepresentationFactory`, and usage with cached prompt tokens, whole or streamed. The
-  client does not own the generator, and `GetService<IGeneratorModel>()` hands out the loaded model (its context
-  length). See [Microsoft.Extensions.AI](docs/generator.md#microsoftextensionsai).
-- **Synthesizer: the Korean voice speaks text.** A built-in Korean phonemizer turns Korean text into the phonemes the
-  `korean` voice was trained on, in pure .NET with no download: figures are read as Sino-Korean numbers and Latin
-  letters by their Korean names, each word is said by the rules of the standard pronunciation that follow from its
-  spelling (liaison, the seven final sounds and cluster reduction, aspiration, palatalization, tensing, nasal and
-  liquid assimilation), and the symbols written are the ones the voice is heard to say best. Spoken and transcribed by
-  Whisper, everyday sentences and sentences with figures read back at a character error rate of about 18%.
-  `SynthesizeAsync` and the other text methods on the Korean voice, which threw `NotSupportedException`, now return
-  speech; a phonemizer set in `SynthesizerOptions.Phonemizer` still replaces the built-in one. The Chinese voice still
-  needs phonemes or a phonemizer. See [Korean text](docs/synthesizer.md#korean-text) for what is not handled.
 
 ### Changed
 - **Breaking — `IModelArtifacts.GetRemainingDownloadBytesAsync` is `GetRemainingDownloadAsync`, and the model kinds count
@@ -73,16 +44,6 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   build paths the llama-server state keeps for releases before 0.122.
 
 ### Fixed
-- **Synthesizer: English words the dictionary lacks are stressed and ended as English says them.** The
-  letter-to-sound rules stressed every word of three or four syllables on its first one (`agenda`, `origami`,
-  `avocado`), read a final i after a consonant as in «it» and a final ai as in «rain», reduced the stressed vowel of
-  words such as `corona`, and said each letter of a doubled consonant (`bassetti` with two s sounds). A word of three
-  syllables or more ending in a consonant and a, i or o is now stressed on the syllable before the last (one ending in
-  -ica on the one before that), endings that do not move the stress (`-s`, `-ed`, `-ing`, `-er`, `-ly`, `-ness`,
-  `-ment`, ...) are set aside before the stress is placed, a final i after a consonant is «ee», a final ai «eye», and a
-  doubled consonant one sound. Read against the shipped dictionary, the rules now stress 86% of its words as it does
-  (was 79%) — 91-95% of the long words ending in a consonant and a, i or o (was 4-30%) — and say 27% of them exactly
-  (was 23%).
 - **Synthesizer: a two-syllable English word with a prefix the dictionary lacks is stressed on its root.** The
   letter-to-sound rules stressed the root only after be-, de- and re-, and there also when the letters after them
   cannot begin a syllable (`beckon`, `dentist`, where the vowel is the word's own). The root now takes the stress
@@ -111,6 +72,49 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `Fridays`), and an s between vowels as z before a final -on, -a, -i or -o and in -sive (`Acheson`, `Mesa`,
   `abusive`). Each is now said as the shipped dictionary has it, and so is a ch before l, r, t or s: a k (`Chloe`,
   `Christ`), not the ch of «church».
+
+## [0.135.0] - 2026-10-22
+
+### Changed
+- **Breaking: every download whose source cannot be reached at all now fails with `ModelHostUnreachableException` naming
+  that host** — GGUF models, llama-server builds and the ONNX Runtime packages, not only the ONNX
+  model files. A GGUF load surfaced the raw `HttpRequestException`; a llama-server build whose release GitHub could not
+  answer (no connection, or the API timeout) failed as `LlamaServerAcquisitionException` with `ReleaseNotResolved`; an ONNX
+  Runtime package with no cached version failed as `InvalidOperationException`. Each now raises the typed exception with
+  `Host` = `huggingface.co` (or the `HF_ENDPOINT` host), `api.github.com` or the build's download host, or `api.nuget.org`,
+  and the network error as its inner exception. A source that answers with an error (404, 403, 5xx) fails as before.
+  Migration: code that caught `HttpRequestException`, `LlamaServerAcquisitionException` or `InvalidOperationException`
+  for an unreachable source catches `ModelHostUnreachableException` (a `ModelDownloadException`).
+
+### Added
+- **Generator: a loaded generator is a Microsoft.Extensions.AI `IChatClient`** — `generator.AsChatClient()` returns a
+  `LocalChatClient`, so `ChatClientBuilder` pipelines, `UseFunctionInvocation()` and agent frameworks use a local model
+  with no adapter of their own: instructions, images, tool calls and results, reasoning (`Reasoning.Effort` drives
+  `ThinkingMode`, reasoning returns as `TextReasoningContent`), sampling options, `ToolMode`, JSON `ResponseFormat`,
+  library-only options through `RawRepresentationFactory`, and usage with cached prompt tokens, whole or streamed. The
+  client does not own the generator, and `GetService<IGeneratorModel>()` hands out the loaded model (its context
+  length). See [Microsoft.Extensions.AI](docs/generator.md#microsoftextensionsai).
+- **Synthesizer: the Korean voice speaks text.** A built-in Korean phonemizer turns Korean text into the phonemes the
+  `korean` voice was trained on, in pure .NET with no download: figures are read as Sino-Korean numbers and Latin
+  letters by their Korean names, each word is said by the rules of the standard pronunciation that follow from its
+  spelling (liaison, the seven final sounds and cluster reduction, aspiration, palatalization, tensing, nasal and
+  liquid assimilation), and the symbols written are the ones the voice is heard to say best. Spoken and transcribed by
+  Whisper, everyday sentences and sentences with figures read back at a character error rate of about 18%.
+  `SynthesizeAsync` and the other text methods on the Korean voice, which threw `NotSupportedException`, now return
+  speech; a phonemizer set in `SynthesizerOptions.Phonemizer` still replaces the built-in one. The Chinese voice still
+  needs phonemes or a phonemizer. See [Korean text](docs/synthesizer.md#korean-text) for what is not handled.
+
+### Fixed
+- **Synthesizer: English words the dictionary lacks are stressed and ended as English says them.** The
+  letter-to-sound rules stressed every word of three or four syllables on its first one (`agenda`, `origami`,
+  `avocado`), read a final i after a consonant as in «it» and a final ai as in «rain», reduced the stressed vowel of
+  words such as `corona`, and said each letter of a doubled consonant (`bassetti` with two s sounds). A word of three
+  syllables or more ending in a consonant and a, i or o is now stressed on the syllable before the last (one ending in
+  -ica on the one before that), endings that do not move the stress (`-s`, `-ed`, `-ing`, `-er`, `-ly`, `-ness`,
+  `-ment`, ...) are set aside before the stress is placed, a final i after a consonant is «ee», a final ai «eye», and a
+  doubled consonant one sound. Read against the shipped dictionary, the rules now stress 86% of its words as it does
+  (was 79%) — 91-95% of the long words ending in a consonant and a, i or o (was 4-30%) — and say 27% of them exactly
+  (was 23%).
 - **Generator: a streamed tool call on a Gemma 4 GGUF model is no longer lost.** `GenerateChatStreamAsync` ended the
   turn with finish reason `tool_calls` but no `ChatToolCallDelta`: the stream kept only the calls its Gemma 4 wrapper
   parser found in the text, and llama-server builds that parse the wrapper themselves send the call as structured
