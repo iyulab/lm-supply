@@ -15,14 +15,18 @@ namespace LMSupply.Integration.Tests.Functional;
 [Trait("Domain", "Synthesizer")]
 public sealed class SynthesizerKoreanAcceptanceTests(ITestOutputHelper output)
 {
-    // Measured (Whisper "quality", CPU), character error rate over all 165 characters: 0.109-0.176 in 5 runs (prose
-    // 0.171-0.178 in the first 3, figures 0.167-0.222). Runs differ because the voice samples noise. The errors that recur are a vowel
-    // after a vowel heard as one (서울은 → 서른), ㅊ after a vowel heard as ㅈ (같이 → 갈지, 이천 → 이전) and 회의 heard
-    // as other words. For comparison, the same symbols with ㅏ written a (the plain IPA letter) measured about 0.5 on the
-    // first 12 sentences. The bound leaves room for about 1.7 times the measured rate.
-    private const double MaxCharacterErrorRate = 0.30;
+    // Measured (Whisper "quality", CPU), character error rate over all 165 characters with the voice's noise turned off
+    // (Noiseless), which makes a run repeat its figures exactly: 0.139 (prose 0.132, figures 0.167). With the voice's
+    // noise, runs differed: 0.109-0.176 in 5 runs (prose 0.171-0.178 in the first 3, figures 0.167-0.222). The errors
+    // that recur are a vowel after a vowel heard as one (서울은 → 서른), ㅊ after a vowel heard as ㅈ (같이 → 갈지, 이천 →
+    // 이전) and 회의 heard as other words. For comparison, the same symbols with ㅏ written a (the plain IPA letter)
+    // measured about 0.5 on the first 12 sentences (with noise). The bound leaves room for another platform's
+    // arithmetic to move a few characters.
+    private const double MaxCharacterErrorRate = 0.20;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    private static readonly SynthesizeOptions Noiseless = new() { NoiseScale = 0, NoiseWidth = 0 };
 
     private static readonly (string Set, string Text)[] Sentences =
     [
@@ -54,7 +58,7 @@ public sealed class SynthesizerKoreanAcceptanceTests(ITestOutputHelper output)
         var totals = new Dictionary<string, (int Errors, int Characters)>();
         foreach (var (set, text) in Sentences)
         {
-            var audio = await synthesizer.SynthesizeAsync(text, cancellationToken: Ct);
+            var audio = await synthesizer.SynthesizeAsync(text, Noiseless, Ct);
             audio.UnknownPhonemes.Should().BeEmpty("the built-in phonemizer writes only symbols the voice has");
 
             var heard = await transcriber.TranscribeAsync(audio.ToWavBytes(), new TranscribeOptions { Language = "ko" }, Ct);

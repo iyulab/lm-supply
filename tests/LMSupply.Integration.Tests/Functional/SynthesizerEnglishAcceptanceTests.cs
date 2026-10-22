@@ -15,20 +15,25 @@ namespace LMSupply.Integration.Tests.Functional;
 [Trait("Domain", "Synthesizer")]
 public sealed class SynthesizerEnglishAcceptanceTests(ITestOutputHelper output)
 {
-    // Measured (Whisper "default", CPU), word error rate over all 120 words / over the 97 words of prose and figures,
-    // lowest and highest of the runs made:
-    //   default (espeak voice "en", British-style)  0.008-0.083 / 0.000-0.031 (4 runs)
-    //   lessac ("en-us")                            0.033       / 0.000-0.010 (2 runs)
-    //   fast ("en-us")                              0.017-0.025 / 0.000-0.010 (2 runs)
-    //   quality ("en-us")                           0.025-0.067 / 0.000-0.021 (2 runs)
-    //   british ("en-gb-x-rp")                      0.025-0.075 / 0.010       (2 runs)
-    // Runs differ because the voice samples noise. Most errors are the out-of-dictionary names spelled another way
-    // ("Pelington", "smart watch"). For comparison, the default voice given the American transcription instead of the
-    // British-style one it was trained on measured 0.125 / 0.082. The bounds leave room for about twice the worst run.
-    private const double MaxWordErrorRate = 0.15;
-    private const double MaxInDictionaryWordErrorRate = 0.08;
+    // Measured (Whisper "default", CPU), word error rate over all 120 words / over the 97 words of prose and figures, with
+    // the voice's noise turned off (Noiseless), which makes a run repeat its figures exactly:
+    //   default (espeak voice "en", British-style)  0.025 / 0.010
+    //   fast ("en-us")                              0.008 / 0.000
+    //   quality ("en-us")                           0.050 / 0.000
+    //   british ("en-gb-x-rp")                      0.025 / 0.010
+    //   lessac ("en-us")                            not measured without noise; 0.033 / 0.000-0.010 with it
+    // With the voice's own noise every run differs: over 10 runs british ranged 0.000-0.062 on prose and figures and
+    // once reached 0.093, so a bound either fails at random or is too loose to catch a regression. The noise belongs to
+    // the voice model, not to the text front end this test is about. Most errors left are out-of-dictionary names spelled
+    // another way ("Pelington", "smart watch"). For comparison, the default voice given the American transcription
+    // instead of the British-style one it was trained on measured 0.125 / 0.082 (with noise). The bounds leave room
+    // for another platform's arithmetic to move a few words.
+    private const double MaxWordErrorRate = 0.10;
+    private const double MaxInDictionaryWordErrorRate = 0.04;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    private static readonly SynthesizeOptions Noiseless = new() { NoiseScale = 0, NoiseWidth = 0 };
 
     /// <summary>The sentences, by set: ordinary prose, figures, and words the pronunciation dictionary does not have.</summary>
     private static readonly (string Set, string Text)[] Sentences =
@@ -62,7 +67,7 @@ public sealed class SynthesizerEnglishAcceptanceTests(ITestOutputHelper output)
         var totals = new Dictionary<string, (int Errors, int Words)>();
         foreach (var (set, text) in Sentences)
         {
-            var audio = await synthesizer.SynthesizeAsync(text, cancellationToken: Ct);
+            var audio = await synthesizer.SynthesizeAsync(text, Noiseless, Ct);
             audio.UnknownPhonemes.Should().BeEmpty("the built-in phonemizer writes only symbols the voice has");
 
             var heard = await transcriber.TranscribeAsync(audio.ToWavBytes(), new TranscribeOptions { Language = "en" }, Ct);
