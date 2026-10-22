@@ -320,6 +320,10 @@ public class OnnxSessionFactoryTests
         // After the fix: InvalidOperationException is caught; CPU fallback is attempted;
         //   the final exception is from the CPU session attempt (model file not found).
         var ex = await Assert.ThrowsAnyAsync<Exception>(action);
+        // A driver is not a provisionable runtime (a host can lack the provider's own dependencies, e.g. its cuBLAS):
+        // configureOptions never ran, so the factory failed at provisioning — the case this test does not exercise.
+        Assert.SkipWhen(attemptCount == 0 && ex is ModelLoadException,
+            $"CUDA did not provision on this host, so no session was attempted ({ex.Message})");
         ex.Should().NotBeOfType<InvalidOperationException>(
             "the simulated GPU failure should be caught and CPU fallback should be attempted");
         // When this fails, the count and the final exception say which way: 1 = the CPU retry failed before it built its
