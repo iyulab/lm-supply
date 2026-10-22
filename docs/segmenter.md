@@ -173,6 +173,24 @@ Models are cached following HuggingFace Hub conventions:
 - Override via: `HF_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME` environment variables
 - Or set `SegmenterOptions.CacheDirectory`
 
+### Before a download
+
+A host that asks before downloading reads what a load would fetch, without loading or downloading anything:
+
+```csharp
+var artifacts = new SegmenterArtifacts(new SegmenterOptions { Provider = ExecutionProvider.Cpu });
+if (!await artifacts.IsAvailableOfflineAsync("interactive"))
+{
+    var remaining = await artifacts.GetRemainingDownloadAsync("interactive");   // ModelBytes, RuntimeBytes, TotalBytes
+    // ... after the user agrees:
+    await artifacts.DownloadAsync("interactive", progress);                      // the model files and the ONNX Runtime
+}
+```
+
+`LocalSegmenter.GetDownloadSizeBytesAsync`, `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync`
+and `DeleteModel` answer for the model files alone, as the load takes them: a segmentation model's one file from its
+repository, an interactive model's encoder, decoder and configuration — at the lengths the repository lists.
+
 ## ADE20K Class Reference
 
 The semantic segmentation models detect 150 ADE20K classes including:

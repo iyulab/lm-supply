@@ -25,6 +25,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `IsModelDownloadedAsync`, `DownloadModelAsync` and `DeleteModel`: the one file a load picks from the repository, at the
   length the repository lists, planned by the same discovery as the load (`ModelPathResolver.PlanModelAsync`). Until now a
   host could only read the registry's approximate `SizeBytes`. See [Before a download](docs/detector.md#before-a-download).
+- **Segmenter: a host can ask before a download.** `SegmenterArtifacts` and `LocalSegmenter.GetDownloadSizeBytesAsync`,
+  `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync` and `DeleteModel`, for semantic and
+  interactive models alike: the files each load takes (one file picked from the repository, or MobileSAM's encoder,
+  decoder and configuration). See [Before a download](docs/segmenter.md#before-a-download).
 - **`RuntimeManager.IsRuntimeAvailableOfflineAsync`, `GetRuntimeDownloadBytesAsync` and `DownloadRuntimeAsync`** answer, for
   one runtime package and provider, whether a load would find it without downloading, how many bytes it would download, and
   fetch it without loading it; `OnnxRuntimeArtifacts` answers the same for the provider an ONNX session of an
