@@ -112,6 +112,7 @@ public class DocsSnippetCompileTests
             ["imageHeight"] = "int imageHeight = 480;",
             // Qualified: LMSupply.Vision exports a BoundingBox of another shape.
             ["otherBox"] = "LMSupply.Vision.BoundingBox otherBox = default;",
+            ["progress"] = "IProgress<DownloadProgress> progress = null!;",
         },
         ["docs/embedder.md"] = new()
         {
@@ -149,7 +150,11 @@ public class DocsSnippetCompileTests
             ["longDocument"] = "string longDocument = \"\";",
             ["progress"] = "IProgress<DownloadProgress> progress = null!;",
         },
-        ["docs/segmenter.md"] = new() { ["segmenter"] = "ISegmenterModel segmenter = null!;" },
+        ["docs/segmenter.md"] = new()
+        {
+            ["segmenter"] = "ISegmenterModel segmenter = null!;",
+            ["progress"] = "IProgress<DownloadProgress> progress = null!;",
+        },
         ["docs/synthesizer.md"] = new()
         {
             ["synthesizer"] = "ISynthesizerModel synthesizer = null!;",
@@ -172,6 +177,7 @@ public class DocsSnippetCompileTests
             ["texts"] = "string[] texts = [];",
             ["query"] = "string query = \"\";",
             ["documents"] = "string[] documents = [];",
+            ["progress"] = "IProgress<DownloadProgress> progress = null!;",
         },
         ["docs/MEMORY_REQUIREMENTS.md"] = new()
         {
