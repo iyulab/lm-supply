@@ -38,8 +38,10 @@ await using var local = await LocalEmbedder.LoadAsync("/path/to/model.onnx");
    length is discarded and fetched again
 3. **Download** (if not cached): Fetch from HuggingFace Hub — an interrupted download leaves a `.part`
    file and resumes from it on the next load
-4. **ONNX Runtime Init**: Initialize inference session with GPU detection
-5. **Provider Selection**: Auto-detect best execution provider (CUDA → CoreML → CPU)
+4. **Runtime**: The native runtime the model runs on — ONNX Runtime for an ONNX model, llama-server for a GGUF one — is
+   fetched on the first load on a machine, once, and shared by every model after it
+5. **ONNX Runtime Init**: Initialize inference session with GPU detection
+6. **Provider Selection**: Auto-detect best execution provider (CUDA → CoreML → CPU)
 
 ### 1.3 Load Options
 
@@ -110,6 +112,36 @@ Model   tokenizer.json        Complete   (the file's size)
 Runtime onnxruntime           Complete
 Model   onnx/model.onnx       Loading
 ```
+
+### 1.5 Asking Before a Download
+
+An application that must not download before the user agrees asks the model kind's `IModelArtifacts`
+(`EmbedderArtifacts`, `GeneratorArtifacts`, `DetectorArtifacts`, …, built with the options the load will use) first:
+
+```csharp
+IModelArtifacts embedders = new EmbedderArtifacts(new EmbedderOptions { DisableAutoDownload = true });
+
+if (!await embedders.IsAvailableOfflineAsync("default"))
+{
+    var remaining = await embedders.GetRemainingDownloadAsync("default");
+    // "Download about {remaining.ModelBytes} bytes of model and {remaining.RuntimeBytes} of runtime?"
+    await embedders.DownloadAsync("default", progress);   // after the user agrees
+}
+
+await using var model = await LocalEmbedder.LoadAsync("default", new EmbedderOptions { DisableAutoDownload = true });
+```
+
+- `GetRemainingDownloadAsync` states what `DownloadAsync` would fetch on this machine: `ModelBytes` (the files a load
+  picks that the cache does not hold) and `RuntimeBytes` (the runtime the load runs on, when it is not on the machine),
+  with `TotalBytes` their sum. It reads the repository listing and the runtime's release listing or package feed, and
+  downloads nothing. `RuntimeBytes` — and so `TotalBytes` — is null when that cannot be told: the listing or feed is
+  unreachable, or a load would not download the runtime at all.
+- «Available offline» covers the runtime too, so after `DownloadAsync` a load with `DisableAutoDownload` downloads
+  nothing.
+- `Delete` removes the model's files; runtimes are shared by models and stay.
+
+See [Asking whether a model is ready](../README.md#asking-whether-a-model-is-ready-and-downloading-it-on-consent) for the
+model kinds and `ModelLifecycle`, which keeps the status of several models for a host's model list.
 
 ---
 
@@ -325,6 +357,7 @@ catch (InferenceException ex)
 
 | Phase | Action | Notes |
 |-------|--------|-------|
+| Ask | `IModelArtifacts` | Size, availability and download before a load, for consent |
 | Load | `LoadAsync()` | Downloads if needed, initializes GPU |
 | Warmup | `WarmupAsync()` | Optional, reduces first-call latency |
 | Use | Domain methods | Thread-safe, batch-optimized |
