@@ -158,6 +158,7 @@ public class DocsSnippetCompileTests
         ["docs/synthesizer.md"] = new()
         {
             ["synthesizer"] = "ISynthesizerModel synthesizer = null!;",
+            ["progress"] = "IProgress<DownloadProgress> progress = null!;",
             ["result"] = "SynthesisResult result = null!;",
             ["sentences"] = "IReadOnlyList<string> sentences = [];",
             // The reader's own audio sink.

@@ -327,6 +327,24 @@ var options = new SynthesizerOptions
 var synthesizer = await LocalSynthesizer.LoadAsync("quality", options);
 ```
 
+### Before a download
+
+A host that asks before downloading reads what a load would fetch, without loading or downloading anything:
+
+```csharp
+var artifacts = new SynthesizerArtifacts(new SynthesizerOptions { Provider = ExecutionProvider.Cpu });
+if (!await artifacts.IsAvailableOfflineAsync("quality"))
+{
+    var remaining = await artifacts.GetRemainingDownloadAsync("quality");   // ModelBytes, RuntimeBytes, TotalBytes
+    // ... after the user agrees:
+    await artifacts.DownloadAsync("quality", progress);                      // the voice and the ONNX Runtime
+}
+```
+
+`LocalSynthesizer.GetDownloadSizeBytesAsync`, `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync`
+and `DeleteModel` answer for the voice's model and config alone, at the lengths the repository lists. The catalog's voices
+share one repository, each in a folder of its own: `DeleteModel` deletes that voice's files and keeps the others.
+
 ## Working with Results
 
 ### SynthesisResult

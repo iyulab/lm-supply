@@ -1,6 +1,7 @@
 using LMSupply.Synthesizer.Core;
 using LMSupply.Synthesizer.Models;
 using LMSupply.Download;
+using LMSupply.Exceptions;
 
 namespace LMSupply.Synthesizer;
 
@@ -78,6 +79,104 @@ public static class LocalSynthesizer
     {
         progress = LoadProgress.Begin(progress);
         return LoadAsync(options?.ModelId ?? "default", options, progress, cancellationToken);
+    }
+
+    /// <summary>
+    /// Bytes <see cref="LoadAsync(string, SynthesizerOptions?, IProgress{DownloadProgress}?, CancellationToken)"/> would
+    /// download for the same id and options into an empty cache: the voice's model and config, at the lengths the
+    /// repository lists. 0 for a voice on local disk.
+    /// </summary>
+    /// <remarks>
+    /// Reads the repository listing (cached for the download that follows); downloads and loads nothing. The native ONNX
+    /// Runtime a first load also provisions is not counted — <see cref="SynthesizerArtifacts"/> counts it. With
+    /// <see cref="SynthesizerOptions.DisableAutoDownload"/> the listing comes from the cache only, as the load's does.
+    /// </remarks>
+    /// <exception cref="ModelNotFoundException">The repository does not exist, or (downloads disabled) it was never listed into this cache.</exception>
+    /// <exception cref="ModelDownloadException">The voice's model is not in the repository.</exception>
+    public static async Task<long> GetDownloadSizeBytesAsync(
+        string modelIdOrPath, SynthesizerOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var (info, resolved) = Prepare(modelIdOrPath, options);
+        return (await OnnxSynthesizerModel.PlanAsync(info, resolved, cancellationToken))?.TotalBytes ?? 0;
+    }
+
+    /// <summary>
+    /// Bytes a load with the same id and options would still download now: the files of
+    /// <see cref="GetDownloadSizeBytesAsync"/> the cache does not hold at the length the repository lists; 0 when cached or
+    /// on local disk. A partly downloaded file counts in full. Runtimes are not counted.
+    /// </summary>
+    public static async Task<long> GetRemainingDownloadBytesAsync(
+        string modelIdOrPath, SynthesizerOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var (info, resolved) = Prepare(modelIdOrPath, options);
+        return await OnnxSynthesizerModel.PlanAsync(info, resolved, cancellationToken) is { } plan
+            ? plan.GetRemainingBytes(OnnxSynthesizerModel.CacheDirectory(resolved))
+            : 0;
+    }
+
+    /// <summary>
+    /// Whether a load with the same id and options would open cached files only: the voice's model and config are in the
+    /// cache at the lengths the repository lists, or the voice is on local disk. Makes no network request; never errs toward
+    /// <see langword="true"/>.
+    /// </summary>
+    public static async Task<bool> IsModelDownloadedAsync(
+        string modelIdOrPath, SynthesizerOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var (info, resolved) = Prepare(modelIdOrPath, options);
+        // Plan from the cached listing only: the check must not reach the network.
+        resolved.DisableAutoDownload = true;
+        try
+        {
+            return await OnnxSynthesizerModel.PlanAsync(info, resolved, cancellationToken) is not { } plan
+                   || plan.GetRemainingBytes(OnnxSynthesizerModel.CacheDirectory(resolved)) == 0;
+        }
+        catch (Exception ex) when (ex is ModelNotFoundException or ModelDownloadException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Downloads the voice's model and config, without loading anything, so a load with downloads disabled opens cached
+    /// files only. Cached files are not fetched again; a voice on local disk downloads nothing. The load downloads through
+    /// the same path.
+    /// </summary>
+    /// <exception cref="ModelNotFoundException">The voice is unknown, or (downloads disabled) not cached.</exception>
+    public static async Task DownloadModelAsync(
+        string modelIdOrPath, SynthesizerOptions? options = null, IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (info, resolved) = Prepare(modelIdOrPath, options);
+        await OnnxSynthesizerModel.DownloadAsync(info, resolved, progress, cancellationToken);
+    }
+
+    /// <summary>
+    /// Deletes what LMSupply downloaded of this voice from the cache, so the next load downloads it again. The voices of
+    /// the catalog share one repository, each in a folder of its own: only this voice's files are deleted, and nothing
+    /// another tool put in the shared cache. A voice on local disk is kept.
+    /// </summary>
+    /// <returns>Whether anything was deleted.</returns>
+    /// <exception cref="IOException">A file is open, for example by a loaded synthesizer (Windows).</exception>
+    public static bool DeleteModel(string modelIdOrPath, SynthesizerOptions? options = null)
+    {
+        var (info, resolved) = Prepare(modelIdOrPath, options);
+        if (OnnxSynthesizerModel.LocalDirectory(info) is not null || File.Exists(info.Id) || !info.Id.Contains('/'))
+            return false;
+
+        return CacheManager.DeleteModelFiles(
+            OnnxSynthesizerModel.CacheDirectory(resolved), info.Id, OnnxSynthesizerModel.SnapshotPaths(info));
+    }
+
+    // The registry entry a load resolves, with the options it runs under
+    private static (SynthesizerModelInfo Info, SynthesizerOptions Options) Prepare(string modelIdOrPath, SynthesizerOptions? options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelIdOrPath);
+        options = options?.Clone() ?? new SynthesizerOptions();
+        ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
+        var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
+        options.ModelId = baseId;
+        options.QuantizationHint ??= qualifier;
+        return (SynthesizerModelRegistry.Default.Resolve(baseId), options);
     }
 
     /// <summary>

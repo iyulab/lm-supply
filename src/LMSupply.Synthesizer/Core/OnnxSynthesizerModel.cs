@@ -350,34 +350,71 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
         }
     }
 
-    private async Task<string> ResolveModelPathAsync(CancellationToken cancellationToken)
+    private Task<string> ResolveModelPathAsync(CancellationToken cancellationToken) =>
+        DownloadAsync(_modelInfo!, _options, _downloadProgress, cancellationToken);
+
+    /// <summary>
+    /// The directory a voice on local disk is read from (the id itself, or the directory that holds it), or null for a
+    /// repository the load downloads.
+    /// </summary>
+    internal static string? LocalDirectory(SynthesizerModelInfo modelInfo)
     {
-        // If it's a local directory path, return it
-        if (Directory.Exists(_modelInfo!.Id))
-        {
-            return _modelInfo.Id;
-        }
+        if (Directory.Exists(modelInfo.Id))
+            return modelInfo.Id;
 
-        // Check if parent directory exists (for file paths)
-        var parentDir = Path.GetDirectoryName(_modelInfo.Id);
-        if (parentDir != null && Directory.Exists(parentDir))
-        {
-            return parentDir;
-        }
-
-        // Download from HuggingFace
-        var cacheDir = _options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
-        using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: _options.DisableAutoDownload);
-
-        var modelPath = await downloader.DownloadModelAsync(
-            _modelInfo.Id,
-            files: [_modelInfo.ModelFile, _modelInfo.ConfigFile],
-            subfolder: _modelInfo.VoiceName,
-            progress: _downloadProgress,
-            cancellationToken: cancellationToken);
-
-        return modelPath;
+        var parentDir = Path.GetDirectoryName(modelInfo.Id);
+        return parentDir != null && Directory.Exists(parentDir) ? parentDir : null;
     }
+
+    /// <summary>
+    /// The download a load makes of the voice's model and config — or, with <see cref="SynthesizerOptions.DisableAutoDownload"/>,
+    /// the cache read — and the directory they are in. Shared by the load and <see cref="LocalSynthesizer.DownloadModelAsync"/>,
+    /// so both take the same files.
+    /// </summary>
+    internal static async Task<string> DownloadAsync(
+        SynthesizerModelInfo modelInfo, SynthesizerOptions options, IProgress<DownloadProgress>? progress, CancellationToken cancellationToken)
+    {
+        if (LocalDirectory(modelInfo) is { } localDir)
+            return localDir;
+
+        using var downloader = new HuggingFaceDownloader(CacheDirectory(options), localFilesOnly: options.DisableAutoDownload);
+        return await downloader.DownloadModelAsync(
+            modelInfo.Id,
+            files: VoiceFiles(modelInfo),
+            subfolder: modelInfo.VoiceName,
+            progress: progress,
+            cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// The files <see cref="DownloadAsync"/> would fetch for the same voice and options, with their listed lengths; null for
+    /// a voice on local disk. Downloads nothing.
+    /// </summary>
+    internal static async Task<DownloadPlan?> PlanAsync(
+        SynthesizerModelInfo modelInfo, SynthesizerOptions options, CancellationToken cancellationToken)
+    {
+        if (LocalDirectory(modelInfo) is not null)
+            return null;
+
+        using var downloader = new HuggingFaceDownloader(CacheDirectory(options), localFilesOnly: options.DisableAutoDownload);
+        return await downloader.PlanModelAsync(
+            modelInfo.Id, files: VoiceFiles(modelInfo), subfolder: modelInfo.VoiceName, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// The voice's files as paths relative to a snapshot (<c>/</c>-separated): the voices of one repository each have a
+    /// subfolder of their own, so these are what deleting one voice deletes.
+    /// </summary>
+    internal static IEnumerable<string> SnapshotPaths(SynthesizerModelInfo modelInfo)
+    {
+        var prefix = string.IsNullOrEmpty(modelInfo.VoiceName) ? "" : modelInfo.VoiceName.TrimEnd('/') + "/";
+        return VoiceFiles(modelInfo).Select(f => prefix + f);
+    }
+
+    internal static string CacheDirectory(SynthesizerOptions options) =>
+        options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+
+    private static string[] VoiceFiles(SynthesizerModelInfo modelInfo) => [modelInfo.ModelFile, modelInfo.ConfigFile];
 
     private void ConfigureSessionOptions(SessionOptions options)
     {

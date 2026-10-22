@@ -20,6 +20,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync` and `DeleteModel`: the encoder, decoder
   and tokenizer files a load picks (the quantization its hint or the hardware selects), planned by the same discovery as
   the load. See [Before a download](docs/translator.md#before-a-download).
+- **Synthesizer: a host can ask before a download.** `SynthesizerArtifacts` and `LocalSynthesizer.GetDownloadSizeBytesAsync`,
+  `GetRemainingDownloadBytesAsync`, `IsModelDownloadedAsync`, `DownloadModelAsync` and `DeleteModel`: a voice's model and
+  config. The catalog's voices share one repository, so deleting a voice deletes its folder's files and keeps the other
+  voices. See [Before a download](docs/synthesizer.md#before-a-download).
 - **`RuntimeManager.IsRuntimeAvailableOfflineAsync`, `GetRuntimeDownloadBytesAsync` and `DownloadRuntimeAsync`** answer, for
   one runtime package and provider, whether a load would find it without downloading, how many bytes it would download, and
   fetch it without loading it; `OnnxRuntimeArtifacts` answers the same for the provider an ONNX session of an
