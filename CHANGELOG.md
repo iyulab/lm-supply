@@ -6,6 +6,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Fixed
+- **A repository listing whose hub cannot be reached, with no file list cached, now fails with `ModelHostUnreachableException`
+  naming the hub** (as file downloads have since 0.135.0) instead of a raw `HttpRequestException`. This covers a GGUF repository
+  given without a file name and every other load that chooses its files from a listing (`ModelDiscoveryService.ListRepositoryFilesAsync`).
+  A hub that answers with an error status fails as before.
+
 ## [0.136.0] - 2026-10-22
 
 ### Added

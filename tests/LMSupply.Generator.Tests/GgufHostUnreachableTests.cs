@@ -36,6 +36,32 @@ public sealed class GgufHostUnreachableTests : IDisposable
         failure.InnerException.Should().BeOfType<HttpRequestException>();
     }
 
+    // A repository given without a file name is listed first to choose the file; that listing surfaced the raw
+    // HttpRequestException after the file download was typed.
+    [Fact]
+    public async Task ARepositoryWithoutAFileName_WithTheHubUnreachable_IsTypedWithTheHubHost()
+    {
+        using var downloader = new GgufModelDownloader(_cache, hfToken: null, localFilesOnly: false, handler: new Refusing());
+
+        var act = () => downloader.DownloadAsync("example-org/example-model-GGUF", cancellationToken: TestContext.Current.CancellationToken);
+
+        var failure = (await act.Should().ThrowAsync<ModelHostUnreachableException>()).Which;
+        var endpoint = Environment.GetEnvironmentVariable("HF_ENDPOINT");
+        failure.Host.Should().Be(string.IsNullOrWhiteSpace(endpoint) ? "huggingface.co" : new Uri(endpoint).Host);
+        failure.ModelId.Should().Be("example-org/example-model-GGUF");
+        failure.InnerException.Should().BeOfType<HttpRequestException>();
+    }
+
+    [Fact]
+    public async Task ARepositoryWithoutAFileName_WhoseHubAnswersWithAnError_IsNotAnUnreachableHost()
+    {
+        using var downloader = new GgufModelDownloader(_cache, hfToken: null, localFilesOnly: false, handler: new Status(HttpStatusCode.Forbidden));
+
+        var act = () => downloader.DownloadAsync("example-org/example-model-GGUF", cancellationToken: TestContext.Current.CancellationToken);
+
+        (await act.Should().ThrowAsync<Exception>()).Which.Should().NotBeOfType<ModelHostUnreachableException>();
+    }
+
     [Fact]
     public async Task AHubThatAnswersWithAnError_IsNotAnUnreachableHost()
     {

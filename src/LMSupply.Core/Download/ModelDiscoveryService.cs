@@ -148,7 +148,19 @@ public sealed class ModelDiscoveryService : IDisposable
             }
 
             if (cached is null)
-                throw;
+            {
+                // Every caller that picks files from a listing (a GGUF repository given without a file name, ONNX model
+                // selection, download planning) comes through here, so this is where «the hub cannot be reached and
+                // nothing is cached» gets the same typed failure as a file download.
+                if (ex is ModelHostUnreachableException)
+                    throw;
+                var host = HubEndpoint.Host;
+                throw new ModelHostUnreachableException(
+                    $"Could not list the files of '{repoId}': the model host {host} could not be reached ({ex.Message}) and no " +
+                    $"file list for it is cached. If this network cannot reach {host}, set {HubEndpoint.EnvironmentVariable} to a " +
+                    "mirror or an internal hub it can reach.",
+                    repoId, host, ex);
+            }
 
             Trace.TraceWarning(
                 $"[ModelDiscoveryService] Could not list '{repoId}' ({ex.GetType().Name}: {ex.Message}); " +
