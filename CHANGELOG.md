@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.135.0] - 2026-10-22
+
 ### Changed
 - **Breaking: every download whose source cannot be reached at all now fails with `ModelHostUnreachableException` naming
   that host** — GGUF models, llama-server builds and the ONNX Runtime packages, not only the ONNX
