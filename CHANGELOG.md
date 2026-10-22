@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.136.0] - 2026-10-22
+
 ### Added
 - **Detector: a host can ask before a download.** `DetectorArtifacts` is the detector's `IModelArtifacts` (detection, face,
   plate and pose models alike), and `LocalDetector` gains `GetDownloadSizeBytesAsync`, `GetRemainingDownloadBytesAsync`,
