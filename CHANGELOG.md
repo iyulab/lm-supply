@@ -6,6 +6,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Changed
+- **Breaking** (behaviour): **`TokenUsage.EstimateTokens` charges each kind of character** (Latin letters, Hangul, kana, Han, digits,
+  punctuation, whitespace runs, other scripts) at ratios fitted to the o200k_base tokenizer instead of `ceil(length / 4)`. It is the
+  usage reported when a server returns none (the ONNX generator, a llama-server response without timings): Korean text counts about
+  2.5× more tokens than before (it was read as English), English text a little less, digits more. No code change.
+
 ### Added
 - **Any GGUF model can be judged against this machine, not only the auto-selection pool.** `GgufModelRegistry.Evaluate(model, provider, contextLength)`
   applies the rule `auto` uses to a catalog entry outside the pool or a model described by its own `GgufModelInfo`, and

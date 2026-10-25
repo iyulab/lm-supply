@@ -34,11 +34,13 @@ public class TokenUsageTests
     }
 
     [Fact]
-    public void EstimateTokens_ApproximatelyFourCharsPerToken()
+    public void EstimateTokens_ChargesEachKindOfCharacter()
     {
-        // 20 chars → ~5 tokens (4 chars/token heuristic)
-        var count = TokenUsage.EstimateTokens("12345678901234567890");
-        count.Should().Be(5);
+        // o200k_base ratios: ~1.3 digits per token (20 → 16), ~7 Latin letters per token, ~1.35 Hangul syllables per token
+        TokenUsage.EstimateTokens("12345678901234567890").Should().Be(16);
+        TokenUsage.EstimateTokens("abcdefghijklmn").Should().Be(2);
+        // Korean is not read as English: 10 syllables are ~8 tokens, not ceil(10 / 4) = 3
+        TokenUsage.EstimateTokens("안녕하세요반갑습니다").Should().Be(8);
     }
 
     [Fact]

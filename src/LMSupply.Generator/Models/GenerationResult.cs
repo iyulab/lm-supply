@@ -56,18 +56,11 @@ public readonly record struct TokenUsage(
     public static TokenUsage Empty => new(0, 0);
 
     /// <summary>
-    /// Estimates token count from text using a simple heuristic.
-    /// Assumes approximately 4 characters per token on average.
+    /// Estimates token count from text by the kinds of its characters (Latin letters, Hangul, kana, Han, digits,
+    /// punctuation, whitespace runs, other scripts), at ratios fitted to the o200k_base tokenizer.
     /// </summary>
     /// <param name="text">The text to estimate tokens for.</param>
-    /// <returns>Estimated token count.</returns>
-    public static int EstimateTokens(string text)
-    {
-        if (string.IsNullOrEmpty(text))
-            return 0;
-
-        // Rough estimate: ~4 characters per token for English text
-        // This is a common heuristic used by OpenAI and others
-        return (int)Math.Ceiling(text.Length / 4.0);
-    }
+    /// <returns>Estimated token count; 0 for an empty text.</returns>
+    public static int EstimateTokens(string text) =>
+        TokenEstimation.CharTokenEstimator.Count(text, TokenEstimation.CharTokenRatios.O200k);
 }
