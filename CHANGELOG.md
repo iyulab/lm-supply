@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.137.0] - 2026-10-26
+
 ### Changed
 - **Breaking** (behaviour): **`TokenUsage.EstimateTokens` charges each kind of character** (Latin letters, Hangul, kana, Han, digits,
   punctuation, whitespace runs, other scripts) at ratios fitted to the o200k_base tokenizer instead of `ceil(length / 4)`. It is the
