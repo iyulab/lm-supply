@@ -451,7 +451,7 @@ public static class GgufModelRegistry
     /// <param name="provider">The provider the load asks for.</param>
     /// <param name="contextLength">The context the load asks for — each candidate's KV cache is sized for it; null =
     /// <see cref="DefaultBudgetContextLength"/>.</param>
-    /// <param name="goal">What to optimize for when no candidate fits VRAM.</param>
+    /// <param name="goal">What to optimize for: when no candidate fits VRAM, the RAM pick; <see cref="AutoSelectionGoal.QuickStart"/> also the pick among those that fit.</param>
     public static ModelSelectionResult GetAutoSelection(
         ExecutionProvider provider, int? contextLength = null, AutoSelectionGoal goal = AutoSelectionGoal.Quality)
     {
@@ -521,11 +521,18 @@ public static class GgufModelRegistry
         GgufModelInfo selected;
         ModelSelectionReason reason;
 
-        var fittingVram = candidates.FirstOrDefault(c => c.Fits);
-        // Candidates are ordered largest first: Quality takes the largest RAM fit, Responsive the smallest.
-        var fittingRam = goal == AutoSelectionGoal.Responsive
-            ? candidates.LastOrDefault(c => c.FitsInSystemRam)
-            : candidates.FirstOrDefault(c => c.FitsInSystemRam);
+        // Candidates are ordered largest first (by what they hold in memory): the largest VRAM fit is the first one.
+        // QuickStart weighs the download instead — the weights file, not the KV cache — and takes the smallest.
+        var quickStart = goal == AutoSelectionGoal.QuickStart;
+        var fittingVram = quickStart
+            ? candidates.Where(c => c.Fits).MinBy(c => c.WeightsBytes)
+            : candidates.FirstOrDefault(c => c.Fits);
+        // Quality takes the largest RAM fit, Responsive the smallest.
+        var fittingRam = quickStart
+            ? candidates.Where(c => c.FitsInSystemRam).MinBy(c => c.WeightsBytes)
+            : goal == AutoSelectionGoal.Responsive
+                ? candidates.LastOrDefault(c => c.FitsInSystemRam)
+                : candidates.FirstOrDefault(c => c.FitsInSystemRam);
 
         if (fittingVram is not null)
         {

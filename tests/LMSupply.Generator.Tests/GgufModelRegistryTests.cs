@@ -418,6 +418,41 @@ public class GgufModelRegistryTests
         responsive.Selected.AliasName.Should().Be(quality.Selected.AliasName, "the goal only decides the RAM path");
     }
 
+    [Fact]
+    public void GetAutoSelection_VramFits_QuickStartGoal_TakesTheSmallestDownloadThatFits()
+    {
+        var gpu = new GpuInfo
+        {
+            Vendor = GpuVendor.Nvidia,
+            TotalMemoryBytes = 8L * 1024 * 1024 * 1024,
+            FreeMemoryBytes = 7L * 1024 * 1024 * 1024
+        };
+        var ram = 32L * 1024 * 1024 * 1024;
+        var quality = GgufModelRegistry.GetAutoSelection(gpu, ram, GgufModelRegistry.DefaultBudgetContextLength, excludeKnownIssues: null);
+        var quick = GgufModelRegistry.GetAutoSelection(
+            gpu, ram, GgufModelRegistry.DefaultBudgetContextLength, excludeKnownIssues: null, AutoSelectionGoal.QuickStart);
+
+        quick.Reason.Should().Be(ModelSelectionReason.Fits);
+        quick.Goal.Should().Be(AutoSelectionGoal.QuickStart);
+        var fitting = quick.Candidates.Where(c => c.Fits).ToList();
+        fitting.Count.Should().BeGreaterThan(1, "the host must hold more than one candidate for the goals to differ");
+        quick.Selected.AliasName.Should().Be(fitting.MinBy(c => c.WeightsBytes)!.Model.AliasName);
+        quick.Selected.AliasName.Should().NotBe(quality.Selected.AliasName, "Quality takes the largest that fits");
+    }
+
+    [Fact]
+    public void GetAutoSelection_NoVramButAmpleRam_QuickStartGoal_TakesTheSmallestDownloadTheRamHolds()
+    {
+        var gpu = new GpuInfo { Vendor = GpuVendor.Intel, TotalMemoryBytes = 128L * 1024 * 1024 };
+        var result = GgufModelRegistry.GetAutoSelection(
+            gpu, systemRamBytes: 32L * 1024 * 1024 * 1024,
+            GgufModelRegistry.DefaultBudgetContextLength, excludeKnownIssues: null, AutoSelectionGoal.QuickStart);
+
+        result.Reason.Should().Be(ModelSelectionReason.FitsInSystemRam);
+        result.Selected.AliasName.Should().Be(
+            result.Candidates.Where(c => c.FitsInSystemRam).MinBy(c => c.WeightsBytes)!.Model.AliasName);
+    }
+
     [Theory]
     [InlineData(4L, 0L)]    // at or below the reserve: nothing
     [InlineData(6L, 2L)]    // small host: the reserve binds (6 - 4 < 3)

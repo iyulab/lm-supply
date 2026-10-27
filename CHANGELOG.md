@@ -6,6 +6,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **`AutoSelectionGoal.QuickStart` picks the smallest download that fits.** `"default"`, `"auto"` and `"gguf:auto"` take the
+  largest model the VRAM budget holds under `Quality` and `Responsive`, which only differ when nothing fits VRAM, so a first run on a
+  large machine fetches the largest model. `QuickStart` takes the model with the smallest weights file among those that fit VRAM —
+  or, when none does, among those the system RAM budget holds — so an application does not need a second rule of its own for a
+  first download. Set it with `GeneratorOptions.AutoSelectionGoal` or `TextGeneratorBuilder.WithAutoSelectionGoal`.
+
 ### Changed
 - The .NET 10.0.14 servicing pins (`System.Numerics.Tensors`, `Microsoft.Extensions.FileProviders.Embedded`, EF Core `Sqlite` and
   `Design`, `Microsoft.AspNetCore.Mvc.Testing`) and SourceLink 10.0.403 replace 10.0.13 and 10.0.401. `Microsoft.OpenApi` stays on 2.x.

@@ -54,7 +54,8 @@ public sealed class GeneratorOptions : LMSupplyOptionsBase
     /// What <c>"default"</c>, <c>"auto"</c> and <c>"gguf:auto"</c> choose when no candidate fits the VRAM budget:
     /// <see cref="AutoSelectionGoal.Quality"/> (default) takes the largest model the system RAM budget holds,
     /// <see cref="AutoSelectionGoal.Responsive"/> the smallest. A host whose GPU holds a candidate gets the largest
-    /// that fits under either goal.
+    /// that fits under either of those goals; <see cref="AutoSelectionGoal.QuickStart"/> takes the smallest download
+    /// that fits, GPU or not.
     /// </summary>
     public AutoSelectionGoal AutoSelectionGoal { get; set; } = AutoSelectionGoal.Quality;
 
