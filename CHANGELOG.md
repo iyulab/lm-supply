@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.138.0] - 2026-10-28
+
 ### Added
 - **`AutoSelectionGoal.QuickStart` picks the smallest download that fits.** `"default"`, `"auto"` and `"gguf:auto"` take the
   largest model the VRAM budget holds under `Quality` and `Responsive`, which only differ when nothing fits VRAM, so a first run on a
