@@ -116,7 +116,9 @@ public sealed record GgufModelInfo : IModelInfoBase, IModelMemoryInfo
 
     /// <summary>
     /// Known issues for this model. Tags from <see cref="GgufModelKnownIssues"/>.
-    /// Empty by default; set for models with known compatibility issues.
+    /// Empty by default; set for models with known compatibility issues. A tag records a problem that was observed; the
+    /// absence of one is not a guarantee — the library has not measured an entry's tool-calling, instruction-following or
+    /// speed, so an empty list does not mean the model does those well.
     /// </summary>
     public IReadOnlyList<string> KnownIssues { get; init; } = [];
 

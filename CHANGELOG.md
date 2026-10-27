@@ -16,6 +16,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ### Changed
 - The .NET 10.0.14 servicing pins (`System.Numerics.Tensors`, `Microsoft.Extensions.FileProviders.Embedded`, EF Core `Sqlite` and
   `Design`, `Microsoft.AspNetCore.Mvc.Testing`) and SourceLink 10.0.403 replace 10.0.13 and 10.0.401. `Microsoft.OpenApi` stays on 2.x.
+- The documentation of `GgufModelInfo.KnownIssues` now says that an empty list is not a guarantee: a tag records an observed problem,
+  and the library has not measured an entry's tool calling, instruction following or speed.
 
 ### Fixed
 - **A generator GGUF model that is cached but was never listed now has an offline download size and a remaining download of 0.**
