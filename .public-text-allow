@@ -43,3 +43,5 @@ src/LMSupply.Synthesizer/Core/Korean/KoreanPhonemizer.cs  # Hangul jamo name the
 tests/LMSupply.Synthesizer.Tests/KoreanPhonemizerTests.cs  # Korean words and sentences are phonemizer inputs and expected pronunciations
 tests/LMSupply.Integration.Tests/Functional/SynthesizerKoreanAcceptanceTests.cs  # Korean sentences are speech synthesis inputs and the numerals they are compared in
 docs/synthesizer.md  # Korean words and sentences are examples of what the Korean phonemizer reads and says
+src/LMSupply.Generator/Internal/CharTokenEstimator.cs  # Hangul, kana and Han ranges are the character classes the token estimate prices
+tests/LMSupply.Generator.Tests/TokenUsageTests.cs  # a Korean sentence is the input of the token estimate

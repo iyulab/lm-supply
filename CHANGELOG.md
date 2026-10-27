@@ -6,6 +6,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Fixed
+- **A generator GGUF model that is cached but was never listed now has an offline download size and a remaining download of 0.**
+  With `DisableAutoDownload`, `GetDownloadSizeBytesAsync` and `GetRemainingDownloadBytesAsync` (and `IModelArtifacts`) threw
+  `ModelNotFoundException` for a model whose file another tool put in the cache, because the plan wanted a repository listing for
+  the file's length. The length on disk is the plan now, as it already is for embedders and rerankers; a file that is neither listed
+  nor cached still fails with `ModelNotFoundException`.
+
 ## [0.137.0] - 2026-10-26
 
 ### Changed

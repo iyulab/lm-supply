@@ -126,6 +126,35 @@ public sealed class LocalGeneratorDownloadSizeTests : IDisposable
     }
 
     [Fact]
+    public async Task DownloadsDisabled_ACachedFileNeedsNoListing()
+    {
+        var info = GgufModelRegistry.Resolve(Alias)!;
+        var snapshot = Path.Combine(_cacheDir, "models--" + info.RepoId.Replace("/", "--"), "snapshots", "main");
+        Directory.CreateDirectory(snapshot);
+        var content = new byte[4096];
+        File.WriteAllBytes(Path.Combine(snapshot, info.DefaultFile), content);
+        var options = new GeneratorOptions { CacheDirectory = _cacheDir, DisableAutoDownload = true };
+
+        (await LocalGenerator.GetDownloadSizeBytesAsync(Alias, options, Ct)).Should().Be(content.Length,
+            "no listing was ever fetched, so the length on disk is the plan");
+        (await LocalGenerator.GetRemainingDownloadBytesAsync(Alias, options, Ct)).Should().Be(0,
+            "the file the load opens is in the cache at that length");
+    }
+
+    [Fact]
+    public async Task DownloadsDisabled_ACachedFileNeedsNoListing_AnotherFileOfTheRepositoryDoesNotCount()
+    {
+        var info = GgufModelRegistry.Resolve(Alias)!;
+        var snapshot = Path.Combine(_cacheDir, "models--" + info.RepoId.Replace("/", "--"), "snapshots", "main");
+        Directory.CreateDirectory(snapshot);
+        File.WriteAllBytes(Path.Combine(snapshot, "Unrelated-file.gguf"), new byte[4096]);
+        var options = new GeneratorOptions { CacheDirectory = _cacheDir, DisableAutoDownload = true };
+
+        await FluentActions.Awaiting(() => LocalGenerator.GetDownloadSizeBytesAsync(Alias, options, Ct))
+            .Should().ThrowAsync<ModelNotFoundException>("the file the load picks is neither listed nor cached");
+    }
+
+    [Fact]
     public async Task AListingWithoutTheFilesLength_Throws()
     {
         var info = GgufModelRegistry.Resolve(Alias)!;

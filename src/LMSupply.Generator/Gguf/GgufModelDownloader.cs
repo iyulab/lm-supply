@@ -190,13 +190,11 @@ public sealed class GgufModelDownloader : IDisposable
     private async Task<DownloadPlan> PlanFilesAsync(
         string repoId, IReadOnlyList<string> files, CancellationToken cancellationToken)
     {
-        // Offline, the listing comes from the cache only, as the download's choice does.
-        var listing = _localFilesOnly
-            ? _discoveryService.TryReadCachedListing(repoId)
-                ?? throw new ModelNotFoundException(
-                    $"Model '{repoId}' has no repository listing in the local cache and downloads are disabled.", repoId)
-            : await ListRepositoryFilesAsync(repoId, cancellationToken);
-        var listed = listing.Where(f => f.IsFile).ToList();
+        // Offline, the listing comes from the cache only, as the download's choice does — and a file the cache holds
+        // needs no listing: its length on disk is the plan, as for the single-file loaders.
+        var cachedListing = _localFilesOnly ? _discoveryService.TryReadCachedListing(repoId) : null;
+        var listing = _localFilesOnly ? cachedListing : await ListRepositoryFilesAsync(repoId, cancellationToken);
+        var listed = (listing ?? []).Where(f => f.IsFile).ToList();
 
         return new DownloadPlan
         {
@@ -210,10 +208,22 @@ public sealed class GgufModelDownloader : IDisposable
         {
             var match = listed.FirstOrDefault(f => string.Equals(f.Path, file, StringComparison.Ordinal))
                         ?? listed.FirstOrDefault(f => string.Equals(Path.GetFileName(f.Path), file, StringComparison.Ordinal));
-            return match is { Size: > 0 }
-                ? match.Size
-                : throw new ModelDownloadException(
-                    $"The listing of '{repoId}' gives no length for '{file}', so the download size is unknown.", repoId);
+            if (match is { Size: > 0 })
+                return match.Size;
+
+            if (_localFilesOnly)
+            {
+                var cachedPath = GetCachedPath(repoId, file);
+                if (ResumableFileDownload.IsUsableCachedFile(cachedPath, expectedSize: null, readOnly: true))
+                    return CacheManager.GetContentLength(cachedPath);
+
+                if (cachedListing is null)
+                    throw new ModelNotFoundException(
+                        $"Model '{repoId}' has no repository listing in the local cache, '{file}' is not cached, and downloads are disabled.", repoId);
+            }
+
+            throw new ModelDownloadException(
+                $"The listing of '{repoId}' gives no length for '{file}', so the download size is unknown.", repoId);
         }
     }
 
