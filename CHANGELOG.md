@@ -24,6 +24,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   «the limit of N tokens this model was loaded with» and advises reducing the input or loading with a larger context size if the model
   supports one. `MaxContextLength` keeps its meaning and name; its documentation now says the same.
 
+- **Reading a question that was not asked from a `DecisionResult` lists the questions that were.** The `KeyNotFoundException` said only that the key
+  was not present in the dictionary.
+
 ### Fixed
 - **A complete embedder or reranker cache written by an earlier LMSupply reads as downloaded again when no repository listing is cached.**
   For a model downloaded into a subfolder (`onnx/`) the earlier version also wrote a manifest at the snapshot root, listing the same

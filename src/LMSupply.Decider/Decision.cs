@@ -133,7 +133,10 @@ public sealed class DecisionResult : IReadOnlyDictionary<string, Decision>
     public DecisionPath Path { get; }
 
     /// <inheritdoc />
-    public Decision this[string key] => _byName[key];
+    /// <exception cref="KeyNotFoundException">No question of that name was asked; the message lists the names that were.</exception>
+    public Decision this[string key] => _byName.TryGetValue(key, out var decision)
+        ? decision
+        : throw new KeyNotFoundException($"Question '{key}' was not asked; this call asked: {string.Join(", ", Keys)}.");
 
     /// <inheritdoc />
     public IEnumerable<string> Keys => _ordered.Select(kv => kv.Key);

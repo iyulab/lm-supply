@@ -153,3 +153,6 @@ arithmetic questions.
   model cannot work anything out first. Use generation for those.
 - Fitting or evaluating calibration against your data.
 - Questions whose answers depend on each other: each question is answered on its own.
+- Throughput through more concurrent calls. Calls on one instance are safe to make at the same time and are answered one after
+  another by the one server slot, so four concurrent calls take about four times one. Put the questions about one state in one
+  call instead: they share the state's evaluation.
