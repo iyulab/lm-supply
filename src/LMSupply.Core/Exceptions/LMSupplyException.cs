@@ -179,7 +179,8 @@ public class InferenceException : LMSupplyException
 }
 
 /// <summary>
-/// Exception thrown when input exceeds the model's maximum context length.
+/// Exception thrown when input is longer than the limit the model was loaded with: its context window, or for an
+/// embedding or rerank input the batch the input has to fit in.
 /// </summary>
 public class ContextLengthExceededException : InferenceException
 {
@@ -189,7 +190,8 @@ public class ContextLengthExceededException : InferenceException
     public int? TokenCount { get; }
 
     /// <summary>
-    /// Gets the maximum context length supported by the model.
+    /// Gets the limit, in tokens, the input exceeded: the context the model was loaded with, which can be smaller than the
+    /// longest context the model supports.
     /// </summary>
     public int MaxContextLength { get; }
 
@@ -197,7 +199,7 @@ public class ContextLengthExceededException : InferenceException
     /// Initializes a new instance of the <see cref="ContextLengthExceededException"/> class.
     /// </summary>
     /// <param name="tokenCount">The number of tokens in the input (null if unknown).</param>
-    /// <param name="maxContextLength">The maximum context length supported by the model.</param>
+    /// <param name="maxContextLength">The limit, in tokens, the input exceeded.</param>
     public ContextLengthExceededException(int? tokenCount, int maxContextLength)
         : base(FormatMessage(tokenCount, maxContextLength))
     {
@@ -209,7 +211,7 @@ public class ContextLengthExceededException : InferenceException
     /// Initializes a new instance of the <see cref="ContextLengthExceededException"/> class.
     /// </summary>
     /// <param name="tokenCount">The number of tokens in the input (null if unknown).</param>
-    /// <param name="maxContextLength">The maximum context length supported by the model.</param>
+    /// <param name="maxContextLength">The limit, in tokens, the input exceeded.</param>
     /// <param name="innerException">The exception that is the cause of the current exception.</param>
     public ContextLengthExceededException(int? tokenCount, int maxContextLength, Exception innerException)
         : base(FormatMessage(tokenCount, maxContextLength), innerException)
@@ -220,8 +222,8 @@ public class ContextLengthExceededException : InferenceException
 
     private static string FormatMessage(int? tokenCount, int maxContextLength) =>
         tokenCount.HasValue
-            ? $"Input length ({tokenCount.Value} tokens) exceeds model's maximum context length ({maxContextLength} tokens). Reduce the input or use a model with larger context support."
-            : $"Input exceeds model's maximum context length ({maxContextLength} tokens). Reduce the input or use a model with larger context support.";
+            ? $"Input length ({tokenCount.Value} tokens) exceeds the limit of {maxContextLength} tokens this model was loaded with. Reduce the input, or load the model with a larger context size if it supports one."
+            : $"Input exceeds the limit of {maxContextLength} tokens this model was loaded with. Reduce the input, or load the model with a larger context size if it supports one.";
 }
 
 /// <summary>

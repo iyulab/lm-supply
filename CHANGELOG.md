@@ -17,6 +17,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   question can move — the probabilities of the emulated path shift a little, so a `Temperature` fitted to your data before this
   version is worth fitting again.
 
+- **`ContextLengthExceededException` names the limit the model was loaded with, and no longer tells the caller to use another model.** The
+  message said the input exceeded «the model's maximum context length» and advised «a model with larger context support», but the number
+  is the context a load was started with (`ContextSize`, 8192 by default for a decider), which a model of a much longer context window
+  exceeds only because of the default; for an embedding or rerank input it is the batch the input has to fit in. The message now says
+  «the limit of N tokens this model was loaded with» and advises reducing the input or loading with a larger context size if the model
+  supports one. `MaxContextLength` keeps its meaning and name; its documentation now says the same.
+
 ### Fixed
 - **A complete embedder or reranker cache written by an earlier LMSupply reads as downloaded again when no repository listing is cached.**
   For a model downloaded into a subfolder (`onnx/`) the earlier version also wrote a manifest at the snapshot root, listing the same
