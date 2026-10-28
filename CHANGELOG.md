@@ -6,6 +6,14 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Fixed
+- **A complete embedder or reranker cache written by an earlier LMSupply reads as downloaded again when no repository listing is cached.**
+  For a model downloaded into a subfolder (`onnx/`) the earlier version also wrote a manifest at the snapshot root, listing the same
+  files with paths relative to the subfolder. The offline plan read that root manifest alone, found none of its files at the root, and
+  answered "not downloaded" (`IsModelDownloadedAsync` false, a host asking its user again to download a model they have), although the
+  subfolder's own manifest recorded every file at the length on disk. A root-manifest entry that a subfolder manifest records under the
+  same name and length is now read as that file; the rest of the root manifest, and a file at another length, behave as before.
+
 ## [0.138.0] - 2026-10-28
 
 ### Added

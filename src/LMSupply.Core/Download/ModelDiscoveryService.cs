@@ -1048,13 +1048,25 @@ public sealed class ModelDiscoveryService : IDisposable
         {
             var ownSnapshot = CacheManager.FindOwnSnapshot(_cacheDir, repoId, revision) ?? CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
             var manifest = await DownloadManifest.ReadAsync(ownSnapshot, cancellationToken);
-            if (manifest is { Files.Count: > 0 })
-                return [.. manifest.Files.Select(f => new RepoFile { Path = f.Path, Type = "file", Size = f.Size })];
+            var rootFiles = manifest is { Files.Count: > 0 }
+                ? manifest.Files.Select(f => new RepoFile { Path = f.Path, Type = "file", Size = f.Size }).ToList()
+                : [];
 
             // A download of a subfolder (an embedder's or reranker's onnx/) records its manifest per subfolder, with paths
             // inside that subfolder.
             if (ListSubfolderManifests(ownSnapshot) is { Count: > 0 } subfolderFiles)
-                return subfolderFiles;
+            {
+                // An earlier version also wrote a manifest at the snapshot root for such a download, with the same paths
+                // as the subfolder's - relative to the subfolder, not to the root. Read as root files they name nothing
+                // that is on disk and the model reads as not downloaded. An entry of the root manifest that a subfolder
+                // manifest records under the same name and length is that file; the rest of the root manifest still counts.
+                rootFiles.RemoveAll(root => subfolderFiles.Any(sub =>
+                    sub.Size == root.Size && sub.Path.EndsWith("/" + root.Path, StringComparison.Ordinal)));
+                return [.. rootFiles, .. subfolderFiles];
+            }
+
+            if (rootFiles.Count > 0)
+                return rootFiles;
 
             // A snapshot another Hugging Face tool wrote for this revision lists itself: what it holds is what
             // that tool downloaded, each file complete (the hub cache moves a file into place only when it is).

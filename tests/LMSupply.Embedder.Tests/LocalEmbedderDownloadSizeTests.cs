@@ -135,6 +135,33 @@ public sealed class LocalEmbedderDownloadSizeTests : IDisposable
         (await LocalEmbedder.IsModelDownloadedAsync("default", Options(), Ct)).Should().BeTrue();
     }
 
+    // An earlier LMSupply wrote, besides the subfolder's manifest, a manifest at the snapshot root for a subfolder download -
+    // listing the same files with paths relative to the subfolder (no `onnx/` prefix). Taken as root files they are "not on
+    // disk", so with no listing cached a complete model read as not downloaded although the subfolder's own manifest (and
+    // every file) was there. (Reported by a host whose real bge-m3 cache has exactly this shape.)
+    [Fact]
+    public async Task IsModelDownloaded_WithoutAListing_ARootManifestWithSubfolderRelativePaths_DoesNotHideTheSubfolderManifest()
+    {
+        EmbedderModelRegistry.Default.TryResolveCatalog("default", out var info, out _).Should().BeTrue();
+        var snapshot = CacheManager.GetModelDirectory(_cacheDir, info!.RepoId);
+        Place(snapshot, $"{info.Subfolder}/model.onnx", 9_000);
+        Place(snapshot, $"{info.Subfolder}/tokenizer.json", 700);
+        const string files = """[{"path":"model.onnx","size":9000},{"path":"tokenizer.json","size":700}]""";
+        File.WriteAllText(
+            Path.Combine(snapshot, ".lmsupply-manifest.json"),
+            $$"""{"version":1,"completedAt":"2026-09-08T01:09:02Z","repoId":"{{info.RepoId}}","revision":"main","files":{{files}}}""");
+        File.WriteAllText(
+            Path.Combine(snapshot, info.Subfolder!, ".lmsupply-manifest.json"),
+            $$"""{"version":2,"repoId":"{{info.RepoId}}","revision":"main","files":{{files}},"absentFiles":[]}""");
+
+        (await LocalEmbedder.IsModelDownloadedAsync("default", Options(), Ct)).Should().BeTrue(
+            "the root manifest names the subfolder's files without the subfolder, the subfolder's manifest says where they are");
+
+        Place(snapshot, $"{info.Subfolder}/model.onnx", 10);
+        (await LocalEmbedder.IsModelDownloadedAsync("default", Options(), Ct)).Should().BeFalse(
+            "a subfolder file at another length than the manifests record is fetched again");
+    }
+
     [Fact]
     public async Task RemainingBytes_ARootConfigFileCachedBesideTheSubfolderModel_IsNotRemaining()
     {
