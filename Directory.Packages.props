@@ -17,8 +17,8 @@
     <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.1" />
     <PackageVersion Include="System.Numerics.Tensors" Version="10.0.14" />
     <!-- Vision Dependencies -->
-    <PackageVersion Include="SkiaSharp" Version="4.153.1" />
-    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
+    <PackageVersion Include="SkiaSharp" Version="4.154.0" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.154.0" />
     <!-- Audio Dependencies -->
     <PackageVersion Include="NAudio" Version="3.3.0" />
     <PackageVersion Include="NAudio.Lame" Version="2.1.0" />
@@ -42,7 +42,7 @@
     <PackageVersion Include="Iyu.Conventions.Testing" Version="0.13.0" />
     <PackageVersion Include="Iyu.Conventions.Testing.Snippets" Version="0.13.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
-    <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.5.1" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.5.2" />
     <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.14" />

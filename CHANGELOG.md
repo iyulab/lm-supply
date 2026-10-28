@@ -14,6 +14,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   subfolder's own manifest recorded every file at the length on disk. A root-manifest entry that a subfolder manifest records under the
   same name and length is now read as that file; the rest of the root manifest, and a file at another length, behave as before.
 
+### Dependencies
+- Re-pinned third-party packages: `SkiaSharp` and `SkiaSharp.NativeAssets.Linux.NoDependencies` 4.153.1 -> 4.154.0.
+
 ## [0.138.0] - 2026-10-28
 
 ### Added
