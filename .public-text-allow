@@ -35,6 +35,7 @@ src/LMSupply.Translator/README.md  # Korean source sentence is the input of the 
 CHANGELOG.md  # Korean sentences are translator inputs quoted in release notes
 tests/LMSupply.Translator.Tests/Tokenization/TranslatorTokenizerSpecialTokenTests.cs  # Korean sentence is a tokenizer input
 tests/LMSupply.Decider.Tests/LiveDeciderTests.cs  # Korean sentences are decision inputs and expected answers
+tests/LMSupply.Decider.Tests/LiveDeciderInjectionTests.cs  # Korean messages and the instruction planted in them are decision inputs
 src/LMSupply.Synthesizer/Core/Korean/Syllable.cs  # Hangul jamo are the parts the Korean phonemizer splits syllables into
 src/LMSupply.Synthesizer/Core/Korean/KoreanPronunciation.cs  # Hangul jamo and example words are the pronunciation rules' data
 src/LMSupply.Synthesizer/Core/Korean/KoreanText.cs  # Hangul numerals and letter names are what figures and Latin letters are read as

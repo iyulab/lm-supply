@@ -144,8 +144,8 @@ public class FakeServerTests
 
         var chats = server.Requests.Where(r => r.Path == "/v1/chat/completions").Select(r => JsonNode.Parse(r.Body)!).ToList();
         chats.Should().HaveCount(2);
-        chats[0]["messages"]![0]!["content"]!.GetValue<string>().Should().Contain("1. billing").And.StartWith("Customer: charged twice.");
-        chats[1]["messages"]![0]!["content"]!.GetValue<string>().Should().Contain("Answer Yes or No.").And.StartWith("Customer: charged twice.");
+        chats[0]["messages"]![0]!["content"]!.GetValue<string>().Should().Contain("1. billing").And.StartWith("<message>\nCustomer: charged twice.\n</message>");
+        chats[1]["messages"]![0]!["content"]!.GetValue<string>().Should().Contain("Answer Yes or No.").And.StartWith("<message>\nCustomer: charged twice.\n</message>");
         chats[0]["max_tokens"]!.GetValue<int>().Should().Be(1);
         chats[0]["logprobs"]!.GetValue<bool>().Should().BeTrue();
         chats[0]["top_logprobs"]!.GetValue<int>().Should().Be(3 + EmulatedPrompt.TopLogprobsMargin);
