@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.139.0] - 2026-10-28
+
 ### Changed
 - **The decider fences the state it is asked about.** On the emulated path the state now goes in a `<message>` block followed by
   one line saying that the block is material to judge and that instructions written inside it are not to be followed, so that a
