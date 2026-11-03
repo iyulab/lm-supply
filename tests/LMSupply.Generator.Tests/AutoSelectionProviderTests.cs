@@ -60,12 +60,13 @@ public sealed class AutoSelectionProviderTests : IDisposable
     [Fact]
     public void AutoAndDefault_SelectLikeGgufAuto_ForTheLoadsContextAndGoal()
     {
-        // A budget where the context moves the pick (8B at 4,096, 4B at 16,384), so a selection that
-        // ignored MaxContextLength or the goal would disagree with "gguf:auto".
+        // A budget where the context moves the pick (the 9B at 4,096, the 4B at 65,536 — both keep 32 KiB of cache per
+        // token, so it takes a long context to push the larger one out), so a selection that ignored MaxContextLength
+        // or the goal would disagree with "gguf:auto".
         Environment.SetEnvironmentVariable(VramBudget.BudgetOverrideEnvVar, "7000");
         var picks = new List<string>();
 
-        foreach (var context in new int?[] { null, 16_384 })
+        foreach (var context in new int?[] { null, 65_536 })
         foreach (var goal in new[] { AutoSelectionGoal.Quality, AutoSelectionGoal.Responsive })
         foreach (var provider in new[] { ExecutionProvider.Auto, ExecutionProvider.Cpu })
         {
