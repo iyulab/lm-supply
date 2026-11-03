@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using AwesomeAssertions;
 using LMSupply.Decider.Internal;
+using LMSupply.Exceptions;
 using LMSupply.Llama.Server;
 
 namespace LMSupply.Decider.Tests;
@@ -27,7 +28,7 @@ public class FakeServerTests
          "usage":{"input_tokens":30,"output_tokens":0}}
         """;
 
-    private sealed class ScriptedServer(string modalitiesJson, Func<string, string> tokenize, string? chatOverride = null)
+    private sealed class ScriptedServer(string modalitiesJson, Func<string, string> tokenize, string? chatOverride = null, (HttpStatusCode Status, string Body)? nativeRefusal = null)
         : HttpMessageHandler
     {
         public List<(string Path, string Body)> Requests { get; } = [];
@@ -37,6 +38,9 @@ public class FakeServerTests
             var path = request.RequestUri!.AbsolutePath;
             var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
             Requests.Add((path, body));
+
+            if (path == "/v1/systemone" && nativeRefusal is { } refusal)
+                return new HttpResponseMessage(refusal.Status) { Content = new StringContent(refusal.Body, Encoding.UTF8, "application/json") };
 
             var json = path switch
             {
@@ -78,6 +82,24 @@ public class FakeServerTests
 
         decider.Path.Should().Be(DecisionPath.Native);
         server.Requests.Select(r => r.Path).Should().Equal("/v1/models");
+    }
+
+    // A native model evaluates the whole question prompt in one physical batch, so a call longer than the batch is refused by the server;
+    // the caller gets the same exception as for any other input longer than the model was loaded to take, with both numbers.
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task ANativeCallLongerThanThePhysicalBatch_IsReportedAsAContextOverflow(HttpStatusCode status)
+    {
+        var refusal = (status, """{"error":{"code":400,"message":"input (11951 tokens) is too large to process. increase the physical batch size (current batch size: 512)","type":"invalid_request_error"}}""");
+        var server = new ScriptedServer(DecisionModel, _ => OneTokenResponse, nativeRefusal: refusal);
+        await using var decider = await Create(server);
+
+        var call = () => decider.DecideAsync("Customer: charged twice.", "route", DecisionQuestion.Choice("Which team?", ["billing", "shipping"]), Ct);
+
+        var thrown = (await call.Should().ThrowAsync<ContextLengthExceededException>()).Which;
+        thrown.TokenCount.Should().Be(11951);
+        thrown.MaxContextLength.Should().Be(512);
     }
 
     [Fact]

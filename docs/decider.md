@@ -62,6 +62,14 @@ like every other LMSupply GGUF model) and asks the server what the model produce
   goes in a `<message>` block followed by a line that says it is material to judge, not instructions (see
   [Text you do not control](#text-you-do-not-control)).
 
+A native decision model reads the whole call — the state, the questions and their options — in one physical batch. The loader
+sets that batch to the context size, so a call longer than the context the model was loaded with is refused by the server and
+surfaces as `ContextLengthExceededException` carrying the token count and the limit; the instance goes on answering. On an
+8192-token load, states of 1,500 and 6,000 words were answered and one of 30,000 words was refused that way, on three native
+models. What fits can still be read short: llama-server's documentation says that models of the `laya` type shorten a long
+question or option list to the budget they were trained with, and the answer does not say it happened. Keep options short, and do
+not read the absence of an exception as «everything was read».
+
 `Decision.LabelMass` is the share of the model's next-token probability that fell on answer labels before renormalizing. Near
 1 means the model wanted to answer with a label; a low value means it mostly wanted to say something else and the
 renormalized numbers rest on little. A model that formats its answer (it would write `**Yes**`) leaves part of the mass on the

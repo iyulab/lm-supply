@@ -240,6 +240,48 @@ public sealed class LiveDeciderTests
         Report($"{label} yesno time {clock.ElapsedMilliseconds} ms for {YesNoCases.Length} cases");
     }
 
+    /// <summary>
+    /// What a native decision model does with a state longer than it was loaded to take: the call's outcome, the exception type
+    /// and message when it throws, and whether the same instance answers a short call afterwards. Measured, not asserted.
+    /// </summary>
+    [Theory]
+    [InlineData(200)]
+    [InlineData(1500)]
+    [InlineData(6000)]
+    [InlineData(30000)]
+    public async Task ANativeModel_AStateLongerThanItTakes_IsMeasured(int words)
+    {
+        var path = RequireModel(NativeVar);
+        var label = "native " + Path.GetFileName(path);
+        var ct = TestContext.Current.CancellationToken;
+        await using var decider = await LoadAsync(path);
+        decider.Path.Should().Be(DecisionPath.Native);
+
+        var state = "Customer message: " + string.Join(' ', Enumerable.Repeat("my card was charged twice for the same order", words / 9 + 1)) + ". Please refund.";
+        var question = DecisionQuestion.Choice("What does the customer want?", ["refund a duplicate charge", "change delivery address", "cancel subscription", "report a lost card"]);
+        try
+        {
+            var decision = await decider.DecideAsync(state, "q", question, ct);
+            Report($"{label} long-state {words} words answered pick={decision.Choice ?? "(none)"} conf={F(decision.Confidence)}");
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            var message = e.Message.Length > 160 ? e.Message[..160] : e.Message;
+            Report($"{label} long-state {words} words threw {e.GetType().Name}: {message.Replace('\n', ' ')}");
+        }
+
+        try
+        {
+            var after = await decider.DecideAsync("Customer message: My card was charged twice.", "q", question, ct);
+            Report($"{label} long-state {words} words then a short call answered pick={after.Choice ?? "(none)"}");
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            var message = e.Message.Length > 160 ? e.Message[..160] : e.Message;
+            Report($"{label} long-state {words} words then a short call threw {e.GetType().Name}: {message.Replace('\n', ' ')}");
+        }
+    }
+
     [Fact]
     public async Task AnInstructModel_Qwen_ReadsTheChoiceCases_AndYesNo()
     {
