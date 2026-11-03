@@ -47,3 +47,4 @@ tests/LMSupply.Integration.Tests/Functional/SynthesizerKoreanAcceptanceTests.cs 
 docs/synthesizer.md  # Korean words and sentences are examples of what the Korean phonemizer reads and says
 src/LMSupply.Generator/Internal/CharTokenEstimator.cs  # Hangul, kana and Han ranges are the character classes the token estimate prices
 tests/LMSupply.Generator.Tests/TokenUsageTests.cs  # a Korean sentence is the input of the token estimate
+tests/LMSupply.Decider.Tests/LiveKnowledgeSetTests.cs  # the Korean question put to the decider with each knowledge-set item
