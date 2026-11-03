@@ -488,7 +488,7 @@ The registry centers on the Gemma 4 and Qwen3 series. `gguf:auto` (and `"default
 | `gguf:auto` | Hardware-optimized (qwen3 pool) | varies | varies | varies | Auto-select | |
 | `gguf:qwen3-fast` | Qwen 3.5 2B Instruct | 2B | Q4_K_M | ~1.5 GB | <3GB | |
 | `gguf:qwen3-default` | Qwen 3.5 4B Instruct | 4B | Q4_K_M | ~3.0 GB | 4-6GB | thinking ON by default |
-| `gguf:qwen3-balanced` | Qwen3 8B Instruct | 8B | Q4_K_M | ~5.0 GB | 6-10GB | |
+| `gguf:qwen3-balanced` | Qwen 3.5 9B Instruct | 9B | Q4_K_M | ~5.7 GB | 6-10GB | |
 | `gguf:qwen3-quality` | Qwen 3.6 35B A3B Instruct (IQ4_XS, MoE) | 35B (3B active) | IQ4_XS | ~17.7 GB | 20-24GB | thinking ON by default |
 | `gguf:qwen3-large` | Qwen 3.6 35B A3B Instruct (Q4_K_M, MoE) | 35B (3B active) | Q4_K_M | ~22.1 GB | 24GB+ | thinking ON; auto-pool excluded |
 
@@ -585,7 +585,7 @@ Low-end/quantized models (the `FallbackToSmallest` tier below) are prone to *deg
 |------------------|-----------|----------------|-------|
 | **Low** | CPU or <3GB | `gguf:qwen3-fast` (Qwen 3.5 2B) | FallbackToSmallest |
 | **Medium** | 4-6GB | `gguf:qwen3-default` (Qwen 3.5 4B) | thinking ON |
-| **High** | 6-10GB | `gguf:qwen3-balanced` (Qwen3 8B) | |
+| **High** | 6-10GB | `gguf:qwen3-balanced` (Qwen 3.5 9B) | |
 | **Ultra** | 20-24GB | `gguf:qwen3-quality` (Qwen 3.6 35B MoE) | thinking ON |
 
 > **Platform-based routing:** `LoadAsync("default")` and `LoadAsync("auto")` both select the model for the current host on the GGUF/llama.cpp backend — CUDA on NVIDIA, Metal on Apple Silicon, Vulkan on AMD/Intel GPUs, CPU otherwise (v0.67.0: the ONNX/DirectML branch for Windows discrete AMD/Intel GPUs is gone with the DirectML provider; those GPUs use Vulkan). Use `gguf:*` aliases or ONNX aliases for explicit control.
@@ -848,7 +848,7 @@ Use predefined aliases for quick access to popular models:
 ```csharp
 await using var embedder = await LocalEmbedder.LoadAsync("default");       // bge-m3 (multilingual SOTA)
 await using var fitted = await LocalGenerator.LoadAsync("gguf:auto");        // Hardware-optimized
-await using var qwen = await LocalGenerator.LoadAsync("gguf:qwen3-balanced"); // Qwen3 8B
+await using var qwen = await LocalGenerator.LoadAsync("gguf:qwen3-balanced"); // Qwen 3.5 9B
 ```
 
 ### 2. HuggingFace Repository ID (Full control)

@@ -536,7 +536,7 @@ The registry has two primary tiers: **Gemma 4** (multimodal, Apache 2.0) for exp
 | `gguf:auto` | Hardware-optimized (qwen3 pool) | varies | varies | varies | varies | varies | Auto-select by VRAM |
 | `gguf:qwen3-fast` | Qwen 3.5 2B Instruct | 2B | Q4_K_M | ~1.5 GB | ~48 MB | ~1.55 GB | |
 | `gguf:qwen3-default` | Qwen 3.5 4B Instruct | 4B | Q4_K_M | ~3.0 GB | ~128 MB | ~3.1 GB | thinking ON by default |
-| `gguf:qwen3-balanced` | Qwen3 8B Instruct | 8B | Q4_K_M | ~5.0 GB | ~576 MB | ~5.6 GB | |
+| `gguf:qwen3-balanced` | Qwen 3.5 9B Instruct | 9B | Q4_K_M | ~5.7 GB | ~128 MB | ~5.8 GB | |
 | `gguf:qwen3-quality` | Qwen 3.6 35B A3B (IQ4_XS, MoE) | 35B (3B active) | IQ4_XS | ~17.7 GB | ~80 MB | ~17.8 GB | thinking ON; auto-pool |
 | `gguf:qwen3-large` | Qwen 3.6 35B A3B (Q4_K_M, MoE) | 35B (3B active) | Q4_K_M | ~22.1 GB | ~80 MB | ~22.2 GB | thinking ON; auto-pool excluded |
 
@@ -550,8 +550,8 @@ The registry has two primary tiers: **Gemma 4** (multimodal, Apache 2.0) for exp
 
 > **KV cache footprint is included in auto-selection.** The `KV @ 4k` column shows the FP16 KV cache size at 4,096 tokens, from each file's
 > attention layout (`GgufModelInfo.KvCacheBytesPerToken` — KV heads × K/V head dims over the layers that keep a cache, plus a fixed
-> window for sliding-window layers). It grows linearly with the context: Qwen3 8B keeps 144 KiB per token (2.25 GB at 16k), the hybrid
-> Qwen 3.5 4B only 32 KiB (0.5 GB at 16k). llama-server reserves the full `--ctx-size` KV cache at load time, so a model that fits in weights but not in weights + KV will OOM at runtime. Use `LlamaOptions.TypeK = TypeV = KvCacheQuantizationType.Q8_0` (or `Q4_0`) to halve/quarter KV memory at the cost of slight quality loss.
+> window for sliding-window layers). It grows linearly with the context: a dense-attention 8B model keeps 144 KiB per token (2.25 GB at 16k), the hybrid
+> Qwen 3.5 4B and 9B only 32 KiB (0.5 GB at 16k). llama-server reserves the full `--ctx-size` KV cache at load time, so a model that fits in weights but not in weights + KV will OOM at runtime. Use `LlamaOptions.TypeK = TypeV = KvCacheQuantizationType.Q8_0` (or `Q4_0`) to halve/quarter KV memory at the cost of slight quality loss.
 
 > **Split GGUF support**: `gguf:xlarge` is distributed as 3 shards (`-00001-of-00003`, etc.) in a `Q4_K_M/` subfolder. The downloader automatically fetches all shards; llama-server auto-loads the remaining parts when given the first shard path.
 
@@ -566,8 +566,8 @@ The registry has two primary tiers: **Gemma 4** (multimodal, Apache 2.0) for exp
 
 The KV cache is sized for the context the load asks for (`GeneratorOptions.MaxContextLength`; unset = 4,096 for
 selection, `GgufModelRegistry.DefaultBudgetContextLength`, FP16 — the loaded server then grows into the model's trained
-length up to 32,768 as memory allows, see the README's «How the context is sized») — on an 8 GB GPU `gguf:auto` picks Qwen3 8B at 4,096 tokens and Qwen 3.5 4B at
-16,384, where the 8B's cache would not fit. The quantization choice before download is sized the same way.
+length up to 32,768 as memory allows, see the README's «How the context is sized») — on an 8 GB GPU `gguf:auto` picks Qwen 3.5 9B at 4,096 tokens and Qwen 3.5 4B at
+65,536, where the 9B's cache would not fit. The quantization choice before download is sized the same way.
 
 Auto-selection pool: `qwen3-fast`, `qwen3-default`, `qwen3-balanced`, `qwen3-quality` (`qwen3-large` is excluded — exceeds 24 GB × 85% budget). Models with `ThinkingEnabledByDefault` generate reasoning before answering. To stop the model from thinking at all, set `Thinking = ThinkingMode.Off` (forwards `enable_thinking=false` to the chat template — no reasoning tokens generated). To let it think but hide the `<think>...</think>` block from the returned text, set `FilterReasoningTokens = true` (reasoning is still generated). `ThinkingMode.Auto` (default) preserves each model's built-in behavior.
 
@@ -576,7 +576,7 @@ Auto-selection pool: `qwen3-fast`, `qwen3-default`, `qwen3-balanced`, `qwen3-qua
 | 0 / CPU only / `Provider = Cpu` | 0 | the largest that fits min(system RAM − 4 GB, system RAM ÷ 2) (16–32 GB RAM → `gguf:qwen3-balanced`, 64 GB → `gguf:qwen3-quality`); `gguf:qwen3-fast` if none fits | FitsInSystemRam / FallbackToSmallest |
 | 3 GB | ~2.55 GB | `gguf:qwen3-fast` | Fits (~2.25 GB total) |
 | 6 GB | ~5.1 GB | `gguf:qwen3-default` (Qwen 3.5 4B) | Fits (~4.25 GB); thinking ON |
-| 10 GB | ~8.5 GB | `gguf:qwen3-balanced` (Qwen3 8B) | Fits (~7.25 GB) |
+| 10 GB | ~8.5 GB | `gguf:qwen3-balanced` (Qwen 3.5 9B) | Fits (~5.8 GB) |
 | 24 GB | ~20.4 GB | `gguf:qwen3-quality` (Qwen 3.6 35B MoE) | Fits (~19.0 GB); thinking ON |
 
 > **Low-VRAM laptop guidance.** On Windows laptops with ≤4 GB NVIDIA VRAM (RTX 4050/4060 Laptop, etc.), no candidate may fit VRAM once the compositor and driver take their share. The auto path then picks the largest model that fits the system RAM budget (`FitsInSystemRam`; at most half of system RAM) and runs it mostly on the CPU — larger and slower than the GPU could run. For a fast small model on these hosts, set `AutoSelectionGoal = AutoSelectionGoal.Responsive` (it leaves hosts whose GPU holds a candidate unchanged, which naming `gguf:qwen3-fast` does not) or prefer the ONNX path explicitly: `LocalGenerator.LoadAsync("phi-4-mini")` (CUDA or CPU). The selection and its reason are logged with the `[LocalGenerator.auto]` prefix to `Trace`.

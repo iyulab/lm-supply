@@ -226,18 +226,20 @@ public static class GgufModelRegistry
             KnownIssues = [GgufModelKnownIssues.ThinkingEnabledByDefault],
         },
 
-        // Balanced: Qwen3-8B Q4_K_M — ~5.0GB model, ~7.25GB VRAM@4K; thinking opt-in via /think token
+        // Balanced: Qwen3.5-9B Q4_K_M — ~5.7GB model, ~5.8GB VRAM@4K; thinking OFF unless the request turns it on
+        // (the chat template adds an empty think block unless enable_thinking is true). Hybrid like the 4B: 32 layers,
+        // every fourth one full attention with 4 KV heads of 256 — 8 × 4 × (256 + 256) × 2 bytes = 32 KiB per token.
         ["gguf:qwen3-balanced"] = new GgufModelInfo
         {
-            RepoId = "Qwen/Qwen3-8B-GGUF",
-            DisplayName = "Qwen3 8B Instruct",
-            DefaultFile = "Qwen3-8B-Q4_K_M.gguf",
+            RepoId = "unsloth/Qwen3.5-9B-GGUF",
+            DisplayName = "Qwen 3.5 9B Instruct",
+            DefaultFile = "Qwen3.5-9B-Q4_K_M.gguf",
             ChatFormat = "chatml",
-            ContextLength = 131072,
-            ParameterCount = 8_000_000_000,
-            EstimatedSizeBytes = 5_000_000_000L,
+            ContextLength = 262144,
+            ParameterCount = 9_000_000_000,
+            EstimatedSizeBytes = 5_700_000_000L,
             QuantizationType = "Q4_K_M",
-            KvCacheBytesPerToken = 147_456,
+            KvCacheBytesPerToken = 32_768,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
         },

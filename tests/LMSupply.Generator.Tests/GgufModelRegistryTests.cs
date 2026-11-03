@@ -188,7 +188,7 @@ public class GgufModelRegistryTests
     {
         // 6.5GB total, 5.0GB free (non-low-VRAM card, margin 15%).
         // totalCap = 6.5 × 0.85 = 5.525GB, freeCap = 5.0 × 0.95 = 4.75GB → budget = 4.75GB.
-        // qwen3-balanced (Qwen3-8B, 144 KiB/token): 5.0GB weights + 0.56GB KV @ 4096 does NOT fit.
+        // qwen3-balanced (Qwen3.5-9B, 32 KiB/token): 5.7GB weights + 0.13GB KV @ 4096 does NOT fit.
         // qwen3-default (Qwen3.5-4B, 32 KiB/token — 8 of 33 layers keep a cache): 3.0GB + 0.13GB fits.
         var gpu = new GpuInfo
         {
@@ -201,7 +201,7 @@ public class GgufModelRegistryTests
         var result = GgufModelRegistry.GetAutoSelection(gpu);
 
         result.Selected.AliasName.Should().Be("gguf:qwen3-default",
-            because: "with KV cache @ 4096 included, qwen3-balanced (5.56GB) exceeds the 4.75GB budget");
+            because: "with KV cache @ 4096 included, qwen3-balanced (5.83GB) exceeds the 4.75GB budget");
         result.Reason.Should().Be(ModelSelectionReason.Fits);
     }
 
@@ -253,10 +253,10 @@ public class GgufModelRegistryTests
             FreeMemoryBytes = 11L * 1024 * 1024 * 1024
         };
         // budget = min(12 × 0.85, 11 × 0.95) = min(10.2GB, 10.45GB) = 10.2GB (totalCap binding).
-        // qwen3-balanced (5.0GB Q4_K_M + ~2.25GB KV ≈ 7.25GB) fits. qwen3-quality (~19GB) doesn't fit.
+        // qwen3-balanced (5.7GB Q4_K_M + 0.13GB KV ≈ 5.8GB) fits. qwen3-quality (~19GB) doesn't fit.
         var model = GgufModelRegistry.GetAutoModel(gpu);
         model.QuantizationType.Should().Be("Q4_K_M");
-        model.ParameterCount.Should().Be(8_000_000_000);
+        model.ParameterCount.Should().Be(9_000_000_000);
     }
 
     [Fact]
@@ -280,8 +280,8 @@ public class GgufModelRegistryTests
     public void GetAutoModel_8GBVram_4kContext_SelectsBalanced()
     {
         // budget = min(8 × 0.85, 7.5 × 0.95) = min(6.8, 7.125) = 6.8GB (totalCap is binding here).
-        // At the default 4,096-token budget context qwen3-balanced (Qwen3-8B: 5.0GB + 0.56GB KV) fits — the KV cache
-        // is sized from the file's layout, not from the hidden size (which put it at ~2.25GB).
+        // At the default 4,096-token budget context qwen3-balanced (Qwen3.5-9B: 5.7GB + 0.13GB KV) fits — the KV cache
+        // is sized from the file's layout (8 of 32 layers keep one), not from the hidden size.
         var gpu = new GpuInfo
         {
             Vendor = GpuVendor.Nvidia,
@@ -290,14 +290,15 @@ public class GgufModelRegistryTests
         };
         var model = GgufModelRegistry.GetAutoModel(gpu);
         model.QuantizationType.Should().Be("Q4_K_M");
-        model.ParameterCount.Should().Be(8_000_000_000);
+        model.ParameterCount.Should().Be(9_000_000_000);
     }
 
     [Fact]
     public void GetAutoSelection_8GBVram_16kContext_PicksTheModelWhoseCacheFits()
     {
-        // Same 8GB card, sized for 16,384 tokens: Qwen3-8B keeps 144 KiB/token (2.25GB → 7.25GB total, over 6.8GB);
-        // Qwen3.5-4B keeps 32 KiB/token (0.5GB → 3.5GB) and gets the whole context.
+        // Same 8GB card, sized for 65,536 tokens: Qwen3.5-9B keeps 32 KiB/token like the 4B (2.0GB → 7.7GB total, over
+        // 6.8GB); Qwen3.5-4B (3.0GB → 5.0GB) fits and gets the whole context. (The 8B this alias held before kept
+        // 144 KiB/token and was already out at 16,384 tokens.)
         var gpu = new GpuInfo
         {
             Vendor = GpuVendor.Nvidia,
@@ -305,7 +306,7 @@ public class GgufModelRegistryTests
             FreeMemoryBytes = (long)(7.5 * 1024 * 1024 * 1024)
         };
 
-        var result = GgufModelRegistry.GetAutoSelection(gpu, budgetContextLength: 16_384);
+        var result = GgufModelRegistry.GetAutoSelection(gpu, budgetContextLength: 65_536);
 
         result.Selected.AliasName.Should().Be("gguf:qwen3-default");
         result.Reason.Should().Be(ModelSelectionReason.Fits);
@@ -316,7 +317,7 @@ public class GgufModelRegistryTests
     {
         // 8GB total but only 5GB free (external process consuming VRAM).
         // totalCap = 8 × 0.85 = 6.8GB, freeCap = 5 × 0.95 = 4.75GB → budget = 4.75GB.
-        // qwen3-balanced (5.56GB with its cache) does not fit; qwen3-default (3.13GB) does.
+        // qwen3-balanced (5.83GB with its cache) does not fit; qwen3-default (3.13GB) does.
         var gpu = new GpuInfo
         {
             Vendor = GpuVendor.Nvidia,
@@ -688,7 +689,7 @@ public class GgufModelRegistryTests
     public void GetAutoSelection_ExcludeThinking_SelectsNonThinkingModel()
     {
         // 24GB card: budget = 20.4GB. Pool after excluding ThinkingEnabledByDefault:
-        // qwen3-fast (~2.25GB) and qwen3-balanced (~7.25GB) remain.
+        // qwen3-fast (~2.25GB) and qwen3-balanced (~5.8GB) remain.
         // qwen3-balanced is larger and fits → selected.
         var gpu = new GpuInfo
         {

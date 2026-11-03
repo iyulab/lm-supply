@@ -21,6 +21,16 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   already handled them).
 
 ### Changed
+- **Breaking: `gguf:qwen3-balanced` is now Qwen 3.5 9B (`unsloth/Qwen3.5-9B-GGUF`, Q4_K_M, Apache-2.0), not Qwen3 8B.** It brings the
+  alias to the same model generation as `qwen3-fast` and `qwen3-default`. On 1,799 Korean multiple-choice knowledge questions
+  (KMMLU, the first 40 of each of its 45 subjects) read through the decider, 9B answered 50.3 % right and 8B 39.9 %: the 9B was
+  right on 380 questions the 8B missed and the 8B on 193 the 9B missed (paired exact test, p < 10⁻¹⁴; the 9B ahead in 38 of 45 subjects).
+  It is a knowledge check, not a measure of how well a model writes. The file is a little larger (about 5.7 GB against 5.0 GB) but a
+  hybrid model keeps a cache on one layer in four, so its KV cache is 32 KiB per token against 144 KiB: weights plus cache at 4,096
+  tokens are about 5.8 GB, and on an 8 GB GPU `gguf:auto` now picks the 9B for a context of 16,384 tokens, where it picked the 4B before.
+  Thinking stays off unless the request turns it on, as for the 8B.
+  **Migration:** a caller that loaded `gguf:qwen3-balanced` gets the new model on the next load (the new file is downloaded; the old
+  one stays in the cache until removed). One that needs the old model loads it by repository, `Qwen/Qwen3-8B-GGUF`.
 - **`docs/decider.md` says what a native decision model does with a call longer than it takes.** The whole call is read in one batch; one longer than the context the model was loaded with surfaces as `ContextLengthExceededException` (as before — now covered by a test for the server's refusal, and measured on three native models), and models of the `laya` type shorten a long question or option list to their training budget without telling the caller.
 - **Dependencies follow their latest patch and minor releases.** ONNX Runtime and its GPU package 1.31.0 → 1.31.1 (a patch
   release that fixes build and test regressions of the OpenVINO-enabled Python and WASM builds; no change to the C# package's
