@@ -6,6 +6,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Changed
+- **Dependencies follow their latest patch and minor releases.** ONNX Runtime and its GPU package 1.31.0 → 1.31.1 (a patch
+  release that fixes build and test regressions of the OpenVINO-enabled Python and WASM builds; no change to the C# package's
+  behavior) and ChildProcessGuard 1.4.0 → 1.5.0 (concurrent starts now respect the managed-process limit; Windows job-object
+  failures are reported beyond the log; the package is trimming and Native AOT compatible). No API of this library changes.
+
 ## [0.139.0] - 2026-10-28
 
 ### Changed

@@ -13,7 +13,7 @@
       LMSupply.Integration.Tests' Functional/LocalOnly suites (network + GPU required, not part
       of CI).
     -->
-    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
     <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.1" />
     <PackageVersion Include="System.Numerics.Tensors" Version="10.0.14" />
     <!-- Vision Dependencies -->
@@ -34,9 +34,9 @@
          the new version on a GPU machine. -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.18.0" />
     <!-- llama-server process management -->
-    <PackageVersion Include="ChildProcessGuard" Version="1.4.0" />
+    <PackageVersion Include="ChildProcessGuard" Version="1.5.0" />
     <!-- GPU Providers (optional, user installs separately) -->
-    <PackageVersion Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.31.0" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.31.1" />
     <!-- Testing (xUnit v3 / Microsoft.Testing.Platform) -->
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
     <PackageVersion Include="Iyu.Conventions.Testing" Version="0.13.0" />
