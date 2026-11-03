@@ -25,7 +25,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   alias to the same model generation as `qwen3-fast` and `qwen3-default`. On 1,799 Korean multiple-choice knowledge questions
   (KMMLU, the first 40 of each of its 45 subjects) read through the decider, 9B answered 50.3 % right and 8B 39.9 %: the 9B was
   right on 380 questions the 8B missed and the 8B on 193 the 9B missed (paired exact test, p < 10⁻¹⁴; the 9B ahead in 38 of 45 subjects).
-  It is a knowledge check, not a measure of how well a model writes. The file is a little larger (about 5.7 GB against 5.0 GB) but a
+  It is a knowledge check, not a measure of how well a model writes, and the answer is read without room to reason, so questions that
+  need a calculation sit at chance for both models. The file is a little larger (about 5.7 GB against 5.0 GB) but a
   hybrid model keeps a cache on one layer in four, so its KV cache is 32 KiB per token against 144 KiB: weights plus cache at 4,096
   tokens are about 5.8 GB, and on an 8 GB GPU `gguf:auto` now picks the 9B for a context of 16,384 tokens, where it picked the 4B before.
   Thinking stays off unless the request turns it on, as for the 8B.
