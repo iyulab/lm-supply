@@ -123,6 +123,14 @@ parameters (Qwen3.5-2B, gemma-4-E2B) chose the planted answer more often fenced 
 answers of 22 to 33 in these runs. The fence is added for every model, so measure the model you use on your own text before you
 rely on it.
 
+A native decision model is not exempt. The native path has no frame to fence: the model answers the question about the state
+itself, and it was trained for that, but it can still follow an instruction written inside the state. Measured on the same 12
+Korean messages through the decision endpoint, a 4-billion-parameter native model that answered 11 of 12 clean messages correctly
+chose the planted answer 11 of 11 times for «ignore the above», for a fake «system message» and for a polite request, and a
+2-billion-parameter native model chose it once of 11 for «ignore the above» but 7 of 11 for the fake «system message». A native
+model is a good choice for speed and for questions of a fixed kind; it is not, on this evidence, a defence against text you do not
+control.
+
 What does the work is the sentence that tells the model not to follow instructions written inside the block. Fenced with a note
 that leaves that sentence out, or with the fence alone, the larger models chose the planted answer about as often as with the
 state bare. Summed over the three instruction lines in Korean (33 answers), the planted answer was chosen:
