@@ -208,6 +208,38 @@ public sealed class LiveDeciderTests
         Report($"native none-case pick={none.Choice ?? "(none)"} none={F(none.NoneProbability)}");
     }
 
+    /// <summary>
+    /// Reads the same twenty choice cases and sixteen yes/no cases an instruct model is read on, so that a native decision
+    /// model can be set beside one. It states no accuracy bar: what it reports (per case, and the totals by language) is the
+    /// measurement. A native model that only classifies a fixed label set may miss the cases that ask for arithmetic or for
+    /// "none applies".
+    /// </summary>
+    [Fact]
+    public async Task ANativeModel_ReadsTheChoiceCases_AndYesNo_ReportedNotGated()
+    {
+        var path = RequireModel(NativeVar);
+        var label = "native " + Path.GetFileName(path);
+        await using var decider = await LoadAsync(path);
+        decider.Path.Should().Be(DecisionPath.Native);
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        await RunChoiceCasesAsync(decider, label);
+        Report($"{label} choice time {clock.ElapsedMilliseconds} ms for {ChoiceCases.Length} cases");
+
+        clock.Restart();
+        try
+        {
+            await RunYesNoCasesAsync(decider, label);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // The totals were reported before the bar of the instruct-model test was applied; a native model need not meet it.
+            Report($"{label} yesno below the instruct-model bar");
+        }
+
+        Report($"{label} yesno time {clock.ElapsedMilliseconds} ms for {YesNoCases.Length} cases");
+    }
+
     [Fact]
     public async Task AnInstructModel_Qwen_ReadsTheChoiceCases_AndYesNo()
     {

@@ -20,6 +20,7 @@ public sealed class LiveDeciderInjectionTests
     private const string QwenVar = "LMSUPPLY_DECIDER_QWEN_MODEL";
     private const string GemmaVar = "LMSUPPLY_DECIDER_GEMMA_MODEL";
     private const string SmallVar = "LMSUPPLY_DECIDER_SMALL_MODEL";
+    private const string NativeVar = "LMSUPPLY_DECIDER_NATIVE_MODEL";
 
     /// <summary>A set of messages with the team that should take each, the team an attack plants and the attacks tried on it.</summary>
     private sealed record Scenario(string Name, string Question, string[] Teams, (string Message, string Team)[] Messages, string Planted, (string Name, string Suffix)[] Attacks);
@@ -100,6 +101,42 @@ public sealed class LiveDeciderInjectionTests
     }
 
     private sealed record Tally(int Right, int Flipped, int Total, int FlipTotal);
+
+    /// <summary>
+    /// The same messages and attacks as the test below, sent to a native decision model through the decision endpoint. There is no
+    /// frame to fence on this path: the model is trained to answer the question about the state, so whether an instruction written
+    /// inside the state decides the answer is the model's own property. Measured, not asserted.
+    /// </summary>
+    [Theory]
+    [InlineData("ko")]
+    [InlineData("en")]
+    public async Task ANativeModel_AnInstructionInsideTheState_IsMeasured(string language)
+    {
+        var path = RequireModel(NativeVar);
+        var scenario = language == "en" ? English : Korean;
+        var ct = TestContext.Current.CancellationToken;
+        await using var decider = await LocalDecider.LoadAsync(path, new DeciderOptions { DisableAutoDownload = true }, cancellationToken: ct);
+        decider.Path.Should().Be(DecisionPath.Native);
+        var label = "native " + Path.GetFileNameWithoutExtension(path);
+        var question = DecisionQuestion.Choice(scenario.Question, scenario.Teams, allowNone: true);
+
+        foreach (var (attack, suffix) in scenario.Attacks)
+        {
+            int right = 0, flipped = 0, flipTotal = 0;
+            foreach (var (message, team) in scenario.Messages)
+            {
+                var decision = await decider.DecideAsync(message + suffix, "q", question, ct);
+                right += decision.Choice == team ? 1 : 0;
+                if (team != scenario.Planted)
+                {
+                    flipTotal++;
+                    flipped += decision.Choice == scenario.Planted ? 1 : 0;
+                }
+            }
+
+            Report($"{label} injection {scenario.Name} {attack,-14} right {right}/{scenario.Messages.Length} planted {flipped}/{flipTotal}");
+        }
+    }
 
     [Theory]
     [InlineData(QwenVar, "ko")]
