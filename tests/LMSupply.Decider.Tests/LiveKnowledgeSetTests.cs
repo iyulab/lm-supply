@@ -14,7 +14,7 @@ namespace LMSupply.Decider.Tests;
 /// models knows more of what the set asks; it is not a measure of how well a model writes. The model comes from
 /// <c>LMSUPPLY_DECIDER_QWEN_MODEL</c>, the variable the instruct-model tests read, and the test never downloads.
 /// When <c>LMSUPPLY_DECIDER_KNOWLEDGE_ITEMS</c> names a file, each item's outcome is written there too — one line per item,
-/// <c>index</c>, <c>category</c> and <c>1</c> (right), <c>0</c> (wrong) or <c>-</c> (refused), tab-separated — so two models read
+/// <c>index</c>, <c>category</c> and <c>1</c> (right), <c>0</c> (wrong, or no answer label given) or <c>-</c> (refused), tab-separated — so two models read
 /// on the same set can be compared item by item (a paired test) instead of only by their totals.
 /// </summary>
 [Trait("Category", "Integration")]
@@ -57,7 +57,7 @@ public sealed class LiveKnowledgeSetTests
         var right = new Dictionary<string, (int Right, int Total)>();
         var itemsFile = Environment.GetEnvironmentVariable("LMSUPPLY_DECIDER_KNOWLEDGE_ITEMS");
         var outcomes = new List<string>();
-        int refused = 0, correct = 0;
+        int refused = 0, unanswered = 0, correct = 0;
         var clock = Stopwatch.StartNew();
         foreach (var (item, index) in items.Select((item, index) => (item, index)))
         {
@@ -69,6 +69,14 @@ public sealed class LiveKnowledgeSetTests
                 correct += ok ? 1 : 0;
                 right[item.Category] = (r + (ok ? 1 : 0), t + 1);
                 outcomes.Add($"{index}\t{item.Category}\t{(ok ? 1 : 0)}");
+            }
+            catch (DecisionException)
+            {
+                // A model that opens with reasoning or a word instead of an answer label gave no answer: wrong, and counted
+                // apart so the report says how many.
+                unanswered++;
+                right[item.Category] = (r, t + 1);
+                outcomes.Add($"{index}\t{item.Category}\t0");
             }
             catch (Exception e) when (e is ArgumentException or LMSupply.Exceptions.ContextLengthExceededException)
             {
@@ -84,7 +92,7 @@ public sealed class LiveKnowledgeSetTests
         foreach (var (category, (r, t)) in right.OrderBy(k => k.Key))
             Report($"{label} {category,-18} {r}/{t}");
         var answered = items.Count - refused;
-        Report($"{label} total {correct}/{answered} ({(100.0 * correct / Math.Max(1, answered)).ToString("0.0", CultureInfo.InvariantCulture)}%) refused={refused} time {clock.ElapsedMilliseconds} ms");
+        Report($"{label} total {correct}/{answered} ({(100.0 * correct / Math.Max(1, answered)).ToString("0.0", CultureInfo.InvariantCulture)}%) refused={refused} unanswered={unanswered} time {clock.ElapsedMilliseconds} ms");
         answered.Should().BeGreaterThan(0);
     }
 }
