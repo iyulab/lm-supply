@@ -12,6 +12,7 @@ console/ui/e2e/negative-paths.spec.ts  # Korean text is a Unicode input fixture
 console/ui/e2e/ocr-language-rerun.spec.ts  # Korean text is a mocked OCR result
 console/ui/e2e/transcribe-language.spec.ts  # Korean text is a mocked transcription result
 tests/LMSupply.Embedder.Tests/PathLoadRepositoryCopyTests.cs  # Korean query is an embedding input
+tests/LMSupply.Embedder.Tests/KoreanRetrievalMeasurementTests.cs  # Korean passages and queries are the retrieval set the test measures
 tests/LMSupply.Generator.Tests/ChatMLToolCallStreamParserTests.cs  # Korean tool-call arguments are parser inputs
 tests/LMSupply.Generator.Tests/Gemma4ToolCallStreamParserTests.cs  # Korean tool-call arguments and reasoning text are parser inputs
 tests/LMSupply.Integration.Tests/FastModelFunctionalTests.cs  # Korean sentence is a translation input
