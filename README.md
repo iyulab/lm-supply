@@ -414,6 +414,7 @@ GGUF models are auto-detected by `-GGUF` or `_gguf` in repo name, or `.gguf` fil
 | `nomic-ai/nomic-embed-text-v1.5-GGUF` | 768 | 8K | Long context, matryoshka |
 | `BAAI/bge-small-en-v1.5-GGUF` | 384 | 512 | Compact and fast |
 | `BAAI/bge-base-en-v1.5-GGUF` | 768 | 512 | Quality balance |
+| `embeddinggemma-2` (alias; `ggml-org/embeddinggemma-2-GGUF`) | 768 | 8K | Multilingual retrieval at about a seventh of the download of `default` (~560MB); applies the model's own query and passage prompts |
 | Any HuggingFace GGUF embedding repo | varies | varies | Custom models |
 
 ### Reranker (ONNX)

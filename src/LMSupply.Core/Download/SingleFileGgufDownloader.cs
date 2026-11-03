@@ -158,7 +158,8 @@ internal class SingleFileGgufDownloader : IDisposable
     internal static string? TrySelectFromLocalCache(
         string cacheDirectory, string repoId, string? preferredQuantization, string? legacyTreeName)
     {
-        var files = GgufCacheLookup.EnumerateCachedFiles(cacheDirectory, repoId, Revision, legacyTreeName);
+        var files = GgufCacheLookup.EnumerateCachedFiles(cacheDirectory, repoId, Revision, legacyTreeName)
+            .Where(f => !IsProjectorSidecar(f)).ToList();
         if (files.Count == 0)
             return null;
 
@@ -177,9 +178,18 @@ internal class SingleFileGgufDownloader : IDisposable
         $"No GGUF file of model '{repoId}' is in the local cache ({CacheManager.GetRepositoryDirectory(_cacheDirectory, repoId)}) and downloads are disabled.",
         repoId);
 
-    private static List<RepoFile> GgufFilesOf(IReadOnlyList<RepoFile> files, string repoId)
+    /// <summary>
+    /// A multimodal projector (<c>mmproj-*.gguf</c>) sits beside the model in repositories of multimodal models. It is not the
+    /// model, and it is often the largest file of a small model, so a choice by size would take it.
+    /// </summary>
+    internal static bool IsProjectorSidecar(string path) =>
+        Path.GetFileName(path).StartsWith("mmproj", StringComparison.OrdinalIgnoreCase);
+
+    internal static List<RepoFile> GgufFilesOf(IReadOnlyList<RepoFile> files, string repoId)
     {
-        var ggufFiles = files.Where(f => f.IsFile && f.Path.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)).ToList();
+        var ggufFiles = files
+            .Where(f => f.IsFile && f.Path.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase) && !IsProjectorSidecar(f.Path))
+            .ToList();
         return ggufFiles.Count > 0
             ? ggufFiles
             : throw new ModelNotFoundException($"No GGUF files found in repository '{repoId}'.", repoId);

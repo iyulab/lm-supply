@@ -61,6 +61,8 @@ loadable by their explicit short name (`LocalEmbedder.LoadAsync("multilingual-e5
 | `quality` | BAAI/bge-m3 | 1024 | — | Same model as `default`; exposed separately for pipelines that explicitly request the quality tier |
 | `large` | intfloat/multilingual-e5-large | 1024 | query/passage | 560M params, 100+ languages, highest dense quality (512-token context limit — use `default` for long documents) |
 
+The alias `embeddinggemma-2` loads Google's EmbeddingGemma 2 as a GGUF build (Apache-2.0; 768 dimensions, Matryoshka 128/256/512; ~560MB against ~2.2GB for `default`) and runs a llama-server process. It applies the model's own prompts — `task: search result | query: ` to a query and `title: none | text: ` to a passage (`EmbedQueryAsync` / `EmbedPassageAsync`) — and ranks worse without them. `default` and the other aliases keep resolving to ONNX, so a caller that did not ask for llama-server never gets one.
+
 ### Explicit models (by short name)
 
 | Model | Dimensions | Prefix | Description |

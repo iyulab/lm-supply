@@ -6,6 +6,20 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **`LocalEmbedder` alias `embeddinggemma-2`: Google's EmbeddingGemma 2 as a GGUF build** (`ggml-org/embeddinggemma-2-GGUF`, Apache-2.0,
+  768 dimensions), the way the Reranker has `multilingual-fast`. It applies the model's own prompts to `EmbedQueryAsync` and
+  `EmbedPassageAsync` (`task: search result | query: `, `title: none | text: `) and reports the model's licence in `Describe`.
+  On a small Korean retrieval set of 20 passages and 30 queries it found the right passage first for 28 queries (mean reciprocal rank 0.947;
+  26 without the prompts) against 29 (0.978) for `default` and 24 (0.881) for `fast`, with about a seventh of the download of
+  `default`. `default` and the other aliases are unchanged, so nothing starts a llama-server that did not before.
+
+### Fixed
+- **A single-file GGUF loader no longer takes a multimodal projector for the model.** A repository of a multimodal model lists
+  `mmproj-*.gguf` beside the model, and for a small model the projector can be the largest file, which is what the choice by size
+  prefers. Projector files are left out of the candidates for the Embedder, Reranker and Decider (the Generator's own downloader
+  already handled them).
+
 ### Changed
 - **`docs/decider.md` says what a native decision model does with a call longer than it takes.** The whole call is read in one batch; one longer than the context the model was loaded with surfaces as `ContextLengthExceededException` (as before — now covered by a test for the server's refusal, and measured on three native models), and models of the `laya` type shorten a long question or option list to their training budget without telling the caller.
 - **Dependencies follow their latest patch and minor releases.** ONNX Runtime and its GPU package 1.31.0 → 1.31.1 (a patch

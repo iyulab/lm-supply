@@ -152,9 +152,11 @@ public static class LocalEmbedder
         var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelIdOrPath);
         options.QuantizationHint ??= qualifier;
 
-        return EmbedderModelRegistry.Default.TryGetUserAliasTarget(baseId, out var userAliasTarget)
+        var target = EmbedderModelRegistry.Default.TryGetUserAliasTarget(baseId, out var userAliasTarget)
             ? userAliasTarget!
             : baseId;
+
+        return GgufAliases.TryGetValue(target, out var ggufAlias) ? ggufAlias.Target : target;
     }
 
     /// <summary>
@@ -807,7 +809,40 @@ public static class LocalEmbedder
     /// Gets a list of pre-configured model IDs available for download.
     /// </summary>
     public static IEnumerable<string> GetAvailableModels()
-        => EmbedderModelRegistry.Default.GetAliases().Select(a => a.Name);
+        => EmbedderModelRegistry.Default.GetAliases().Select(a => a.Name)
+            .Concat(GgufAliases.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Built-in aliases that resolve to the GGUF (llama-server) route. They live here rather than in the registry because a
+    /// registry entry describes an ONNX model (graph file, tokenizer file); a GGUF model is one file served by llama-server and
+    /// has neither. A caller that did not ask for one never gets a llama-server: <c>default</c> and the other aliases keep
+    /// resolving to ONNX.
+    /// </summary>
+    /// <remarks>
+    /// <c>embeddinggemma-2</c> is Google's EmbeddingGemma 2 (Apache-2.0), text side, 768 dimensions (Matryoshka 128/256/512). Its
+    /// task prompts are part of the model: <c>task: search result | query: </c> for a query and <c>title: none | text: </c> for a
+    /// passage; without them it ranks worse. The repository also holds multimodal projector files, which the file choice leaves out.
+    /// </remarks>
+    internal static readonly IReadOnlyDictionary<string, GgufAlias> GgufAliases =
+        new Dictionary<string, GgufAlias>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["embeddinggemma-2"] = new(
+                "gguf:ggml-org/embeddinggemma-2-GGUF",
+                "EmbeddingGemma 2 (GGUF)",
+                "Apache-2.0", // the converted model, google/embeddinggemma-2
+                new PromptPrefixes("task: search result | query: ", "title: none | text: ", null)),
+        };
+
+    /// <summary>
+    /// A built-in alias to a GGUF build: where it points, a name to show, the licence of the model the build was converted from,
+    /// and the prompt prefixes that model is used with.
+    /// </summary>
+    internal sealed record GgufAlias(string Target, string DisplayName, string License, PromptPrefixes Prefixes)
+    {
+        /// <summary>The repository the target names, without the <c>gguf:</c> prefix.</summary>
+        public string RepoId => StripGgufPrefix(Target);
+    }
 
     /// <summary>
     /// Gets all registered model information (deduplicated by RepoId).
@@ -979,7 +1014,11 @@ public static class LocalEmbedder
     /// "&lt;org&gt;/&lt;model&gt;"; anything else (a local file, an unknown model) has none.
     /// </summary>
     internal static PromptPrefixes ResolveGgufPrefixes(string repoIdOrPath) =>
-        TryResolveGgufSourceModel(repoIdOrPath, out var info) ? PromptPrefixes.Of(info!) : PromptPrefixes.None;
+        GgufAliasOfRepo(repoIdOrPath) is { } alias ? alias.Prefixes
+        : TryResolveGgufSourceModel(repoIdOrPath, out var info) ? PromptPrefixes.Of(info!) : PromptPrefixes.None;
+
+    private static GgufAlias? GgufAliasOfRepo(string repoIdOrPath) =>
+        GgufAliases.Values.FirstOrDefault(a => string.Equals(a.RepoId, repoIdOrPath, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// The catalog entry of the model a GGUF repository was converted from: "&lt;org&gt;/&lt;model&gt;-GGUF" →
@@ -1019,6 +1058,9 @@ public static class LocalEmbedder
         if (IsGgufModel(target))
         {
             var repo = StripGgufPrefix(target);
+            if (GgufAliasOfRepo(repo) is { } alias)
+                return new ModelDescription(modelId, repo, ModelBackend.Gguf, alias.DisplayName, alias.License, null);
+
             return TryResolveGgufSourceModel(repo, out var source)
                 ? new ModelDescription(modelId, repo, ModelBackend.Gguf, $"{OwnName(source!.RepoId)} (GGUF)", source.License, null)
                 : new ModelDescription(modelId, repo, ModelBackend.Gguf, OwnName(repo), null, null);
