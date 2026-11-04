@@ -102,7 +102,12 @@ var result = await transcriber.TranscribeAsync("meeting.wav");
 Console.WriteLine($"{result.Language} (p={result.LanguageProbability:F2})"); // e.g. "ko (p=0.97)"
 ```
 
-A hint (`Language = "ko"`) skips the step and leaves `LanguageProbability` null. English-only
+A hint (`Language = "ko"`) skips the step and leaves `LanguageProbability` null. The hint is checked before anything
+is decoded: a code (`"ko"`), an English name (`"korean"`) or a code with a region (`"ko-KR"`) is accepted and
+`result.Language` reports the code; null, an empty string and white space all mean no hint, so the language is identified; any
+other value — `"kor"`, `"xx"` — throws an `ArgumentException` that lists the codes Whisper decodes, and so does a code the
+chosen model does not transcribe (`"en"` for `large-ko`, `"ko"` for an English-only or a Parakeet model). A hint is never
+dropped silently. English-only
 models (`*.en`) have no language tokens and always report `en`. Before v0.58.0 the step did not
 exist — the prompt simply omitted the language token, which decoded non-English audio as English.
 
@@ -382,6 +387,8 @@ Supported audio formats (decoded by managed code only — NAudio for WAV, NLayer
 
 MP4/AAC (`.m4a`, Safari recordings) is not decoded and throws `NotSupportedException` with the advice to record WebM/Opus or
 Ogg/Opus, or to convert to WAV; FLAC and Ogg Vorbis are not decoded either.
+
+Audio with no bytes at all (a 0-byte file, an empty stream or array) throws an `InvalidDataException` that says it is empty.
 
 Audio is automatically:
 - Resampled to 16kHz

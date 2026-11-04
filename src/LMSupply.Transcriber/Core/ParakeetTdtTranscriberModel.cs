@@ -110,7 +110,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarizati
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         Diarization.DiarizationStage.RejectOnStreaming(options);
-        ValidateOptions(options);
+        options = ValidateOptions(options);
         await EnsureInitializedAsync(cancellationToken);
         var samples = await AudioProcessor.LoadAudioAsync(audioPath, cancellationToken);
 
@@ -126,7 +126,7 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarizati
 
     private async Task<TranscriptionResult> TranscribeSamplesAsync(float[] samples, TranscribeOptions? options, CancellationToken cancellationToken)
     {
-        ValidateOptions(options);
+        options = ValidateOptions(options);
         Diarization.DiarizationStage.Validate(options);
         await EnsureInitializedAsync(cancellationToken);
 
@@ -151,10 +151,12 @@ internal sealed class ParakeetTdtTranscriberModel : ITranscriberModel, Diarizati
         return await _diarization.ApplyAsync(result, samples, options, cancellationToken);
     }
 
-    private static void ValidateOptions(TranscribeOptions? options)
+    private TranscribeOptions? ValidateOptions(TranscribeOptions? options)
     {
         if (options?.Translate == true)
             throw new NotSupportedException("Parakeet TDT models transcribe only; translation to English is not supported by this model family.");
+
+        return TranscriptionLanguage.Resolve(options, _modelInfo);
     }
 
     private static IEnumerable<(float[] Chunk, double OffsetSeconds)> Windows(float[] samples)

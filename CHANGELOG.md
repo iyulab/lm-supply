@@ -36,6 +36,18 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   already handled them).
 
 ### Changed
+- **Breaking: a call with nothing to say is refused by the Synthesizer, not answered with an empty recording.** Empty or white-space
+  text, text whose characters the voice's phonemizer drops all of (for example Japanese kana sent to a Korean voice), and phonemes
+  the voice has no id for used to give a result with no audio — `SynthesizeToFileAsync("")` wrote a 44-byte WAV and nothing said
+  so. They now throw an `ArgumentException` naming the voice, its language and the dropped symbols; no file is written. A call of
+  which only some sentences are dropped still synthesizes the rest. Migration: catch the exception, or skip empty text before the call.
+- **Breaking: `TranscribeOptions.Language` is checked.** A value Whisper does not decode (`"xx"`, `"kor"`) was dropped with a trace
+  line, the model chose a language of its own, and `result.Language` came back as the caller's wrong code; an empty string behaved
+  differently from `null`. A code, an English name (`"korean"`) or a code with a region (`"ko-KR"`) now becomes the code, null, empty and
+  white space all mean *identify the language*, and any other value — or a code the chosen model does not transcribe (`"en"` for
+  `large-ko`) — throws an `ArgumentException` listing the accepted codes. Migration: pass `null` for automatic detection.
+- **Audio with no bytes throws `InvalidDataException`** (it said so; before, a 0-byte file or an empty array failed with an end-of-stream
+  error from the decoder), and **an unknown model alias lists the known aliases** in the `ModelNotFoundException` message.
 - **The load that installs a runtime no longer starts a background update download of it.** A new runtime entry used to count as
   never checked, so the first load asked NuGet at once and, when a patch had been published since, fetched it unasked next to the
   download the caller had agreed to (a second ONNX Runtime package, tens of megabytes, without a progress report). A new entry now

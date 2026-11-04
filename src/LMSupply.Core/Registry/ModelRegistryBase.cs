@@ -65,8 +65,28 @@ public abstract class ModelRegistryBase<TModelInfo> : IModelRegistry<TModelInfo>
         if (TryResolve(modelIdOrAlias, out var modelInfo))
             return modelInfo!;
 
-        throw new ModelNotFoundException(
-            $"Model '{modelIdOrAlias}' not found in registry.", modelIdOrAlias);
+        throw new ModelNotFoundException(NotFoundMessage(modelIdOrAlias), modelIdOrAlias);
+    }
+
+    // What the caller does next is to pick one the registry knows, so the message lists them.
+    private const int AliasesListed = 24;
+
+    private string NotFoundMessage(string modelIdOrAlias)
+    {
+        var problem = string.IsNullOrWhiteSpace(modelIdOrAlias)
+            ? "The model id or alias is empty."
+            : $"Model '{modelIdOrAlias}' not found in registry.";
+
+        var aliases = _systemAliases.Keys
+            .Concat(_userAliases.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(a => a, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (aliases.Count == 0)
+            return problem;
+
+        var listed = string.Join(", ", aliases.Take(AliasesListed)) + (aliases.Count > AliasesListed ? ", ..." : "");
+        return $"{problem} Known aliases: {listed}. GetAvailableModels() lists them with the model each stands for.";
     }
 
     /// <inheritdoc />

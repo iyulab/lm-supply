@@ -67,8 +67,10 @@ public sealed class TranscriberOptions : LMSupplyOptionsBase
 public sealed class TranscribeOptions
 {
     /// <summary>
-    /// Gets or sets the language code for transcription (ISO 639-1, e.g. "en", "ko").
-    /// If null, the language is identified from the first 30 s window with Whisper's
+    /// Gets or sets the language code for transcription (ISO 639-1, e.g. "en", "ko"; an English name such as "korean" and a
+    /// code with a region such as "ko-KR" are accepted and become the code). A code the model does not decode throws an
+    /// <see cref="ArgumentException"/> naming the codes it does — it is never ignored. Null, empty and white space mean no
+    /// hint: the language is identified from the first 30 s window with Whisper's
     /// language-identification step and reused for the rest of the audio; the outcome is reported
     /// as <see cref="TranscriptionResult.Language"/> / <see cref="TranscriptionResult.LanguageProbability"/>.
     /// A hint skips identification (and leaves the probability null).
@@ -240,6 +242,14 @@ public sealed class TranscribeOptions
     {
         var copy = (TranscribeOptions)MemberwiseClone();
         copy.WordTimestamps = true;
+        return copy;
+    }
+
+    /// <summary>A copy with <see cref="Language"/> replaced (memberwise, like <see cref="WithTimestampTokens"/>).</summary>
+    internal TranscribeOptions WithLanguage(string? language)
+    {
+        var copy = (TranscribeOptions)MemberwiseClone();
+        copy.Language = language;
         return copy;
     }
 }

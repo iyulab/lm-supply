@@ -561,6 +561,34 @@ internal sealed partial class WhisperTokenizer : IDisposable
     }
 
     /// <summary>
+    /// The Whisper language code a caller's language hint stands for: <c>null</c> when it names none (null, empty or
+    /// white space — the same as not asking, so the language is identified from the audio), the lower-case code
+    /// otherwise. A code, an English language name (<c>"korean"</c>) or a code with a region (<c>"ko-KR"</c>) is
+    /// accepted.
+    /// </summary>
+    /// <exception cref="ArgumentException">The hint is not a language Whisper decodes. A hint that is silently ignored
+    /// lets the model pick a language of its own, and the result then carries the caller's wrong code.</exception>
+    internal static string? ResolveLanguage(string? language)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+            return null;
+
+        var code = NormalizeLanguageCode(language);
+        var region = code.IndexOfAny(['-', '_']);
+        if (region > 0)
+            code = code[..region];
+
+        if (SupportedLanguages.ContainsKey(code))
+            return code;
+
+        throw new ArgumentException(
+            $"TranscribeOptions.Language '{language}' is not a language Whisper decodes. Use an ISO 639-1 code such as 'ko' or " +
+            $"'en' (an English name such as 'korean' also works), or leave it null to identify the language from the audio. " +
+            $"Codes: {string.Join(", ", SupportedLanguages.Keys)}.",
+            nameof(language));
+    }
+
+    /// <summary>
     /// Normalizes a language code to the format expected by Whisper.
     /// </summary>
     private static string NormalizeLanguageCode(string language)

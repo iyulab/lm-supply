@@ -68,8 +68,19 @@ internal static class AudioProcessor
         return await Task.Run(() => LoadAudioFromStream(memoryStream), cancellationToken);
     }
 
+    /// <summary>
+    /// The refusal of audio that holds no bytes: a recording that never started, a file truncated to nothing. The decoders
+    /// would fail on it with an end-of-stream error that does not say the audio is empty.
+    /// </summary>
+    private static InvalidDataException EmptyAudio(string source) =>
+        new($"The audio is empty ({source} holds 0 bytes), so there is nothing to transcribe. Record or supply audio first.");
+
     private static float[] LoadAudio(string audioPath)
     {
+        // The length through the cache manager: a file that is a link (an audio file linked into place) is read at its target's size.
+        if (LMSupply.Download.CacheManager.TryGetContentLength(audioPath, out var fileLength) && fileLength == 0)
+            throw EmptyAudio($"the file '{Path.GetFileName(audioPath)}'");
+
         // Recorder containers (WebM, Ogg, MP4) are recognised from their bytes, whatever the extension.
         if (RecorderContainer(audioPath) != OpusAudio.Container.Unknown)
         {
@@ -97,6 +108,9 @@ internal static class AudioProcessor
         var start = stream.Position;
         var headLength = stream.Read(head);
         stream.Position = start;
+        if (headLength == 0)
+            throw EmptyAudio("the stream or byte array");
+
         switch (OpusAudio.Detect(head[..headLength]))
         {
             case OpusAudio.Container.WebM:

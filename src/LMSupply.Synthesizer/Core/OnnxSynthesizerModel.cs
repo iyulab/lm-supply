@@ -128,7 +128,7 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
         await EnsureInitializedAsync(cancellationToken);
 
         var sentences = await PhonemizeAsync(text, cancellationToken);
-        await foreach (var chunk in StreamSentencesAsync(sentences, options, cancellationToken))
+        await foreach (var chunk in StreamSentencesAsync(sentences, text, options, cancellationToken))
             yield return chunk;
     }
 
@@ -140,7 +140,7 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
         ArgumentNullException.ThrowIfNull(sentences);
         await EnsureInitializedAsync(cancellationToken);
 
-        await foreach (var chunk in StreamSentencesAsync(sentences, options, cancellationToken))
+        await foreach (var chunk in StreamSentencesAsync(sentences, text: null, options, cancellationToken))
             yield return chunk;
     }
 
@@ -184,6 +184,9 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
         CancellationToken cancellationToken)
     {
         var (encoded, unknown) = Encode(sentences);
+        if (encoded.Count == 0)
+            throw NothingToSay(text, sentences, unknown, ModelId, _voice!.Scheme.Language);
+
         var scales = _voice!.Scales(options);
         var speakerId = _voice.SpeakerId(options);
 
@@ -213,10 +216,14 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
 
     private async IAsyncEnumerable<AudioChunk> StreamSentencesAsync(
         IReadOnlyList<string> sentences,
+        string? text,
         SynthesizeOptions? options,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var (encoded, _) = Encode(sentences);
+        var (encoded, unknown) = Encode(sentences);
+        if (encoded.Count == 0)
+            throw NothingToSay(text, sentences, unknown, ModelId, _voice!.Scheme.Language);
+
         var scales = _voice!.Scales(options);
         var speakerId = _voice.SpeakerId(options);
 
@@ -233,6 +240,34 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
                 UnknownPhonemes = encoded[i].Unknown
             };
         }
+    }
+
+    /// <summary>
+    /// The refusal of a call that has nothing the voice can say: no text, or a text (or phonemes) of which not one phoneme
+    /// the voice has an id for is left. A silent result for it would be an empty file the caller takes for success — most
+    /// often text in another language than the voice's, whose characters the phonemizer drops. A call of which only some
+    /// sentences are dropped still synthesizes the rest.
+    /// </summary>
+    internal static ArgumentException NothingToSay(
+        string? text, IReadOnlyList<string> sentences, string unknown, string voiceName, string? language)
+    {
+        var skipped = unknown.Length == 0
+            ? ""
+            : " The voice has no id for " + string.Join(" ", unknown.EnumerateRunes().Select(r => $"U+{r.Value:X4}")) + ".";
+        var spoken = language is null ? "" : $" The voice speaks '{language}'; check that the text is in it.";
+
+        if (text is null)
+        {
+            return new ArgumentException(
+                $"None of the {sentences.Count} sentence(s) of phonemes holds a phoneme the voice '{voiceName}' has an id for, " +
+                $"so there is nothing to synthesize.{skipped}", nameof(sentences));
+        }
+
+        return string.IsNullOrWhiteSpace(text)
+            ? new ArgumentException("The text is empty or white space, so there is nothing to synthesize.", nameof(text))
+            : new ArgumentException(
+                $"The voice '{voiceName}' has nothing to say for this text of {text.Length} character(s): the phonemizer left " +
+                $"no phoneme the voice has an id for.{skipped}{spoken}", nameof(text));
     }
 
     // Every sentence is encoded before the first one runs, so what the voice cannot say is known up front. A sentence

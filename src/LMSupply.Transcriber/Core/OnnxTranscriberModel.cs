@@ -114,6 +114,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel, Diarization.IDia
         Diarization.DiarizationStage.RejectOnStreaming(options);
         await EnsureInitializedAsync(cancellationToken);
         ValidateTranslateSupport(options);
+        options = TranscriptionLanguage.Resolve(options, _modelInfo);
         var samples = await AudioProcessor.LoadAudioAsync(audioPath, cancellationToken);
 
         var segmentId = 0;
@@ -173,6 +174,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel, Diarization.IDia
         Diarization.DiarizationStage.Validate(options);
         await EnsureInitializedAsync(cancellationToken);
         ValidateTranslateSupport(options);
+        options = TranscriptionLanguage.Resolve(options, _modelInfo);
 
         var sw = Stopwatch.StartNew();
         var duration = AudioProcessor.GetDurationSeconds(samples);

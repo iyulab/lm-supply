@@ -191,6 +191,13 @@ if (result.UnknownPhonemes.Length > 0)
     Console.WriteLine($"Skipped: {result.UnknownPhonemes}");
 ```
 
+**Nothing to say.** Sentences the voice can say none of are dropped, and the rest is synthesized. A call of which *nothing* is left —
+empty or white-space text, text in another language than the voice's whose characters the phonemizer drops (Japanese kana to a
+Korean voice), phonemes the voice has no id for — throws an `ArgumentException` that names the voice, its language and the
+dropped symbols (`SynthesizeToFileAsync` leaves no file behind), instead of returning a result with no audio that would pass
+for success. A voice of a single speaker ignores `SynthesizeOptions.SpeakerId`, as Piper does; a multi-speaker voice rejects an id
+outside `0 … speakers − 1`.
+
 ### Text through a phonemizer
 
 `IPhonemizer` is the text-to-phoneme step. It is given the text and the voice's `PhonemeScheme`, and returns the
