@@ -15,12 +15,32 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `default`. `default` and the other aliases are unchanged, so nothing starts a llama-server that did not before.
 
 ### Fixed
+- **`DownloadProgress.BytesPerSecond`, `EstimatedRemaining`, `SpeedDisplay` and `EtaDisplay` are filled.** They were documented on every
+  report but never set, so a progress view of a model, a runtime package or a llama-server build showed no speed and no time left.
+  They are measured where the bytes arrive, so every download carries them: a smoothed speed from about the second report of a file
+  on, and the time left of the whole download when a multi-file download's total size is known (the current file's otherwise).
+  Bytes a resumed download already held are not counted as transferred. `DownloadProgressTracker.Start(long)` takes that baseline.
+- **A runtime update check that ends at once no longer blocks later checks.** The background check registered itself after it had
+  started, so a check that finished first (not due yet) left its entry behind and every later check of that package in the process was skipped.
+- **Half-fetched runtime packages left by an interrupted background download are removed.** A process that ended while an update was
+  downloading left its `.staging-*` directory in the runtime cache for good; the next runtime download now sweeps the ones
+  nothing has written to for a day.
+- **Documentation:** the transcriber's audio-format list no longer names AAC/M4A, FLAC and Ogg Vorbis (they are not decoded; the README
+  and the runtime already said so for MP4/AAC); the consent-screen examples say that `GetDownloadSizeBytesAsync` and
+  `GetRemainingDownloadBytesAsync` count the model's files only and point to `…Artifacts.GetRemainingDownloadAsync(…).TotalBytes` for the
+  runtime too; the Synthesizer and Transcriber pages say that `CacheDirectory` does not move the native ONNX Runtime (only
+  `LMSUPPLY_CACHE_DIR` does) and that the Whisper `default` download is 81 MB or about 295 MB depending on the machine's tier.
 - **A single-file GGUF loader no longer takes a multimodal projector for the model.** A repository of a multimodal model lists
   `mmproj-*.gguf` beside the model, and for a small model the projector can be the largest file, which is what the choice by size
   prefers. Projector files are left out of the candidates for the Embedder, Reranker and Decider (the Generator's own downloader
   already handled them).
 
 ### Changed
+- **The load that installs a runtime no longer starts a background update download of it.** A new runtime entry used to count as
+  never checked, so the first load asked NuGet at once and, when a patch had been published since, fetched it unasked next to the
+  download the caller had agreed to (a second ONNX Runtime package, tens of megabytes, without a progress report). A new entry now
+  counts as checked at the time of the install: the first background check comes one `RuntimeUpdateOptions.VersionCheckInterval`
+  (24 hours) later. `WarmupAsync` still checks and applies updates when asked.
 - **Breaking: `gguf:qwen3-balanced` is now Qwen 3.5 9B (`unsloth/Qwen3.5-9B-GGUF`, Q4_K_M, Apache-2.0), not Qwen3 8B.** It brings the
   alias to the same model generation as `qwen3-fast` and `qwen3-default`. On 1,799 Korean multiple-choice knowledge questions
   (KMMLU, the first 40 of each of its 45 subjects) read through the decider, 9B answered 50.3 % right and 8B 39.9 %: the 9B was

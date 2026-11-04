@@ -70,10 +70,13 @@ public sealed class RuntimeVersionStateManager : IDisposable
             var state = await LoadStateFileAsync(ct);
             if (!state.Packages.TryGetValue(packageKey, out var packageState))
             {
+                // A runtime recorded now is the version this host just resolved, so asking NuGet again straight away
+                // would only find a patch published since and fetch it unasked, on top of the download the caller
+                // agreed to. Its first background check is one interval away.
                 packageState = new RuntimeVersionState
                 {
                     InstalledVersion = initialVersion,
-                    LastVersionCheck = DateTimeOffset.MinValue
+                    LastVersionCheck = DateTimeOffset.UtcNow
                 };
                 state.Packages[packageKey] = packageState;
                 await SaveStateFileAsync(state, ct);

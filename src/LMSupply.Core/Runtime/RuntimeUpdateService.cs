@@ -225,11 +225,14 @@ public sealed class RuntimeUpdateService : IAsyncDisposable
 
         var taskKey = $"{packageId}|{provider}|{platform.RuntimeIdentifier}";
 
-        // Only one background task per package
-        if (_backgroundTasks.ContainsKey(taskKey))
+        // Only one background task per package. The slot is taken before the work starts: a check that ends at once
+        // (not due yet) removes its own entry, and an entry written after that removal would stay and block every
+        // later check of this package for the life of the process.
+        var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_backgroundTasks.TryAdd(taskKey, finished.Task))
             return Task.CompletedTask;
 
-        var task = Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
             try
             {
@@ -238,10 +241,10 @@ public sealed class RuntimeUpdateService : IAsyncDisposable
             finally
             {
                 _backgroundTasks.TryRemove(taskKey, out _);
+                finished.SetResult();
             }
         });
 
-        _backgroundTasks[taskKey] = task;
         return Task.CompletedTask;
     }
 

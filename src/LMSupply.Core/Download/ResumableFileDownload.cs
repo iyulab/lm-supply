@@ -344,17 +344,18 @@ internal static class ResumableFileDownload
         // UI-bound Progress<T> posts to its thread. Coalesce here, once, to first/last/1%/250 ms.
         var progress = CoalescingProgress.Wrap(request.Progress);
 
+        // Speed and time remaining are measured here, where the bytes arrive, so every download in the library —
+        // model files, runtime packages, llama-server builds — reports them. Bytes held from an earlier attempt are
+        // the baseline: they were not transferred in this one.
+        var tracker = new DownloadProgressTracker();
+        tracker.Start(startPosition);
+
         while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
         {
             await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
             bytesDownloaded += bytesRead;
 
-            progress?.Report(new DownloadProgress
-            {
-                FileName = request.FileName,
-                BytesDownloaded = bytesDownloaded,
-                TotalBytes = expectedTotal
-            });
+            progress?.Report(tracker.CreateProgress(request.FileName, bytesDownloaded, expectedTotal));
         }
 
         await fileStream.FlushAsync(cancellationToken).ConfigureAwait(false);

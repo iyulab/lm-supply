@@ -30,11 +30,18 @@ public sealed class DownloadProgressTracker
     /// <summary>
     /// Starts tracking progress.
     /// </summary>
-    public void Start()
+    public void Start() => Start(0);
+
+    /// <summary>
+    /// Starts tracking progress of a transfer that resumes with bytes already on disk: those bytes are the
+    /// baseline, not part of the first speed sample, so a resumed download does not report a speed spike.
+    /// </summary>
+    /// <param name="alreadyDownloadedBytes">Bytes held before this transfer began.</param>
+    public void Start(long alreadyDownloadedBytes)
     {
         _stopwatch.Restart();
         _samples.Clear();
-        _lastReportedBytes = 0;
+        _lastReportedBytes = Math.Max(0, alreadyDownloadedBytes);
         _lastSampleTime = TimeSpan.Zero;
         _smoothedSpeed = 0;
     }

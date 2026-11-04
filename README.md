@@ -128,7 +128,8 @@ await using var e5 = await LocalEmbedder.LoadAsync("multilingual-e5-small");
 float[] similar = await e5.EmbedAsync("a sentence to compare");        // "query: a sentence to compare"
 float[] stored = await e5.EmbedPassageAsync("a document to index");    // "passage: a document to index"
 
-// Before the first download: what a first load would fetch, for a consent screen (0 for a local path)
+// Before the first download: the model's files a first load would fetch (0 for a local path). A consent screen states
+// the whole first run — model plus the native runtime — from EmbedderArtifacts(...).GetRemainingDownloadAsync(...).TotalBytes
 long bytes = await LocalEmbedder.GetDownloadSizeBytesAsync("default");
 // What that load would still fetch now: 0 once cached, the missing part of a partly cached model
 long remaining = await LocalEmbedder.GetRemainingDownloadBytesAsync("default");
@@ -258,7 +259,8 @@ await using var responsive = await LocalGenerator.LoadAsync(
     "auto", new GeneratorOptions { AutoSelectionGoal = AutoSelectionGoal.Responsive });
 
 // Consent gate — ask only for what the load with the same id and options would still fetch on this host
-// ("auto" resolved like the load); GetDownloadSizeBytesAsync is the whole first-run download
+// ("auto" resolved like the load); GetDownloadSizeBytesAsync is the model's first-run download without the runtime
+// (llama-server, or the ONNX Runtime package) — GeneratorArtifacts(options).GetRemainingDownloadAsync(...).TotalBytes has both
 var remaining = await LocalGenerator.GetRemainingDownloadBytesAsync("auto", options);
 if (remaining > 0 && !AskUserToDownload(remaining))
     return;
@@ -332,9 +334,11 @@ foreach (var segment in meeting.Segments)
 // MaxSpeakers bounds the estimate (attendees); NumSpeakers forces an exact count and splits a voice to reach it.
 // The diarization models download on first use; to fetch them at an install step instead, load with
 // new TranscriberOptions { PreloadDiarization = true }. LocalTranscriber.IsDiarizationDownloadedAsync() checks the cache.
-// For a consent screen: LocalTranscriber.GetDownloadSizeBytesAsync(options) is what that load downloads (the quantization it
-// picks, plus the pair when PreloadDiarization is set) — TranscriberModelInfo.SizeBytes is the full-precision export's size —
-// and LocalTranscriber.IsModelDownloadedAsync(options) whether the model's files are already on disk.
+// For a consent screen: LocalTranscriber.GetDownloadSizeBytesAsync(options) is the model's files that load downloads (the
+// quantization it picks, plus the pair when PreloadDiarization is set) — TranscriberModelInfo.SizeBytes is the
+// full-precision export's size — and new TranscriberArtifacts(options).GetRemainingDownloadAsync("default").TotalBytes adds
+// the native runtime a first load also fetches; LocalTranscriber.IsModelDownloadedAsync(options) whether the model's files
+// are already on disk.
 
 // Streaming transcription
 await foreach (var segment in transcriber.TranscribeStreamingAsync("audio.wav"))
@@ -1089,6 +1093,9 @@ load would not download the runtime (`RuntimeManagerOptions` disables it, or nam
 The speaker-diarization pair is a kind of its own (`"diarization"`), not part of the transcriber's — whatever
 `PreloadDiarization` says — so «transcription available» and «speaker labels available» are two statuses, each with its own
 consent and download. A host whose loads preload diarization treats the transcriber as ready when both kinds are.
+The figure a first-run consent screen states is `TotalBytes`: `GetDownloadSizeBytesAsync` and `GetRemainingDownloadBytesAsync` on the
+`Local*` classes count the model's files only, so a screen built on them alone is short by the runtime (about 160 MB for the
+ONNX Runtime CPU package).
 A host that loads from a path rather than an id finds the path after the download from the cache alone — for example
 `LocalGenerator.DownloadModelAsync(id, new GeneratorOptions { DisableAutoDownload = true })` returns it without a request.
 

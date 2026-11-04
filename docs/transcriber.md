@@ -232,16 +232,22 @@ Console.WriteLine($"Diarization models ({LocalTranscriber.DiarizationDownloadSiz
 - `IsDiarizationDownloadedAsync` reads only `CacheDirectory` from the options, makes no request and writes nothing. It
   is true when a diarized call would open both files without a download.
 - `DiarizationDownloadSizeBytes` is the pair's size as the repositories list it (32.5 MB), for a consent screen.
-- `GetDownloadSizeBytesAsync(options)` (0.86.0+) is the whole download of `LoadAsync` with the same options: the files
+- `GetDownloadSizeBytesAsync(options)` (0.86.0+) is the model's part of a first `LoadAsync` with the same options: the files
   the load picks — the quantization from `QuantizationHint` (or a `:int8` qualifier), otherwise this machine's hardware
   tier — plus the pair when `PreloadDiarization` is set. It reads the repository listing once (cached for a day and
-  reused by the load) and downloads nothing; a model on local disk adds 0. `TranscriberModelInfo.SizeBytes` is the
-  full-precision export's size and is **not** what a load downloads: for `default` it says 290 MB, while a load on a typical machine
-  takes the int8 pair, about 81 MB.
+  reused by the load) and downloads nothing; a model on local disk adds 0. It does **not** count the native ONNX Runtime
+  package a first load also provisions once per host (about 160 MB for the CPU package of 1.31.0): the whole first-run
+  figure is `new TranscriberArtifacts(options).GetRemainingDownloadAsync(id)` — `ModelBytes`, `RuntimeBytes` and their
+  sum `TotalBytes`. `TranscriberModelInfo.SizeBytes` is the full-precision export's size and is **not** what a load
+  downloads: for `default` it says 290 MB, while which export a load takes depends on the machine's hardware tier — the
+  full-precision files (about 295 MB) on a high or ultra tier (seen on Apple Silicon), the int8 pair (about 81 MB) on a medium
+  tier, a smaller one still on a low tier. Ask `GetDownloadSizeBytesAsync` rather than assuming one.
 
 ```csharp
 var install = new TranscriberOptions { PreloadDiarization = true };
-long bytes = await LocalTranscriber.GetDownloadSizeBytesAsync(install);   // the figure the consent screen states
+long modelBytes = await LocalTranscriber.GetDownloadSizeBytesAsync(install);        // the model's files
+var first = await new TranscriberArtifacts(install).GetRemainingDownloadAsync("default");
+long? whole = first.TotalBytes;                                                       // model + runtime: the consent figure
 ```
 - `IsModelDownloadedAsync(options)` (0.93.0+) answers whether that load would open cached files only: every file it
   picks (same alias, qualifier and quantization as `GetDownloadSizeBytesAsync`) is on disk at the length the
@@ -262,12 +268,17 @@ long bytes = await LocalTranscriber.GetDownloadSizeBytesAsync(install);   // the
 var options = new TranscriberOptions
 {
     Provider = ExecutionProvider.Cuda,  // Use GPU
-    CacheDirectory = "/custom/cache",   // Custom cache location
+    CacheDirectory = "/custom/cache",   // Custom cache location of the model files (the native runtime has its own — see below)
     ThreadCount = 4                     // CPU threads
 };
 
 var transcriber = await LocalTranscriber.LoadAsync("quality", options);
 ```
+
+`CacheDirectory` moves the model files. The native ONNX Runtime package (about 160 MB for the CPU package) is provisioned once
+per host into the library's runtime cache, which only the `LMSUPPLY_CACHE_DIR` environment variable relocates (or
+`RuntimeManagerOptions.RuntimeDirectory`, for a host that ships its own runtime); a host that confines the library's writes
+to one folder sets both.
 
 ## Working with Results
 
@@ -364,12 +375,13 @@ The model repository must contain ONNX files (`encoder.onnx`, `decoder.onnx`) in
 
 ## Audio Format Support
 
-Supported audio formats (via NAudio):
+Supported audio formats (decoded by managed code only — NAudio for WAV, NLayer for MP3, Concentus for Opus):
 - WAV (recommended)
 - MP3
-- AAC/M4A
-- FLAC
-- OGG
+- Opus in WebM or Ogg (what a browser records with `MediaRecorder`)
+
+MP4/AAC (`.m4a`, Safari recordings) is not decoded and throws `NotSupportedException` with the advice to record WebM/Opus or
+Ogg/Opus, or to convert to WAV; FLAC and Ogg Vorbis are not decoded either.
 
 Audio is automatically:
 - Resampled to 16kHz

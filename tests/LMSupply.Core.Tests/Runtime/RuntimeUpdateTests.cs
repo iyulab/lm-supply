@@ -245,7 +245,7 @@ public class RuntimeUpdateTests : IDisposable
 
         // Assert
         state.InstalledVersion.Should().Be("1.0.0");
-        state.LastVersionCheck.Should().Be(DateTimeOffset.MinValue);
+        state.LastVersionCheck.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -366,13 +366,27 @@ public class RuntimeUpdateTests : IDisposable
     {
         // Arrange
         using var manager = new RuntimeVersionStateManager(_testCacheDir);
-        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
+        var state = await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
+        state.LastVersionCheck = DateTimeOffset.UtcNow - TimeSpan.FromHours(2);
+        await manager.UpdateStateAsync("test|cpu|win-x64", state, TestContext.Current.CancellationToken);
 
-        // Act - check with 1 hour interval (state was just created with MinValue timestamp)
+        // Act - check with 1 hour interval (the last check was two hours ago)
         var isDue = await manager.IsVersionCheckDueAsync("test|cpu|win-x64", TimeSpan.FromHours(1), TestContext.Current.CancellationToken);
 
         // Assert
-        isDue.Should().BeTrue("LastVersionCheck was MinValue, so it should be due");
+        isDue.Should().BeTrue("the last check is older than the interval");
+    }
+
+    [Fact]
+    public async Task RuntimeVersionStateManager_IsVersionCheckDue_ReturnsFalseRightAfterTheFirstInstall()
+    {
+        // The load that installs a runtime must not start a background update download of its own.
+        using var manager = new RuntimeVersionStateManager(_testCacheDir);
+        await manager.GetOrCreateStateAsync("test|cpu|win-x64", "1.0.0", TestContext.Current.CancellationToken);
+
+        var isDue = await manager.IsVersionCheckDueAsync("test|cpu|win-x64", TimeSpan.FromHours(24), TestContext.Current.CancellationToken);
+
+        isDue.Should().BeFalse("the first background check is one interval after the install");
     }
 
     [Fact]

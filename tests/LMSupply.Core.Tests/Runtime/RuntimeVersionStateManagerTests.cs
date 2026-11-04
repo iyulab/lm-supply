@@ -75,7 +75,8 @@ public class RuntimeVersionStateManagerTests : IDisposable
 
         state.Should().NotBeNull();
         state.InstalledVersion.Should().Be("1.0.0");
-        state.LastVersionCheck.Should().Be(DateTimeOffset.MinValue);
+        state.LastVersionCheck.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(5),
+            "a runtime recorded now has just been resolved; its first background check is one interval away");
     }
 
     [Fact]
@@ -312,9 +313,10 @@ public class RuntimeVersionStateManagerTests : IDisposable
         using var manager = CreateManager();
         var key = "pkg|provider|rid";
 
-        // Create with MinValue timestamp (never checked)
+        // A check that happened long ago (an entry from an earlier install)
         var state = await manager.GetOrCreateStateAsync(key, "1.0.0", TestContext.Current.CancellationToken);
-        // LastVersionCheck defaults to DateTimeOffset.MinValue, so any interval should be due
+        state.LastVersionCheck = DateTimeOffset.UtcNow - TimeSpan.FromDays(2);
+        await manager.UpdateStateAsync(key, state, TestContext.Current.CancellationToken);
 
         var due = await manager.IsVersionCheckDueAsync(key, TimeSpan.FromMilliseconds(1), TestContext.Current.CancellationToken);
 

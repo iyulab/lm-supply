@@ -941,18 +941,25 @@ public sealed class HuggingFaceDownloader : IDisposable
         }
     }
 
-    private sealed class MultiFileProgress(
+    internal sealed class MultiFileProgress(
         IProgress<DownloadProgress> inner, int currentFileIndex, int totalFileCount, long? bytesBefore, long? overallTotal)
         : IProgress<DownloadProgress>
     {
         public void Report(DownloadProgress value)
         {
+            var overallDone = bytesBefore + value.BytesDownloaded;
+
             inner.Report(value with
             {
                 CurrentFileIndex = currentFileIndex,
                 TotalFileCount = totalFileCount,
-                OverallBytesDownloaded = bytesBefore + value.BytesDownloaded,
-                OverallTotalBytes = overallTotal
+                OverallBytesDownloaded = overallDone,
+                OverallTotalBytes = overallTotal,
+                // Across several files the time left is the whole download's, not the current file's — the last
+                // small file of a model would otherwise promise seconds for minutes of work.
+                EstimatedRemaining = value.BytesPerSecond is > 0 && overallTotal is { } total && overallDone is { } done && total > done
+                    ? TimeSpan.FromSeconds((total - done) / value.BytesPerSecond.Value)
+                    : value.EstimatedRemaining
             });
         }
     }

@@ -408,7 +408,8 @@ native ONNX Runtime, or llama-server for GGUF) are not counted.
 
 `LocalEmbedder.GetRemainingDownloadBytesAsync(modelIdOrPath, options)` is what that load would still fetch now: the same
 files, less those the cache already holds at the listed length. It is 0 once the model is cached, and the missing part
-of a partly cached model otherwise — the figure a consent screen asks about. A partly downloaded file counts in full.
+of a partly cached model otherwise — the model's part of a consent screen's figure: the ONNX Runtime package a first load also
+provisions is counted by `new EmbedderArtifacts(options).GetRemainingDownloadAsync(id)` (`TotalBytes`). A partly downloaded file counts in full.
 Every domain that has `GetDownloadSizeBytesAsync` has it (Reranker, Generator, Captioner, OCR, Transcriber).
 
 `LocalEmbedder.Describe(modelIdOrPath)` names what that load would open — repository, backend (`ModelBackend.Onnx` /

@@ -17,7 +17,9 @@ public sealed class RuntimeVersionState
     public string? LatestKnownVersion { get; set; }
 
     /// <summary>
-    /// Gets or sets the timestamp of the last version check.
+    /// Gets or sets the timestamp of the last version check. A new entry starts at the time the runtime was first
+    /// recorded, not at <see cref="DateTimeOffset.MinValue"/>: the first background check comes one check interval
+    /// after the install, so a first run transfers what its caller agreed to and nothing more.
     /// </summary>
     public DateTimeOffset LastVersionCheck { get; set; }
 

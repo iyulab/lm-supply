@@ -44,8 +44,9 @@ var fromStream = await captioner.CaptionAsync(stream);
 
 Florence-2 is published in quantized variants. A load takes the variant this machine's hardware tier picks (int8 on most
 machines), or the one named by `CaptionerOptions.QuantizationHint` or a qualifier (`"quality:fp16"`).
-`LocalCaptioner.GetDownloadSizeBytesAsync(alias, options)` answers what that load will download — for a consent screen —
-without downloading anything.
+`LocalCaptioner.GetDownloadSizeBytesAsync(alias, options)` answers what that load will download of the model's files — the
+model's part of a consent screen's figure; `new CaptionerArtifacts(options).GetRemainingDownloadAsync(alias)` adds the
+runtime (`TotalBytes`) — without downloading anything.
 
 ### Level of detail
 

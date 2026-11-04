@@ -253,6 +253,7 @@ public sealed class OnnxNuGetDownloader : IDisposable
         // processes (which the in-process gate cannot serialize) from colliding.
         var parentDir = Path.GetDirectoryName(cachePath)!;
         Directory.CreateDirectory(parentDir);
+        SweepAbandonedStaging(parentDir, DateTime.UtcNow);
         var stagingDir = Path.Combine(parentDir, ".staging-" + Guid.NewGuid().ToString("N"));
 
         try
@@ -599,6 +600,37 @@ public sealed class OnnxNuGetDownloader : IDisposable
         }
 
         return cachePath;
+    }
+
+    /// <summary>How long a staging directory must be untouched before it is taken for abandoned.</summary>
+    internal static readonly TimeSpan AbandonedStagingAge = TimeSpan.FromHours(24);
+
+    /// <summary>
+    /// Deletes the <c>.staging-*</c> directories beside the runtime cache that no download is writing any more. A
+    /// process that ends while a background download runs (a short-lived program, a kill) never reaches the
+    /// <c>finally</c> that removes its staging directory, and the half-fetched package stays in the cache for good.
+    /// A directory counts as abandoned when nothing in it was written for <see cref="AbandonedStagingAge"/> — far
+    /// longer than a live download goes without writing a byte — so a download of another process is left alone.
+    /// </summary>
+    internal static void SweepAbandonedStaging(string parentDir, DateTime utcNow)
+    {
+        try
+        {
+            foreach (var dir in Directory.EnumerateDirectories(parentDir, ".staging-*"))
+            {
+                var newest = Directory.EnumerateFileSystemEntries(dir, "*", SearchOption.AllDirectories)
+                    .Select(File.GetLastWriteTimeUtc)
+                    .Append(Directory.GetLastWriteTimeUtc(dir))
+                    .Max();
+                if (utcNow - newest >= AbandonedStagingAge)
+                    CleanupTempDirectory(dir);
+            }
+        }
+        catch (Exception ex)
+        {
+            // A sweep is housekeeping: a directory that cannot be listed or removed is tried again next time.
+            Trace.TraceInformation($"[OnnxNuGetDownloader] Abandoned staging sweep failed: {ex.Message}");
+        }
     }
 
     private static void CleanupTempDirectory(string tempDir)

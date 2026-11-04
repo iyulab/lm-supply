@@ -81,12 +81,18 @@ public record DownloadProgress
             : PercentComplete;
 
     /// <summary>
-    /// Gets the current download speed in bytes per second.
+    /// Gets the current download speed in bytes per second, smoothed over the last few seconds of the file being
+    /// fetched. <c>null</c> until a first measurement exists (about the first 200 ms of a file), for a file that is
+    /// already in place, and for reports that move no bytes — <see cref="DownloadPhase.Preparing"/>,
+    /// <see cref="DownloadPhase.Extracting"/>, <see cref="DownloadPhase.Complete"/>, <see cref="DownloadPhase.Loading"/>.
+    /// Bytes a resumed download already held are not counted as transferred.
     /// </summary>
     public double? BytesPerSecond { get; init; }
 
     /// <summary>
-    /// Gets the estimated time remaining for the download.
+    /// Gets the estimated time remaining for the download: for a multi-file download whose total size is known
+    /// (<see cref="OverallTotalBytes"/>), the whole download's; otherwise the current file's. <c>null</c> when
+    /// <see cref="BytesPerSecond"/> is.
     /// </summary>
     public TimeSpan? EstimatedRemaining { get; init; }
 

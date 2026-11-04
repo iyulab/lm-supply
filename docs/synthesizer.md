@@ -318,7 +318,7 @@ var result = await synthesizer.SynthesizePhonemesAsync(["həlˈəʊ!"], options)
 var options = new SynthesizerOptions
 {
     Provider = ExecutionProvider.Cuda,  // Use GPU
-    CacheDirectory = "/custom/cache",   // Custom cache location
+    CacheDirectory = "/custom/cache",   // Custom cache location of the voice (the native ONNX Runtime is not in it — see below)
     ThreadCount = 4,                    // CPU threads
     DisableAutoDownload = false,        // true: load only from the cache, throw if a file is missing
     Phonemizer = null                   // the text-to-phoneme step, for voices that need one
@@ -326,6 +326,11 @@ var options = new SynthesizerOptions
 
 var synthesizer = await LocalSynthesizer.LoadAsync("quality", options);
 ```
+
+`CacheDirectory` moves the voice's files. The native ONNX Runtime package (about 160 MB for the CPU package) is provisioned
+once per host into the library's runtime cache, which only the `LMSUPPLY_CACHE_DIR` environment variable relocates (or
+`RuntimeManagerOptions.RuntimeDirectory` / `Configure`, for a host that ships its own runtime). A host that confines
+the library's writes to one folder sets both.
 
 ### Before a download
 
