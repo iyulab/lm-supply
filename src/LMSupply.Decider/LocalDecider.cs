@@ -153,7 +153,11 @@ public static class LocalDecider
             BatchSize = native ? contextSize : 512,
             UBatchSize = native ? contextSize : null,
             // One slot: the emulated path sends a call's questions one after another, and they share the state's
-            // prompt prefix only within a slot.
+            // prompt prefix only within a slot. The native path depends on it too: llama-server builds before b12023
+            // answer a /v1/systemone request whose questions share their instructions and first option with HTTP 500
+            // ("must fit in one batch") when the server has more than one slot (ggml-org/llama.cpp#30482, fixed by
+            // #30710). With one slot that request is fine on every build, so the "decisions" build floors stay as
+            // they are; raising this value means raising them to b12023 first.
             Parallel = 1,
             Mode = ServerMode.Generation,
             ServerVersion = serverVersion,
