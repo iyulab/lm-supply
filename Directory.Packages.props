@@ -24,7 +24,7 @@
     <PackageVersion Include="NAudio.Lame" Version="2.1.0" />
     <!-- Pure-managed MP3 decoder for NAudio 3's cross-platform build, which no longer bundles one. It is built
          against NAudio.Core 3.0.1 and asks for that version or later, so it does not hold NAudio back. -->
-    <PackageVersion Include="NLayer.NAudioSupport" Version="3.0.0" />
+    <PackageVersion Include="NLayer.NAudioSupport" Version="3.0.1" />
     <!-- Pure-managed Opus decoder: audio recorded in a browser (MediaRecorder WebM/Opus, Ogg/Opus) is decoded without a
          native library, the same cross-platform stance as NLayer above. -->
     <PackageVersion Include="Concentus" Version="2.2.2" />

@@ -35,6 +35,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   resident even when only some layers were offloaded, so a partial offload always hit the floor and `Auto` switched to CPU. It now counts
   the weights and the KV cache of the offloaded layers (a layer's KV cache lives on the device the layer does), and the layer fit
   sizes a layer as its weights plus its share of the cache, so the layers it picks leave room for the context it was sized for.
+- **MP3 input no longer loses or garbles frames at a ring-buffer boundary.** The MP3 decoder dependency moves to `NLayer.NAudioSupport` 3.0.1,
+  which fixes Layer III frames being dropped or decoded as noise when a frame's main data filled the bit reservoir exactly to the end of
+  its ring buffer (constant-bitrate 48 kHz and 32 kHz files hit it on a fixed schedule; padded 44.1 kHz files occasionally).
 - **A context shortened by the RAM bound is a warning.** When the caller did not set `MaxContextLength` and the RAM bound loads the
   model with a shorter context than requested, the trace is a warning (it was information); the shrink is also in `AdjustedContextLength`.
 - **`DownloadProgress.BytesPerSecond`, `EstimatedRemaining`, `SpeedDisplay` and `EtaDisplay` are filled.** They were documented on every
