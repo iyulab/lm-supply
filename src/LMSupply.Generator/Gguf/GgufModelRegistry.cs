@@ -96,6 +96,7 @@ public static class GgufModelRegistry
             QuantizationType = "Q4_0",
             KvCacheBytesPerToken = 20_480,
             SlidingWindowKvBytes = 314_572_800,
+            IsMixtureOfExperts = true,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
             KnownIssues = [GgufModelKnownIssues.ToolUseUnreliableQ4, GgufModelKnownIssues.InstructionFollowingUnreliableQ4],
@@ -134,6 +135,7 @@ public static class GgufModelRegistry
             QuantizationType = "Q4_K_M",
             KvCacheBytesPerToken = 24_576,
             ShardCount = 3,
+            IsMixtureOfExperts = true,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
         },
@@ -257,6 +259,7 @@ public static class GgufModelRegistry
             EstimatedSizeBytes = 17_700_000_000L,
             QuantizationType = "IQ4_XS",
             KvCacheBytesPerToken = 20_480,
+            IsMixtureOfExperts = true,
             License = LicenseTier.MIT,
             LicenseName = "Apache 2.0",
             KnownIssues = [GgufModelKnownIssues.ThinkingEnabledByDefault],
@@ -579,13 +582,15 @@ public static class GgufModelRegistry
         // KV cache only computable when the entry carries its layout.
         long kvCache = model.EstimateKvCacheBytes(budgetContextLength) ?? 0L;
 
+        // The GPU judgement is the loader's own (GgufMemoryModel): a model recommended here is one the load runs on
+        // the GPU. System RAM keeps its own, stricter budget (the machine must stay usable beside the model).
         var total = weights + kvCache;
         return new ModelSelectionCandidate
         {
             Model = model,
             WeightsBytes = weights,
             KvCacheBytes = kvCache,
-            Fits = total <= availableVram,
+            Fits = GgufMemoryModel.Fits(availableVram, weights, kvCache, model.IsMixtureOfExperts),
             FitsInSystemRam = availableRam > 0 && total <= availableRam,
         };
     }

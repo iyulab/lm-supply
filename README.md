@@ -782,9 +782,10 @@ On a low-VRAM box the llama-server context can be clamped down to the 512-token 
 
 **How the context is sized** — with `MaxContextLength` unset, the model asks for its trained length (GGUF
 `context_length`) up to 32,768; on the CPU backend that is bounded by half of system RAM after the weights (never below
-4,096). A requested length is kept when the weights (the GGUF file size + 10%), a 512 MB
-buffer and the KV cache for that context fit in the VRAM budget; otherwise the context is reduced to what fits and
-`AdjustedContextLength` reports it. The model's `MaxContextLength` is the context it was loaded with — what a request must
+4,096); a shorter context than requested is traced as a warning. A requested length is kept when the weights (the GGUF file size + 10%), a 512 MB
+buffer and the KV cache for that context fit in the VRAM budget (a mixture of experts also keeps 1 GB back for its expert-activation scratch; with a partial
+offload only the offloaded layers' weights and cache count); otherwise the context is reduced to what fits and
+`AdjustedContextLength` reports it. This is the rule `gguf:auto` selects with and the layer fit uses, so a model it recommends is one the load runs on the GPU. The model's `MaxContextLength` is the context it was loaded with — what a request must
 fit; the trained length is `GetModelInfo().GgufMetadata.ContextLength`. A request the server refuses as too long throws
 `ContextLengthExceededException` with `TokenCount` and `MaxContextLength` from the server's refusal when it states them. The KV cache is sized from the file's attention metadata the way llama.cpp sizes it:
 only layers that keep a cache count (hybrid models' recurrent layers and layers that share an earlier layer's cache do

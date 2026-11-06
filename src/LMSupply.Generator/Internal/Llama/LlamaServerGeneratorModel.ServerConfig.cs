@@ -95,7 +95,8 @@ internal sealed partial class LlamaServerGeneratorModel
                     (int)(llamaOpts.UBatchSize ?? KvCacheGeometry.DefaultUBatch)),
                 availableVram,
                 profile.SystemMemoryBytes,
-                layerCount)
+                layerCount,
+                mixtureOfExperts: ggufMetadata!.ExpertCount > 1)
             : MemoryEstimator.EstimateForGguf(
                 fileSize,
                 contextLength,
@@ -319,8 +320,9 @@ internal sealed partial class LlamaServerGeneratorModel
     /// <summary>
     /// Estimates the maximum safe context length based on VRAM remaining after model weights.
     /// Returns the original requestedContext if it fits, otherwise a capped value.
-    /// For MoE models, applies an additional overhead margin to account for expert activation
-    /// buffers and compute scratch space that llama.cpp pre-allocates independently of KV cache.
+    /// What the GPU holds beside the cache is judged by <see cref="GgufMemoryModel"/>, the rule automatic selection
+    /// and the layer fit use too — including the fixed reserve of a mixture of experts for the expert-activation
+    /// scratch llama.cpp pre-allocates independently of the KV cache.
     /// </summary>
     internal static int EstimateSafeContextLength(
         string modelPath,
@@ -356,6 +358,28 @@ internal sealed partial class LlamaServerGeneratorModel
         int sequences = 1,
         int ubatch = KvCacheGeometry.DefaultUBatch,
         GpuInfo? gpu = null)
+        => EstimateSafeContextLengthDetailed(
+            CacheManager.GetContentLength(modelPath),
+            requestedContext,
+            gpuLayerCount,
+            ggufMetadata,
+            cacheTypeK,
+            cacheTypeV,
+            sequences,
+            ubatch,
+            gpu);
+
+    /// <summary>The same estimate for a model file of <paramref name="modelFileSize"/> bytes.</summary>
+    internal static (int Context, bool Floored) EstimateSafeContextLengthDetailed(
+        long modelFileSize,
+        int requestedContext,
+        int gpuLayerCount,
+        GgufMetadata? ggufMetadata = null,
+        string? cacheTypeK = null,
+        string? cacheTypeV = null,
+        int sequences = 1,
+        int ubatch = KvCacheGeometry.DefaultUBatch,
+        GpuInfo? gpu = null)
     {
         gpu ??= Hardware.HardwareProfile.Current.GpuInfo;
         // Use VramBudget so context cap honors LMSUPPLY_VRAM_BUDGET_MB override + safety margins.
@@ -364,19 +388,15 @@ internal sealed partial class LlamaServerGeneratorModel
         if (availableVram <= 0 || gpuLayerCount == 0)
             return (requestedContext, false); // CPU-only, no VRAM constraint
 
-        // MoE models (ExpertCount > 1) require significant additional VRAM for expert activation
-        // buffers, routing computation, and compute scratch space. llama.cpp pre-allocates these
-        // independently of the KV cache, and they are not captured by the weight-size estimate.
-        // Empirical observation: RTX 3090 + Gemma 4 26B A4B Q4_K_M loses ~25% of effective VRAM
-        // to MoE overhead. Apply a conservative 0.80 multiplier to budget accordingly.
-        const double moeBudgetFactor = 0.80;
-        if (ggufMetadata?.ExpertCount > 1)
-            availableVram = (long)(availableVram * moeBudgetFactor);
-
-        var modelFileSize = CacheManager.GetContentLength(modelPath);
-        var modelMemory = (long)(modelFileSize * 1.1);
-        const long vramBuffer = 512L * 1024 * 1024; // 500MB safety buffer
-        var remainingVram = Math.Max(0, availableVram - modelMemory - vramBuffer);
+        // What the model holds on the GPU is judged by the one rule automatic selection and the layer fit use
+        // too (GgufMemoryModel): the weights the offloaded layers hold, the headroom, and for a mixture of experts
+        // its fixed reserve for expert-activation scratch and recurrent state.
+        var gpuShare = GgufMemoryModel.GpuShare(gpuLayerCount, ggufMetadata?.LayerCount);
+        var remainingVram = GgufMemoryModel.KvBudgetBytes(
+            availableVram,
+            modelFileSize,
+            mixtureOfExperts: ggufMetadata?.ExpertCount > 1,
+            gpuShare: gpuShare);
 
         // KV cache: from the file's attention metadata when it has it (layers that keep a cache × KV heads ×
         // K/V head dims × cache-type bytes, plus a fixed window for sliding-window layers); otherwise a
@@ -387,12 +407,12 @@ internal sealed partial class LlamaServerGeneratorModel
         if (geometry is not null)
         {
             remainingVram = Math.Max(0, remainingVram
-                - geometry.SlidingWindowBytes(requestedContext, cacheTypeK, cacheTypeV, sequences, ubatch));
-            kvBytesPerToken = geometry.BytesPerToken(cacheTypeK, cacheTypeV);
+                - (long)(geometry.SlidingWindowBytes(requestedContext, cacheTypeK, cacheTypeV, sequences, ubatch) * gpuShare));
+            kvBytesPerToken = (long)Math.Ceiling(geometry.BytesPerToken(cacheTypeK, cacheTypeV) * gpuShare);
         }
         else
         {
-            kvBytesPerToken = Core.Download.AvailableMemory.EstimateKvCacheBytes(modelFileSize, 1);
+            kvBytesPerToken = (long)Math.Ceiling(Core.Download.AvailableMemory.EstimateKvCacheBytes(modelFileSize, 1) * gpuShare);
         }
 
         if (kvBytesPerToken <= 0)

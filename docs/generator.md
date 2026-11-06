@@ -557,7 +557,7 @@ The registry has two primary tiers: **Gemma 4** (multimodal, Apache 2.0) for exp
 
 #### Hardware-Optimized Selection (`gguf:auto`)
 
-`gguf:auto` selects the largest model whose **weights + KV cache** fit in the available VRAM budget. Budget = `freeVRAM × (1 − safetyMargin)` where the safety margin is platform-aware:
+`gguf:auto` selects the largest model whose **weights + KV cache** fit in the available VRAM budget, judged by the rule the load itself applies (weights + 10%, a 512 MB headroom, and 1 GB more for a mixture of experts). Budget = `freeVRAM × (1 − safetyMargin)` where the safety margin is platform-aware:
 
 | Platform | Safety margin | Reason |
 |----------|---------------|--------|

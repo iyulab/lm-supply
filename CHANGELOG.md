@@ -13,8 +13,30 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   On a small Korean retrieval set of 20 passages and 30 queries it found the right passage first for 28 queries (mean reciprocal rank 0.947;
   26 without the prompts) against 29 (0.978) for `default` and 24 (0.881) for `fast`, with about a seventh of the download of
   `default`. `default` and the other aliases are unchanged, so nothing starts a llama-server that did not before.
+- **`GgufModelInfo.IsMixtureOfExperts`** marks the catalog's mixture-of-experts models (`gguf:gemma4-quality`, `gguf:qwen3-quality`,
+  `gguf:xlarge`). Automatic selection judges them with the memory reserve a mixture-of-experts load makes (see Fixed).
 
 ### Fixed
+- **Automatic selection and the loader judge whether a model fits the GPU with one rule.** They used three: the selector counted the
+  weights and the KV cache against the usable memory, the layer fit added a tenth to the weights and kept 2 GiB back, and the context
+  bound added a tenth, kept 512 MiB back and, for a mixture of experts, took a fifth off the whole budget. A model the selector
+  recommended could therefore be one the load judged too big: on a 32 GB Apple silicon Mac `gguf:qwen3-quality` was picked as a fit,
+  then the context bound fell to the 512-token floor, `Auto` fell back to CPU (`--n-gpu-layers 0`), and the RAM bound started
+  llama-server at a 4,096-token context. All three now use one rule: the weights (plus a tenth for loading structures), a fixed
+  512 MiB headroom, the KV cache, and for a mixture of experts a fixed 1 GiB reserve instead of a fifth of the budget. The reserve
+  follows the model, not the machine: measured on Metal with Qwen3.6-35B-A3B (IQ4_XS, full offload), the model holds 16.9 GiB of
+  weights, 640 MiB of KV cache at 32,768 tokens, 251 MiB of recurrent state and 106 MiB of compute buffer. With the budget of a
+  32 GB Mac the same model now loads on the GPU with every layer at a 32,768-token context. CUDA was not re-measured: a load that still runs out of
+  memory is retried with fewer GPU layers, as before.
+  What changes on other hardware: a dense model near the edge of a GPU's budget is now judged with the tenth and the 512 MiB the loader
+  always applied, so the selector may take the next smaller tier where it was exactly on the edge; a mixture of experts gets a larger
+  context on a large GPU; the layer fit keeps 512 MiB back instead of 2 GiB.
+- **A model larger than the GPU stays on it partially instead of falling back to CPU.** The context bound counted the whole file as
+  resident even when only some layers were offloaded, so a partial offload always hit the floor and `Auto` switched to CPU. It now counts
+  the weights and the KV cache of the offloaded layers (a layer's KV cache lives on the device the layer does), and the layer fit
+  sizes a layer as its weights plus its share of the cache, so the layers it picks leave room for the context it was sized for.
+- **A context shortened by the RAM bound is a warning.** When the caller did not set `MaxContextLength` and the RAM bound loads the
+  model with a shorter context than requested, the trace is a warning (it was information); the shrink is also in `AdjustedContextLength`.
 - **`DownloadProgress.BytesPerSecond`, `EstimatedRemaining`, `SpeedDisplay` and `EtaDisplay` are filled.** They were documented on every
   report but never set, so a progress view of a model, a runtime package or a llama-server build showed no speed and no time left.
   They are measured where the bytes arrive, so every download carries them: a smoothed speed from about the second report of a file

@@ -106,6 +106,12 @@ public sealed record GgufModelInfo : IModelInfoBase, IModelMemoryInfo
     public long? SlidingWindowKvBytes { get; init; }
 
     /// <summary>
+    /// Whether the model is a mixture of experts. Automatic selection judges it with the extra memory reserve a
+    /// mixture-of-experts load makes (<c>expert_count</c> over 1 in the file), the same one the loader applies.
+    /// </summary>
+    public bool IsMixtureOfExperts { get; init; }
+
+    /// <summary>
     /// The f16 KV cache for a context of <paramref name="contextLength"/> tokens, or null when
     /// <see cref="KvCacheBytesPerToken"/> is unknown.
     /// </summary>

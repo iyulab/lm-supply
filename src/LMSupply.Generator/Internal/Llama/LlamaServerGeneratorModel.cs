@@ -335,7 +335,10 @@ internal sealed partial class LlamaServerGeneratorModel : IGeneratorModel, IDiag
             return plan;
         }
 
-        Trace.TraceInformation(
+        // The caller did not choose this length, so a shorter one is theirs to hear about: a host whose prompts need
+        // more than the shorter context fails on every request, and the shrink is also reported as
+        // AdjustedContextLength.
+        Trace.TraceWarning(
             $"[LlamaServerGeneratorModel] ctx-size bounded by RAM: requested={plan.ContextLength}, actual={ramContext}");
         return plan with { ContextLength = ramContext };
     }

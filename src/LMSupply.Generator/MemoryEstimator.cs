@@ -149,22 +149,22 @@ public static class MemoryEstimator
         long kvCacheMemory,
         long? availableVramBytes,
         long? availableRamBytes,
-        int estimatedLayers)
+        int estimatedLayers,
+        bool mixtureOfExperts = false)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(modelFileSizeBytes);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(estimatedLayers);
 
         // GGUF file size is roughly equal to model weights in memory
         // Add ~10% overhead for model loading structures
-        var modelMemory = (long)(modelFileSizeBytes * 1.1);
+        var modelMemory = (long)(modelFileSizeBytes * GgufMemoryModel.WeightsFactor);
 
         // Total memory needed
         var totalMemory = modelMemory + kvCacheMemory;
 
-        // Reserve 2GB for system overhead when calculating VRAM fit
-        const long vramOverhead = 2L * 1024 * 1024 * 1024;
+        // Whether every layer fits the GPU is the one rule the selector and the context bound use too.
         var canFitInVram = availableVramBytes.HasValue &&
-            totalMemory <= (availableVramBytes.Value - vramOverhead);
+            GgufMemoryModel.Fits(availableVramBytes.Value, modelFileSizeBytes, kvCacheMemory, mixtureOfExperts);
 
         // Reserve 4GB for system when calculating RAM fit
         const long ramOverhead = 4L * 1024 * 1024 * 1024;
@@ -185,10 +185,14 @@ public static class MemoryEstimator
         }
         else if (availableVramBytes.HasValue)
         {
-            // Partial GPU offload
-            var usableVram = Math.Max(0, availableVramBytes.Value - vramOverhead);
+            // Partial GPU offload: the layers that fit beside the fixed headroom. A layer's KV cache lives on the
+            // device the layer does, so a layer costs its weights and its share of the cache — the same share the
+            // context bound counts (GgufMemoryModel), so the context it was sized for finds room.
+            var usableVram = Math.Max(
+                0,
+                availableVramBytes.Value - GgufMemoryModel.ResidentBytes(0, mixtureOfExperts));
             // At least one byte, so a model smaller than its layer count (a test fixture) cannot divide by zero.
-            var layerSize = Math.Max(1, modelMemory / estimatedLayers);
+            var layerSize = Math.Max(1, (modelMemory + kvCacheMemory) / estimatedLayers);
             recommendedLayers = (int)(usableVram / layerSize);
             recommendedLayers = Math.Clamp(recommendedLayers, 0, estimatedLayers);
 
