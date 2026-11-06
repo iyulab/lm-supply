@@ -286,13 +286,14 @@ public class SynthesizerFunctionalTests
 
     [Fact]
     [Trait("Axis", "EdgeCase")]
-    public async Task E_NoPhonemes_ProduceNoAudio()
+    public async Task E_NoPhonemes_AreRefusedNotAnsweredWithSilence()
     {
         await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
 
-        var result = await model.SynthesizePhonemesAsync([], cancellationToken: TestContext.Current.CancellationToken);
+        var act = () => model.SynthesizePhonemesAsync([], cancellationToken: TestContext.Current.CancellationToken);
 
-        result.AudioSamples.Should().BeEmpty();
+        await act.Should().ThrowAsync<ArgumentException>("a call with nothing to say is refused, not answered with an empty recording")
+            .WithMessage("*nothing to synthesize*");
     }
 
     [Fact]
