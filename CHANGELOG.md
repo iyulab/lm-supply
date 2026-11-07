@@ -91,6 +91,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   **Migration:** a caller that loaded `gguf:qwen3-balanced` gets the new model on the next load (the new file is downloaded; the old
   one stays in the cache until removed). One that needs the old model loads it by repository, `Qwen/Qwen3-8B-GGUF`.
 - **`docs/decider.md` says what a native decision model does with a call longer than it takes.** The whole call is read in one batch; one longer than the context the model was loaded with surfaces as `ContextLengthExceededException` (as before — now covered by a test for the server's refusal, and measured on three native models), and models of the `laya` type shorten a long question or option list to their training budget without telling the caller.
+
+### Dependencies
 - **Dependencies follow their latest patch and minor releases.** ONNX Runtime and its GPU package 1.31.0 → 1.31.1 (a patch
   release that fixes build and test regressions of the OpenVINO-enabled Python and WASM builds; no change to the C# package's
   behavior) and ChildProcessGuard 1.4.0 → 1.5.0 (concurrent starts now respect the managed-process limit; Windows job-object
