@@ -19,17 +19,21 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
-# contents: the job tags the release and creates the GitHub release. id-token: the NuGet trusted-publishing login below.
-permissions:
-  contents: write
-  id-token: write
+# Nothing by default; every job below asks for what it needs.
+permissions: {}
 
+# The pushes to nuget.org are not made here. This workflow builds and packs, uploads the packages as an artifact and asks
+# the organization's central publisher (iyulab/nuget-publish) to push them; that repository holds the only trusted-publishing
+# policy and checks this repository, this workflow file and the package ids against an allowlist. No NuGet credential lives here.
 jobs:
-  publish:
+  pack:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Only run if CI succeeded (or manual trigger)
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: read
+    # Only run if CI succeeded for a push (or manual trigger). A CI run for a pull request — a fork's branch named
+    # main included — also reaches a workflow_run on main, so the event is checked: code from a pull request is never packed here.
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
 
     steps:
       - name: Checkout
@@ -93,38 +97,52 @@ jobs:
         if: steps.check.outputs.SKIP != 'true'
         run: dotnet pack --configuration Release --output ./artifacts --no-build
 
-      # Trusted publishing (nuget.org): the workflow's OIDC token buys a key that lives one hour, so it is fetched right
-      # before the push. Until a policy for this workflow file exists on nuget.org the login fails, and the push falls back
-      # to the long-lived key.
-      # TODO: delete the fallback — this step's continue-on-error and the NUGET_API_KEY reference below — once a publish
-      # has gone through the login.
-      - name: NuGet login (trusted publishing)
-        id: login
+      # Only .nupkg and .snupkg files: the central publisher refuses an artifact that holds anything else. The symbol packages
+      # travel with the packages, so a consumer can still step into LMSupply and read stack traces with line numbers
+      # (SourceLink resolves the sources).
+      - name: Upload packages
         if: steps.check.outputs.SKIP != 'true'
-        continue-on-error: true
-        uses: NuGet/login@v1
+        uses: actions/upload-artifact@v7
         with:
-          user: ${{ secrets.NUGET_USER }}
+          name: nuget-packages
+          path: |
+            ./artifacts/*.nupkg
+            ./artifacts/*.snupkg
+          if-no-files-found: error
+          retention-days: 1
 
-      - name: Push to NuGet
-        if: steps.check.outputs.SKIP != 'true'
-        run: |
-          # Each push also sends the .snupkg beside the .nupkg to the nuget.org symbol server, so a consumer can
-          # step into LMSupply and read stack traces with line numbers (SourceLink resolves the sources).
-          for package in ./artifacts/*.nupkg; do
-            echo "Publishing $package"
-            dotnet nuget push "$package" \
-              --api-key "${{ steps.login.outputs.NUGET_API_KEY || secrets.NUGET_API_KEY }}" \
-              --source https://api.nuget.org/v3/index.json \
-              --skip-duplicate
-          done
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      skip: ${{ steps.check.outputs.SKIP }}
+
+  # Asks the central publisher to push the packages and waits for its answer: this job succeeds only when they are on nuget.org.
+  # Until the repository is on the publisher's allowlist the call is refused and the jobs after it do not run.
+  publish:
+    needs: pack
+    if: ${{ needs.pack.outputs.skip != 'true' }}
+    uses: iyulab/nuget-publish/.github/workflows/request.yml@2166748abf716fb58855228f65fc6b8f78c2780f # main
+    permissions: {}
+    secrets: inherit
+
+  # The tag and the GitHub release exist only for a version that reached nuget.org.
+  release:
+    needs: [pack, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # The commit whose CI run triggered this one (see the pack job).
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Create Git Tag
-        if: steps.check.outputs.SKIP != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          TAG_NAME="v${{ steps.version.outputs.VERSION }}"
+          TAG_NAME="v${{ needs.pack.outputs.version }}"
           # Check if tag already exists
           if git ls-remote --tags origin | grep -q "refs/tags/${TAG_NAME}$"; then
             echo "Tag ${TAG_NAME} already exists, skipping tag creation"
@@ -134,10 +152,9 @@ jobs:
           fi
 
       - name: Check if Release exists
-        if: steps.check.outputs.SKIP != 'true'
         id: release_check
         run: |
-          TAG_NAME="v${{ steps.version.outputs.VERSION }}"
+          TAG_NAME="v${{ needs.pack.outputs.version }}"
           if gh release view "${TAG_NAME}" &>/dev/null; then
             echo "RELEASE_EXISTS=true" >> $GITHUB_OUTPUT
             echo "Release ${TAG_NAME} already exists"
@@ -150,7 +167,7 @@ jobs:
       # Release notes = this version's CHANGELOG.md section. Every iyulab publish workflow carries this awk program
       # verbatim; change it in all of them or in none.
       - name: Release notes (this version's CHANGELOG section)
-        if: steps.check.outputs.SKIP != 'true' && steps.release_check.outputs.RELEASE_EXISTS != 'true'
+        if: steps.release_check.outputs.RELEASE_EXISTS != 'true'
         shell: bash
         run: |
           VERSION=$(grep -oP '<(Version|VersionPrefix)>\K[^<]+' Directory.Build.props | head -1)
@@ -158,22 +175,20 @@ jobs:
           if [ ! -s release-notes.md ]; then echo "::error::CHANGELOG.md has no section for $VERSION"; exit 1; fi
 
       - name: Create GitHub Release
-        if: steps.check.outputs.SKIP != 'true' && steps.release_check.outputs.RELEASE_EXISTS != 'true'
+        if: steps.release_check.outputs.RELEASE_EXISTS != 'true'
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: v${{ steps.version.outputs.VERSION }}
+          tag_name: v${{ needs.pack.outputs.version }}
           body_path: release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    outputs:
-      version: ${{ steps.version.outputs.VERSION }}
-      skip: ${{ steps.check.outputs.SKIP }}
-
   # Build Console Host for multiple platforms
   build-console:
-    needs: publish
-    if: needs.publish.outputs.skip != 'true'
+    needs: [pack, release]
+    if: needs.pack.outputs.skip != 'true'
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -197,7 +212,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          # The same commit the packages were published from (see the publish job).
+          # The same commit the packages were built from (see the pack job).
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
@@ -247,7 +262,7 @@ jobs:
       - name: Upload to Release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: v${{ needs.publish.outputs.version }}
+          tag_name: v${{ needs.pack.outputs.version }}
           files: ./publish/${{ matrix.artifact }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
