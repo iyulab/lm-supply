@@ -19,9 +19,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
-# The job tags the release and creates the GitHub release; nothing else needs the token.
+# contents: the job tags the release and creates the GitHub release. id-token: the NuGet trusted-publishing login below.
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   publish:
@@ -92,6 +93,19 @@ jobs:
         if: steps.check.outputs.SKIP != 'true'
         run: dotnet pack --configuration Release --output ./artifacts --no-build
 
+      # Trusted publishing (nuget.org): the workflow's OIDC token buys a key that lives one hour, so it is fetched right
+      # before the push. Until a policy for this workflow file exists on nuget.org the login fails, and the push falls back
+      # to the long-lived key.
+      # TODO: delete the fallback — this step's continue-on-error and the NUGET_API_KEY reference below — once a publish
+      # has gone through the login.
+      - name: NuGet login (trusted publishing)
+        id: login
+        if: steps.check.outputs.SKIP != 'true'
+        continue-on-error: true
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Push to NuGet
         if: steps.check.outputs.SKIP != 'true'
         run: |
@@ -100,7 +114,7 @@ jobs:
           for package in ./artifacts/*.nupkg; do
             echo "Publishing $package"
             dotnet nuget push "$package" \
-              --api-key ${{ secrets.NUGET_API_KEY }} \
+              --api-key "${{ steps.login.outputs.NUGET_API_KEY || secrets.NUGET_API_KEY }}" \
               --source https://api.nuget.org/v3/index.json \
               --skip-duplicate
           done
