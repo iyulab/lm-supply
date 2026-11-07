@@ -508,15 +508,32 @@ public static class GgufModelRegistry
         long systemRamBytes,
         int budgetContextLength,
         IReadOnlyCollection<string>? excludeKnownIssues,
+        AutoSelectionGoal goal) =>
+        Select(
+            _models.Where(kv => _autoSelectionAliases.Contains(kv.Key)),
+            () => WithAlias(_models["gguf:qwen3-fast"], "gguf:qwen3-fast"),
+            availableVram, safetyMargin, systemRamBytes, budgetContextLength, excludeKnownIssues, goal);
+
+    /// <summary>
+    /// The selection rule over a given pool of (alias, model) pairs: the shipped pool for every caller, a made-up one for
+    /// the tests, so the rule — largest fit, the KV cache counted, the RAM path, the fallback — is tested without the
+    /// models the registry happens to ship this release. <paramref name="smallestFallback"/> answers when the pool is empty.
+    /// </summary>
+    internal static ModelSelectionResult Select(
+        IEnumerable<KeyValuePair<string, GgufModelInfo>> pool,
+        Func<GgufModelInfo> smallestFallback,
+        long availableVram,
+        double safetyMargin,
+        long systemRamBytes,
+        int budgetContextLength,
+        IReadOnlyCollection<string>? excludeKnownIssues,
         AutoSelectionGoal goal)
     {
         var availableRam = SystemRamBudgetBytes(systemRamBytes);
 
-        var poolFiltered = _models.Where(kv => _autoSelectionAliases.Contains(kv.Key));
-
         var eligible = excludeKnownIssues is { Count: > 0 }
-            ? poolFiltered.Where(kv => !kv.Value.KnownIssues.Any(excludeKnownIssues.Contains))
-            : poolFiltered;
+            ? pool.Where(kv => !kv.Value.KnownIssues.Any(excludeKnownIssues.Contains))
+            : pool;
 
         var candidates = eligible
             .Select(kv => EvaluateCandidate(WithAlias(kv.Value, kv.Key), availableVram, availableRam, budgetContextLength))
@@ -553,7 +570,7 @@ public static class GgufModelRegistry
         else
         {
             var smallest = candidates.LastOrDefault()?.Model
-                ?? WithAlias(_models["gguf:qwen3-fast"], "gguf:qwen3-fast");
+                ?? smallestFallback();
             selected = smallest;
             reason = ModelSelectionReason.FallbackToSmallest;
         }
