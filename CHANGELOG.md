@@ -17,6 +17,7 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   `gguf:xlarge`). Automatic selection judges them with the memory reserve a mixture-of-experts load makes (see Fixed).
 
 ### Fixed
+- **A call to a local llama-server no longer fails now and then with "the response ended prematurely".** llama-server closes the connection after each streaming response while still announcing keep-alive (builds b11977 and b12182), so a client that reused the connection sometimes sent its next request into a connection that had just closed — about once in a hundred or two sequential streaming chat calls on one loaded model. Every request now opens its own connection, which a local server makes free; a call that was cut this way before (the next one worked) no longer is.
 - **Automatic selection and the loader judge whether a model fits the GPU with one rule.** They used three: the selector counted the
   weights and the KV cache against the usable memory, the layer fit added a tenth to the weights and kept 2 GiB back, and the context
   bound added a tenth, kept 512 MiB back and, for a mixture of experts, took a fifth off the whole budget. A model the selector

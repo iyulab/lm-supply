@@ -13,7 +13,18 @@ internal static class LoopbackHttp
     /// default proxy behaviour otherwise (a remote llama-server may legitimately sit behind one).
     /// </summary>
     public static HttpClient CreateClient(string baseUrl, TimeSpan timeout)
-        => new(CreateHandler(baseUrl), disposeHandler: true) { Timeout = timeout };
+    {
+        var client = new HttpClient(CreateHandler(baseUrl), disposeHandler: true) { Timeout = timeout };
+
+        // Every request opens its own connection. llama-server ends the connection after each streaming (SSE) response while
+        // that response still says "Keep-Alive: timeout=5, max=100" (checked on builds b11977 and b12182), so a client that
+        // reuses it sometimes sends the next request into a connection the server has just closed and fails with "the
+        // response ended prematurely" — about once in a hundred or two sequential streaming requests. A new connection to a
+        // local server costs microseconds.
+        // TODO(upstream: ggml-org/llama.cpp — the connection of a streaming response is closed although it advertises keep-alive): drop this once a build that keeps its word is the minimum.
+        client.DefaultRequestHeaders.ConnectionClose = true;
+        return client;
+    }
 
     internal static SocketsHttpHandler CreateHandler(string baseUrl)
         => new() { UseProxy = !IsLoopback(baseUrl) };

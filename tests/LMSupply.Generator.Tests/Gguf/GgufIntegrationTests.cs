@@ -243,7 +243,8 @@ public class GgufIntegrationTests
     }
 
     /// <summary>
-    /// Tests chat generation with a GGUF model.
+    /// Tests chat generation with a GGUF model. Thinking is off: a reasoning model left on its default can spend the whole
+    /// 512-token budget on reasoning and answer with nothing (about one call in eight on the small catalog model).
     /// </summary>
     [Fact]
     public async Task GenerateChatAsync_WithGgufModel_GeneratesResponse()
@@ -259,7 +260,7 @@ public class GgufIntegrationTests
 
         // Act
         var result = new StringBuilder();
-        await foreach (var token in model.GenerateChatAsync(messages, new GenerationOptions { MaxTokens = 512 }, TestContext.Current.CancellationToken))
+        await foreach (var token in model.GenerateChatAsync(messages, new GenerationOptions { MaxTokens = 512, Thinking = ThinkingMode.Off }, TestContext.Current.CancellationToken))
         {
             result.Append(token);
         }
