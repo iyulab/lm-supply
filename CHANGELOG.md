@@ -93,7 +93,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 - **Dependencies follow their latest patch and minor releases.** ONNX Runtime and its GPU package 1.31.0 → 1.31.1 (a patch
   release that fixes build and test regressions of the OpenVINO-enabled Python and WASM builds; no change to the C# package's
   behavior) and ChildProcessGuard 1.4.0 → 1.5.0 (concurrent starts now respect the managed-process limit; Windows job-object
-  failures are reported beyond the log; the package is trimming and Native AOT compatible). No API of this library changes.
+  failures are reported beyond the log; the package is trimming and Native AOT compatible), ONNX Runtime GenAI 0.18.0 → 0.19.0 (same ONNX
+  Runtime 1.31.0 dependency; its release notes are empty, so the ONNX generator's integration facts were run against it — 18 passed) and
+  SkiaSharp with its Linux native assets 4.154.0 → 4.155.0. No API of this library changes. Migration: a consumer that pins
+  `Microsoft.ML.OnnxRuntimeGenAI` or `SkiaSharp` below these versions gets NU1605 on restore — raise the pin.
 
 ## [0.139.0] - 2026-10-28
 
