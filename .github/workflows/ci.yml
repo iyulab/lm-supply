@@ -26,6 +26,10 @@ on:
       - '.public-text-allow'
   workflow_dispatch:
 
+# The repository's default token is read-write; this workflow only reads the sources.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
