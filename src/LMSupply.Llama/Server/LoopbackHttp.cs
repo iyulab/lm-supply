@@ -21,7 +21,7 @@ internal static class LoopbackHttp
         // reuses it sometimes sends the next request into a connection the server has just closed and fails with "the
         // response ended prematurely" — about once in a hundred or two sequential streaming requests. A new connection to a
         // local server costs microseconds.
-        // TODO(upstream: ggml-org/llama.cpp — the connection of a streaming response is closed although it advertises keep-alive): drop this once a build that keeps its word is the minimum.
+        // TODO(upstream: https://github.com/ggml-org/llama.cpp/issues/29680 — the connection of a streaming response is closed although it advertises keep-alive): drop this once a build that keeps its word is the minimum.
         client.DefaultRequestHeaders.ConnectionClose = true;
         return client;
     }
