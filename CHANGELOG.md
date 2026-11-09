@@ -7,6 +7,15 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Added
+- **`GgufModelRegistry.Recommend` lists the models to offer on this machine, in order**: the catalog's ladder (`GgufModelInfo.Tier`:
+  `Fast`, `Default`, `Balanced`, `Quality`, `ExtraLarge` — the tier aliases' words; the rungs are `gguf:qwen3-fast`, `gguf:qwen3-default`,
+  `gguf:qwen3-balanced`, `gguf:qwen3-quality` and `gguf:xlarge`, while `gguf:qwen3-large` and the `gemma4-*` entries stay loadable but are not
+  on it) judged with the rule automatic selection and the loader
+  share, each rung with its fit (`ModelSelectionCandidate`, a rung that does not fit stays in the list), a name for people, and three
+  markers — `IsSmallestUsable`, `IsBestThatRunsWell` (a large machine reaches `ExtraLarge`) and `IsAutomaticPick`, which is what `gguf:auto`
+  picks for the same inputs, so the list and Auto never disagree. A second overload takes explicit budgets. The result carries
+  `CatalogRevision`, and `GeneratorCatalog.Revision` is a short identifier that changes when the catalogs do (an alias repointed, a known-issue
+  tag changed, a model retired or moved in or out of the automatic-selection pool).
 - **The model catalogs have a declared review cadence, and every change to what an alias resolves to is a release-note line**
   ([docs/CATALOG.md](docs/CATALOG.md)): generator, embedder and reranker models are reviewed at least monthly; the other
   tasks' models and the alias assignments at least every two months. A repoint, a different default file or quantization,

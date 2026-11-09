@@ -33,7 +33,7 @@ and update the label in the same pass as the upgrade.
 ## For contributors
 
 `tests/LMSupply.Generator.Tests/catalog.snapshot` records, for every alias of the GGUF and ONNX generator catalogs, the
-repository, file, quantization and known-issue tags it resolves to. `CatalogSnapshotTests` fails when the registries and
+repository, file, quantization, known-issue tags and recommendation tier it resolves to; `GeneratorCatalog.Revision` is the hash of the same text, so it changes when the file would. `CatalogSnapshotTests` fails when the registries and
 the file differ, and prints the lines that changed. Edit the file in the same commit as the registry, then run
 
 ```

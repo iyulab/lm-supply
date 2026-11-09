@@ -125,6 +125,7 @@ public static class GgufModelRegistry
         // XLarge: Server-grade MoE model (split GGUF — 3 shards in Q4_K_M/ subfolder)
         ["gguf:xlarge"] = new GgufModelInfo
         {
+            Tier = ModelTier.ExtraLarge,
             RepoId = "unsloth/Qwen3.5-122B-A10B-GGUF",
             DisplayName = "Qwen 3.5 122B A10B (MoE)",
             DefaultFile = "Q4_K_M/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf",
@@ -197,6 +198,7 @@ public static class GgufModelRegistry
         // Fast: Qwen3.5-2B Q4_K_M — ~1.5GB model, ~2.25GB VRAM@4K, thinking OFF by default
         ["gguf:qwen3-fast"] = new GgufModelInfo
         {
+            Tier = ModelTier.Fast,
             RepoId = "unsloth/Qwen3.5-2B-GGUF",
             DisplayName = "Qwen 3.5 2B Instruct",
             DefaultFile = "Qwen3.5-2B-Q4_K_M.gguf",
@@ -214,6 +216,7 @@ public static class GgufModelRegistry
         // Use FilterReasoningTokens=true if <think> blocks should not appear in output.
         ["gguf:qwen3-default"] = new GgufModelInfo
         {
+            Tier = ModelTier.Default,
             RepoId = "bartowski/Qwen_Qwen3.5-4B-GGUF",
             DisplayName = "Qwen 3.5 4B Instruct",
             DefaultFile = "Qwen_Qwen3.5-4B-Q4_K_M.gguf",
@@ -233,6 +236,7 @@ public static class GgufModelRegistry
         // every fourth one full attention with 4 KV heads of 256 — 8 × 4 × (256 + 256) × 2 bytes = 32 KiB per token.
         ["gguf:qwen3-balanced"] = new GgufModelInfo
         {
+            Tier = ModelTier.Balanced,
             RepoId = "unsloth/Qwen3.5-9B-GGUF",
             DisplayName = "Qwen 3.5 9B Instruct",
             DefaultFile = "Qwen3.5-9B-Q4_K_M.gguf",
@@ -250,6 +254,7 @@ public static class GgufModelRegistry
         // Thinking ON by default; use FilterReasoningTokens=true to suppress <think> blocks.
         ["gguf:qwen3-quality"] = new GgufModelInfo
         {
+            Tier = ModelTier.Quality,
             RepoId = "unsloth/Qwen3.6-35B-A3B-GGUF",
             DisplayName = "Qwen 3.6 35B A3B Instruct (IQ4_XS)",
             DefaultFile = "Qwen3.6-35B-A3B-UD-IQ4_XS.gguf",
@@ -500,6 +505,100 @@ public static class GgufModelRegistry
     {
         ArgumentNullException.ThrowIfNull(model);
         return EvaluateCandidate(model, availableVramBytes, SystemRamBudgetBytes(systemRamBytes), contextLength);
+    }
+
+    /// <summary>
+    /// The catalog's recommendation ladder judged against this machine: which models to offer, in what order, which one
+    /// <c>gguf:auto</c> would pick, and which is the largest that runs well here. The ladder is the catalog entries that
+    /// carry a <see cref="GgufModelInfo.Tier"/> — a pool wider than the one automatic selection draws from, so a machine with
+    /// a great deal of memory reaches the upper tiers — and every rung is judged with the rule automatic selection and the
+    /// loader share (<see cref="Evaluate(GgufModelInfo, ExecutionProvider, int?)"/>). A rung that does not fit stays in the
+    /// list, marked by its <see cref="RecommendedModel.Judgement"/>; the application decides whether to show it.
+    /// </summary>
+    /// <param name="provider">The provider the load would ask for; an explicit <see cref="ExecutionProvider.Cpu"/> judges system memory alone.</param>
+    /// <param name="contextLength">The context each KV cache is sized for; null = <see cref="DefaultBudgetContextLength"/>.</param>
+    /// <param name="goal">What the automatic pick optimizes for (<see cref="RecommendedModel.IsAutomaticPick"/>).</param>
+    /// <param name="excludeKnownIssues">Rungs whose <see cref="GgufModelInfo.KnownIssues"/> intersect these tags are left out of the ladder and of the automatic pick.</param>
+    public static ModelRecommendation Recommend(
+        ExecutionProvider provider = ExecutionProvider.Auto,
+        int? contextLength = null,
+        AutoSelectionGoal goal = AutoSelectionGoal.Quality,
+        IReadOnlyCollection<string>? excludeKnownIssues = null)
+    {
+        var profile = HardwareProfile.For(provider);
+        var safetyMargin = provider == ExecutionProvider.Cpu ? 0d : VramBudget.GetRecommendedSafetyMargin(profile.GpuInfo);
+        var availableVram = provider == ExecutionProvider.Cpu ? 0L : VramBudget.GetAvailableBytes(profile.GpuInfo, safetyMargin);
+        return RecommendCore(availableVram, safetyMargin, profile.SystemMemoryBytes, contextLength ?? DefaultBudgetContextLength, excludeKnownIssues, goal);
+    }
+
+    /// <summary>
+    /// <see cref="Recommend(ExecutionProvider, int?, AutoSelectionGoal, IReadOnlyCollection{string}?)"/> against explicit
+    /// budgets — the deterministic form, for tests and for sizing a machine that is not this one.
+    /// </summary>
+    /// <param name="availableVramBytes">The VRAM budget (after the safety margin); 0 = no GPU.</param>
+    /// <param name="systemRamBytes">Total system memory; the reserve (<see cref="SystemRamReservedBytes"/>) is taken off it. 0 = no RAM path.</param>
+    /// <param name="contextLength">The context each KV cache is sized for.</param>
+    /// <param name="excludeKnownIssues">Rungs whose known issues intersect these tags are left out.</param>
+    /// <param name="goal">What the automatic pick optimizes for.</param>
+    public static ModelRecommendation Recommend(
+        long availableVramBytes,
+        long systemRamBytes,
+        int contextLength,
+        IReadOnlyCollection<string>? excludeKnownIssues = null,
+        AutoSelectionGoal goal = AutoSelectionGoal.Quality)
+        => RecommendCore(availableVramBytes, safetyMargin: 0d, systemRamBytes, contextLength, excludeKnownIssues, goal);
+
+    private static ModelRecommendation RecommendCore(
+        long availableVram,
+        double safetyMargin,
+        long systemRamBytes,
+        int contextLength,
+        IReadOnlyCollection<string>? excludeKnownIssues,
+        AutoSelectionGoal goal)
+    {
+        var availableRam = SystemRamBudgetBytes(systemRamBytes);
+        var automaticAlias = Select(availableVram, safetyMargin, systemRamBytes, contextLength, excludeKnownIssues, goal).Selected.AliasName;
+
+        var rungs = _models
+            .Where(kv => kv.Value.Tier is not null)
+            .Where(kv => excludeKnownIssues is not { Count: > 0 } || !kv.Value.KnownIssues.Any(excludeKnownIssues.Contains))
+            .Select(kv => (Alias: kv.Key, Tier: kv.Value.Tier!.Value, Judgement: EvaluateCandidate(WithAlias(kv.Value, kv.Key), availableVram, availableRam, contextLength)))
+            .OrderBy(r => r.Judgement.TotalBytes)
+            .ThenBy(r => r.Tier)
+            .ToList();
+
+        var smallestUsable = rungs.FindIndex(r => r.Judgement.Fits || r.Judgement.FitsInSystemRam);
+        var best = rungs.FindLastIndex(r => r.Judgement.Fits);
+        if (best < 0)
+            best = rungs.FindLastIndex(r => r.Judgement.FitsInSystemRam);
+
+        return new ModelRecommendation
+        {
+            Models = rungs
+                .Select((r, i) => new RecommendedModel
+                {
+                    Alias = r.Alias,
+                    Tier = r.Tier,
+                    DisplayName = NameForPeople(r.Judgement.Model.DisplayName),
+                    Judgement = r.Judgement,
+                    IsAutomaticPick = string.Equals(r.Alias, automaticAlias, StringComparison.OrdinalIgnoreCase),
+                    IsSmallestUsable = i == smallestUsable,
+                    IsBestThatRunsWell = i == best,
+                })
+                .ToList(),
+            AvailableVramBytes = availableVram,
+            AvailableSystemRamBytes = availableRam,
+            ContextLength = contextLength,
+            Goal = goal,
+            CatalogRevision = GeneratorCatalog.Revision,
+        };
+    }
+
+    /// <summary>The display name without a trailing parenthetical — the quantization or a note such as "MoE", which are not a name.</summary>
+    private static string NameForPeople(string displayName)
+    {
+        var open = displayName.LastIndexOf(" (", StringComparison.Ordinal);
+        return open > 0 && displayName.EndsWith(')') ? displayName[..open] : displayName;
     }
 
     private static ModelSelectionResult Select(

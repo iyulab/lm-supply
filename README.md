@@ -592,6 +592,21 @@ Low-end/quantized models (the `FallbackToSmallest` tier below) are prone to *deg
 | **High** | 6-10GB | `gguf:qwen3-balanced` (Qwen 3.5 9B) | |
 | **Ultra** | 20-24GB | `gguf:qwen3-quality` (Qwen 3.6 35B MoE) | thinking ON |
 
+#### Which models to offer on this machine
+
+`GgufModelRegistry.Recommend()` answers it for the machine it runs on, so an application does not keep its own tier table:
+
+```csharp
+var recommendation = GgufModelRegistry.Recommend();           // or Recommend(ExecutionProvider.Cpu, contextLength: 8192)
+foreach (var model in recommendation.Models)                  // smallest first
+{
+    Console.WriteLine($"{model.Tier,-10} {model.DisplayName}  {(model.Judgement.Fits ? "runs on the GPU" : model.Judgement.FitsInSystemRam ? "runs from system memory" : "too large")}"
+        + (model.IsAutomaticPick ? "  <- gguf:auto" : "") + (model.IsBestThatRunsWell ? "  <- best that runs well here" : ""));
+}
+```
+
+The list is the catalog's ladder — `Fast`, `Default`, `Balanced`, `Quality` and `ExtraLarge`, tiers named in the library's words (show your own) — judged with the same rule automatic selection and the loader use. A model that does not fit stays in the list marked as too large. `IsSmallestUsable`, `IsAutomaticPick` and `IsBestThatRunsWell` mark the rungs worth highlighting: a small machine gets the same rung for the first and the last, a large one reaches `ExtraLarge`, and `gguf:auto` is always one of the rungs, so the list and the automatic pick never disagree. `CatalogRevision` changes when the catalog does (see [docs/CATALOG.md](docs/CATALOG.md)). `DisplayName` is a name for people without the quantization; the quantization is `Model.QuantizationType`.
+
 > **Platform-based routing:** `LoadAsync("default")` and `LoadAsync("auto")` both select the model for the current host on the GGUF/llama.cpp backend — CUDA on NVIDIA, Metal on Apple Silicon, Vulkan on AMD/Intel GPUs, CPU otherwise (v0.67.0: the ONNX/DirectML branch for Windows discrete AMD/Intel GPUs is gone with the DirectML provider; those GPUs use Vulkan). Use `gguf:*` aliases or ONNX aliases for explicit control.
 
 **Key benefits:**

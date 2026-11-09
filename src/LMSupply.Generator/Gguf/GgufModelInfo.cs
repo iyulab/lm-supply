@@ -112,6 +112,14 @@ public sealed record GgufModelInfo : IModelInfoBase, IModelMemoryInfo
     public bool IsMixtureOfExperts { get; init; }
 
     /// <summary>
+    /// The rung this model holds on the catalog's recommendation ladder
+    /// (<see cref="GgufModelRegistry.Recommend(ExecutionProvider, int?, AutoSelectionGoal, IReadOnlyCollection{string}?)"/>), or null
+    /// when the catalog does not recommend it — it is still loadable and can be judged with
+    /// <see cref="GgufModelRegistry.Evaluate(GgufModelInfo, ExecutionProvider, int?)"/>.
+    /// </summary>
+    public ModelTier? Tier { get; init; }
+
+    /// <summary>
     /// The f16 KV cache for a context of <paramref name="contextLength"/> tokens, or null when
     /// <see cref="KvCacheBytesPerToken"/> is unknown.
     /// </summary>

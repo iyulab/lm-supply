@@ -1,6 +1,4 @@
 using AwesomeAssertions;
-using LMSupply.Core;
-using LMSupply.Generator.Gguf;
 
 namespace LMSupply.Generator.Tests;
 
@@ -26,7 +24,7 @@ public class CatalogSnapshotTests
     public void TheCatalog_MatchesItsRecordedSnapshot()
     {
         var expected = ReadLines(File.ReadAllText(SnapshotPath));
-        var actual = Render();
+        var actual = GeneratorCatalog.Render();
 
         var missing = expected.Except(actual, StringComparer.Ordinal).ToList();
         var added = actual.Except(expected, StringComparer.Ordinal).ToList();
@@ -36,44 +34,6 @@ public class CatalogSnapshotTests
             + "Recorded but no longer true:\n  " + string.Join("\n  ", missing)
             + "\nTrue now but not recorded:\n  " + string.Join("\n  ", added)
             + "\nReplace the first set with the second in catalog.snapshot, and add a CHANGELOG line for each changed alias.");
-    }
-
-    /// <summary>
-    /// One line per alias, sorted: <c>alias | repository | file | quantization | known-issue tags</c>. The generator
-    /// domains this package ships catalogs for: GGUF (through llama-server) and ONNX. Entries a user added to
-    /// <c>aliases.json</c> are not part of the package and are left out.
-    /// </summary>
-    internal static IReadOnlyList<string> Render()
-    {
-        var lines = new List<string>();
-
-        foreach (var alias in GgufModelRegistry.GetAliases().Where(a => !a.Equals("gguf:auto", StringComparison.OrdinalIgnoreCase)))
-        {
-            var model = GgufModelRegistry.Resolve(alias)
-                ?? throw new InvalidOperationException($"'{alias}' is listed by GetAliases() but does not resolve.");
-            lines.Add(Line(alias, model.RepoId, model.DefaultFile, model.QuantizationType,
-                string.Join(",", model.KnownIssues.OrderBy(i => i, StringComparer.Ordinal))));
-        }
-
-        // The pool automatic selection draws from is part of what the catalog says; moving a model in or out of it
-        // changes what "auto" can pick.
-        lines.Add(Line("gguf:auto", "pool", string.Join(",", GgufModelRegistry.GetAutoSelectionAliases().OrderBy(a => a, StringComparer.Ordinal)), null, null));
-
-        var onnx = new GeneratorModelRegistry(DefaultGeneratorModels.All);
-        foreach (var alias in onnx.GetAliases().Where(a => a.Kind == AliasKind.System && a.Name != "auto"))
-        {
-            var model = onnx.Resolve(alias.Name);
-            lines.Add(Line("onnx:" + alias.Name, model.ModelId, model.Subfolder, model.DefaultQuantization.ToString(), null));
-        }
-
-        return lines.OrderBy(l => l, StringComparer.Ordinal).ToList();
-    }
-
-    private static string Line(params string?[] fields)
-    {
-        var parts = fields.Select(f => f ?? "").ToList();
-        while (parts.Count > 1 && parts[^1].Length == 0) parts.RemoveAt(parts.Count - 1);
-        return string.Join(" | ", parts);
     }
 
     private static List<string> ReadLines(string text)
