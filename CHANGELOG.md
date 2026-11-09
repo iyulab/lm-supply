@@ -100,6 +100,11 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   Runtime 1.31.0 dependency; its release notes are empty, so the ONNX generator's integration facts were run against it — 18 passed) and
   SkiaSharp with its Linux native assets 4.154.0 → 4.155.0. No API of this library changes. Migration: a consumer that pins
   `Microsoft.ML.OnnxRuntimeGenAI` or `SkiaSharp` below these versions gets NU1605 on restore — raise the pin.
+- **The OpenVINO execution provider plugin 1.6.1 → 1.8.1.** Plugins 1.7.0 and 1.8.0 could not create their provider on ONNX Runtime 1.31,
+  which is why 0.139.0 kept 1.6.1; 1.8.1 is the first release that works with it. The opt-in local test `OpenVinoProviderTests` passed with
+  1.8.1 on one Windows host with an integrated Intel GPU (the plugin listed the GPU and the OpenVINO provider was active, not the CPU
+  fallback); Arc, Linux and NPU hosts have not been checked. The plugin is cached per version, so the first use of
+  `ExecutionProvider.OpenVino` downloads it again. No API of this library changes.
 
 ## [0.139.0] - 2026-10-28
 
