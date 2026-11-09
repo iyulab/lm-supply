@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.140.0] - 2026-11-09
+
 ### Added
 - **`LocalEmbedder` alias `embeddinggemma-2`: Google's EmbeddingGemma 2 as a GGUF build** (`ggml-org/embeddinggemma-2-GGUF`, Apache-2.0,
   768 dimensions), the way the Reranker has `multilingual-fast`. It applies the model's own prompts to `EmbedQueryAsync` and
