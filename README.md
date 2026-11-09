@@ -398,7 +398,7 @@ sealed class MyPhonemizer : IPhonemizer
 
 ## Available Models
 
-*Updated: 2026-03 based on MTEB leaderboard and community benchmarks*
+*The catalogs are reviewed on a declared schedule, and every change to what an alias resolves to is a CHANGELOG line — see [docs/CATALOG.md](docs/CATALOG.md).*
 
 ### Embedder (ONNX)
 

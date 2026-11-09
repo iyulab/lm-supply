@@ -6,6 +6,14 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Added
+- **The model catalogs have a declared review cadence, and every change to what an alias resolves to is a release-note line**
+  ([docs/CATALOG.md](docs/CATALOG.md)): generator, embedder and reranker models are reviewed at least monthly; the other
+  tasks' models and the alias assignments at least every two months. A repoint, a different default file or quantization,
+  a changed known-issue tag, a retirement and a change of the automatic-selection pool each get a line.
+  `catalog.snapshot` and `CatalogSnapshotTests` record what each GGUF and ONNX generator alias resolves to and fail the build
+  when it changes unrecorded; `scripts/check-catalog-notes.ps1` reports a changed alias that has no release-note line.
+
 ## [0.140.0] - 2026-11-09
 
 ### Added
