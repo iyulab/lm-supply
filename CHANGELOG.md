@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.141.0] - 2026-11-10
+
 ### Added
 - **`LocalGenerator.DescribeAsync(id)` describes any model id before a download**: a catalog alias, a Hugging Face repository id or a local path
   gives a `ModelProbe` with the name, backend and licence (`ModelDescription`), the download size, the known-issue tags of a catalog entry, and — for
