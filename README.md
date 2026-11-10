@@ -597,6 +597,8 @@ Low-end/quantized models (the `FallbackToSmallest` tier below) are prone to *deg
 `GgufModelRegistry.Recommend()` answers it for the machine it runs on, so an application does not keep its own tier table:
 
 ```csharp
+using LMSupply.Generator.Gguf;
+
 var recommendation = GgufModelRegistry.Recommend();           // or Recommend(ExecutionProvider.Cpu, contextLength: 8192)
 foreach (var model in recommendation.Models)                  // smallest first
 {
