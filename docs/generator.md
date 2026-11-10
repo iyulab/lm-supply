@@ -245,6 +245,73 @@ var options = new GeneratorOptions { MaxContextLength = 4096, AutoSelectionGoal 
 long bytes = await LocalGenerator.GetDownloadSizeBytesAsync("auto", options);   // this device's first-run download
 ```
 
+### Which models to offer on this machine
+
+`GgufModelRegistry.Recommend` (0.141.0+) lists the catalog's models for the machine it runs on, in order, so an application
+does not keep a table of tiers and models that goes stale when an alias is repointed. The list is the catalog's *ladder* —
+the entries that carry a `GgufModelInfo.Tier` (`Fast`, `Default`, `Balanced`, `Quality`, `ExtraLarge`, named like the tier aliases;
+show your own words for them) — smallest first by the memory each holds at the context length, every rung judged with the rule
+that automatic selection and the loader share.
+
+```csharp
+using LMSupply.Generator.Gguf;
+
+ModelRecommendation recommendation = GgufModelRegistry.Recommend(ExecutionProvider.Auto, contextLength: 8192);
+foreach (RecommendedModel rung in recommendation.Models)
+{
+    string verdict = rung.Judgement.Fits ? "runs on the GPU"
+        : rung.Judgement.FitsInSystemRam ? "runs from system memory"
+        : "too large";
+    Console.WriteLine($"{rung.Tier,-10} {rung.DisplayName}  {verdict}"
+        + (rung.IsAutomaticPick ? "  <- gguf:auto" : "")
+        + (rung.IsBestThatRunsWell ? "  <- best that runs well" : ""));
+}
+```
+
+- A rung that does not fit stays in the list (`Judgement.Fits` and `FitsInSystemRam` both false); hiding it is the application's choice.
+- `IsSmallestUsable` and `IsBestThatRunsWell` mark the first rung that runs and the largest that runs on the GPU (from system memory when none
+  does). On a small machine they are the same rung; on a large one `IsBestThatRunsWell` reaches `ExtraLarge`.
+- `IsAutomaticPick` is the model `gguf:auto` picks for the same inputs: automatic selection draws from a smaller pool, which is part of the ladder,
+  so the list and Auto never disagree. `goal` and `excludeKnownIssues` are the selection's own.
+- `DisplayName` is a name for people without the quantization or a trailing note; the quantization is `Model.QuantizationType`.
+- `Recommend(availableVramBytes, systemRamBytes, contextLength)` takes explicit budgets, for a test or for sizing a machine that is not this one.
+- `recommendation.CatalogRevision` (also `GeneratorCatalog.Revision`) changes when the catalogs do — an alias repointed, a known-issue tag
+  changed, a model retired or moved in or out of the automatic pool — so an application can tell "the catalog changed since I last looked"
+  (see [CATALOG.md](CATALOG.md)).
+
+No speed grade is part of an entry: a file-size bound does not hold for a mixture of experts, and measured speed is what `GenerationTimings` reports
+after a load.
+
+### Looking at a model id before a download
+
+`LocalGenerator.DescribeAsync` (0.141.0+) answers "what is this id, how big is its download and does it run here" for a catalog alias, a Hugging Face
+repository id a person typed, or a local path — without downloading or loading anything. It reads one repository listing, the one
+`GetDownloadSizeBytesAsync` and the download that follows reuse.
+
+```csharp
+ModelProbe probe = await LocalGenerator.DescribeAsync("unsloth/Qwen3.5-9B-GGUF", options);
+if (probe.Status == ModelProbeStatus.Found)
+{
+    Console.WriteLine($"{probe.Description!.DisplayName}: {probe.DownloadBytes / 1_000_000} MB, {(probe.Judgement!.Fits ? "runs on the GPU" : "does not fit the GPU")}");
+}
+else
+{
+    Console.WriteLine(probe.Detail);   // not found / nothing to load / could not check
+}
+```
+
+| `Status` | Meaning |
+|---|---|
+| `Found` | The model exists and has files this library loads. `Description` has its name, backend (GGUF or ONNX) and the licence when the catalog knows the model; `DownloadBytes` is what a load downloads; `Judgement` is the GGUF fit verdict |
+| `NotFound` | No such repository. The Hub answers an anonymous request for a private or gated repository the same way, so set `HF_TOKEN` for those |
+| `NoLoadableFiles` | The repository exists but holds no GGUF file and no ONNX model |
+| `Unreachable` | Could not check: the Hub cannot be reached or refuses, or downloads are disabled and the cache lacks the listing. This is never "does not exist" |
+
+A catalog entry is judged as `GgufModelRegistry.Evaluate` judges it; for another GGUF repository the verdict uses the file the load would pick and its size,
+so the KV cache is estimated from the file size (the model's layer and head counts are not read) and a mixture of experts is not recognized. An ONNX
+model has no verdict (`Judgement` is null): its load does not use that rule. The name of a repository the catalog does not list is the repository's own
+name without a `-GGUF` suffix, and its licence is null — a licence is never guessed.
+
 ## Microsoft.Extensions.AI
 
 `generator.AsChatClient()` returns a `LocalChatClient`, an `IChatClient` over a loaded generator, so a library that takes
