@@ -692,7 +692,7 @@ public sealed class GgufModelDownloader : IDisposable
         var groups = await ListGgufGroupsAsync(repoId, cancellationToken);
 
         if (groups.Count == 0)
-            throw new ModelNotFoundException(
+            throw new NoLoadableFilesException(
                 $"No GGUF files found in repository '{repoId}'.",
                 repoId);
 

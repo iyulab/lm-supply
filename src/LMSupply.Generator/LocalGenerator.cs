@@ -207,6 +207,182 @@ public static class LocalGenerator
         return plan.GetRemainingBytes(options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory());
     }
 
+    /// <summary>
+    /// Looks at a model id before anything is downloaded or loaded: its name, backend and licence, the download size, and
+    /// whether it runs on this machine — for an id the catalog lists and for any other Hugging Face repository id, so a
+    /// "use a model that is not in the list" path shows a person the same facts as a listed one and refuses a bad id before
+    /// the download prompt.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The id is resolved as <see cref="LoadAsync"/> resolves it (a user alias, a catalog alias, <c>"auto"</c>, a repository
+    /// id, a local path), and the download is the plan <see cref="GetDownloadSizeBytesAsync"/> makes — one repository
+    /// listing (cached for a day, shared with the download that follows). A problem with the id is an answer, not an
+    /// exception: <see cref="ModelProbeStatus.NotFound"/> for a repository that does not exist, <see cref="ModelProbeStatus.NoLoadableFiles"/>
+    /// for one with nothing to load, and <see cref="ModelProbeStatus.Unreachable"/> — "could not check", never "does not exist" —
+    /// when the Hub cannot be reached, refuses the request or, with downloads disabled, the cache lacks the listing.
+    /// </para>
+    /// <para>
+    /// For a GGUF repository the judgement uses the file the load would pick and its size; the model's layer and head counts
+    /// are not read, so the KV cache is estimated from the file size, and a mixture of experts is not recognized unless the
+    /// catalog lists it. A catalog entry is judged as its own entry is by <see cref="Gguf.GgufModelRegistry.Evaluate(Gguf.GgufModelInfo, ExecutionProvider, int?)"/>.
+    /// </para>
+    /// </remarks>
+    /// <param name="modelId">Anything <see cref="LoadAsync(string, GeneratorOptions?, IProgress{DownloadProgress}?, CancellationToken)"/> accepts.</param>
+    /// <param name="options">The options the load will use; not modified.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static Task<ModelProbe> DescribeAsync(
+        string modelId,
+        GeneratorOptions? options = null,
+        CancellationToken cancellationToken = default)
+        => DescribeAsync(modelId, options, handler: null, cancellationToken);
+
+    /// <summary>Test seam: the same probe over a caller-supplied transport.</summary>
+    internal static async Task<ModelProbe> DescribeAsync(
+        string modelId,
+        GeneratorOptions? options,
+        HttpMessageHandler? handler,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
+        options = options?.Clone() ?? new GeneratorOptions();
+
+        var (id, isLocal) = ResolveDownloadTarget(modelId, options);
+        var format = Internal.ModelFormatDetector.Detect(id);
+        var backend = format == Models.ModelFormat.Onnx ? ModelBackend.Onnx : ModelBackend.Gguf;
+        var registryInfo = backend == ModelBackend.Gguf && !isLocal
+            ? Gguf.GgufModelRegistry.Resolve(id, options.SelectionProvider, options.MaxContextLength, options.AutoSelectionGoal)
+            : null;
+        var onnxInfo = backend == ModelBackend.Onnx && GeneratorModelRegistry.Default.TryResolve(id, out var entry) ? entry : null;
+
+        if (isLocal)
+            return DescribeLocal(modelId, id, backend, options);
+
+        DownloadPlan plan;
+        try
+        {
+            plan = await Internal.GeneratorModelLoader.PlanDownloadAsync(id, options, cancellationToken, handler).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            var (status, detail) = Classify(ex, options);
+            if (status is null)
+                throw;
+
+            var repo = backend == ModelBackend.Gguf ? registryInfo?.RepoId ?? id : onnxInfo?.ModelId ?? id;
+            return new ModelProbe
+            {
+                RequestedId = modelId,
+                Status = status.Value,
+                Detail = detail,
+                // The repository is known to exist when it holds nothing loadable; name it as far as the id allows.
+                Description = status == ModelProbeStatus.NoLoadableFiles ? Describe(modelId, repo, backend, registryInfo, onnxInfo) : null,
+            };
+        }
+
+        Gguf.ModelSelectionCandidate? judgement = null;
+        if (backend == ModelBackend.Gguf)
+        {
+            var info = registryInfo ?? UncatalogedGgufInfo(plan);
+            judgement = Gguf.GgufModelRegistry.Evaluate(info, options.SelectionProvider, options.MaxContextLength);
+        }
+
+        return new ModelProbe
+        {
+            RequestedId = modelId,
+            Status = ModelProbeStatus.Found,
+            Description = Describe(modelId, plan.RepoId, backend, registryInfo, onnxInfo),
+            DownloadBytes = plan.TotalBytes,
+            Judgement = judgement,
+            KnownIssues = registryInfo?.KnownIssues ?? [],
+        };
+    }
+
+    private static ModelProbe DescribeLocal(string requestedId, string path, ModelBackend backend, GeneratorOptions options)
+    {
+        var name = Path.GetFileNameWithoutExtension(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        Gguf.ModelSelectionCandidate? judgement = null;
+        if (backend == ModelBackend.Gguf && File.Exists(path))
+        {
+            var info = new Gguf.GgufModelInfo
+            {
+                RepoId = path,
+                DisplayName = name,
+                DefaultFile = Path.GetFileName(path),
+                ChatFormat = "chatml",
+                ContextLength = 0,
+                License = LicenseTier.Conditional,
+                EstimatedSizeBytes = CacheManager.GetContentLength(path),
+                QuantizationType = QuantizationOf(path),
+            };
+            judgement = Gguf.GgufModelRegistry.Evaluate(info, options.SelectionProvider, options.MaxContextLength);
+        }
+
+        return new ModelProbe
+        {
+            RequestedId = requestedId,
+            Status = ModelProbeStatus.Found,
+            Description = new ModelDescription(requestedId, path, backend, name, null, null),
+            Judgement = judgement,
+        };
+    }
+
+    private static ModelDescription Describe(
+        string requestedId, string repoId, ModelBackend backend, Gguf.GgufModelInfo? gguf, GeneratorModelEntry? onnx)
+    {
+        if (gguf is not null)
+            return new ModelDescription(requestedId, gguf.RepoId, backend, gguf.DisplayName, gguf.LicenseName, gguf);
+        if (onnx is not null)
+            return new ModelDescription(requestedId, onnx.ModelId, backend, onnx.DisplayName, onnx.LicenseName, onnx);
+        return new ModelDescription(requestedId, repoId, backend, OwnName(repoId), null, null);
+    }
+
+    /// <summary>The last segment of a repository id, as its own name; a GGUF repository's <c>-GGUF</c> suffix is not part of it.</summary>
+    private static string OwnName(string repoIdOrPath)
+    {
+        var name = repoIdOrPath.TrimEnd('/').Split('/')[^1];
+        return name.EndsWith("-GGUF", StringComparison.OrdinalIgnoreCase) && name.Length > 5 ? name[..^5] : name;
+    }
+
+    // A repository the catalog does not list, described by the file the load would pick: its size and quantization are all
+    // the judgement has (the KV cache then falls back to a file-size estimate).
+    private static Gguf.GgufModelInfo UncatalogedGgufInfo(DownloadPlan plan)
+    {
+        var primary = plan.Files[0].Path;
+        return new Gguf.GgufModelInfo
+        {
+            RepoId = plan.RepoId,
+            DisplayName = OwnName(plan.RepoId),
+            DefaultFile = primary,
+            ChatFormat = "chatml",
+            ContextLength = 0,
+            License = LicenseTier.Conditional,
+            EstimatedSizeBytes = plan.TotalBytes,
+            QuantizationType = QuantizationOf(primary),
+        };
+    }
+
+    private static string? QuantizationOf(string fileName)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            Path.GetFileName(fileName),
+            @"(?<![A-Za-z0-9])(I?Q[1-8](?:_[A-Z0-9]+)*|BF16|F16|F32)(?![A-Za-z0-9])",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+            TimeSpan.FromSeconds(1));
+        return match.Success ? match.Groups[1].Value.ToUpperInvariant() : null;
+    }
+
+    // The probe answers a problem with the id; anything else (a bad argument, a bug) stays an exception.
+    private static (ModelProbeStatus? Status, string? Detail) Classify(Exception ex, GeneratorOptions options) => ex switch
+    {
+        Exceptions.NoLoadableFilesException => (ModelProbeStatus.NoLoadableFiles, ex.Message),
+        // Downloads disabled: the cache not holding a listing says nothing about the repository.
+        Exceptions.ModelNotFoundException when options.DisableAutoDownload => (ModelProbeStatus.Unreachable, ex.Message),
+        Exceptions.ModelNotFoundException or UnauthorizedAccessException => (ModelProbeStatus.NotFound, ex.Message),
+        Exceptions.ModelDownloadException or HttpRequestException or TaskCanceledException => (ModelProbeStatus.Unreachable, ex.Message),
+        _ => (null, null),
+    };
+
     // Mirrors LoadAsync's resolution step for step — see the comments there for why each check sits where it does.
     // Divergence here would warm (or size) a file the load never opens. Sets a ":variant" qualifier as the options'
     // quantization hint, so callers pass a copy.

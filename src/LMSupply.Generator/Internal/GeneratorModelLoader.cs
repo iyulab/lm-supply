@@ -60,7 +60,8 @@ internal static class GeneratorModelLoader
     public static async Task<DownloadPlan> PlanDownloadAsync(
         string modelId,
         GeneratorOptions options,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        HttpMessageHandler? handler = null)
     {
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         var format = ModelFormatDetector.Detect(modelId);
@@ -68,13 +69,15 @@ internal static class GeneratorModelLoader
         {
             case ModelFormat.Onnx:
             {
-                using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+                using var downloader = handler is null
+                    ? new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload)
+                    : new HuggingFaceDownloader(cacheDir, handler, localFilesOnly: options.DisableAutoDownload);
                 return await downloader.PlanWithDiscoveryAsync(
                     modelId, OnnxPreferences(modelId, options), cancellationToken: cancellationToken);
             }
             case ModelFormat.Gguf or ModelFormat.Unknown:
             {
-                using var downloader = new GgufModelDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+                using var downloader = new GgufModelDownloader(cacheDir, hfToken: null, localFilesOnly: options.DisableAutoDownload, handler);
                 var registryInfo = GgufModelRegistry.Resolve(modelId, options.SelectionProvider, options.MaxContextLength, options.AutoSelectionGoal);
                 if (registryInfo is not null)
                 {

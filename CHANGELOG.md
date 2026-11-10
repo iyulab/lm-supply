@@ -7,6 +7,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Added
+- **`LocalGenerator.DescribeAsync(id)` describes any model id before a download**: a catalog alias, a Hugging Face repository id or a local path
+  gives a `ModelProbe` with the name, backend and licence (`ModelDescription`), the download size, the known-issue tags of a catalog entry, and — for
+  GGUF — whether it runs on this machine, judged with the same rule as `Evaluate` on the file the load would pick. A problem with the id is an
+  answer rather than an exception: `NotFound` (no such repository; the Hub answers a private one the same way), `NoLoadableFiles` (a repository with no
+  GGUF or ONNX model in it) and `Unreachable` (the Hub cannot be reached or refuses, or downloads are disabled and the cache lacks the listing — "could not
+  check", never "does not exist"). A "no GGUF/ONNX files" failure is now the internal subtype of `ModelNotFoundException`, so code that catches that type
+  is unaffected.
 - **`GgufModelRegistry.Recommend` lists the models to offer on this machine, in order**: the catalog's ladder (`GgufModelInfo.Tier`:
   `Fast`, `Default`, `Balanced`, `Quality`, `ExtraLarge` — the tier aliases' words; the rungs are `gguf:qwen3-fast`, `gguf:qwen3-default`,
   `gguf:qwen3-balanced`, `gguf:qwen3-quality` and `gguf:xlarge`, while `gguf:qwen3-large` and the `gemma4-*` entries stay loadable but are not

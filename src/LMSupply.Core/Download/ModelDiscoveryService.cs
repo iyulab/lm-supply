@@ -286,7 +286,7 @@ public sealed class ModelDiscoveryService : IDisposable
 
         if (onnxFiles.Count == 0)
         {
-            throw new ModelNotFoundException(
+            throw new NoLoadableFilesException(
                 $"No ONNX files found in repository '{repoId}'. " +
                 "Ensure the repository contains ONNX model files.",
                 repoId);
