@@ -34,12 +34,19 @@ and update the label in the same pass as the upgrade.
 
 `tests/LMSupply.Generator.Tests/catalog.snapshot` records, for every alias of the GGUF and ONNX generator catalogs, the
 repository, file, quantization, known-issue tags and recommendation tier it resolves to; `GeneratorCatalog.Revision` is the hash of the same text, so it changes when the file would. `CatalogSnapshotTests` fails when the registries and
-the file differ, and prints the lines that changed. Edit the file in the same commit as the registry, then run
+the file differ, and prints the lines that changed. Every other domain keeps a `catalog.snapshot` of its own in the same
+way, in its test project. The embedder's and the reranker's record the fields that shape the vectors or scores — an embedder's
+dimensions, pooling and prefixes, a reranker's architecture and output — plus the pool or tier mapping `auto` draws from; the
+transcriber's, synthesizer's, OCR's (detection and recognition), translator's, captioner's, detector's, segmenter's and image
+generator's record every public property of each built-in model, so that a property added later is pinned from the day it exists.
+`auto` itself depends on the machine and is not recorded for those. Edit the file in the
+same commit as the registry, then run
 
 ```
 pwsh scripts/check-catalog-notes.ps1
 ```
 
-which compares the snapshot with the one at the upstream branch and lists every changed alias that has no line naming it
-in the `CHANGELOG.md` additions of the same range. The alias-name list in `GgufAliasSurfaceSnapshotTests` stays as the
+which compares the snapshots with the ones at the upstream branch and lists every changed alias that has no line naming it
+in the `CHANGELOG.md` additions of the same range. An embedder or reranker alias is named with its domain
+(`embedder:default: BGE-M3 → … (why)`; for the two OCR catalogs `ocr-detection:default` or `ocr` beside the alias). The alias-name list in `GgufAliasSurfaceSnapshotTests` stays as the
 record of the public alias surface.

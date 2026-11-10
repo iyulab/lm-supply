@@ -1,4 +1,4 @@
-using AwesomeAssertions;
+using LMSupply.Testing;
 
 namespace LMSupply.Generator.Tests;
 
@@ -18,24 +18,6 @@ namespace LMSupply.Generator.Tests;
 /// </summary>
 public class CatalogSnapshotTests
 {
-    private static string SnapshotPath => Path.Combine(AppContext.BaseDirectory, "catalog.snapshot");
-
     [Fact]
-    public void TheCatalog_MatchesItsRecordedSnapshot()
-    {
-        var expected = ReadLines(File.ReadAllText(SnapshotPath));
-        var actual = GeneratorCatalog.Render();
-
-        var missing = expected.Except(actual, StringComparer.Ordinal).ToList();
-        var added = actual.Except(expected, StringComparer.Ordinal).ToList();
-
-        (missing.Count + added.Count).Should().Be(0,
-            "the catalog changed without catalog.snapshot being edited with it.\n"
-            + "Recorded but no longer true:\n  " + string.Join("\n  ", missing)
-            + "\nTrue now but not recorded:\n  " + string.Join("\n  ", added)
-            + "\nReplace the first set with the second in catalog.snapshot, and add a CHANGELOG line for each changed alias.");
-    }
-
-    private static List<string> ReadLines(string text)
-        => text.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0 && !l.StartsWith('#')).ToList();
+    public void TheCatalog_MatchesItsRecordedSnapshot() => CatalogSnapshot.Verify(GeneratorCatalog.Render());
 }

@@ -32,4 +32,9 @@
     <None Include="Tokenization/Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="catalog.snapshot" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="..\Shared\CatalogSnapshot.cs" Link="Shared\CatalogSnapshot.cs" />
+  </ItemGroup>
+
 </Project>

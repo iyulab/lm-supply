@@ -45,4 +45,9 @@
   <ItemGroup>
     <Compile Include="..\Shared\BundledRuntime.cs" Link="Shared\BundledRuntime.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="catalog.snapshot" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="..\Shared\CatalogSnapshot.cs" Link="Shared\CatalogSnapshot.cs" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,18 @@
+# What each embedder alias resolves to: alias | repository | subfolder | dimensions | input length | pooling | lower-case | licence | query prefix | passage prefix | default prefix.
+# CatalogSnapshotTests compares this file with the registry's built-in models (user aliases are not part of it).
+# Edit it in the same commit as any catalog change and add a CHANGELOG line for each changed alias (docs/CATALOG.md).
+embedder:all-mpnet-base-v2 | sentence-transformers/all-mpnet-base-v2 | onnx | 768 | 384 | Mean | lower | Apache-2.0
+embedder:auto | pool | default,large,nomic-embed-text-v1.5,fast
+embedder:bge-base-en-v1.5 | BAAI/bge-base-en-v1.5 | onnx | 768 | 512 | Cls | lower | MIT | "Represent this sentence for searching relevant passages: "
+embedder:bge-large-en-v1.5 | BAAI/bge-large-en-v1.5 | onnx | 1024 | 512 | Cls | lower | MIT | "Represent this sentence for searching relevant passages: "
+embedder:default | BAAI/bge-m3 | onnx | 1024 | 8192 | Cls | keep-case | MIT
+embedder:e5-base-v2 | intfloat/e5-base-v2 | onnx | 768 | 512 | Mean | keep-case | MIT | "query: " | "passage: " | "query: "
+embedder:e5-small-v2 | intfloat/e5-small-v2 | onnx | 384 | 512 | Mean | keep-case | MIT | "query: " | "passage: " | "query: "
+embedder:fast | intfloat/multilingual-e5-small | onnx | 384 | 512 | Mean | keep-case | MIT | "query: " | "passage: " | "query: "
+embedder:gte-large-en-v1.5 | Alibaba-NLP/gte-large-en-v1.5 | onnx | 1024 | 8192 | Cls | keep-case | Apache-2.0
+embedder:large | intfloat/multilingual-e5-large | onnx | 1024 | 512 | Mean | keep-case | MIT | "query: " | "passage: " | "query: "
+embedder:multilingual-e5-base | intfloat/multilingual-e5-base | onnx | 768 | 512 | Mean | keep-case | MIT | "query: " | "passage: " | "query: "
+embedder:multilingual-e5-large | intfloat/multilingual-e5-large | onnx | 1024 | 512 | Mean | keep-case | MIT | "query: " | "passage: " | "query: "
+embedder:multilingual-e5-small | intfloat/multilingual-e5-small | onnx | 384 | 512 | Mean | keep-case | MIT | "query: " | "passage: " | "query: "
+embedder:nomic-embed-text-v1.5 | nomic-ai/nomic-embed-text-v1.5 | onnx | 768 | 8192 | Mean | keep-case | Apache-2.0 | "search_query: " | "search_document: " | "clustering: "
+embedder:quality | BAAI/bge-m3 | onnx | 1024 | 8192 | Cls | keep-case | MIT
