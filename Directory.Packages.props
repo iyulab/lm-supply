@@ -38,7 +38,7 @@
     <!-- GPU Providers (optional, user installs separately) -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.31.1" />
     <!-- Testing (xUnit v3 / Microsoft.Testing.Platform) -->
-    <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <PackageVersion Include="xunit.v3" Version="4.0.3" />
     <PackageVersion Include="Iyu.Conventions.Testing" Version="0.13.0" />
     <PackageVersion Include="Iyu.Conventions.Testing.Snippets" Version="0.13.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
