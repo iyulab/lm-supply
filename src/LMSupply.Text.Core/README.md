@@ -165,6 +165,10 @@ Batched versions for efficient inference (`sealed class`):
 
 The tokenizer automatically handles special token differences between tokenizer types.
 
+Special tokens are added by the tokenizer, never read from the text: a literal `[CLS]`, `[SEP]`, `[MASK]`, `<s>` or `</s>` in the input is ordinary text and is split into
+pieces like any other characters, so user input cannot inject a control token. SentencePiece input follows the normalizer stored in the model, which by default drops
+leading, trailing and repeated white space.
+
 ## Version History
 
 ### v0.8.7
