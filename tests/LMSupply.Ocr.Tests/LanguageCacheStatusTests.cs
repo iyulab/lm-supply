@@ -34,7 +34,7 @@ public sealed class LanguageCacheStatusTests : IDisposable
         status.IsCached.Should().BeFalse();
         status.RecognitionModel.Should().Be("crnn-korean-v3");
         status.Files.Should().Equal(
-            new OcrModelFile(detection.RepoId, "detection/v3", detection.ModelFile, false),
+            new OcrModelFile(detection.RepoId, detection.Subfolder, detection.ModelFile, false),
             new OcrModelFile(korean.RepoId, "languages/korean", korean.ModelFile, false),
             new OcrModelFile(korean.RepoId, "languages/korean", korean.DictFile, false));
         status.Missing.Should().HaveCount(3);

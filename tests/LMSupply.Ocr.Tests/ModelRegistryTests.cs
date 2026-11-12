@@ -8,15 +8,34 @@ public class ModelRegistryTests
     #region Detection Registry Tests
 
     [Fact]
-    public void DetectionRegistry_Resolve_Default_ShouldReturnDbNetV3()
+    public void DetectionRegistry_Resolve_Default_ShouldReturnDbNetV5()
     {
         // Act
         var model = OcrDetectionModelRegistry.Default.Resolve("default");
 
-        // Assert
+        // Assert: the recognizers are PP-OCRv5 models, and the detector that goes with them is the v5 mobile one
         model.Should().NotBeNull();
-        model.RepoId.Should().Be("monkt/paddleocr-onnx");
-        model.ModelFile.Should().Be("det.onnx");
+        model.RepoId.Should().Be("PaddlePaddle/PP-OCRv5_mobile_det_onnx");
+        model.ModelFile.Should().Be("inference.onnx");
+        model.License.Should().Be("Apache-2.0");
+    }
+
+    [Fact]
+    public void DetectionRegistry_Resolve_DbNetV5_ShouldBeTheDefault()
+    {
+        var model = OcrDetectionModelRegistry.Default.Resolve("dbnet-v5");
+        var defaulted = OcrDetectionModelRegistry.Default.Resolve("default");
+
+        model.RepoId.Should().Be(defaulted.RepoId);
+        model.ModelFile.Should().Be(defaulted.ModelFile);
+        model.InputWidth.Should().Be(960);
+        model.InputHeight.Should().Be(960);
+    }
+
+    [Fact]
+    public void DetectionRegistry_Resolve_Auto_ShouldReturnTheDefault()
+    {
+        OcrDetectionModelRegistry.Default.Resolve("auto").RepoId.Should().Be(OcrDetectionModelRegistry.Default.Resolve("default").RepoId);
     }
 
     [Fact]
@@ -101,7 +120,7 @@ public class ModelRegistryTests
         // Assert
         model.Should().NotBeNull();
         model.AliasName.Should().Be("auto");
-        model.RepoId.Should().Be("monkt/paddleocr-onnx");
+        model.RepoId.Should().Be("PaddlePaddle/PP-OCRv5_mobile_det_onnx");
     }
 
     [Fact]
@@ -334,9 +353,10 @@ public class ModelRegistryTests
     public void DefaultDetectionModels_All_ShouldContainAllModels()
     {
         // Assert
-        DefaultDetectionModels.All.Should().HaveCount(3);
+        DefaultDetectionModels.All.Should().HaveCount(4);
+        DefaultDetectionModels.All.Should().Contain(DefaultDetectionModels.DbNetV5);
+        DefaultDetectionModels.All.Should().Contain(DefaultDetectionModels.DbNetV5Default);
         DefaultDetectionModels.All.Should().Contain(DefaultDetectionModels.DbNetV3);
-        DefaultDetectionModels.All.Should().Contain(DefaultDetectionModels.DbNetV3Default);
         DefaultDetectionModels.All.Should().Contain(DefaultDetectionModels.DbNetV3Fast);
     }
 

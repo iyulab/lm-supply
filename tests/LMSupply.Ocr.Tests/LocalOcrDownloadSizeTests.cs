@@ -42,11 +42,10 @@ public sealed class LocalOcrDownloadSizeTests : IDisposable
         var detection = OcrDetectionModelRegistry.Default.Resolve("default");
         var recognition = OcrRecognitionModelRegistry.Default.ResolveForLanguage(language);
         var other = OcrRecognitionModelRegistry.Default.ResolveForLanguage(language == "en" ? "ko" : "en");
-        detection.RepoId.Should().Be(recognition.RepoId, "the fixture seeds one listing for the shared repository");
 
-        SeedListing(detection.RepoId,
+        SeedListing(detection.RepoId, [(InFolder(detection.Subfolder, detection.ModelFile), 2_400_000)]);
+        SeedListing(recognition.RepoId,
         [
-            (InFolder(detection.Subfolder, detection.ModelFile), 2_400_000),
             (InFolder(recognition.Subfolder, recognition.ModelFile), 7_000_000),
             (InFolder(recognition.Subfolder, recognition.DictFile), 30_000),
             (InFolder(other.Subfolder, other.ModelFile), 9_999_999),
@@ -63,9 +62,9 @@ public sealed class LocalOcrDownloadSizeTests : IDisposable
         var detection = OcrDetectionModelRegistry.Default.Resolve("default");
         var recognition = OcrRecognitionModelRegistry.Default.ResolveForLanguage("en");
         var detectionFile = InFolder(detection.Subfolder, detection.ModelFile);
-        SeedListing(detection.RepoId,
+        SeedListing(detection.RepoId, [(detectionFile, 2_400)]);
+        SeedListing(recognition.RepoId,
         [
-            (detectionFile, 2_400),
             (InFolder(recognition.Subfolder, recognition.ModelFile), 7_000),
             (InFolder(recognition.Subfolder, recognition.DictFile), 30),
         ]);

@@ -188,8 +188,7 @@ public class OcrFunctionalTests
         var models = LocalOcr.GetAvailableDetectionModels().ToList();
 
         models.Should().NotBeEmpty();
-        models.Should().Contain("dbnet-v3",
-            "OCR detection uses DBNet-v3 model");
+        models.Should().Contain("dbnet-v5", "the default OCR detection model is DBNet v5").And.Contain("dbnet-v3");
     }
 
     [Fact]
@@ -343,12 +342,12 @@ public class OcrFunctionalTests
 
     [Fact]
     [Trait("Axis", "Loading")]
-    public void L_DefaultDetectionAlias_ReturnsDbNetV3()
+    public void L_DefaultDetectionAlias_ReturnsDbNetV5()
     {
         var model = OcrDetectionModelRegistry.Default.Resolve("default");
 
-        model.RepoId.Should().Be("monkt/paddleocr-onnx", "default detection model should come from paddleocr repo");
-        model.ModelFile.Should().Be("det.onnx", "detection model file should be det.onnx");
+        model.RepoId.Should().Be("PaddlePaddle/PP-OCRv5_mobile_det_onnx", "the default detection model is the PP-OCRv5 mobile detector");
+        model.ModelFile.Should().Be("inference.onnx", "the detector's file in that repository");
     }
 
     [Fact]
