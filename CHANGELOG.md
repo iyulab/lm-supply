@@ -6,6 +6,15 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Fixed
+- **`LMSupply.ImageGenerator` tokenizes a prompt the way CLIP does.** It read the CLIP vocabulary with a byte-level encoder of the GPT-2 kind, which neither
+  splits words from their neighbours nor marks the end of a word, so every prompt reached the text encoder as ids it was not trained on — `a photo of a cat`
+  became nine ids of single letters and spaces (`64, 220, 1153, …`) instead of the five word ids `320, 1125, 539, 320, 2368`. The encoder is now the
+  byte-pair encoding CLIP's text encoder was trained with: words and punctuation are split by the reference pattern, the last symbol of a word carries
+  `</w>`, merges apply by rank, and the text is cleaned the way the reference cleans it (composition, full-width forms, ligatures, curly quotes, entities,
+  whitespace, lower case; repair of mis-decoded text is not applied). Ids match the reference tokenizer on the checks run against the public vocabulary.
+  The images a prompt produces change. No public member changes.
+
 ### Changed
 - **`Microsoft.ML.Tokenizers` 2.0.1 → 3.0.0** (the WordPiece, SentencePiece and byte-pair tokenizers behind `LMSupply.Text.Core`, `LMSupply.Translator` and
   `LMSupply.ImageGenerator`). The new release drops its own `Google.Protobuf` dependency and adds model mappings; no LMSupply member changes its

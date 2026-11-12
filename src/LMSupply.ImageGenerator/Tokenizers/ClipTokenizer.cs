@@ -1,16 +1,16 @@
 using System.Text.Json;
 using LMSupply.Text;
-using Microsoft.ML.Tokenizers;
 
 namespace LMSupply.ImageGenerator.Tokenizers;
 
 /// <summary>
 /// CLIP text tokenizer for encoding prompts.
-/// Uses BPE tokenization with special handling for CLIP's vocabulary.
+/// Uses the byte-pair encoding CLIP's text encoder was trained with (see <see cref="ClipBpe"/>): a prompt gets
+/// the same ids as the reference tokenizer, which the text encoder needs to read it as the words it holds.
 /// </summary>
 internal sealed class ClipTokenizer : ITextTokenizer
 {
-    private readonly Tokenizer _tokenizer;
+    private readonly ClipBpe _bpe;
     private readonly int _bosTokenId; // <|startoftext|>
     private readonly int _eosTokenId; // <|endoftext|>
     private readonly int _padTokenId;
@@ -41,7 +41,7 @@ internal sealed class ClipTokenizer : ITextTokenizer
     public int MaxLength => _maxLength;
 
     private ClipTokenizer(
-        Tokenizer tokenizer,
+        ClipBpe bpe,
         int vocabSize,
         int bosTokenId,
         int eosTokenId,
@@ -49,7 +49,7 @@ internal sealed class ClipTokenizer : ITextTokenizer
         int unkTokenId,
         int maxLength)
     {
-        _tokenizer = tokenizer;
+        _bpe = bpe;
         VocabSize = vocabSize;
         _bosTokenId = bosTokenId;
         _eosTokenId = eosTokenId;
@@ -94,13 +94,13 @@ internal sealed class ClipTokenizer : ITextTokenizer
         // Load vocabulary to get special token IDs
         var (vocabSize, bosId, eosId, padId, unkId) = LoadVocabularyInfo(vocabPath);
 
-        // Create BPE tokenizer
+        // Create the byte-pair encoder
         using var vocabStream = File.OpenRead(vocabPath);
         using var mergesStream = File.OpenRead(mergesPath);
-        var tokenizer = CodeGenTokenizer.Create(vocabStream, mergesStream);
+        var bpe = ClipBpe.Create(vocabStream, mergesStream, unkId);
 
         return new ClipTokenizer(
-            tokenizer,
+            bpe,
             vocabSize,
             bosId,
             eosId,
@@ -115,12 +115,8 @@ internal sealed class ClipTokenizer : ITextTokenizer
     /// </summary>
     public int[] Encode(string text, bool addSpecialTokens = true)
     {
-        // Preprocess text (lowercase for CLIP)
-        var processedText = text.ToLowerInvariant();
-
-        // Tokenize
-        var ids = _tokenizer.EncodeToIds(processedText);
-        var tokenList = ids.ToList();
+        // Cleaning (including lower case) and tokenizing are the encoder's
+        var tokenList = _bpe.Encode(text).ToList();
 
         if (addSpecialTokens)
         {
@@ -183,7 +179,7 @@ internal sealed class ClipTokenizer : ITextTokenizer
             ? tokenIds.ToArray().Where(id => !IsSpecialToken(id))
             : tokenIds.ToArray().AsEnumerable();
 
-        return _tokenizer.Decode(ids) ?? string.Empty;
+        return _bpe.Decode(ids);
     }
 
     public bool IsSpecialToken(int tokenId)
@@ -196,7 +192,7 @@ internal sealed class ClipTokenizer : ITextTokenizer
 
     public void Dispose()
     {
-        // Tokenizer doesn't implement IDisposable
+        // Nothing to release
     }
 
     private static (int vocabSize, int bosId, int eosId, int padId, int unkId) LoadVocabularyInfo(string vocabPath)
