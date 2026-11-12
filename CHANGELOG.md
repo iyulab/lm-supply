@@ -7,6 +7,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Fixed
+- **`LMSupply.Ocr` reads lines of text that are slightly tilted.** The recognizer cut each detected line out as the axis-aligned box around it. A line is a rotated
+  rectangle, and the box around it grows by the line's length times the tangent of its angle, so on a long line tilted by a degree or two it held parts of the lines
+  above and below, and the text came out garbled. The recognizer now straightens a line that is tilted by more than three quarters of a degree (and less than 45) into the
+  strip along it and reads that; a level line is cut exactly as before. On rendered pages of English text tilted by 1.6° with pixel noise the character error rate went from
+  15.9 % to 1.1 % with the default detector, and over all the test pages (level, blurred, tilted, compressed, low contrast) from 4.3 % to 1.1 %; the Korean test pages, whose lines are shorter, read the same as before.
+  No public member changes.
 - **`LMSupply.Synthesizer` speaks the voices published in the Piper 1.5 format.** A voice config of that generation lists `vowel_clusters` — pairs of phonemes (`eɪ`, `aɪ`, `aʊ`, `oʊ`, `ɔɪ`)
   that the voice was trained to take as one symbol, and its `phoneme_id_map` holds an id for each such symbol. The encoder gave such a voice the two parts, so every
   diphthong was two sounds ("train" was heard as "trend", "house" as "hose"). The upstream file of the English `quality` voice (Amy) was re-published in this format, and

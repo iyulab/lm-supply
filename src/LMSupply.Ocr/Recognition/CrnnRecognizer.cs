@@ -149,6 +149,11 @@ internal sealed class CrnnRecognizer : IDisposable
 
     private static RgbImage CropRegion(RgbImage image, DetectedRegion region)
     {
+        // A line tilted beyond a fraction of a degree is straightened; the box around it would hold its neighbours.
+        var straightened = RotatedCrop.TryExtract(image, region.Polygon);
+        if (straightened is not null)
+            return straightened;
+
         var box = region.BoundingBox;
 
         // Whole pixels covering the box, clamped to the image
