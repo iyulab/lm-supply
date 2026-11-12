@@ -106,4 +106,53 @@ public class PhonemeIdEncoderTests
         encoded.PhonemeCount.Should().Be(31);
         encoded.Ids.Should().HaveCount(2 + 31 * 2 + 1);
     }
+
+    // A voice trained with Piper 1.5 or later lists the pairs of phonemes it takes as one symbol (vowel_clusters) and has an id for
+    // each such symbol: feeding it the two parts instead makes a diphthong into two sounds.
+    private const string ClusterAB = "\"vowel_clusters\": [[\"a\", \"b\"]]";
+
+    [Fact]
+    public void APairListedInVowelClusters_IsOneSymbolOfTheVoice()
+    {
+        var encoded = VoiceFixture.Minimal(members: ClusterAB, extraPhonemes: "\"ab\": [9]").Encoder.Encode("ab");
+
+        encoded.Ids.Should().Equal(1, 0, 9, 0, 2);
+        encoded.PhonemeCount.Should().Be(1);
+    }
+
+    [Fact]
+    public void APairNotListedInVowelClusters_IsEncodedAsItsTwoPhonemes_EvenWhenTheMapHasAKeyForIt()
+    {
+        var encoded = VoiceFixture.Minimal(members: "\"vowel_clusters\": [[\"b\", \"a\"]]", extraPhonemes: "\"ab\": [9]").Encoder.Encode("ab");
+
+        encoded.Ids.Should().Equal(1, 0, 3, 0, 4, 0, 2);
+        encoded.PhonemeCount.Should().Be(2);
+    }
+
+    [Fact]
+    public void AClusterWhoseSymbolTheVoiceHasNoIdFor_IsEncodedAsItsTwoPhonemes()
+    {
+        var encoded = VoiceFixture.Minimal(members: ClusterAB).Encoder.Encode("ab");
+
+        encoded.Ids.Should().Equal(1, 0, 3, 0, 4, 0, 2);
+    }
+
+    [Fact]
+    public void AClusterIsFoundInsideASentence_AndOnlyWhereItsTwoPhonemesAreNeighbours()
+    {
+        var voice = VoiceFixture.Minimal(members: ClusterAB, extraPhonemes: "\"ab\": [9]");
+
+        // a, then the cluster; the b after "a a" stays a b; a lone a and a lone b are not a cluster.
+        voice.Encoder.Encode("aab").Ids.Should().Equal(1, 0, 3, 0, 9, 0, 2);
+        voice.Encoder.Encode("ba").Ids.Should().Equal(1, 0, 4, 0, 3, 0, 2);
+        voice.Encoder.Encode("abab").Ids.Should().Equal(1, 0, 9, 0, 9, 0, 2);
+    }
+
+    [Fact]
+    public void AMalformedVowelClustersEntry_IsIgnored_AndDoesNotStopTheVoiceLoading()
+    {
+        var voice = VoiceFixture.Minimal(members: "\"vowel_clusters\": [[\"a\"], [\"a\", \"b\", \"a\"], [\"\", \"b\"]]", extraPhonemes: "\"ab\": [9]");
+
+        voice.Encoder.Encode("ab").Ids.Should().Equal(1, 0, 3, 0, 4, 0, 2);
+    }
 }

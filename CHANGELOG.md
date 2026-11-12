@@ -7,6 +7,12 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Fixed
+- **`LMSupply.Synthesizer` speaks the voices published in the Piper 1.5 format.** A voice config of that generation lists `vowel_clusters` — pairs of phonemes (`eɪ`, `aɪ`, `aʊ`, `oʊ`, `ɔɪ`)
+  that the voice was trained to take as one symbol, and its `phoneme_id_map` holds an id for each such symbol. The encoder gave such a voice the two parts, so every
+  diphthong was two sounds ("train" was heard as "trend", "house" as "hose"). The upstream file of the English `quality` voice (Amy) was re-published in this format, and
+  from the moment its new file is downloaded the voice's word error rate in the English acceptance run (Whisper `default`, no voice noise) went from 0.050 to 0.183, with
+  prose and figures from 0.000 to 0.155; with the fix it is 0.050 and 0.000 again. The encoder now merges a listed pair into the voice's one symbol; a config
+  without the list is encoded as before. No public member changes.
 - **`LMSupply.Segmenter`: the `fast` and `quality` aliases give real segmentations, and `ClassLabels` names the classes of the model that is loaded.** The code read every
   model's output as per-class scores of a SegFormer: `fast` (MediaPipe Selfie) answers one foreground probability per pixel, so every pixel was class 0 and a person was never
   found, and its input was normalised with the ImageNet mean and deviation where the model takes the bare 0-1 scale; `quality` (MaskFormer) answers per-query class and mask

@@ -69,7 +69,7 @@ internal sealed class VoiceConfig
         // Piper's defaults for a config without an "inference" section, or without one of its values.
         return new VoiceConfig(
             scheme,
-            PhonemeIdEncoder.FromIdMap(idMap, catalog),
+            PhonemeIdEncoder.FromIdMap(idMap, catalog, config.VowelClusters),
             sampleRate: config.Audio?.SampleRate ?? catalog.SampleRate,
             numSpeakers: config.NumSpeakers ?? 1,
             noiseScale: config.Inference?.NoiseScale ?? 0.667f,
@@ -136,6 +136,9 @@ internal sealed class PiperVoiceConfig
     public string? PhonemeType { get; set; }
     public Dictionary<string, long[]>? PhonemeIdMap { get; set; }
     public int? NumSpeakers { get; set; }
+
+    // Pairs of phonemes a voice trained with Piper 1.5 or later takes as one symbol; absent in older configs.
+    public List<List<string>>? VowelClusters { get; set; }
 }
 
 internal sealed class PiperAudioConfig
