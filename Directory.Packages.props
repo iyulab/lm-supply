@@ -14,7 +14,7 @@
       of CI).
     -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
-    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.1" />
+    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="3.0.0" />
     <PackageVersion Include="System.Numerics.Tensors" Version="10.0.14" />
     <!-- Vision Dependencies -->
     <PackageVersion Include="SkiaSharp" Version="4.155.0" />

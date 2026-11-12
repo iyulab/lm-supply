@@ -6,6 +6,13 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Changed
+- **`Microsoft.ML.Tokenizers` 2.0.1 → 3.0.0** (the WordPiece, SentencePiece and byte-pair tokenizers behind `LMSupply.Text.Core`, `LMSupply.Translator` and
+  `LMSupply.ImageGenerator`). The new release drops its own `Google.Protobuf` dependency and adds model mappings; no LMSupply member changes its
+  signature. The public constructors that take a `Tokenizer` (`WordPieceSequenceTokenizer`, `WordPiecePairTokenizer`, `Gpt2TextTokenizer`) now take the
+  3.0.0 type, so an application that builds one itself and references another package pinned to 3.0.0 resolves a single version for both. The unit
+  suites of every project and the model-backed translator and fast-model facts pass on 3.0.0.
+
 ## [0.141.0] - 2026-11-10
 
 ### Added
