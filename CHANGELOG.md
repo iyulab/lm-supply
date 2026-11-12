@@ -13,7 +13,7 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   scores and failed with an `IndexOutOfRangeException` on every image. `fast` now calls a pixel above one half class 1 (`person`) on the model's own input scale, and `quality`
   combines the queries' class probabilities with their masks. `quality` is the model of the full ADE20K label set — 847 classes, not 150 as its entry said — and its
   `ClassLabels` come from the model's own configuration; `fast` reports `background` and `person`. `SegmenterModelInfo` gains `OutputKind`, `InputNormalization` and
-  `ClassLabels`. Catalog: `fast` and `quality` change as described, and `default`, `large` and `interactive` gain the new fields without resolving to anything else. The
+  `ClassLabels`. Catalog: `segmenter:fast` and `segmenter:quality` change as described, and `segmenter:default`, `segmenter:large` and `segmenter:interactive` gain the new fields without resolving to anything else. The
   README's alias table named models the aliases never loaded and is corrected.
 - **`LMSupply.ImageGenerator` produces pictures again.** The latent consistency pipeline differed from the reference in three places, and the output was texture
   noise that ignored the prompt (a luminance spread of about 10-14 and the same warm cast for every prompt): (1) the scheduler's timesteps were `721, 481, 241, 1`
