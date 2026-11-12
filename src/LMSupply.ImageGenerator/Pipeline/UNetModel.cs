@@ -27,6 +27,12 @@ internal sealed class UNetModel : IAsyncDisposable
     /// </summary>
     public int LatentChannels { get; }
 
+    /// <summary>
+    /// The width of the guidance embedding this model takes as <c>timestep_cond</c>; 0 when it takes none (guidance then
+    /// needs a second, unconditional forward pass).
+    /// </summary>
+    public int GuidanceEmbeddingDimension => _timestepCondInput is null ? 0 : _timestepCondDim;
+
     private UNetModel(
         RecoverableOnnxSession session,
         string sampleInput,
@@ -113,12 +119,17 @@ internal sealed class UNetModel : IAsyncDisposable
     /// <param name="latents">Latent tensor [batch, channels, height, width].</param>
     /// <param name="timestep">Current timestep.</param>
     /// <param name="textEmbeddings">Text encoder output [batch, seqLen, hiddenSize].</param>
+    /// <param name="guidanceEmbedding">
+    /// The embedding of the guidance weight (see <see cref="GuidanceEmbedding"/>), one row used for every item of the batch.
+    /// Required when <see cref="GuidanceEmbeddingDimension"/> is not 0; ignored otherwise.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Predicted noise tensor.</returns>
     public Task<DenseTensor<float>> ForwardAsync(
         DenseTensor<float> latents,
         long timestep,
         DenseTensor<float> textEmbeddings,
+        float[]? guidanceEmbedding,
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -132,15 +143,23 @@ internal sealed class UNetModel : IAsyncDisposable
             NamedOnnxValue.CreateFromTensor(_encoderHiddenStatesInput, textEmbeddings)
         };
 
-        // Add timestep_cond if required by this model (LCM guidance embedding)
+        // A model with a timestep_cond input was distilled with the guidance weight as an input: it has to be given the
+        // embedding of the weight, and an empty or neutral one is a different (untrained) request.
         if (_timestepCondInput != null)
         {
-            // Create a conditioning tensor filled with guidance scale embedding
-            // For LCM, this is typically computed from the guidance scale
-            // Using zeros as a neutral embedding for basic operation
+            if (guidanceEmbedding is null || guidanceEmbedding.Length != _timestepCondDim)
+            {
+                throw new ArgumentException(
+                    $"The model takes a guidance embedding of {_timestepCondDim} values.", nameof(guidanceEmbedding));
+            }
+
             var condData = new float[batchSize * _timestepCondDim];
-            var condTensor = new DenseTensor<float>(condData, [batchSize, _timestepCondDim]);
-            inputs.Add(NamedOnnxValue.CreateFromTensor(_timestepCondInput, condTensor));
+            for (var row = 0; row < batchSize; row++)
+            {
+                Array.Copy(guidanceEmbedding, 0, condData, row * _timestepCondDim, _timestepCondDim);
+            }
+
+            inputs.Add(NamedOnnxValue.CreateFromTensor(_timestepCondInput, new DenseTensor<float>(condData, [batchSize, _timestepCondDim])));
         }
 
         // Bounded run: if the native call hangs (e.g. a cold GPU kernel init) or the provider

@@ -36,6 +36,12 @@ public sealed class LcmSchedulerConfig
     public int OriginalInferenceSteps { get; set; } = 50;
 
     /// <summary>
+    /// Factor the training timestep is multiplied by before the skip and output coefficients are computed
+    /// (<c>timestep_scaling</c> in the reference scheduler). Default: 10
+    /// </summary>
+    public float TimestepScaling { get; set; } = 10.0f;
+
+    /// <summary>
     /// Whether to clip the predicted sample.
     /// Default: false
     /// </summary>
@@ -52,12 +58,6 @@ public sealed class LcmSchedulerConfig
     /// Default: true
     /// </summary>
     public bool SetAlphaToOne { get; set; } = true;
-
-    /// <summary>
-    /// Offset added to the computed timesteps.
-    /// Default: 0
-    /// </summary>
-    public int StepsOffset { get; set; }
 
     /// <summary>
     /// Type of prediction the model makes.

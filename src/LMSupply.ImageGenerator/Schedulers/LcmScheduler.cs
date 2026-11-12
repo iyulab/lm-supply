@@ -66,30 +66,19 @@ public sealed class LcmScheduler
         _numInferenceSteps = numInferenceSteps;
         _stepIndex = 0;
 
-        // LCM uses specific timestep spacing based on original training steps
-        // Formula: timesteps at evenly spaced intervals from training schedule
+        // The distillation schedule: every k-th training timestep, counted so that the last one is the final training
+        // timestep (k - 1, 2k - 1, ... 999 for 50 original steps).
         var originalSteps = _config.OriginalInferenceSteps;
         var trainTimesteps = _config.NumTrainTimesteps;
+        var k = trainTimesteps / originalSteps;
 
-        // Calculate step ratio and timesteps
-        var lcmOriginSteps = Math.Min(originalSteps, trainTimesteps);
-        var stepRatio = trainTimesteps / lcmOriginSteps;
-
-        // Calculate evenly spaced timesteps
-        var allTimesteps = new int[lcmOriginSteps];
-        for (int i = 0; i < lcmOriginSteps; i++)
-        {
-            allTimesteps[i] = (int)((lcmOriginSteps - 1 - i) * stepRatio) + _config.StepsOffset;
-        }
-
-        // Select subset of timesteps for actual inference
-        // Timesteps go from high noise (high t) to low noise (low t)
-        var skippingStep = lcmOriginSteps / numInferenceSteps;
+        // The inference schedule picks (approximately) evenly spaced entries of it, from the noisiest down:
+        // for 4 steps of 50 that is 999, 759, 499, 259.
         _timesteps = new int[numInferenceSteps];
         for (int i = 0; i < numInferenceSteps; i++)
         {
-            var idx = Math.Min(lcmOriginSteps - 1 - (i * skippingStep), lcmOriginSteps - 1);
-            _timesteps[numInferenceSteps - 1 - i] = allTimesteps[idx];
+            var index = (int)Math.Floor((double)i * originalSteps / numInferenceSteps);
+            _timesteps[i] = (originalSteps - index) * k - 1;
         }
     }
 
@@ -147,14 +136,13 @@ public sealed class LcmScheduler
             ApplyDynamicThresholding(predictedOriginal);
         }
 
-        // LCM denoising: apply skip/out coefficients
+        // LCM denoising: the boundary condition of the consistency function, with the timestep scaled as the reference does
         // c_skip = sigma_data^2 / (scaled_t^2 + sigma_data^2)
-        // c_out = scaled_t * sigma_data / sqrt(scaled_t^2 + sigma_data^2)
-        var sigmaData = 0.5f; // Standard value for LCM
-        var scaledT = GetScaledTimestep(timestep);
-
+        // c_out = scaled_t / sqrt(scaled_t^2 + sigma_data^2)
+        const float sigmaData = 0.5f;
+        var scaledT = timestep * _config.TimestepScaling;
         var cSkip = (sigmaData * sigmaData) / (scaledT * scaledT + sigmaData * sigmaData);
-        var cOut = scaledT * sigmaData / MathF.Sqrt(scaledT * scaledT + sigmaData * sigmaData);
+        var cOut = scaledT / MathF.Sqrt(scaledT * scaledT + sigmaData * sigmaData);
 
         var denoised = new float[sample.Length];
         for (int i = 0; i < sample.Length; i++)
@@ -237,13 +225,6 @@ public sealed class LcmScheduler
         }
 
         return noise;
-    }
-
-    private float GetScaledTimestep(int timestep)
-    {
-        // Convert timestep to sigma-like scale
-        var alpha = _alphasCumprod[timestep];
-        return MathF.Sqrt((1.0f - alpha) / alpha);
     }
 
     private void ApplyDynamicThresholding(float[] sample)

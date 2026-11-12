@@ -1,6 +1,7 @@
 using LMSupply.ImageGenerator;
 using LMSupply.ImageGenerator.Models;
 using LMSupply.ImageGenerator.Schedulers;
+using LMSupply.Vision;
 
 namespace LMSupply.Integration.Tests.Functional;
 
@@ -183,6 +184,47 @@ public class ImageGeneratorFunctionalTests
     }
 
     // ── Q axis: Quality Assertions ──────────────────────────────────
+
+    [Fact]
+    [Trait("Axis", "Quality")]
+    public async Task Q_Generation_FollowsThePrompt()
+    {
+        // An output that is a valid PNG can still be texture noise that ignores the prompt (an earlier build produced exactly
+        // that). Two prompts with opposite colour casts and a real picture's contrast tell the two apart: the noise had a
+        // luminance spread of about 10-14 and the same warm cast whatever the prompt; pictures have 22 and more and follow it.
+        await using var model = await LocalImageGenerator.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
+        var options = new ImageGenerationOptions { Steps = 4, Seed = 42 };
+
+        var apple = Measure((await model.GenerateAsync("a red apple on a wooden table", options, TestContext.Current.CancellationToken)).ImageData);
+        var cabin = Measure((await model.GenerateAsync("a snowy mountain with a small wooden cabin", options, TestContext.Current.CancellationToken)).ImageData);
+
+        // Observed: red minus blue is about +44 for the apple and -21 for the snowy cabin.
+        (apple.Red - apple.Blue).Should().BeGreaterThan(cabin.Red - cabin.Blue + 30);
+        apple.Spread.Should().BeGreaterThan(18);
+        cabin.Spread.Should().BeGreaterThan(18);
+    }
+
+    private static (double Red, double Blue, double Spread) Measure(byte[] png)
+    {
+        var image = ImageLoader.Decode(png);
+        double red = 0, blue = 0, sum = 0, sumSquares = 0;
+        var count = image.Width * image.Height;
+        for (var y = 0; y < image.Height; y++)
+        {
+            for (var x = 0; x < image.Width; x++)
+            {
+                var (r, g, b) = image[x, y];
+                red += r;
+                blue += b;
+                var luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+                sum += luminance;
+                sumSquares += luminance * luminance;
+            }
+        }
+
+        var mean = sum / count;
+        return (red / count, blue / count, Math.Sqrt(sumSquares / count - mean * mean));
+    }
 
     [Fact]
     [Trait("Axis", "Quality")]

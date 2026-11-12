@@ -87,82 +87,13 @@ internal sealed class LcmPipeline : IAsyncDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         var stopwatch = Stopwatch.StartNew();
+        var run = await StartRunAsync(prompt, options, cancellationToken);
 
-        var width = options.Width > 0 ? options.Width : _defaultWidth;
-        var height = options.Height > 0 ? options.Height : _defaultHeight;
-        var steps = options.Steps > 0 ? options.Steps : 4;
-        var guidanceScale = options.GuidanceScale;
-        var seed = options.Seed ?? Random.Shared.Next();
-        var useCfg = guidanceScale > 1.0f;
-
-        // Encode text prompt
-        // Use EncodeWithNegativeAsync for CFG (batch 2), EncodeAsync otherwise (batch 1)
-        DenseTensor<float> textEmbeddings;
-        if (useCfg)
-        {
-            textEmbeddings = await _textEncoder.EncodeWithNegativeAsync(
-                prompt,
-                options.NegativePrompt,
-                cancellationToken);
-        }
-        else
-        {
-            textEmbeddings = await _textEncoder.EncodeAsync(prompt, cancellationToken);
-        }
-
-        // Generate initial noise
-        var random = new Random(seed);
-        var latentHeight = height / 8;
-        var latentWidth = width / 8;
-        var latentShape = new[] { 1, _unet.LatentChannels, latentHeight, latentWidth };
-        var noiseData = LcmScheduler.CreateNoise(latentShape, random);
-        var latents = new DenseTensor<float>(noiseData, latentShape);
-
-        // Setup scheduler
-        _scheduler.SetTimesteps(steps);
-
-        // Denoising loop - convert to array to avoid span across await
-        var timesteps = _scheduler.Timesteps.ToArray();
-        foreach (var timestep in timesteps)
+        var latents = run.Latents;
+        foreach (var timestep in run.Timesteps)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            // Scale input
-            var scaledLatents = LcmScheduler.ScaleModelInput(latents.Buffer.Span, timestep);
-            var latentInput = new DenseTensor<float>(scaledLatents, latentShape);
-
-            // For classifier-free guidance, concatenate latents
-            DenseTensor<float> modelInput;
-            if (useCfg)
-            {
-                // Double the latent for CFG [negative, positive]
-                var doubleLatents = new float[scaledLatents.Length * 2];
-                Array.Copy(scaledLatents, 0, doubleLatents, 0, scaledLatents.Length);
-                Array.Copy(scaledLatents, 0, doubleLatents, scaledLatents.Length, scaledLatents.Length);
-                modelInput = new DenseTensor<float>(doubleLatents, [2, latentShape[1], latentShape[2], latentShape[3]]);
-            }
-            else
-            {
-                modelInput = latentInput;
-            }
-
-            // UNet forward pass
-            var noisePred = await _unet.ForwardAsync(modelInput, timestep, textEmbeddings, cancellationToken);
-
-            // Apply classifier-free guidance
-            float[] guidedNoise;
-            if (useCfg)
-            {
-                guidedNoise = ApplyGuidance(noisePred, guidanceScale);
-            }
-            else
-            {
-                guidedNoise = noisePred.Buffer.ToArray();
-            }
-
-            // Scheduler step
-            var stepResult = _scheduler.Step(guidedNoise, timestep, latents.Buffer.Span, random);
-            latents = new DenseTensor<float>(stepResult, latentShape);
+            latents = await DenoiseStepAsync(run, latents, timestep, cancellationToken);
         }
 
         // Decode latents to image
@@ -173,10 +104,10 @@ internal sealed class LcmPipeline : IAsyncDisposable
         return new GeneratedImage
         {
             ImageData = imageBytes,
-            Width = width,
-            Height = height,
-            Seed = seed,
-            Steps = steps,
+            Width = run.Width,
+            Height = run.Height,
+            Seed = run.Seed,
+            Steps = run.Steps,
             Prompt = prompt,
             GenerationTime = stopwatch.Elapsed
         };
@@ -193,85 +124,18 @@ internal sealed class LcmPipeline : IAsyncDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         var stopwatch = Stopwatch.StartNew();
+        var run = await StartRunAsync(prompt, options, cancellationToken);
 
-        var width = options.Width > 0 ? options.Width : _defaultWidth;
-        var height = options.Height > 0 ? options.Height : _defaultHeight;
-        var steps = options.Steps > 0 ? options.Steps : 4;
-        var guidanceScale = options.GuidanceScale;
-        var seed = options.Seed ?? Random.Shared.Next();
-        var useCfg = guidanceScale > 1.0f;
-
-        // Encode text prompt
-        // Use EncodeWithNegativeAsync for CFG (batch 2), EncodeAsync otherwise (batch 1)
-        DenseTensor<float> textEmbeddings;
-        if (useCfg)
-        {
-            textEmbeddings = await _textEncoder.EncodeWithNegativeAsync(
-                prompt,
-                options.NegativePrompt,
-                cancellationToken);
-        }
-        else
-        {
-            textEmbeddings = await _textEncoder.EncodeAsync(prompt, cancellationToken);
-        }
-
-        // Generate initial noise
-        var random = new Random(seed);
-        var latentHeight = height / 8;
-        var latentWidth = width / 8;
-        var latentShape = new[] { 1, _unet.LatentChannels, latentHeight, latentWidth };
-        var noiseData = LcmScheduler.CreateNoise(latentShape, random);
-        var latents = new DenseTensor<float>(noiseData, latentShape);
-
-        // Setup scheduler
-        _scheduler.SetTimesteps(steps);
-
-        // Convert to array to avoid span across await
-        var timesteps = _scheduler.Timesteps.ToArray();
+        var latents = run.Latents;
         var stepNumber = 0;
-        foreach (var timestep in timesteps)
+        foreach (var timestep in run.Timesteps)
         {
             cancellationToken.ThrowIfCancellationRequested();
             stepNumber++;
 
-            // Scale input
-            var scaledLatents = LcmScheduler.ScaleModelInput(latents.Buffer.Span, timestep);
-            var latentInput = new DenseTensor<float>(scaledLatents, latentShape);
+            latents = await DenoiseStepAsync(run, latents, timestep, cancellationToken);
 
-            // For classifier-free guidance
-            DenseTensor<float> modelInput;
-            if (useCfg)
-            {
-                var doubleLatents = new float[scaledLatents.Length * 2];
-                Array.Copy(scaledLatents, 0, doubleLatents, 0, scaledLatents.Length);
-                Array.Copy(scaledLatents, 0, doubleLatents, scaledLatents.Length, scaledLatents.Length);
-                modelInput = new DenseTensor<float>(doubleLatents, [2, latentShape[1], latentShape[2], latentShape[3]]);
-            }
-            else
-            {
-                modelInput = latentInput;
-            }
-
-            // UNet forward pass
-            var noisePred = await _unet.ForwardAsync(modelInput, timestep, textEmbeddings, cancellationToken);
-
-            // Apply classifier-free guidance
-            float[] guidedNoise;
-            if (useCfg)
-            {
-                guidedNoise = ApplyGuidance(noisePred, guidanceScale);
-            }
-            else
-            {
-                guidedNoise = noisePred.Buffer.ToArray();
-            }
-
-            // Scheduler step
-            var stepResult = _scheduler.Step(guidedNoise, timestep, latents.Buffer.Span, random);
-            latents = new DenseTensor<float>(stepResult, latentShape);
-
-            var isFinal = stepNumber == steps;
+            var isFinal = stepNumber == run.Steps;
             byte[]? previewData = null;
             GeneratedImage? finalImage = null;
 
@@ -285,10 +149,10 @@ internal sealed class LcmPipeline : IAsyncDisposable
                     finalImage = new GeneratedImage
                     {
                         ImageData = decoded,
-                        Width = width,
-                        Height = height,
-                        Seed = seed,
-                        Steps = steps,
+                        Width = run.Width,
+                        Height = run.Height,
+                        Seed = run.Seed,
+                        Steps = run.Steps,
                         Prompt = prompt,
                         GenerationTime = stopwatch.Elapsed
                     };
@@ -302,12 +166,86 @@ internal sealed class LcmPipeline : IAsyncDisposable
             yield return new GenerationStep
             {
                 StepNumber = stepNumber,
-                TotalSteps = steps,
+                TotalSteps = run.Steps,
                 PreviewData = previewData,
                 FinalImage = finalImage,
                 Elapsed = stopwatch.Elapsed
             };
         }
+    }
+
+    // What a run needs besides the loop state: the sizes, the text conditioning and how guidance is applied.
+    private sealed record Run(
+        int Width,
+        int Height,
+        int Steps,
+        int Seed,
+        int[] LatentShape,
+        int[] Timesteps,
+        DenseTensor<float> Latents,
+        DenseTensor<float> TextEmbeddings,
+        float GuidanceScale,
+        float[]? GuidanceEmbedding,
+        bool UseClassifierFreeGuidance,
+        Random Random);
+
+    private async Task<Run> StartRunAsync(string prompt, ImageGenerationOptions options, CancellationToken cancellationToken)
+    {
+        var width = options.Width > 0 ? options.Width : _defaultWidth;
+        var height = options.Height > 0 ? options.Height : _defaultHeight;
+        var steps = options.Steps > 0 ? options.Steps : 4;
+        var guidanceScale = options.GuidanceScale;
+        var seed = options.Seed ?? Random.Shared.Next();
+
+        // A model distilled with guidance takes the guidance weight as an input and runs once per step on the prompt alone
+        // (a negative prompt has no place in it); any other model needs the classic second, unconditional pass.
+        var embeddingDimension = _unet.GuidanceEmbeddingDimension;
+        var guidanceEmbedding = embeddingDimension > 0 ? GuidanceEmbedding.Create(guidanceScale, embeddingDimension) : null;
+        var useCfg = embeddingDimension == 0 && guidanceScale > 1.0f;
+
+        var textEmbeddings = useCfg
+            ? await _textEncoder.EncodeWithNegativeAsync(prompt, options.NegativePrompt, cancellationToken)
+            : await _textEncoder.EncodeAsync(prompt, cancellationToken);
+
+        // Initial noise
+        var random = new Random(seed);
+        var latentShape = new[] { 1, _unet.LatentChannels, height / 8, width / 8 };
+        var latents = new DenseTensor<float>(LcmScheduler.CreateNoise(latentShape, random), latentShape);
+
+        _scheduler.SetTimesteps(steps);
+
+        return new Run(
+            width, height, steps, seed, latentShape, _scheduler.Timesteps.ToArray(), latents, textEmbeddings,
+            guidanceScale, guidanceEmbedding, useCfg, random);
+    }
+
+    private async Task<DenseTensor<float>> DenoiseStepAsync(
+        Run run, DenseTensor<float> latents, int timestep, CancellationToken cancellationToken)
+    {
+        var scaledLatents = LcmScheduler.ScaleModelInput(latents.Buffer.Span, timestep);
+
+        DenseTensor<float> modelInput;
+        if (run.UseClassifierFreeGuidance)
+        {
+            // Double the latent for CFG [negative, positive]
+            var doubleLatents = new float[scaledLatents.Length * 2];
+            Array.Copy(scaledLatents, 0, doubleLatents, 0, scaledLatents.Length);
+            Array.Copy(scaledLatents, 0, doubleLatents, scaledLatents.Length, scaledLatents.Length);
+            modelInput = new DenseTensor<float>(doubleLatents, [2, run.LatentShape[1], run.LatentShape[2], run.LatentShape[3]]);
+        }
+        else
+        {
+            modelInput = new DenseTensor<float>(scaledLatents, run.LatentShape);
+        }
+
+        var noisePred = await _unet.ForwardAsync(modelInput, timestep, run.TextEmbeddings, run.GuidanceEmbedding, cancellationToken);
+
+        var guidedNoise = run.UseClassifierFreeGuidance
+            ? ApplyGuidance(noisePred, run.GuidanceScale)
+            : noisePred.Buffer.ToArray();
+
+        var stepResult = _scheduler.Step(guidedNoise, timestep, latents.Buffer.Span, run.Random);
+        return new DenseTensor<float>(stepResult, run.LatentShape);
     }
 
     private static float[] ApplyGuidance(DenseTensor<float> noisePred, float guidanceScale)

@@ -39,9 +39,9 @@ var options = new ImageGenerationOptions
     Width = 512,           // Image width (must be divisible by 8)
     Height = 512,          // Image height (must be divisible by 8)
     Steps = 4,             // Inference steps (2-4 for LCM)
-    GuidanceScale = 1.0f,  // CFG scale (1.0-2.0 for LCM)
+    GuidanceScale = 1.0f,  // How closely the prompt is followed (1.0 = no extra guidance; the reference default is 8.5)
     Seed = 42,             // Random seed for reproducibility
-    NegativePrompt = "blurry, low quality",
+    NegativePrompt = "blurry, low quality", // Ignored by LCM-Dreamshaper-V7, which runs on the prompt alone
     GeneratePreviews = true // Enable step-by-step previews
 };
 

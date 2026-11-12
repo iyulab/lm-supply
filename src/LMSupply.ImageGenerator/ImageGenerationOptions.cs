@@ -7,6 +7,8 @@ public sealed class ImageGenerationOptions
 {
     /// <summary>
     /// Negative prompt to specify what to avoid in the generated image.
+    /// Used only with a model that needs a second, unconditional pass for guidance; a latent consistency model that takes the
+    /// guidance weight as an input (such as the registry's LCM-Dreamshaper-V7) runs on the prompt alone and ignores it.
     /// </summary>
     public string? NegativePrompt { get; set; }
 
@@ -29,8 +31,11 @@ public sealed class ImageGenerationOptions
     public int Steps { get; set; } = 4;
 
     /// <summary>
-    /// Guidance scale for classifier-free guidance.
-    /// LCM models work best with 1.0-2.0. Default: 1.0
+    /// How strongly the image follows the prompt; 1.0 adds no guidance and higher values follow the prompt more closely.
+    /// A latent consistency model distilled with guidance (the registry's LCM-Dreamshaper-V7) takes <c>GuidanceScale - 1</c>
+    /// as an input and runs once per step, as the reference pipeline does (its default is 8.5). Any other model uses the
+    /// classic classifier-free guidance scale: a value above 1 runs a second, unconditional pass and uses
+    /// <see cref="NegativePrompt"/>. Default: 1.0
     /// </summary>
     public float GuidanceScale { get; set; } = 1.0f;
 

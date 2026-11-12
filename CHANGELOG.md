@@ -7,6 +7,17 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Fixed
+- **`LMSupply.ImageGenerator` produces pictures again.** The latent consistency pipeline differed from the reference in three places, and the output was texture
+  noise that ignored the prompt (a luminance spread of about 10-14 and the same warm cast for every prompt): (1) the scheduler's timesteps were `721, 481, 241, 1`
+  for 4 steps — the first step ran at a noise level of 721 on latents that are pure noise — where the reference uses `999, 759, 499, 259`; (2) its output
+  coefficients were computed from the noise ratio instead of the scaled timestep (`c_out = 10t / √((10t)² + 0.25)`, `c_skip = 0.25 / ((10t)² + 0.25)`); (3) the
+  UNet's `timestep_cond` input, the embedding of the guidance weight, was filled with zeros. The pipeline now follows the reference scheduler and embeds
+  `GuidanceScale - 1` for a model that takes the input, running once per step on the prompt alone. With the same model, seed and 4 steps the output goes from noise to
+  pictures that follow the prompt (a luminance spread of 22-38; the red-minus-blue balance of "a red apple on a wooden table" is +44, that of "a snowy mountain with a
+  small wooden cabin" is −21). **Behaviour change:** for such a model (the registry's LCM-Dreamshaper-V7) `NegativePrompt` is ignored and `GuidanceScale` means the reference
+  pipeline's guidance scale (1.0 adds no guidance, its default is 8.5) rather than a classifier-free-guidance factor of 1.0-2.0; models without the input keep the
+  classic two-pass guidance. The scheduler also gains `LcmSchedulerConfig.TimestepScaling` (default 10, the reference's `timestep_scaling`).
+  **Breaking:** `LcmSchedulerConfig.StepsOffset` is removed — the reference schedule has no offset, so the setting no longer had a meaning; delete the assignment.
 - **`LMSupply.ImageGenerator` tokenizes a prompt the way CLIP does.** It read the CLIP vocabulary with a byte-level encoder of the GPT-2 kind, which neither
   splits words from their neighbours nor marks the end of a word, so every prompt reached the text encoder as ids it was not trained on — `a photo of a cat`
   became nine ids of single letters and spaces (`64, 220, 1153, …`) instead of the five word ids `320, 1125, 539, 320, 2368`. The encoder is now the
