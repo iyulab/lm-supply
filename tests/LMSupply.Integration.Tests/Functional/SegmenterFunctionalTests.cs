@@ -1,3 +1,4 @@
+using LMSupply.ImageGenerator;
 using LMSupply.Integration.Tests.Helpers;
 using LMSupply.Segmenter;
 
@@ -53,6 +54,50 @@ public class SegmenterFunctionalTests
     }
 
     // ── Q axis: Quality ─────────────────────────────────────────────
+
+    // A class map that covers every pixel and has some class says nothing about whether the classes are right: for a long time the
+    // portrait model labelled every pixel background, and the query model failed on every image. These facts segment a portrait
+    // (made by the image generator, whose own fact checks it follows its prompt) and ask where the person is.
+
+    private static async Task<byte[]> MakePortraitAsync()
+    {
+        await using var generator = await LocalImageGenerator.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
+        var portrait = await generator.GenerateAsync(
+            "a portrait photo of a woman standing in front of a plain wall",
+            new ImageGenerationOptions { Steps = 4, Seed = 42 },
+            TestContext.Current.CancellationToken);
+        return portrait.ImageData;
+    }
+
+    [Fact]
+    [Trait("Axis", "Quality")]
+    public async Task Q_PortraitModel_FindsThePersonInAPortrait()
+    {
+        var portrait = await MakePortraitAsync();
+        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+
+        var result = await model.SegmentAsync(portrait, TestContext.Current.CancellationToken);
+
+        model.ClassLabels.Should().Equal("background", "person");
+        var person = result.ClassMap.Count(c => c == 1) / (double)result.ClassMap.Length;
+        // Observed: 30 % of the picture, where an earlier build found none.
+        person.Should().BeInRange(0.1, 0.7);
+    }
+
+    [Fact]
+    [Trait("Axis", "Quality")]
+    public async Task Q_QueryModel_NamesThePersonInAPortrait()
+    {
+        var portrait = await MakePortraitAsync();
+        await using var model = await LocalSegmenter.LoadAsync("quality", cancellationToken: TestContext.Current.CancellationToken);
+
+        var result = await model.SegmentAsync(portrait, TestContext.Current.CancellationToken);
+
+        model.ClassLabels.Should().HaveCount(847);
+        var person = result.ClassMap.Count(c => model.ClassLabels[c].StartsWith("person", StringComparison.Ordinal)) / (double)result.ClassMap.Length;
+        // Observed: 28 % of the picture.
+        person.Should().BeInRange(0.1, 0.7);
+    }
 
     [Fact]
     [Trait("Axis", "Quality")]
@@ -120,9 +165,10 @@ public class SegmenterFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ClassLabels_ContainADE20KLabels()
     {
-        await using var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        // The default model is a SegFormer, which is trained on the 150 ADE20K classes (the portrait model `fast` has two).
+        await using var model = await LocalSegmenter.LoadAsync("default", cancellationToken: TestContext.Current.CancellationToken);
 
-        // SegFormer uses ADE20K labels
+        model.ClassLabels.Should().HaveCount(150);
         model.ClassLabels.Should().Contain("wall");
     }
 

@@ -7,6 +7,14 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Fixed
+- **`LMSupply.Segmenter`: the `fast` and `quality` aliases give real segmentations, and `ClassLabels` names the classes of the model that is loaded.** The code read every
+  model's output as per-class scores of a SegFormer: `fast` (MediaPipe Selfie) answers one foreground probability per pixel, so every pixel was class 0 and a person was never
+  found, and its input was normalised with the ImageNet mean and deviation where the model takes the bare 0-1 scale; `quality` (MaskFormer) answers per-query class and mask
+  scores and failed with an `IndexOutOfRangeException` on every image. `fast` now calls a pixel above one half class 1 (`person`) on the model's own input scale, and `quality`
+  combines the queries' class probabilities with their masks. `quality` is the model of the full ADE20K label set — 847 classes, not 150 as its entry said — and its
+  `ClassLabels` come from the model's own configuration; `fast` reports `background` and `person`. `SegmenterModelInfo` gains `OutputKind`, `InputNormalization` and
+  `ClassLabels`. Catalog: `fast` and `quality` change as described, and `default`, `large` and `interactive` gain the new fields without resolving to anything else. The
+  README's alias table named models the aliases never loaded and is corrected.
 - **`LMSupply.ImageGenerator` produces pictures again.** The latent consistency pipeline differed from the reference in three places, and the output was texture
   noise that ignored the prompt (a luminance spread of about 10-14 and the same warm cast for every prompt): (1) the scheduler's timesteps were `721, 481, 241, 1`
   for 4 steps — the first step ran at a noise level of 721 on latents that are pure noise — where the reference uses `999, 759, 499, 259`; (2) its output

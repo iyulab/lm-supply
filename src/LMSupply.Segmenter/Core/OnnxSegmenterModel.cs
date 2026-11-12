@@ -1,3 +1,4 @@
+using System.Text.Json;
 using LMSupply.Core.Download;
 using LMSupply.Inference;
 using LMSupply.Segmenter.Models;
@@ -21,6 +22,7 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
     // to the next one in the fallback chain (see RecoverableOnnxSession).
     private RecoverableOnnxSession? _session;
     private bool _isInitialized;
+    private IReadOnlyList<string> _classLabels;
     private bool _disposed;
 
     /// <inheritdoc />
@@ -41,7 +43,7 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
     /// <summary>
     /// Gets the class labels for this model.
     /// </summary>
-    public IReadOnlyList<string> ClassLabels => Ade20kLabels.Labels;
+    public IReadOnlyList<string> ClassLabels => _classLabels;
 
     // Reported by the download the first initialization makes (Local*.LoadAsync warms up at once).
     private readonly IProgress<DownloadProgress>? _downloadProgress;
@@ -51,6 +53,7 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
         _options = options.Clone();
         _downloadProgress = downloadProgress;
         _modelInfo = SegmenterModelRegistry.Default.Resolve(options.ModelId);
+        _classLabels = _modelInfo.ClassLabels ?? Ade20kLabels.Labels;
     }
 
     public async Task WarmupAsync(CancellationToken cancellationToken = default)
@@ -118,13 +121,16 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
         var inputSize = _modelInfo.InputSize;
 
         // Preprocess image
-        var inputTensor = PreprocessImage(image, inputSize);
+        var inputTensor = PreprocessImage(image, inputSize, _modelInfo.InputNormalization);
 
         // Run inference
         var outputs = await RunInferenceAsync(inputTensor, cancellationToken);
 
         // Parse segmentation output
-        var (classMap, confidenceMap, outputWidth, outputHeight) = ParseOutput(outputs);
+        var (classMap, confidenceMap, outputWidth, outputHeight) = SegmentationOutputParser.Parse(
+            _modelInfo.OutputKind,
+            outputs[0].AsTensor<float>(),
+            outputs.Count > 1 ? outputs[1].AsTensor<float>() : null);
 
         // Resize to original dimensions if requested
         if (_options.ResizeToOriginal && (outputWidth != originalWidth || outputHeight != originalHeight))
@@ -146,15 +152,16 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
         };
     }
 
-    private static DenseTensor<float> PreprocessImage(RgbImage image, int targetSize)
+    private static DenseTensor<float> PreprocessImage(RgbImage image, int targetSize, SegmenterInputNormalization normalization)
     {
         // Resize to target size
         image = image.Resize(targetSize, targetSize);
 
-        // Create tensor in NCHW format with ImageNet normalization
+        // Create tensor in NCHW format: pixels scaled to 0-1, then the ImageNet mean and deviation unless the model takes the bare scale
         var tensor = new DenseTensor<float>([1, 3, targetSize, targetSize]);
-        var mean = new[] { 0.485f, 0.456f, 0.406f };
-        var std = new[] { 0.229f, 0.224f, 0.225f };
+        var imageNet = normalization == SegmenterInputNormalization.ImageNet;
+        var mean = imageNet ? new[] { 0.485f, 0.456f, 0.406f } : new[] { 0f, 0f, 0f };
+        var std = imageNet ? new[] { 0.229f, 0.224f, 0.225f } : new[] { 1f, 1f, 1f };
 
         for (int y = 0; y < targetSize; y++)
         {
@@ -198,53 +205,6 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
     }
 
     /// <summary>
-    /// Parses SegFormer output.
-    /// Output shape: [1, num_classes, height, width] (logits)
-    /// </summary>
-    private static (int[] classMap, float[] confidenceMap, int width, int height) ParseOutput(
-        IDisposableReadOnlyCollection<DisposableNamedOnnxValue> outputs)
-    {
-        var output = outputs[0].AsTensor<float>();
-        var dims = output.Dimensions.ToArray();
-
-        // SegFormer output: [1, num_classes, H, W]
-        var numClasses = dims[1];
-        var height = dims[2];
-        var width = dims[3];
-
-        var classMap = new int[width * height];
-        var confidenceMap = new float[width * height];
-
-        // For each pixel, find the class with highest score
-        for (int y = 0; y < height; y++)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                var pixelIndex = y * width + x;
-                float maxScore = float.MinValue;
-                int bestClass = 0;
-
-                // Find argmax across classes
-                for (int c = 0; c < numClasses; c++)
-                {
-                    var score = output[0, c, y, x];
-                    if (score > maxScore)
-                    {
-                        maxScore = score;
-                        bestClass = c;
-                    }
-                }
-
-                classMap[pixelIndex] = bestClass;
-                // Convert logit to probability using softmax approximation
-                confidenceMap[pixelIndex] = Sigmoid(maxScore);
-            }
-        }
-
-        return (classMap, confidenceMap, width, height);
-    }
-
-    /// <summary>
     /// Resizes the output to original image dimensions using nearest neighbor interpolation.
     /// </summary>
     private static (int[] classMap, float[] confidenceMap) ResizeOutput(
@@ -282,8 +242,6 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
         return (dstClassMap, dstConfidenceMap);
     }
 
-    private static float Sigmoid(float x) => 1f / (1f + MathF.Exp(-x));
-
     private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
     {
         if (_isInitialized)
@@ -296,6 +254,7 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
                 return;
 
             var modelPath = await ResolveModelPathAsync(cancellationToken);
+            _classLabels = _modelInfo.ClassLabels ?? LoadLabelsFromConfig(modelPath, _modelInfo.NumClasses) ?? Ade20kLabels.Labels;
             var result = await OnnxSessionFactory.CreateWithInfoAsync(
                 modelPath,
                 _options.Provider,
@@ -312,6 +271,47 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
         {
             _sessionLock.Release();
         }
+    }
+
+    // The class names a query-based model carries in its configuration (id2label), looked up beside the model file and in its
+    // parent folder; null when it has none or the model's classes are not named there.
+    private static string[]? LoadLabelsFromConfig(string modelPath, int numClasses)
+    {
+        var directory = Path.GetDirectoryName(modelPath);
+        for (var depth = 0; depth < 2 && directory is not null; depth++, directory = Path.GetDirectoryName(directory))
+        {
+            var configPath = Path.Combine(directory, "config.json");
+            if (!File.Exists(configPath))
+            {
+                continue;
+            }
+
+            using var document = JsonDocument.Parse(File.ReadAllText(configPath));
+            if (!document.RootElement.TryGetProperty("id2label", out var id2label) || id2label.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            var labels = new string[numClasses];
+            for (var i = 0; i < labels.Length; i++)
+            {
+                labels[i] = $"class_{i}";
+            }
+
+            var named = 0;
+            foreach (var entry in id2label.EnumerateObject())
+            {
+                if (int.TryParse(entry.Name, out var id) && id >= 0 && id < numClasses && entry.Value.GetString() is { Length: > 0 } name)
+                {
+                    labels[id] = name;
+                    named++;
+                }
+            }
+
+            return named > 0 ? labels : null;
+        }
+
+        return null;
     }
 
     private async Task<string> ResolveModelPathAsync(CancellationToken cancellationToken)

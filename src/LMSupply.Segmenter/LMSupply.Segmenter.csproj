@@ -15,6 +15,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="LMSupply.Segmenter.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\LMSupply.Core\LMSupply.Core.csproj" />
     <ProjectReference Include="..\LMSupply.Vision.Core\LMSupply.Vision.Core.csproj" />
   </ItemGroup>

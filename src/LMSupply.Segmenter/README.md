@@ -6,8 +6,8 @@ Local image segmentation for .NET with automatic model downloading.
 
 - **Zero-config**: Models download automatically from HuggingFace
 - **GPU Acceleration**: CUDA (NVIDIA), CoreML (macOS)
-- **MIT Licensed**: SegFormer models for commercial use
-- **150 ADE20K Classes**: Indoor/outdoor scene understanding
+- **Permissive licences**: the built-in models are Apache-2.0 or MIT
+- **ADE20K Classes**: 150 (or the full 847) classes of indoor/outdoor scene understanding; a portrait model that finds people
 
 ## Quick Start
 
@@ -30,13 +30,15 @@ Console.WriteLine($"Class at (100,100): {segmenter.ClassLabels[classId]}");
 
 ## Available Models
 
-| Alias | Model | Size | mIoU | Description |
-|-------|-------|------|------|-------------|
-| `default` | SegFormer-B0 | ~15MB | 38.0 | Lightweight, fast |
-| `fast` | SegFormer-B1 | ~55MB | 42.2 | Balanced |
-| `quality` | SegFormer-B2 | ~110MB | 46.5 | Higher accuracy |
-| `large` | SegFormer-B5 | ~340MB | 51.0 | Highest accuracy |
-| `interactive` | MobileSAM | ~45MB | - | Point/box prompts — `LocalSegmenter.LoadInteractiveAsync()` |
+| Alias | Model | Size | mIoU | Classes | Description |
+|-------|-------|------|------|---------|-------------|
+| `default` | SegFormer-B0 | ~15MB | 38.0 | 150 (ADE20K) | Lightweight, fast |
+| `fast` | MediaPipe Selfie | ~3MB | - | 2 (`background`, `person`) | Portrait and selfie segmentation: finds people, nothing else |
+| `quality` | MaskFormer ResNet50 | ~178MB | 44.5 | 847 (full ADE20K) | Higher accuracy over the full label set |
+| `large` | SegFormer-B0 | ~15MB | 38.0 | 150 (ADE20K) | The same model as `default` |
+| `interactive` | MobileSAM | ~45MB | - | - | Point/box prompts — `LocalSegmenter.LoadInteractiveAsync()` |
+
+`ClassLabels` names the classes of the model that is loaded, in class-id order.
 
 ## GPU Acceleration
 

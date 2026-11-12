@@ -53,6 +53,22 @@ public sealed class SegmenterModelInfo : IModelInfoBase, IModelMemoryInfo
     public int NumClasses { get; init; }
 
     /// <summary>
+    /// What the model's outputs are, which decides how they become a class map. Default: <see cref="SegmenterOutputKind.ClassLogits"/>.
+    /// </summary>
+    public SegmenterOutputKind OutputKind { get; init; } = SegmenterOutputKind.ClassLogits;
+
+    /// <summary>
+    /// How an image is turned into the model's input values. Default: <see cref="SegmenterInputNormalization.ImageNet"/>.
+    /// </summary>
+    public SegmenterInputNormalization InputNormalization { get; init; } = SegmenterInputNormalization.ImageNet;
+
+    /// <summary>
+    /// The names of the model's classes, in class-id order. When <see langword="null"/> the model's own configuration names them
+    /// if it has one (a query-based model does), and the 150 ADE20K names stand otherwise.
+    /// </summary>
+    public IReadOnlyList<string>? ClassLabels { get; init; }
+
+    /// <summary>
     /// Gets or sets the ONNX file name within the model repository.
     /// </summary>
     public string OnnxFile { get; init; } = "model.onnx";

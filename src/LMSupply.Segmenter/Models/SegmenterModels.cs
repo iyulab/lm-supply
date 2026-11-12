@@ -44,6 +44,9 @@ public static class SegmenterModels
         MIoU = 0, // Not directly comparable - binary segmentation
         InputSize = 256,
         NumClasses = 2, // Background/Person
+        OutputKind = SegmenterOutputKind.ForegroundAlpha,
+        InputNormalization = SegmenterInputNormalization.UnitRange,
+        ClassLabels = ["background", "person"],
         OnnxFile = "model.onnx",
         Dataset = "Selfie",
         Description = "MediaPipe Selfie Segmentation for fast person/background segmentation.",
@@ -53,7 +56,7 @@ public static class SegmenterModels
     /// <summary>
     /// MaskFormer ResNet50 - Quality model for ADE20K.
     /// Apache-2.0 license, 27.4M params.
-    /// Full semantic segmentation with 150 classes.
+    /// Full semantic segmentation over the 847 classes of the full ADE20K label set.
     /// </summary>
     public static SegmenterModelInfo MaskFormerResNet50 { get; } = new()
     {
@@ -65,10 +68,11 @@ public static class SegmenterModels
         SizeBytes = 178_000_000,
         MIoU = 44.5f,
         InputSize = 512,
-        NumClasses = 150,
+        NumClasses = 847,
+        OutputKind = SegmenterOutputKind.QueryMasks,
         OnnxFile = "model.onnx",
-        Dataset = "ADE20K",
-        Description = "MaskFormer with ResNet50 for higher accuracy segmentation.",
+        Dataset = "ADE20K-full",
+        Description = "MaskFormer with ResNet50 for higher accuracy segmentation over the 847 classes of the full ADE20K label set.",
         License = "Apache-2.0"
     };
 
