@@ -86,6 +86,12 @@ internal static class ResumableFileDownload
         /// <summary>Total attempts for transient HTTP failures and timeouts.</summary>
         public int MaxRetries { get; init; } = 3;
 
+        /// <summary>
+        /// How many bytes are free for the file to be written into: given its directory, the free space of that
+        /// directory's volume, or null when it cannot be told (then nothing is refused for want of room).
+        /// </summary>
+        public Func<string, long?> FreeBytes { get; init; } = DiskSpace.FreeBytes;
+
         public IProgress<DownloadProgress>? Progress { get; init; }
     }
 
@@ -133,6 +139,13 @@ internal static class ResumableFileDownload
                     catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested && attempt < request.MaxRetries)
                     {
                         // Timeout, not user cancellation.
+                    }
+                    catch (IOException ex) when (DiskSpace.IsFull(ex))
+                    {
+                        // A full disk is not a stalled connection: the same write fails the same way until room is made, so
+                        // retrying only delays the answer. The ".part" is kept as the resume point for when there is room.
+                        var remaining = request.ExpectedSize is { } listed ? Math.Max(0, listed - PartLength(tempPath)) : (long?)null;
+                        throw DiskSpace.Insufficient(request, remaining, ex);
                     }
                     catch (Exception ex) when (ex is IOException or TruncatedDownloadException)
                     {
@@ -332,6 +345,11 @@ internal static class ResumableFileDownload
 
         // The length the file must reach: what the server announced, else what the repository listed.
         var expectedTotal = totalBytes > 0 ? totalBytes : expectedSize ?? 0;
+
+        // Refuse before a byte is written when the volume cannot hold what is still to come: a disk that fills halfway
+        // leaves a ".part" that keeps it full and an I/O error that does not say why.
+        if (expectedTotal > startPosition)
+            DiskSpace.EnsureRoom(request, expectedTotal - startPosition);
 
         await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         fileStream.Seek(0, SeekOrigin.End);
