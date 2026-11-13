@@ -126,7 +126,7 @@ public class LlamaServerGeneratorModelHelperTests
 
     // ─── MaybeInjectToolPromptFragment ───
 
-    private static JsonElement BuildSchema(string json) => JsonDocument.Parse(json).RootElement;
+    private static JsonElement BuildSchema(string json) => JsonElement.Parse(json);
 
     [Fact]
     public void MaybeInjectToolPromptFragment_FormatterReturnsFragment_PrependsSystemMessage()

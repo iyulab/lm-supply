@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.142.0] - 2026-11-13
+
 ### Fixed
 - **A model download onto a volume without room fails at once, with `InsufficientDiskSpaceException`, instead of filling the disk.** The download wrote until the disk was full, retried the failed write with growing pauses for about fifteen seconds as if the connection
   had stalled, and ended with a bare `IOException` — leaving a partial file that kept the volume full. It now compares what is still to be written, as the server announces it, with the free space of the destination's volume before a byte is written, and throws

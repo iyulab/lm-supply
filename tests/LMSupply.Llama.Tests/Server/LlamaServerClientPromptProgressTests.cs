@@ -53,7 +53,7 @@ public class LlamaServerClientPromptProgressTests
     {
         var (_, handler) = await StreamChatAsync();
 
-        JsonDocument.Parse(handler.RequestBody!).RootElement.GetProperty("return_progress").GetBoolean().Should().BeTrue();
+        JsonElement.Parse(handler.RequestBody!).GetProperty("return_progress").GetBoolean().Should().BeTrue();
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class LlamaServerClientPromptProgressTests
     {
         var (_, handler) = await StreamCompletionAsync();
 
-        JsonDocument.Parse(handler.RequestBody!).RootElement.GetProperty("return_progress").GetBoolean().Should().BeTrue();
+        JsonElement.Parse(handler.RequestBody!).GetProperty("return_progress").GetBoolean().Should().BeTrue();
     }
 
     [Fact]

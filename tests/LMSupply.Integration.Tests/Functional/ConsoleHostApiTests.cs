@@ -1131,14 +1131,14 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         {
             foreach (var line in text.Split('\n').Where(l => l.StartsWith("data: {", StringComparison.Ordinal)))
             {
-                var choice = JsonDocument.Parse(line["data: ".Length..]).RootElement.GetProperty("choices")[0];
+                var choice = JsonElement.Parse(line["data: ".Length..]).GetProperty("choices")[0];
                 if (choice.TryGetProperty("logprobs", out var lp))
                     tokens.AddRange(lp.GetProperty("content").EnumerateArray());
             }
         }
         else
         {
-            var choice = JsonDocument.Parse(text).RootElement.GetProperty("choices")[0];
+            var choice = JsonElement.Parse(text).GetProperty("choices")[0];
             tokens.AddRange(choice.GetProperty("logprobs").GetProperty("content").EnumerateArray());
         }
 

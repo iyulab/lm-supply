@@ -75,7 +75,7 @@ public class LlamaServerClientLogprobsTests
         "data: {\"index\":0,\"content\":\"\",\"tokens\":[],\"id_slot\":0,\"stop\":true,\"tokens_predicted\":2,\"tokens_evaluated\":6," +
         "\"prompt\":\"One, two, three,\",\"has_new_line\":false,\"truncated\":false,\"stop_type\":\"limit\",\"stopping_word\":\"\",\"tokens_cached\":7}\n\n";
 
-    private static JsonElement Body(FixedResponseHandler handler) => JsonDocument.Parse(handler.RequestBody!).RootElement;
+    private static JsonElement Body(FixedResponseHandler handler) => JsonElement.Parse(handler.RequestBody!);
 
     private static async Task<(List<ChatStreamData> Data, FixedResponseHandler Handler)> StreamChatAsync(string sse, ChatCompletionOptions options)
     {
