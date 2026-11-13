@@ -156,6 +156,40 @@ public class ModelHostUnreachableException : ModelDownloadException
 }
 
 /// <summary>
+/// Exception thrown when a model file cannot be downloaded because the disk it would be written to is, or would become,
+/// full. It is thrown before any byte is written when the free space is known to be short, and instead of a retry when a
+/// write fails for want of room. A partial file of an earlier attempt is kept as the resume point: free space and call again.
+/// </summary>
+public class InsufficientDiskSpaceException : ModelDownloadException
+{
+    /// <summary>Gets the path of the file that was to be written.</summary>
+    public string Path { get; }
+
+    /// <summary>Gets how many more bytes the file needs, or null when that is not known.</summary>
+    public long? RequiredBytes { get; }
+
+    /// <summary>Gets how many bytes the volume had free, or null when that could not be told.</summary>
+    public long? AvailableBytes { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="InsufficientDiskSpaceException"/> class.
+    /// </summary>
+    /// <param name="message">The message that describes the error.</param>
+    /// <param name="modelId">The model identifier for which download failed.</param>
+    /// <param name="path">The path of the file that was to be written.</param>
+    /// <param name="requiredBytes">How many more bytes the file needs, when known.</param>
+    /// <param name="availableBytes">How many bytes the volume had free, when known.</param>
+    /// <param name="innerException">The failed write, when the disk filled during one.</param>
+    public InsufficientDiskSpaceException(string message, string? modelId, string path, long? requiredBytes, long? availableBytes, Exception? innerException = null)
+        : base(message, modelId, innerException!)
+    {
+        Path = path;
+        RequiredBytes = requiredBytes;
+        AvailableBytes = availableBytes;
+    }
+}
+
+/// <summary>
 /// Exception thrown when model inference fails.
 /// </summary>
 public class InferenceException : LMSupplyException

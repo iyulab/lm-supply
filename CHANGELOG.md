@@ -9,6 +9,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [0.142.0] - 2026-11-13
 
 ### Fixed
+- **A model download onto a volume without room fails at once, with `InsufficientDiskSpaceException`, instead of filling the disk.** The download wrote until the disk was full, retried the failed write with growing pauses for about fifteen seconds as if the connection
+  had stalled, and ended with a bare `IOException` — leaving a partial file that kept the volume full. It now compares what is still to be written, as the server announces it, with the free space of the destination's volume before a byte is written, and throws
+  `InsufficientDiskSpaceException` (a `ModelDownloadException`) carrying the path, the bytes needed and the bytes free; a write that fails for want of room mid-download is not retried and ends in the same exception, with the I/O failure as its inner exception, keeping
+  the partial file as the resume point. A volume whose free space cannot be told is not refused. **Migration:** code that caught `IOException` around a download to detect a full disk catches `InsufficientDiskSpaceException` (or `ModelDownloadException`) instead.
 - **`LMSupply.Ocr` reads lines of text that are slightly tilted.** The recognizer cut each detected line out as the axis-aligned box around it. A line is a rotated
   rectangle, and the box around it grows by the line's length times the tangent of its angle, so on a long line tilted by a degree or two it held parts of the lines
   above and below, and the text came out garbled. The recognizer now straightens a line that is tilted by more than three quarters of a degree (and less than 45) into the
