@@ -528,7 +528,7 @@ public class ChatFormatterTests
 
     private static System.Text.Json.JsonElement BuildJsonSchema(string json)
     {
-        return System.Text.Json.JsonDocument.Parse(json).RootElement;
+        return System.Text.Json.JsonElement.Parse(json);
     }
 
     [Fact]

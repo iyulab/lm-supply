@@ -156,7 +156,7 @@ public class LocalChatClientTests
     public async Task Tools_AreOfferedWithTheirSchema_AndTheToolModeIsTheToolChoice()
     {
         var function = AIFunctionFactory.CreateDeclaration("weather", "The weather in a city.",
-            JsonDocument.Parse("""{"type":"object","properties":{"city":{"type":"string"}}}""").RootElement);
+            JsonElement.Parse("""{"type":"object","properties":{"city":{"type":"string"}}}"""));
 
         await AskAsync(new ChatOptions { Tools = [function], ToolMode = ChatToolMode.RequireSpecific("weather") });
 
@@ -173,10 +173,10 @@ public class LocalChatClientTests
     [Fact]
     public async Task AJsonResponseFormat_ConstrainsTheOutputToItsSchema_OrToAnObject()
     {
-        var schema = JsonDocument.Parse("""{"type":"object","properties":{"a":{"type":"integer"}}}""").RootElement;
+        var schema = JsonElement.Parse("""{"type":"object","properties":{"a":{"type":"integer"}}}""");
 
         await AskAsync(new ChatOptions { ResponseFormat = ChatResponseFormat.ForJsonSchema(schema) });
-        JsonDocument.Parse(_options.JsonSchema!).RootElement.GetProperty("properties").GetProperty("a").GetProperty("type")
+        JsonElement.Parse(_options.JsonSchema!).GetProperty("properties").GetProperty("a").GetProperty("type")
             .GetString().Should().Be("integer");
 
         await AskAsync(new ChatOptions { ResponseFormat = ChatResponseFormat.Json });

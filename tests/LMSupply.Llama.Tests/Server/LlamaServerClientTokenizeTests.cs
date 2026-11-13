@@ -38,7 +38,7 @@ public class LlamaServerClientTokenizeTests
 
         ids.Should().Equal(32, 220, 248068);
         handler.RequestPath.Should().Be("/tokenize");
-        var body = JsonDocument.Parse(handler.RequestBody!).RootElement;
+        var body = JsonElement.Parse(handler.RequestBody!);
         body.GetProperty("content").GetString().Should().Be("A <think>");
         body.TryGetProperty("add_special", out _).Should().BeFalse("a label's id must not come with a BOS token");
     }
@@ -51,7 +51,7 @@ public class LlamaServerClientTokenizeTests
 
         await client.TokenizeAsync("A", addSpecial: true, Ct);
 
-        JsonDocument.Parse(handler.RequestBody!).RootElement.GetProperty("add_special").GetBoolean().Should().BeTrue();
+        JsonElement.Parse(handler.RequestBody!).GetProperty("add_special").GetBoolean().Should().BeTrue();
     }
 
     [Fact]
