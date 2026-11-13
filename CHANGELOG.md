@@ -6,6 +6,8 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+## [0.142.0] - 2026-11-13
+
 ### Fixed
 - **`LMSupply.Ocr` reads lines of text that are slightly tilted.** The recognizer cut each detected line out as the axis-aligned box around it. A line is a rotated
   rectangle, and the box around it grows by the line's length times the tangent of its angle, so on a long line tilted by a degree or two it held parts of the lines
