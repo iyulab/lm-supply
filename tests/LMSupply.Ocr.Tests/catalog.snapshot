@@ -2,7 +2,8 @@
 # CatalogSnapshotTests compares this file with the registry's built-in models (user aliases and auto are not part of it).
 # Edit it in the same commit as any catalog change and add a CHANGELOG line for each changed alias (docs/CATALOG.md).
 ocr-detection:dbnet-v3 | DynamicInput=True | InputHeight=960 | InputWidth=960 | License=Apache-2.0 | Mean=[123.675,116.28,103.53] | ModelFile=det.onnx | RepoId=monkt/paddleocr-onnx | Std=[58.395,57.12,57.375] | Subfolder=detection/v3
-ocr-detection:default | DynamicInput=True | InputHeight=960 | InputWidth=960 | License=Apache-2.0 | Mean=[123.675,116.28,103.53] | ModelFile=det.onnx | RepoId=monkt/paddleocr-onnx | Std=[58.395,57.12,57.375] | Subfolder=detection/v3
+ocr-detection:dbnet-v5 | DynamicInput=True | InputHeight=960 | InputWidth=960 | License=Apache-2.0 | Mean=[123.675,116.28,103.53] | ModelFile=inference.onnx | RepoId=PaddlePaddle/PP-OCRv5_mobile_det_onnx | Std=[58.395,57.12,57.375] | Subfolder=
+ocr-detection:default | DynamicInput=True | InputHeight=960 | InputWidth=960 | License=Apache-2.0 | Mean=[123.675,116.28,103.53] | ModelFile=inference.onnx | RepoId=PaddlePaddle/PP-OCRv5_mobile_det_onnx | Std=[58.395,57.12,57.375] | Subfolder=
 ocr-detection:fast | DynamicInput=True | InputHeight=960 | InputWidth=960 | License=Apache-2.0 | Mean=[123.675,116.28,103.53] | ModelFile=det.onnx | RepoId=monkt/paddleocr-onnx | Std=[58.395,57.12,57.375] | Subfolder=detection/v3
 ocr-recognition:ar | DictFile=dict.txt | InputHeight=48 | LanguageCodes=[ar,ur,fa] | License=Apache-2.0 | MaxWidthRatio=25 | Mean=[0.5,0.5,0.5] | ModelFile=rec.onnx | RepoId=monkt/paddleocr-onnx | Std=[0.5,0.5,0.5] | Subfolder=languages/arabic | UseSpace=True
 ocr-recognition:be | DictFile=dict.txt | InputHeight=48 | LanguageCodes=[ru,uk,bg,be,sr,mk] | License=Apache-2.0 | MaxWidthRatio=25 | Mean=[0.5,0.5,0.5] | ModelFile=rec.onnx | RepoId=monkt/paddleocr-onnx | Std=[0.5,0.5,0.5] | Subfolder=languages/eslav | UseSpace=True

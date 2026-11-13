@@ -53,6 +53,10 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   The images a prompt produces change. No public member changes.
 
 ### Changed
+- **`LMSupply.Ocr` detects text with the PP-OCRv5 detector by default.** `ocr-detection:default: PP-OCRv3 DBNet (monkt/paddleocr-onnx, 2.3 MB) → PP-OCRv5 mobile DBNet (PaddlePaddle/PP-OCRv5_mobile_det_onnx, 4.8 MB, Apache-2.0)` — the recognizers are PP-OCRv5 models,
+  and their model card asks for the v5 detector with them. On rendered pages of Korean, English, Japanese and Chinese text, the character error rate (level, blurred, compressed, low-contrast and tilted pages together) fell from 5.99 % to 2.10 % for Korean and from
+  1.12 % to 0.45 % for English with the same recognizers. The new alias `dbnet-v5` names it; `dbnet-v3` and `fast` stay on the v3 detector, and `auto` follows `default`. What a caller sees: `default` text detection finds boxes differently, so the text read from the
+  same image can differ, usually for the better; the first load downloads the detector (4.8 MB) from its own repository, beside the recognizer's. No public member changes.
 - **`Microsoft.ML.Tokenizers` 2.0.1 → 3.0.0** (the WordPiece, SentencePiece and byte-pair tokenizers behind `LMSupply.Text.Core`, `LMSupply.Translator` and
   `LMSupply.ImageGenerator`). The new release drops its own `Google.Protobuf` dependency and adds model mappings; no LMSupply member changes its
   signature, and no exported signature mentions a type of that package. An application that references `Microsoft.ML.Tokenizers` itself must now use 3.0.0

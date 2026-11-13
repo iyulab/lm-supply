@@ -9,8 +9,8 @@ namespace LMSupply.Ocr.Tests;
 /// <summary>
 /// <see cref="OcrArtifacts"/>, <see cref="LocalOcr.IsLanguageDownloadedAsync"/>, <see cref="LocalOcr.DownloadForLanguageAsync"/> and
 /// <see cref="LocalOcr.DeleteLanguageModel"/> over a seeded cache: the repository listing with small sizes and the files a language
-/// load opens written at those sizes. Nothing reaches the network. Detection and every recognizer live in one repository, so a
-/// language delete must remove that language's recognizer only.
+/// load opens written at those sizes. Nothing reaches the network. The recognizers live in one repository and the detection model in
+/// another, so a language delete must remove that language's recognizer only.
 /// </summary>
 public sealed class OcrArtifactsTests : IDisposable
 {
@@ -52,8 +52,18 @@ public sealed class OcrArtifactsTests : IDisposable
 
     private void SeedCached(params string[] languages)
     {
-        var repoId = LocalOcr.DetectionRegistry.Resolve("default").RepoId;
-        var files = FilesFor(languages);
+        var detection = LocalOcr.DetectionRegistry.Resolve("default");
+        SeedRepository(detection.RepoId, [InFolder(detection.Subfolder, detection.ModelFile)]);
+        foreach (var repository in languages.Select(OcrRecognitionModelRegistry.Default.ResolveForLanguage).GroupBy(model => model.RepoId))
+        {
+            SeedRepository(
+                repository.Key,
+                [.. repository.SelectMany(model => new[] { InFolder(model.Subfolder, model.ModelFile), InFolder(model.Subfolder, model.DictFile) }).Distinct()]);
+        }
+    }
+
+    private void SeedRepository(string repoId, string[] files)
+    {
         var listing = Path.Combine(_cache, "models--" + repoId.Replace("/", "--"), ".lmsupply", "listings", "main.json");
         Directory.CreateDirectory(Path.GetDirectoryName(listing)!);
         File.WriteAllText(listing, JsonSerializer.Serialize(files.Select(f => new { path = f, type = "file", size = FileSize })));

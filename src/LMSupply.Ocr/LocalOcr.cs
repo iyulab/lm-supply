@@ -33,7 +33,7 @@ public static class LocalOcr
     /// Loads an OCR pipeline with the specified detection and recognition models.
     /// </summary>
     /// <param name="detectionModel">
-    /// Detection model ID (e.g., "default", "dbnet-v3") for auto-download,
+    /// Detection model ID (e.g., "default", "dbnet-v5", "dbnet-v3") for auto-download,
     /// or a local path to a model file.
     /// </param>
     /// <param name="recognitionModel">

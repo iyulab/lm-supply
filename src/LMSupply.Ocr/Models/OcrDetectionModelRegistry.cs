@@ -27,13 +27,13 @@ public sealed class OcrDetectionModelRegistry : ModelRegistryBase<DetectionModel
         : base(systemModels) { }
 
     /// <summary>
-    /// Returns the default detection model (DBNet v3) for the "auto" alias.
-    /// OCR detection has only one built-in model, so no hardware-based selection is needed.
+    /// Returns the default detection model (DBNet v5 mobile) for the "auto" alias.
+    /// Both built-in detection models are small, so no hardware-based selection is needed.
     /// </summary>
     protected override DetectionModelInfo GetAutoModel()
     {
         Trace.TraceInformation("[OcrDetectionModelRegistry] Auto-selecting default detection model");
-        return DefaultDetectionModels.DbNetV3 with { AliasName = "auto" };
+        return DefaultDetectionModels.DbNetV5 with { AliasName = "auto" };
     }
 
     /// <summary>
