@@ -6,13 +6,21 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
-## [0.142.0] - 2026-11-13
-
 ### Fixed
 - **A model download onto a volume without room fails at once, with `InsufficientDiskSpaceException`, instead of filling the disk.** The download wrote until the disk was full, retried the failed write with growing pauses for about fifteen seconds as if the connection
   had stalled, and ended with a bare `IOException` — leaving a partial file that kept the volume full. It now compares what is still to be written, as the server announces it, with the free space of the destination's volume before a byte is written, and throws
   `InsufficientDiskSpaceException` (a `ModelDownloadException`) carrying the path, the bytes needed and the bytes free; a write that fails for want of room mid-download is not retried and ends in the same exception, with the I/O failure as its inner exception, keeping
   the partial file as the resume point. A volume whose free space cannot be told is not refused. **Migration:** code that caught `IOException` around a download to detect a full disk catches `InsufficientDiskSpaceException` (or `ModelDownloadException`) instead.
+
+### Changed
+- **`LMSupply.Ocr` detects text with the PP-OCRv5 detector by default.** `ocr-detection:default: PP-OCRv3 DBNet (monkt/paddleocr-onnx, 2.3 MB) → PP-OCRv5 mobile DBNet (PaddlePaddle/PP-OCRv5_mobile_det_onnx, 4.8 MB, Apache-2.0)` — the recognizers are PP-OCRv5 models,
+  and their model card asks for the v5 detector with them. On rendered pages of Korean, English, Japanese and Chinese text, the character error rate (level, blurred, compressed, low-contrast and tilted pages together) fell from 5.99 % to 2.10 % for Korean and from
+  1.12 % to 0.45 % for English with the same recognizers. The new alias `dbnet-v5` names it; `dbnet-v3` and `fast` stay on the v3 detector, and `auto` follows `default`. What a caller sees: `default` text detection finds boxes differently, so the text read from the
+  same image can differ, usually for the better; the first load downloads the detector (4.8 MB) from its own repository, beside the recognizer's. No public member changes.
+
+## [0.142.0] - 2026-11-13
+
+### Fixed
 - **`LMSupply.Ocr` reads lines of text that are slightly tilted.** The recognizer cut each detected line out as the axis-aligned box around it. A line is a rotated
   rectangle, and the box around it grows by the line's length times the tangent of its angle, so on a long line tilted by a degree or two it held parts of the lines
   above and below, and the text came out garbled. The recognizer now straightens a line that is tilted by more than three quarters of a degree (and less than 45) into the
@@ -53,10 +61,6 @@ breaking changes, and each one is marked **Breaking** with a migration note.
   The images a prompt produces change. No public member changes.
 
 ### Changed
-- **`LMSupply.Ocr` detects text with the PP-OCRv5 detector by default.** `ocr-detection:default: PP-OCRv3 DBNet (monkt/paddleocr-onnx, 2.3 MB) → PP-OCRv5 mobile DBNet (PaddlePaddle/PP-OCRv5_mobile_det_onnx, 4.8 MB, Apache-2.0)` — the recognizers are PP-OCRv5 models,
-  and their model card asks for the v5 detector with them. On rendered pages of Korean, English, Japanese and Chinese text, the character error rate (level, blurred, compressed, low-contrast and tilted pages together) fell from 5.99 % to 2.10 % for Korean and from
-  1.12 % to 0.45 % for English with the same recognizers. The new alias `dbnet-v5` names it; `dbnet-v3` and `fast` stay on the v3 detector, and `auto` follows `default`. What a caller sees: `default` text detection finds boxes differently, so the text read from the
-  same image can differ, usually for the better; the first load downloads the detector (4.8 MB) from its own repository, beside the recognizer's. No public member changes.
 - **`Microsoft.ML.Tokenizers` 2.0.1 → 3.0.0** (the WordPiece, SentencePiece and byte-pair tokenizers behind `LMSupply.Text.Core`, `LMSupply.Translator` and
   `LMSupply.ImageGenerator`). The new release drops its own `Google.Protobuf` dependency and adds model mappings; no LMSupply member changes its
   signature, and no exported signature mentions a type of that package. An application that references `Microsoft.ML.Tokenizers` itself must now use 3.0.0
