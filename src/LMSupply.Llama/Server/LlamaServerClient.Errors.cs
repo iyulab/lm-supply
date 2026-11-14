@@ -21,7 +21,17 @@ public sealed partial class LlamaServerClient
         // Read error body for context overflow detection
         var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        if (response.StatusCode == System.Net.HttpStatusCode.BadRequest &&
+        ThrowBackendFailure(response.StatusCode, errorBody, maxContextLength);
+    }
+
+    /// <summary>
+    /// The exception for a failure the server reported: <see cref="ContextLengthExceededException"/> for a context or
+    /// batch overflow, else <see cref="InferenceBackendException"/> carrying the status and the server's own body.
+    /// Never returns. One classification for a refused request and for a failure that arrives inside a stream.
+    /// </summary>
+    private static void ThrowBackendFailure(System.Net.HttpStatusCode statusCode, string errorBody, int maxContextLength)
+    {
+        if (statusCode == System.Net.HttpStatusCode.BadRequest &&
             IsContextOverflowError(errorBody))
         {
             var (promptTokens, serverContext) = ReadOverflowCounts(errorBody);
@@ -35,7 +45,30 @@ public sealed partial class LlamaServerClient
 
         // Not a recognized context-overflow shape — surface the body we already read instead
         // of discarding it and falling through to EnsureSuccessStatusCode()'s generic message.
-        throw new InferenceBackendException(response.StatusCode, errorBody);
+        throw new InferenceBackendException(statusCode, errorBody);
+    }
+
+    /// <summary>
+    /// Throws when a streamed event carries an <c>error</c> object. llama-server answers a failure that happens after the
+    /// response headers went out (<c>Compute error.</c> when the machine runs short of memory) as an ordinary
+    /// <c>data:</c> event <c>{"error":{"code":500,"message":...,"type":...}}</c>, not as an HTTP status; a reader that
+    /// looks only for <c>choices</c> ends the stream as if the model had said nothing. The exception is the one the same
+    /// failure gets without streaming: the <c>code</c> as the status (500 when absent or not a status) and the event's JSON
+    /// as the body.
+    /// </summary>
+    private static void ThrowIfStreamedError(System.Text.Json.Nodes.JsonNode? error, string data, int maxContextLength)
+    {
+        if (error is null)
+            return;
+
+        var status = error is System.Text.Json.Nodes.JsonObject fields
+            && fields["code"] is System.Text.Json.Nodes.JsonValue code
+            && code.TryGetValue<int>(out var number)
+            && number is >= 400 and <= 599
+                ? (System.Net.HttpStatusCode)number
+                : System.Net.HttpStatusCode.InternalServerError;
+
+        ThrowBackendFailure(status, data, maxContextLength);
     }
 
     /// <summary>

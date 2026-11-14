@@ -316,6 +316,9 @@ internal sealed class ChatCompletionChunk
 
     /// <summary>How far the server has read the prompt, on the chunks a request with <c>return_progress</c> gets before the first token.</summary>
     public LlamaPromptProgress? PromptProgress { get; set; }
+
+    /// <summary>The server's failure, when it reports one inside the stream instead of as an HTTP status.</summary>
+    public JsonNode? Error { get; set; }
 }
 
 /// <summary>
@@ -454,6 +457,9 @@ internal sealed class CompletionChunk
 
     /// <summary>How far the server has read the prompt, on the chunks a request with <c>return_progress</c> gets before the first token.</summary>
     public LlamaPromptProgress? PromptProgress { get; set; }
+
+    /// <summary>The server's failure, when it reports one inside the stream instead of as an HTTP status.</summary>
+    public JsonNode? Error { get; set; }
 }
 
 /// <summary>

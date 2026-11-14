@@ -63,6 +63,8 @@ public sealed partial class LlamaServerClient
                 continue;
             }
 
+            ThrowIfStreamedError(chunk?.Error, data, _maxContextLength);
+
             // Only yield content tokens — reasoning_content (thinking) is intentionally skipped.
             // b8994+: Gemma 4 separates thinking into reasoning_content; content holds the answer.
             var delta = chunk?.Choices?.FirstOrDefault()?.Delta?.Content;
@@ -127,6 +129,8 @@ public sealed partial class LlamaServerClient
                 Trace.TraceInformation($"[LlamaServerClient] Chat stream chunk deserialization failed: {ex.Message}");
                 continue;
             }
+
+            ThrowIfStreamedError(chunk?.Error, data, _maxContextLength);
 
             // usage and timings share the last chunk on current builds (b11146: the include_usage chunk with empty
             // choices), but neither is assumed to arrive with the other.
@@ -318,6 +322,8 @@ public sealed partial class LlamaServerClient
 
             if (chunk is null)
                 continue;
+
+            ThrowIfStreamedError(chunk.Error, data, _maxContextLength);
 
             // Before the first token: the server reports how far it has read the prompt, with empty content.
             if (chunk.PromptProgress is { } progress && !chunk.Stop)
