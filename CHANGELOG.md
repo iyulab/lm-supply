@@ -7,6 +7,7 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Fixed
+- **`global.json` pins the .NET SDK (`10.0.100`, `rollForward: latestFeature`).** With no SDK pinned, `dotnet build` took the highest installed SDK; on a machine that also has the .NET 11 preview installed (a hosted runner image that preinstalls it), the 11 analyzers raised CA1860 and CA2026 and, with warnings as errors, failed a build that passes on 10. No package changes.
 - **A model download onto a volume without room fails at once, with `InsufficientDiskSpaceException`, instead of filling the disk.** The download wrote until the disk was full, retried the failed write with growing pauses for about fifteen seconds as if the connection
   had stalled, and ended with a bare `IOException` — leaving a partial file that kept the volume full. It now compares what is still to be written, as the server announces it, with the free space of the destination's volume before a byte is written, and throws
   `InsufficientDiskSpaceException` (a `ModelDownloadException`) carrying the path, the bytes needed and the bytes free; a write that fails for want of room mid-download is not retried and ends in the same exception, with the I/O failure as its inner exception, keeping
