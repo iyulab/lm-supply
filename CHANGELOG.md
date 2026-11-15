@@ -6,6 +6,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Changed
+- **Dependencies updated:** System.Numerics.Tensors 10.0.14 to 11.0.0 (raises the minimum version the packages that use it ask of a consuming project), SkiaSharp and its Linux native assets 4.155.0 to 4.156.1. The console host builds against Swashbuckle.AspNetCore 11.0.1 and Microsoft.OpenApi 3.11.0 (its API document keeps its 48 paths and its Bearer scheme). Every package's public surface is unchanged.
+
 ## [0.143.0] - 2026-11-15
 
 ### Fixed

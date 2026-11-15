@@ -13,12 +13,15 @@
       LMSupply.Integration.Tests' Functional/LocalOnly suites (network + GPU required, not part
       of CI).
     -->
+    <!-- ONNX Runtime 1.32.0, ONNX Runtime GenAI 0.20.0 and the OpenVINO execution-provider plugin move together: the GenAI
+         generator paths and the plugin are covered only by suites CI does not run (integration and local-model, on a GPU
+         machine and an Intel machine). Held on 1.31.x / 0.19.x until those pass on the new versions; revisit by 2026-11-29. -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
     <PackageVersion Include="Microsoft.ML.Tokenizers" Version="3.0.0" />
-    <PackageVersion Include="System.Numerics.Tensors" Version="10.0.14" />
+    <PackageVersion Include="System.Numerics.Tensors" Version="11.0.0" />
     <!-- Vision Dependencies -->
-    <PackageVersion Include="SkiaSharp" Version="4.155.0" />
-    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.155.0" />
+    <PackageVersion Include="SkiaSharp" Version="4.156.1" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.156.1" />
     <!-- Audio Dependencies -->
     <PackageVersion Include="NAudio" Version="3.3.0" />
     <PackageVersion Include="NAudio.Lame" Version="2.1.0" />
@@ -51,18 +54,16 @@
     <!-- Build Tooling -->
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.403" />
     <!-- Console Host -->
-    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.3.1" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="11.0.1" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.14" />
     <!-- The M.E.AI contracts LMSupply.Embedder (IEmbeddingGenerator) and LMSupply.Generator (IChatClient) implement. -->
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.11.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.14" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14" />
     <!--
-      Held on 2.x: Swashbuckle.AspNetCore 10.x is built against Microsoft.OpenApi 2.x (its dependency is >= 2.7.5),
-      and 3.x changed the object model it writes (IOpenApiMediaType.Example became read-only, among others).
-      Move to 3.x with the Swashbuckle release that targets it; it is a major version, so the bump is a maintainer's.
-      The console host uses it directly for the Bearer security scheme (console/host/Program.cs).
+      The console host uses it directly for the Bearer security scheme (console/host/Program.cs). Swashbuckle.AspNetCore 11.x
+      is built against Microsoft.OpenApi 3.x; keep the two on the same major version.
     -->
-    <PackageVersion Include="Microsoft.OpenApi" Version="2.12.2" />
+    <PackageVersion Include="Microsoft.OpenApi" Version="3.11.0" />
   </ItemGroup>
 </Project>
