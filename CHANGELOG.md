@@ -7,6 +7,7 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Changed
+- **ONNX Runtime 1.31.1 to 1.32.0 and ONNX Runtime GenAI 0.19.0 to 0.20.0** (the CUDA runtime package follows ONNX Runtime). The CPU paths pass the unit gate and every integration and local-model fact that can run on macOS arm64; the CUDA path, and the OpenVINO plugin 1.8.1 (the newest release; it asks for ONNX Runtime 1.23 or later) on an Intel GPU, have not been run on these versions. This raises the minimum ONNX Runtime and ONNX Runtime GenAI versions the packages ask of a consuming project.
 - **Dependencies updated:** System.Numerics.Tensors 10.0.14 to 11.0.0 (raises the minimum version the packages that use it ask of a consuming project), SkiaSharp and its Linux native assets 4.155.0 to 4.156.1. The console host builds against Swashbuckle.AspNetCore 11.0.1 and Microsoft.OpenApi 3.11.0 (its API document keeps its 48 paths and its Bearer scheme). Every package's public surface is unchanged.
 
 ## [0.143.0] - 2026-11-15

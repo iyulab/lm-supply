@@ -13,10 +13,11 @@
       LMSupply.Integration.Tests' Functional/LocalOnly suites (network + GPU required, not part
       of CI).
     -->
-    <!-- ONNX Runtime 1.32.0, ONNX Runtime GenAI 0.20.0 and the OpenVINO execution-provider plugin move together: the GenAI
-         generator paths and the plugin are covered only by suites CI does not run (integration and local-model, on a GPU
-         machine and an Intel machine). Held on 1.31.x / 0.19.x until those pass on the new versions; revisit by 2026-11-29. The bump is on the topic branch deps/ort-1.32: it passes everything that runs on macOS arm64 (CPU); the CUDA path and the plugin on an Intel GPU are still to run. -->
-    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
+    <!-- ONNX Runtime and ONNX Runtime GenAI move together, and the OpenVINO execution-provider plugin with them
+         (RuntimePackageRegistry.OpenVinoPluginVersion): the GenAI generator paths and the plugin are covered only by suites
+         CI does not run (integration and local-model). 1.32.0 / 0.20.0 pass those suites on macOS arm64 (CPU); still to run on
+         these versions are the CUDA path on a GPU machine and the plugin 1.8.1 on an Intel GPU. -->
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.32.0" />
     <PackageVersion Include="Microsoft.ML.Tokenizers" Version="3.0.0" />
     <PackageVersion Include="System.Numerics.Tensors" Version="11.0.0" />
     <!-- Vision Dependencies -->
@@ -35,11 +36,11 @@
     <!-- ONNX Runtime GenAI for LLM Inference. The 0.x API changes between minors, and the generator paths are covered
          only by the integration and local-model suites, which CI does not run: move it only after those suites pass on
          the new version on a GPU machine. -->
-    <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.19.0" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.20.0" />
     <!-- llama-server process management -->
     <PackageVersion Include="ChildProcessGuard" Version="1.5.0" />
     <!-- GPU Providers (optional, user installs separately) -->
-    <PackageVersion Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.31.1" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.32.0" />
     <!-- Testing (xUnit v3 / Microsoft.Testing.Platform) -->
     <PackageVersion Include="xunit.v3" Version="4.0.3" />
     <PackageVersion Include="Iyu.Conventions.Testing" Version="0.13.0" />
