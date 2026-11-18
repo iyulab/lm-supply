@@ -15,7 +15,7 @@
     -->
     <!-- ONNX Runtime 1.32.0, ONNX Runtime GenAI 0.20.0 and the OpenVINO execution-provider plugin move together: the GenAI
          generator paths and the plugin are covered only by suites CI does not run (integration and local-model, on a GPU
-         machine and an Intel machine). Held on 1.31.x / 0.19.x until those pass on the new versions; revisit by 2026-11-29. -->
+         machine and an Intel machine). Held on 1.31.x / 0.19.x until those pass on the new versions; revisit by 2026-11-29. The bump is on the topic branch deps/ort-1.32: it passes everything that runs on macOS arm64 (CPU); the CUDA path and the plugin on an Intel GPU are still to run. -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
     <PackageVersion Include="Microsoft.ML.Tokenizers" Version="3.0.0" />
     <PackageVersion Include="System.Numerics.Tensors" Version="11.0.0" />
