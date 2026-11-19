@@ -60,6 +60,42 @@ public sealed class OpenVinoModelStagingTests : IDisposable
     }
 
     [Fact]
+    public void RelativeLinks_AsTheHuggingFaceCacheWritesThem_AreStagedAsFilesInsideTheModelDirectory()
+    {
+        // The real cache links with relative targets (../../blobs/<sha>), not absolute ones.
+        var snapshot = Snapshot();
+        Blob("aaa", "graph");
+        Blob("bbb", "weights-weights");
+        Link(Path.Combine(snapshot, "model.onnx"), Path.Combine("..", "..", "..", "blobs", "aaa"));
+        Link(Path.Combine(snapshot, "model.onnx_data"), Path.Combine("..", "..", "..", "blobs", "bbb"));
+        var modelPath = Path.Combine(snapshot, "model.onnx");
+
+        var staged = OpenVinoModelStaging.Resolve(modelPath);
+
+        staged.Should().NotBe(modelPath);
+        var data = Path.Combine(Path.GetDirectoryName(staged)!, "model.onnx_data");
+        File.ReadAllText(data).Should().Be("weights-weights");
+        File.ReadAllText(staged).Should().Be("graph");
+        new FileInfo(data).LinkTarget.Should().BeNull();
+    }
+
+    [Fact]
+    public void StagedFiles_AreHardLinks_NotCopies_WhereTheFileSystemAllowsIt()
+    {
+        // A copy of multi-gigabyte weights would work but is exactly what the hard link avoids: a write through the blob
+        // is visible through the staged file only when both names are one file.
+        var snapshot = Snapshot();
+        var blob = Blob("bbb", "weights");
+        Link(Path.Combine(snapshot, "model.onnx"), Blob("aaa", "graph"));
+        Link(Path.Combine(snapshot, "model.onnx_data"), blob);
+
+        var staged = OpenVinoModelStaging.Resolve(Path.Combine(snapshot, "model.onnx"));
+        File.AppendAllText(blob, "-and-more");
+
+        File.ReadAllText(Path.Combine(Path.GetDirectoryName(staged)!, "model.onnx_data")).Should().Be("weights-and-more");
+    }
+
+    [Fact]
     public void Staging_IsRepeatable_AndKeepsTheSamePath()
     {
         var snapshot = Snapshot();
