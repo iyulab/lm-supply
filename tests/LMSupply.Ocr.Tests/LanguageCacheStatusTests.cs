@@ -32,7 +32,7 @@ public sealed class LanguageCacheStatusTests : IDisposable
         var status = LocalOcr.GetCacheStatusForLanguage("ko", _cacheDir);
 
         status.IsCached.Should().BeFalse();
-        status.RecognitionModel.Should().Be("crnn-korean-v3");
+        status.RecognitionModel.Should().Be("crnn-korean-v5");
         status.Files.Should().Equal(
             new OcrModelFile(detection.RepoId, detection.Subfolder, detection.ModelFile, false),
             new OcrModelFile(korean.RepoId, "languages/korean", korean.ModelFile, false),

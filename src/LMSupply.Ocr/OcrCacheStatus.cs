@@ -5,7 +5,7 @@ namespace LMSupply.Ocr;
 /// local cache — the answer to "would loading this language download anything?".
 /// </summary>
 /// <param name="LanguageCode">The language code that was asked about.</param>
-/// <param name="RecognitionModel">The recognition model the language resolves to (e.g., "crnn-korean-v3").</param>
+/// <param name="RecognitionModel">The recognition model the language resolves to (e.g., "crnn-korean-v5").</param>
 /// <param name="Files">Every file the load needs: the detection model, then the recognizer and its dictionary.</param>
 public sealed record OcrCacheStatus(string LanguageCode, string RecognitionModel, IReadOnlyList<OcrModelFile> Files)
 {

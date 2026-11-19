@@ -143,6 +143,16 @@ internal sealed class CrnnRecognizer : IDisposable
             }, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
+        // A model's output has one class for the CTC blank and one for each character of its dictionary. When the two disagree
+        // the dictionary belongs to another model (or was read wrongly), and every class after the first difference would decode
+        // as its neighbour: wrong text with no error. Refuse it instead.
+        if (logits.GetLength(1) != _dictionary.Count)
+        {
+            throw new InvalidDataException(
+                $"The recognition model '{_modelInfo.AliasName}' has {logits.GetLength(1)} output classes but its dictionary has {_dictionary.Count} " +
+                "(the CTC blank, each character and the space); the dictionary does not belong to this model.");
+        }
+
         // CTC decode
         return CtcDecoder.GreedyDecode(logits, _dictionary);
     }

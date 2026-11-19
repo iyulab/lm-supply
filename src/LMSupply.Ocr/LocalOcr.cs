@@ -37,7 +37,7 @@ public static class LocalOcr
     /// or a local path to a model file.
     /// </param>
     /// <param name="recognitionModel">
-    /// Recognition model ID (e.g., "default", "crnn-en-v3", "crnn-korean-v3") for auto-download,
+    /// Recognition model ID (e.g., "default", "crnn-en-v5", "crnn-korean-v5") for auto-download,
     /// or a local path to a model file. If null, uses the model for the language hint.
     /// </param>
     /// <param name="options">Optional configuration options.</param>

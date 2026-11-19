@@ -34,7 +34,7 @@ public sealed class OcrRecognitionModelRegistry : ModelRegistryBase<RecognitionM
     protected override RecognitionModelInfo GetAutoModel()
     {
         Trace.TraceInformation("[OcrRecognitionModelRegistry] Auto-selecting English recognition model");
-        return DefaultRecognitionModels.CrnnEnV3 with { AliasName = "auto" };
+        return DefaultRecognitionModels.CrnnEnV5 with { AliasName = "auto" };
     }
 
     /// <summary>
@@ -55,7 +55,7 @@ public sealed class OcrRecognitionModelRegistry : ModelRegistryBase<RecognitionM
 
     /// <summary>
     /// Resolves a recognition model for a specific language code.
-    /// Always returns the model with its primary alias (e.g., "crnn-korean-v3" rather than "ko").
+    /// Always returns the model with its primary alias (e.g., "crnn-korean-v5" rather than "ko").
     /// Falls back to English if the language is not found, and says so through a trace warning -
     /// the English recognizer cannot read another script, so its output would otherwise pass for a
     /// result. <see cref="GetSupportedLanguages"/> lists the codes that resolve without falling back.
@@ -79,11 +79,11 @@ public sealed class OcrRecognitionModelRegistry : ModelRegistryBase<RecognitionM
             $"[OcrRecognitionModelRegistry] No recognition model for language '{languageCode}'; using the English " +
             "recognizer instead. Text in another script will not be read correctly. " +
             "GetSupportedLanguages() lists the codes that have a model.");
-        return Resolve("crnn-en-v3");
+        return Resolve("crnn-en-v5");
     }
 
     /// <summary>
-    /// Finds the primary model entry (with the crnn-*-v3 alias) for a model
+    /// Finds the primary model entry (the one with the crnn-* alias) for a model
     /// that may have been resolved via a language code alias.
     /// </summary>
     private RecognitionModelInfo FindPrimaryModel(RecognitionModelInfo model)
@@ -92,10 +92,12 @@ public sealed class OcrRecognitionModelRegistry : ModelRegistryBase<RecognitionM
         if (model.AliasName.StartsWith("crnn-", StringComparison.OrdinalIgnoreCase))
             return model;
 
-        // Look up the primary model by matching on the same RepoId + Subfolder
+        // Look up the primary model by matching on the same RepoId + Subfolder: a model is the files it names, and
+        // models that live in a repository of their own have no subfolder, so the subfolder alone cannot tell them apart.
         var primary = GetAvailableModels()
             .FirstOrDefault(m =>
                 m.AliasName.StartsWith("crnn-", StringComparison.OrdinalIgnoreCase) &&
+                m.RepoId == model.RepoId &&
                 m.Subfolder == model.Subfolder);
 
         return primary ?? model;
