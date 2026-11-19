@@ -1,5 +1,4 @@
 using AwesomeAssertions;
-using SkiaSharp;
 using Xunit;
 
 namespace LMSupply.Ocr.Tests;
@@ -36,66 +35,14 @@ public class OcrTiltedTextTests
     [InlineData(4.0)]
     public async Task LinesTiltedByADegreeOrTwo_AreReadAsLevelOnesAre(double degrees)
     {
-        var png = Render(Lines, degrees);
+        var png = KnownAnswerPage.Render(Lines, degrees);
 
         await using var ocr = await LocalOcr.LoadAsync(cancellationToken: TestContext.Current.CancellationToken);
         var result = await ocr.RecognizeAsync(png, TestContext.Current.CancellationToken);
 
-        var heard = Squash(result.GetTextWithLayout(lineTolerancePixels: 20));
-        var said = Squash(string.Concat(Lines));
-        var rate = (double)Distance(said, heard) / said.Length;
+        var heard = result.GetTextWithLayout(lineTolerancePixels: 20);
+        var rate = KnownAnswerPage.CharacterErrorRate(string.Concat(Lines), heard);
 
         rate.Should().BeLessThanOrEqualTo(MaxCharacterErrorRate, $"the page tilted by {degrees}° was read as «{heard}»");
-    }
-
-    // White page, three lines of black text in a sans-serif face, rotated about the page center, then pixel noise.
-    private static byte[] Render(string[] lines, double degrees)
-    {
-        const int width = 1100, height = 330;
-        using var surface = SKSurface.Create(new SKImageInfo(width, height));
-        var canvas = surface.Canvas;
-        canvas.Clear(SKColors.White);
-        using var typeface = SKTypeface.FromFamilyName("Arial") ?? SKTypeface.Default;
-        using var font = new SKFont(typeface, 30);
-        using var paint = new SKPaint { Color = new SKColor(20, 20, 20), IsAntialias = true };
-
-        canvas.RotateDegrees((float)degrees, width / 2f, height / 2f);
-        for (var i = 0; i < lines.Length; i++)
-            canvas.DrawText(lines[i], 40, 70 + i * 90, SKTextAlign.Left, font, paint);
-
-        using var bitmap = SKBitmap.FromImage(surface.Snapshot());
-        var random = new Random(7);
-        for (var n = 0; n < width * height / 25; n++)
-        {
-            var (x, y) = (random.Next(width), random.Next(height));
-            var delta = random.Next(-45, 46);
-            var pixel = bitmap.GetPixel(x, y);
-            byte Shift(byte channel) => (byte)Math.Clamp(channel + delta, 0, 255);
-            bitmap.SetPixel(x, y, new SKColor(Shift(pixel.Red), Shift(pixel.Green), Shift(pixel.Blue)));
-        }
-
-        using var image = SKImage.FromBitmap(bitmap);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        return data.ToArray();
-    }
-
-    private static string Squash(string text) => new(text.Where(c => !char.IsWhiteSpace(c)).ToArray());
-
-    private static int Distance(string a, string b)
-    {
-        var row = Enumerable.Range(0, b.Length + 1).ToArray();
-        for (var i = 1; i <= a.Length; i++)
-        {
-            var previous = row[0];
-            row[0] = i;
-            for (var j = 1; j <= b.Length; j++)
-            {
-                var above = row[j];
-                row[j] = Math.Min(Math.Min(row[j] + 1, row[j - 1] + 1), previous + (a[i - 1] == b[j - 1] ? 0 : 1));
-                previous = above;
-            }
-        }
-
-        return row[b.Length];
     }
 }
