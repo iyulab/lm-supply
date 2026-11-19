@@ -6,6 +6,9 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 
 ## [Unreleased]
 
+### Fixed
+- **A model with external data (`model.onnx` + `model.onnx_data`, as BAAI/bge-m3) downloaded into the standard Hugging Face cache now runs on the Intel GPU with `ExecutionProvider.OpenVino` instead of silently on the CPU.** The OpenVINO plugin refuses an external-data file whose real path is outside the model's directory, and the cache shows each file as a link into `blobs/`; the session was created anyway and ran on `CPUExecutionProvider` (the plugin listed the GPU, `ActiveProviders` said CPU). The session is now created from a `.lmsupply-openvino` directory beside the model that holds the model file and the files named after it as hard links (a copy where the file system cannot link); a model whose files are already inside its directory is untouched. Checked on an Intel integrated GPU: the same fact that failed on `main` and on `deps/ort-1.32` passes (vectors within 0.999 cosine of the CPU session).
+
 ### Changed
 - **Dependencies updated:** System.Numerics.Tensors 10.0.14 to 11.0.0 (raises the minimum version the packages that use it ask of a consuming project), SkiaSharp and its Linux native assets 4.155.0 to 4.156.1. The console host builds against Swashbuckle.AspNetCore 11.0.1 and Microsoft.OpenApi 3.11.0 (its API document keeps its 48 paths and its Bearer scheme). Every package's public surface is unchanged.
 
