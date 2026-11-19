@@ -1,12 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { PNG_BUFFER } from './fixtures';
 
 const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
-
-// 1x1 red pixel PNG
-const PNG_BUFFER = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==',
-  'base64'
-);
 
 // ================================================================
 // POST /v1/images/caption
@@ -69,7 +64,7 @@ test.describe('Image Caption', () => {
 // POST /v1/images/detect
 // ================================================================
 test.describe('Object Detection', () => {
-  test('response: id, model, detections[].label/confidence/bounding_box', async ({ request }) => {
+  test('response: id, model, objects[].label/confidence/bounding_box', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/detect`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -80,12 +75,12 @@ test.describe('Object Detection', () => {
       const body = await resp.json();
       expect(body).toHaveProperty('id');
       expect(body).toHaveProperty('model');
-      expect(Array.isArray(body.detections)).toBe(true);
-      if (body.detections.length > 0) {
-        expect(body.detections[0]).toHaveProperty('label');
-        expect(body.detections[0]).toHaveProperty('confidence');
-        expect(body.detections[0]).toHaveProperty('bounding_box');
-        const bb = body.detections[0].bounding_box;
+      expect(Array.isArray(body.objects)).toBe(true);
+      if (body.objects.length > 0) {
+        expect(body.objects[0]).toHaveProperty('label');
+        expect(body.objects[0]).toHaveProperty('confidence');
+        expect(body.objects[0]).toHaveProperty('bounding_box');
+        const bb = body.objects[0].bounding_box;
         expect(bb).toHaveProperty('x');
         expect(bb).toHaveProperty('y');
         expect(bb).toHaveProperty('width');
@@ -133,7 +128,7 @@ test.describe('Object Detection', () => {
     expect(resp.status()).toBe(400);
   });
 
-  test('image with no objects returns empty detections array', async ({ request }) => {
+  test('image with no objects returns an empty objects array', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/detect`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -142,8 +137,8 @@ test.describe('Object Detection', () => {
     });
     if (resp.status() === 200) {
       const body = await resp.json();
-      // 1x1 pixel likely has no detections
-      expect(Array.isArray(body.detections)).toBe(true);
+      // a 1x1 pixel has no objects
+      expect(Array.isArray(body.objects)).toBe(true);
     }
   });
 });

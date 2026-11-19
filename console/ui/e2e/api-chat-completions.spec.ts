@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { PNG_DATA_URL } from './fixtures';
 
 const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
@@ -279,9 +280,6 @@ test.describe('Response Format', () => {
 // Multimodal (image_url)
 // ================================================================
 test.describe('Multimodal Vision', () => {
-  // 1x1 red pixel PNG as base64
-  const PNG_B64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==';
-
   test('base64 image_url accepted in messages (not 422)', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
@@ -290,7 +288,7 @@ test.describe('Multimodal Vision', () => {
           role: 'user',
           content: [
             { type: 'text', text: 'Describe this image.' },
-            { type: 'image_url', image_url: { url: PNG_B64 } },
+            { type: 'image_url', image_url: { url: PNG_DATA_URL } },
           ],
         }],
         max_tokens: 20,

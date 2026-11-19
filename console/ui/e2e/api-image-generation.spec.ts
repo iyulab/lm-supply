@@ -1,12 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { PNG_BUFFER } from './fixtures';
 
 const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
-
-// 1x1 red pixel PNG as buffer for multipart image uploads
-const PNG_BUFFER = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==',
-  'base64'
-);
 
 // ================================================================
 // POST /v1/images/generations
