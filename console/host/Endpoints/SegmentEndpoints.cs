@@ -39,7 +39,7 @@ public static class SegmentEndpoints
                 using var memoryStream = new MemoryStream();
                 await stream.CopyToAsync(memoryStream, ct);
 
-                var result = await scope.Model.SegmentAsync(memoryStream.ToArray(), ct);
+                var result = await ApiHelper.ForUploadedImage(scope.Model.SegmentAsync(memoryStream.ToArray(), ct));
 
                 // Get top segments using SDK method
                 var topSegments = result.GetTopSegments(10, scope.Model.ClassLabels);

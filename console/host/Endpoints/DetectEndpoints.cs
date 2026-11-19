@@ -43,7 +43,7 @@ public static class DetectEndpoints
                 await stream.CopyToAsync(memoryStream, ct);
 
                 // Use SDK extension method for threshold filtering
-                var results = await scope.Model.DetectAsync(memoryStream.ToArray(), threshold, ct);
+                var results = await ApiHelper.ForUploadedImage(scope.Model.DetectAsync(memoryStream.ToArray(), threshold, ct));
 
                 if (string.Equals(outputFormat, "coco", StringComparison.OrdinalIgnoreCase))
                 {

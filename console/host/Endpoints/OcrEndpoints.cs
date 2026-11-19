@@ -40,7 +40,7 @@ public static class OcrEndpoints
                 await stream.CopyToAsync(memoryStream, ct);
 
                 var imageBytes = memoryStream.ToArray();
-                var result = await scope.Model.RecognizeAsync(imageBytes, ct);
+                var result = await ApiHelper.ForUploadedImage(scope.Model.RecognizeAsync(imageBytes, ct));
 
                 // Get image dimensions for page metadata
                 var imageSize = ImageLoader.Identify(imageBytes);

@@ -38,7 +38,7 @@ public static class CaptionEndpoints
                 using var memoryStream = new MemoryStream();
                 await stream.CopyToAsync(memoryStream, ct);
 
-                var result = await scope.Model.CaptionAsync(memoryStream.ToArray(), ct);
+                var result = await ApiHelper.ForUploadedImage(scope.Model.CaptionAsync(memoryStream.ToArray(), ct));
 
                 return Results.Ok(new CaptionResponse
                 {

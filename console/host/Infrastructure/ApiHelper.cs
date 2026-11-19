@@ -76,6 +76,23 @@ public static class ApiHelper
     }
 
     /// <summary>
+    /// Awaits a model call on an uploaded image. An image that cannot be decoded (a format the loader does not read, a damaged file)
+    /// is the caller's mistake, so it surfaces as an <see cref="ArgumentException"/>, which <see cref="InternalError"/> answers
+    /// with 400, rather than as the 500 an unexpected failure gets.
+    /// </summary>
+    public static async Task<T> ForUploadedImage<T>(Task<T> call)
+    {
+        try
+        {
+            return await call;
+        }
+        catch (InvalidDataException ex)
+        {
+            throw new ArgumentException("The uploaded file is not an image that can be decoded (JPEG, PNG, WebP, GIF, BMP or ICO).", ex);
+        }
+    }
+
+    /// <summary>
     /// Parse input that can be string or array of strings
     /// </summary>
     public static List<string> ParseInput(System.Text.Json.JsonElement input)
