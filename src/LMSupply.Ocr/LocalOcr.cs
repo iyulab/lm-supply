@@ -94,7 +94,7 @@ public static class LocalOcr
     /// <summary>
     /// Loads an OCR pipeline for a specific language.
     /// </summary>
-    /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh", "ja").</param>
+    /// <param name="languageCode">Language code (e.g., "en", "ko", "zh", "ja", "ko_KR", "sr-Latn"); a language with no recognition model throws <see cref="UnsupportedOcrLanguageException"/>.</param>
     /// <param name="options">Optional configuration options.</param>
     /// <param name="progress">Optional progress reporting for downloads.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -125,7 +125,7 @@ public static class LocalOcr
     /// recognizer with others of the same script, so it can be cached without having been loaded itself.
     /// To make a load fail instead of downloading, set <see cref="OcrOptions.DisableAutoDownload"/>.
     /// </remarks>
-    /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh", "ja").</param>
+    /// <param name="languageCode">Language code (e.g., "en", "ko", "zh", "ja", "ko_KR", "sr-Latn"); a language with no recognition model throws <see cref="UnsupportedOcrLanguageException"/>.</param>
     /// <param name="cacheDirectory">The cache directory; the default HuggingFace cache when null.</param>
     /// <returns>Each needed file and whether it is cached.</returns>
     public static OcrCacheStatus GetCacheStatusForLanguage(string languageCode, string? cacheDirectory = null)
@@ -158,7 +158,7 @@ public static class LocalOcr
     /// model, is not counted. With <see cref="OcrOptions.DisableAutoDownload"/> the listings come from the cache only,
     /// as the load's do.
     /// </remarks>
-    /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh", "ja").</param>
+    /// <param name="languageCode">Language code (e.g., "en", "ko", "zh", "ja", "ko_KR", "sr-Latn"); a language with no recognition model throws <see cref="UnsupportedOcrLanguageException"/>.</param>
     /// <param name="options">The options the load will use (<see cref="LMSupplyOptionsBase.CacheDirectory"/>, <see cref="OcrOptions.DisableAutoDownload"/>); not modified.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ModelNotFoundException">A repository does not exist, or (downloads disabled) was never listed into this cache.</exception>
@@ -208,7 +208,7 @@ public static class LocalOcr
     /// <remarks>
     /// <see cref="GetCacheStatusForLanguage"/> lists the same files with their presence; this also checks their lengths.
     /// </remarks>
-    /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh", "ja").</param>
+    /// <param name="languageCode">Language code (e.g., "en", "ko", "zh", "ja", "ko_KR", "sr-Latn"); a language with no recognition model throws <see cref="UnsupportedOcrLanguageException"/>.</param>
     /// <param name="options">The options the load will use; not modified.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task<bool> IsLanguageDownloadedAsync(
@@ -241,7 +241,7 @@ public static class LocalOcr
     /// model and the language's recognizer and dictionary — without creating a session, so that a load with downloads disabled
     /// opens cached files only. Cached files are not fetched again; the load downloads through the same path.
     /// </summary>
-    /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh", "ja").</param>
+    /// <param name="languageCode">Language code (e.g., "en", "ko", "zh", "ja", "ko_KR", "sr-Latn"); a language with no recognition model throws <see cref="UnsupportedOcrLanguageException"/>.</param>
     /// <param name="options">The options the load will use; not modified.</param>
     /// <param name="progress">Download progress, as a load reports it.</param>
     /// <param name="cancellationToken">Cancellation token; a cancelled download keeps its partial file and resumes next time.</param>
@@ -271,13 +271,17 @@ public static class LocalOcr
     /// names it (<see cref="OcrCacheStatus"/>). Only this library's files are deleted, never another tool's in the shared cache.
     /// A file an open session holds cannot be deleted on Windows; the delete then throws <see cref="IOException"/>.
     /// </remarks>
-    /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh", "ja").</param>
+    /// <param name="languageCode">Language code (e.g., "en", "ko", "zh", "ja", "ko_KR", "sr-Latn"); a language with no recognition model has nothing to delete.</param>
     /// <param name="options">Only <see cref="LMSupplyOptionsBase.CacheDirectory"/> is read; null means the default cache.</param>
-    /// <returns>Whether anything was deleted.</returns>
+    /// <returns>Whether anything was deleted; <see langword="false"/> too for a language with no recognition model.</returns>
     public static bool DeleteLanguageModel(string languageCode, OcrOptions? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(languageCode);
-        var recognition = OcrRecognitionModelRegistry.Default.ResolveForLanguage(languageCode);
+
+        // A language without a model has nothing in the cache to delete - and must not be read as another one.
+        if (!OcrRecognitionModelRegistry.Default.TryResolveForLanguage(languageCode, out var recognition))
+            return false;
+
         var prefix = string.IsNullOrEmpty(recognition.Subfolder) ? "" : recognition.Subfolder.TrimEnd('/') + "/";
         return CacheManager.DeleteModelFiles(
             options?.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory(),

@@ -702,6 +702,24 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    // A language no recognizer covers used to be read with the English one and answered 200 with text that was not a
+    // reading of the image; the caller now hears that the language is unsupported, and which ones are.
+    [Fact]
+    [Trait("Axis", "API-Error")]
+    public async Task POST_Ocr_LanguageWithoutAModel_Returns400NamingTheSupportedCodes()
+    {
+        using var formContent = new MultipartFormDataContent();
+        using var image = new ByteArrayContent([0x89, 0x50, 0x4E, 0x47]);
+        formContent.Add(image, "file", "page.png");
+        formContent.Add(new StringContent("km"), "language");
+
+        var response = await _client.PostAsync("/v1/images/ocr", formContent, TestContext.Current.CancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        body.Should().Contain("'km'").And.Contain("ko");
+    }
+
     [Fact]
     [Trait("Axis", "API-Error")]
     public async Task POST_Transcribe_FormData_MissingFile_Returns400()

@@ -53,16 +53,6 @@ public sealed record OcrResponse
     [JsonPropertyName("full_text")]
     public required string FullText { get; init; }
     public required IReadOnlyList<Infrastructure.Vision.OcrPage> Pages { get; init; }
-    [JsonPropertyName("detected_languages")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IReadOnlyList<DetectedLanguage>? DetectedLanguages { get; init; }
-}
-
-public sealed record DetectedLanguage
-{
-    [JsonPropertyName("language_code")]
-    public required string LanguageCode { get; init; }
-    public float Confidence { get; init; } = 1.0f;
 }
 
 /// <summary>

@@ -76,9 +76,17 @@ identification output, so there is no detection step. Ask the library which code
 IEnumerable<string> codes = LocalOcr.GetSupportedLanguages();   // "en", "ko", "ja", "tr", ...
 ```
 
-Region subtags are ignored (`"tr-TR"` resolves as `"tr"`). A code with no model falls back to the English
-recognizer and raises a trace warning naming the code — the English model cannot read another script, so
-its output for such text would otherwise look like a result.
+A code is read as a BCP 47 tag or a POSIX locale name: `-` and `_` both separate subtags, case is ignored, and an
+encoding or modifier is dropped except `@latin` and `@cyrillic`, which name the script. The script comes before the
+region, so `"sr-Latn"` is the Latin recognizer's and `"sr"` the Cyrillic one's, and a region the library has no model
+for is ignored (`"tr-TR"` and `"ko_KR.UTF-8"` resolve as `"tr"` and `"ko"`). `cmn` and `yue` resolve as `zh`.
+
+A code that names a script the language's recognizer does not read (`"bs-Cyrl"`, `"mk-Latn"`) is refused too, not read with the recognizer of the bare language.
+
+A code with no model is refused: the English recognizer cannot read another script, and it would still return text,
+so a call that names such a language throws `UnsupportedOcrLanguageException` — an `ArgumentException` that carries the
+code and the supported codes — and `LocalOcr.DeleteLanguageModel` returns `false`. Pass `"en"` to read with the English
+recognizer on purpose, or `OcrRecognitionModelRegistry.Default.TryResolveForLanguage` to ask without an exception.
 
 ## Available Models
 

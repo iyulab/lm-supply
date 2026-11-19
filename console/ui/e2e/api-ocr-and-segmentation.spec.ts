@@ -76,7 +76,7 @@ test.describe('OCR', () => {
     expect(resp.status()).not.toBe(422);
   });
 
-  test('detected_languages array in response', async ({ request }) => {
+  test('response does not claim a detected language', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -84,8 +84,21 @@ test.describe('OCR', () => {
     });
     if (resp.status() === 200) {
       const body = await resp.json();
-      expect(Array.isArray(body.detected_languages)).toBe(true);
+      expect(body.detected_languages).toBeUndefined();
     }
+  });
+
+  test('language without a recognition model returns 400 listing the supported codes', async ({ request }) => {
+    const resp = await request.post(`${BASE}/v1/images/ocr`, {
+      multipart: {
+        file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
+        language: 'km',
+      },
+    });
+    expect(resp.status()).toBe(400);
+    const body = await resp.json();
+    expect(body.error.message).toContain("'km'");
+    expect(body.error.message).toContain('ko');
   });
 
   test('missing file returns 400', async ({ request }) => {

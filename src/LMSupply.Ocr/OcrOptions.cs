@@ -6,9 +6,13 @@ namespace LMSupply.Ocr;
 public sealed class OcrOptions : LMSupplyOptionsBase
 {
     /// <summary>
-    /// Language hint for recognition model selection.
-    /// Default is "en" (English).
+    /// Language hint for recognition model selection: a BCP 47 tag or POSIX locale name (<c>"ko"</c>, <c>"ko-KR"</c>,
+    /// <c>"ko_KR.UTF-8"</c>, <c>"sr-Latn"</c>). Default is "en" (English).
     /// </summary>
+    /// <remarks>
+    /// A language that has no recognition model is refused with <see cref="UnsupportedOcrLanguageException"/> when the load
+    /// chooses the recognizer from the hint; it is never read with the English recognizer instead.
+    /// </remarks>
     public string LanguageHint { get; set; } = "en";
 
     /// <summary>

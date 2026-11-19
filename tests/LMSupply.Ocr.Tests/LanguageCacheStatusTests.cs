@@ -56,6 +56,24 @@ public sealed class LanguageCacheStatusTests : IDisposable
         korean.Missing.Should().HaveCount(2);
     }
 
+    // A consumer that follows the OS locale writes the code with an underscore; the status must be the Korean one, not the English one.
+    [Fact]
+    public void ALocaleWrittenWithAnUnderscore_IsTheStatusOfItsLanguage()
+    {
+        var status = LocalOcr.GetCacheStatusForLanguage("ko_KR", _cacheDir);
+
+        status.RecognitionModel.Should().Be("crnn-korean-v5");
+        status.LanguageCode.Should().Be("ko_KR", "the code that was asked about is reported as written");
+    }
+
+    [Fact]
+    public void ALanguageWithoutAModel_HasNoCacheStatus()
+    {
+        var act = () => LocalOcr.GetCacheStatusForLanguage("km", _cacheDir);
+
+        act.Should().Throw<UnsupportedOcrLanguageException>().Which.LanguageCode.Should().Be("km");
+    }
+
     // Languages of one script share a recognizer: Japanese is read by the Chinese model.
     [Fact]
     public async Task ALanguageSharingACachedRecognizer_IsCached()

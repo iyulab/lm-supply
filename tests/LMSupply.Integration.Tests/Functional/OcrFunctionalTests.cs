@@ -362,12 +362,12 @@ public class OcrFunctionalTests
 
     [Fact]
     [Trait("Axis", "Loading")]
-    public void L_GetRecognitionModelForLanguage_FallsBackToEnglish()
+    public void L_GetRecognitionModelForLanguage_RefusesALanguageNoModelCovers()
     {
-        // Japanese is read by the Chinese/Japanese model (its dictionary carries kana); a language no model lists falls back to English
+        // Japanese is read by the Chinese/Japanese model (its dictionary carries kana); a language no model lists is refused, not read as English
         OcrRecognitionModelRegistry.Default.ResolveForLanguage("ja").AliasName.Should().Be("crnn-chinese-v5");
-        OcrRecognitionModelRegistry.Default.ResolveForLanguage("km").AliasName.Should().Be("crnn-en-v5",
-            "unsupported language should fall back to English recognition");
+        OcrRecognitionModelRegistry.Default.Invoking(r => r.ResolveForLanguage("km"))
+            .Should().Throw<UnsupportedOcrLanguageException>("an unsupported language must not be read with the English recognizer");
     }
 
     // ── Gap Tests: Language fallback consistency, narrow image ───

@@ -78,9 +78,11 @@ internal static class DefaultRecognitionModels
         // Every code below is backed by the model's dictionary: it holds each of that language's
         // letters beyond ASCII (Turkish ş ğ ı, Hungarian ő ű, Icelandic þ ð, Latvian ā ē ģ ķ ļ ņ ...). Uzbek and
         // Vietnamese are left out - the dictionary lacks the Latin ʻ of Uzbek and the tone-marked vowels of Vietnamese.
-        // nb/nn/fil are the codes an OS locale reports for Norwegian and Filipino.
+        // nb/nn/fil are the codes an OS locale reports for Norwegian and Filipino. sr-latn is Serbian in Latin letters
+        // (the bare "sr" is the Cyrillic recognizer's): the dictionary holds its letters, the same č ć đ š ž as Croatian.
         LanguageCodes: ["la", "es", "fr", "de", "it", "pt", "nl", "pl", "ro", "cs", "sk", "sv", "da", "no", "nb", "nn",
-            "fi", "is", "et", "lt", "lv", "hu", "hr", "bs", "sl", "sq", "ga", "tr", "id", "ms", "sw", "tl", "fil", "cy", "af"])
+            "fi", "is", "et", "lt", "lv", "hu", "hr", "bs", "sl", "sq", "ga", "tr", "id", "ms", "sw", "tl", "fil", "cy", "af",
+            "sr-latn"])
     {
         License = "Apache-2.0"
     };

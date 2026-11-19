@@ -118,4 +118,31 @@ public sealed class OcrArtifactsTests : IDisposable
         (await artifacts.IsAvailableOfflineAsync("ko", Ct)).Should().BeTrue("the detection model and the Korean recognizer stay");
         artifacts.Delete("en").Should().BeFalse("nothing of the English recognizer is left");
     }
+
+    // A language no model covers used to resolve to the English recognizer, so asking to delete it deleted that one.
+    [Fact]
+    public async Task DeletingALanguageWithoutAModel_DeletesNothing_AndKeepsTheEnglishRecognizer()
+    {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
+        SeedCached("en");
+        var artifacts = new OcrArtifacts(Options());
+
+        artifacts.Delete("km").Should().BeFalse("no recognizer exists for it, so there is nothing to delete");
+
+        (await artifacts.IsAvailableOfflineAsync("en", Ct)).Should().BeTrue("the English recognizer was never the one asked about");
+    }
+
+    [Fact]
+    public async Task AskingAboutALanguageWithoutAModel_IsRefused_NotAnsweredForEnglish()
+    {
+        using var runtime = BundledRuntime.Use(_cache + "-runtime");
+        SeedCached("en");
+        var artifacts = new OcrArtifacts(Options());
+
+        var offline = async () => await artifacts.IsAvailableOfflineAsync("km", Ct);
+        var download = async () => await artifacts.DownloadAsync("km", cancellationToken: Ct);
+
+        await offline.Should().ThrowAsync<UnsupportedOcrLanguageException>();
+        await download.Should().ThrowAsync<UnsupportedOcrLanguageException>();
+    }
 }

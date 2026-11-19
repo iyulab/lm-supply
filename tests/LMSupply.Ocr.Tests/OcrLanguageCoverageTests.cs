@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using AwesomeAssertions;
 using LMSupply.Ocr.Models;
 
@@ -86,96 +85,152 @@ public class OcrLanguageCoverageTests
         OcrRecognitionModelRegistry.Default.ResolveForLanguage(code).AliasName.Should().Be(alias);
     }
 
-    [Fact]
-    public void AnUnsupportedLanguage_FallsBackToEnglish_AndSaysSo()
+    // How callers and operating systems write a language: BCP 47 with a hyphen, or a POSIX locale name with an
+    // underscore, an encoding and a modifier. The one language must reach the one recognizer either way.
+    [Theory]
+    [InlineData("ko-KR", "crnn-korean-v5")]
+    [InlineData("ko_KR", "crnn-korean-v5")]
+    [InlineData("KO_kr", "crnn-korean-v5")]
+    [InlineData("ko_KR.UTF-8", "crnn-korean-v5")]
+    [InlineData("zh-CN", "crnn-chinese-v5")]
+    [InlineData("zh_CN", "crnn-chinese-v5")]
+    [InlineData("zh_TW", "crnn-chinese-v5")]
+    [InlineData("zh-Hans", "crnn-chinese-v5")]
+    [InlineData("zh-Hant-TW", "crnn-chinese-v5")]
+    [InlineData("pt_PT", "crnn-latin-v5")]
+    [InlineData("pt-BR", "crnn-latin-v5")]
+    [InlineData("en_US", "crnn-en-v5")]
+    [InlineData("  en  ", "crnn-en-v5")]
+    public void ARegionedOrUnderscoredCode_ReachesTheRecognizerOfItsLanguage(string code, string alias)
     {
-        using var capture = new TraceCapture();
+        OcrRecognitionModelRegistry.Default.ResolveForLanguage(code).AliasName.Should().Be(alias);
+    }
 
-        var model = OcrRecognitionModelRegistry.Default.ResolveForLanguage("xx-unsupported-test");
+    // Serbian is written in two scripts and the script, not the region, picks the recognizer: the bare code and the
+    // Cyrillic tag are the Cyrillic recognizer's, the Latin tag is the Latin recognizer's (its dictionary holds
+    // Croatian's č ć đ š ž, which are Serbian Latin's too).
+    [Theory]
+    [InlineData("sr", "crnn-cyrillic-v5")]
+    [InlineData("sr-RS", "crnn-cyrillic-v5")]
+    [InlineData("sr-Cyrl", "crnn-cyrillic-v5")]
+    [InlineData("sr-Cyrl-RS", "crnn-cyrillic-v5")]
+    [InlineData("sr-Latn", "crnn-latin-v5")]
+    [InlineData("sr_Latn", "crnn-latin-v5")]
+    [InlineData("sr-Latn-RS", "crnn-latin-v5")]
+    [InlineData("sr_RS@latin", "crnn-latin-v5")]
+    [InlineData("sr_RS.UTF-8@latin", "crnn-latin-v5")]
+    [InlineData("sr_RS@cyrillic", "crnn-cyrillic-v5")]
+    public void TheScriptOfALanguageWrittenInTwo_PicksTheRecognizer(string code, string alias)
+    {
+        OcrRecognitionModelRegistry.Default.ResolveForLanguage(code).AliasName.Should().Be(alias);
+    }
 
-        model.AliasName.Should().Be("crnn-en-v5");
-        capture.Messages.Should().Contain(m => m.Contains("xx-unsupported-test") && m.Contains("English"),
-            "a recognizer that cannot read the script produces confident garbage, so the substitution " +
-            "must be visible to whoever is looking at the output");
+    // A code that names a script its language's recognizer does not read is refused, not read with that recognizer:
+    // "bs" is the Latin recognizer's, and Bosnian in Cyrillic would come back as text in letters it has no dictionary for.
+    [Theory]
+    [InlineData("bs-Cyrl")]
+    [InlineData("mk-Latn")]
+    [InlineData("ru-Latn")]
+    [InlineData("hi-Latn")]
+    [InlineData("zh-Latn")]
+    [InlineData("ja-Latn")]
+    [InlineData("ar-Latn")]
+    public void ACodeNamingAScriptItsLanguagesRecognizerDoesNotRead_IsRefused(string code)
+    {
+        OcrRecognitionModelRegistry.Default.Invoking(r => r.ResolveForLanguage(code))
+            .Should().Throw<UnsupportedOcrLanguageException>().Which.LanguageCode.Should().Be(code);
     }
 
     [Theory]
+    [InlineData("en-Latn", "crnn-en-v5")]
+    [InlineData("de-Latn-DE", "crnn-latin-v5")]
+    [InlineData("ru-Cyrl", "crnn-cyrillic-v5")]
+    [InlineData("mk-Cyrl-MK", "crnn-cyrillic-v5")]
+    [InlineData("ko-Kore", "crnn-korean-v5")]
+    [InlineData("ja-Jpan", "crnn-chinese-v5")]
+    [InlineData("zh-Hant-TW", "crnn-chinese-v5")]
+    [InlineData("ar-Arab", "crnn-arabic-v5")]
+    [InlineData("th_TH.UTF-8", "crnn-thai-v5")]
+    public void ACodeNamingTheScriptItsRecognizerReads_ReachesIt(string code, string alias)
+    {
+        OcrRecognitionModelRegistry.Default.ResolveForLanguage(code).AliasName.Should().Be(alias);
+    }
+
+    [Theory]
+    [InlineData("cmn", "crnn-chinese-v5")]
+    [InlineData("yue", "crnn-chinese-v5")]
+    [InlineData("cmn-Hans-CN", "crnn-chinese-v5")]
+    public void ACodeThatNamesOneSupportedLanguageUnderAnotherCode_ReachesItsRecognizer(string code, string alias)
+    {
+        OcrRecognitionModelRegistry.Default.ResolveForLanguage(code).AliasName.Should().Be(alias);
+    }
+
+    // The English recognizer reads another script's text as confident garbage and a caller cannot tell from the
+    // result, so a language without a model is refused instead of being read with it. "vi" and "uz" are Latin-script
+    // languages whose letters the dictionary lacks (Vietnamese tone marks, Uzbek's ʻ). "sh" and "mo" are legacy codes
+    // with two readings each; "iw" is Hebrew's former code, and Hebrew has no model.
+    [Theory]
+    [InlineData("he")]
+    [InlineData("iw")]
+    [InlineData("kn")]
+    [InlineData("ml")]
+    [InlineData("bn")]
+    [InlineData("km")]
     [InlineData("vi")]
     [InlineData("uz")]
-    public void ALatinScriptLanguage_WhoseLettersTheDictionaryLacks_IsNotClaimed(string code)
+    [InlineData("uz-Latn")]
+    [InlineData("uz-Cyrl")]
+    [InlineData("sh")]
+    [InlineData("mo")]
+    [InlineData("vi_VN")]
+    [InlineData("xx-unsupported-test")]
+    public void ALanguageWithoutAModel_IsRefused_NotReadByAnotherRecognizer(string code)
     {
-        using var capture = new TraceCapture();
+        var act = () => OcrRecognitionModelRegistry.Default.ResolveForLanguage(code);
 
-        OcrRecognitionModelRegistry.Default.ResolveForLanguage(code).AliasName.Should().Be("crnn-en-v5");
-
-        capture.Messages.Should().Contain(m => m.Contains($"'{code}'"));
+        var thrown = act.Should().Throw<UnsupportedOcrLanguageException>().Which;
+        thrown.LanguageCode.Should().Be(code, "the message names the code as the caller wrote it");
+        thrown.SupportedLanguages.Should().Contain(["en", "ko", "sr", "sr-latn"],
+            "what the caller does next is pick a code that works, so the exception carries the list");
+        thrown.Message.Should().Contain($"'{code}'").And.Contain("ko").And.Contain("\"en\"");
+        thrown.Should().BeAssignableTo<ArgumentException>();
     }
 
     [Theory]
     [InlineData("en")]
-    [InlineData("ko-KR")]
-    [InlineData("tr")]
-    public void ASupportedLanguage_ResolvesWithoutAWarning(string code)
+    [InlineData("default")]
+    public void TheEnglishRecognizer_IsReachedByAskingForItAndNotByAskingForSomethingElse(string code)
     {
-        using var capture = new TraceCapture();
+        OcrRecognitionModelRegistry.Default.ResolveForLanguage(code).AliasName.Should().Be("crnn-en-v5");
+    }
 
-        OcrRecognitionModelRegistry.Default.ResolveForLanguage(code);
+    [Fact]
+    public void TryResolveForLanguage_AnswersFalseForALanguageWithoutAModel_AndNeverSubstitutes()
+    {
+        var registry = OcrRecognitionModelRegistry.Default;
 
-        capture.Messages.Should().NotContain(m => m.Contains($"'{code}'"));
+        registry.TryResolveForLanguage("ko_KR", out var korean).Should().BeTrue();
+        korean!.AliasName.Should().Be("crnn-korean-v5");
+
+        registry.TryResolveForLanguage("km", out var none).Should().BeFalse();
+        none.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ABlankLanguage_IsAnArgumentError(string code)
+    {
+        var registry = OcrRecognitionModelRegistry.Default;
+
+        registry.Invoking(r => r.ResolveForLanguage(code)).Should().Throw<ArgumentException>();
+        registry.Invoking(r => r.TryResolveForLanguage(code, out _)).Should().Throw<ArgumentException>();
     }
 
     [Fact]
     public void SupportedLanguages_ListTheNewlyMappedCodes()
     {
         OcrRecognitionModelRegistry.Default.GetSupportedLanguages()
-            .Should().Contain(["ja", "tr", "hu", "nb"]);
-    }
-
-    /// <summary>Collects trace warnings raised on this thread's watch; other tests' traces are filtered by content.</summary>
-    private sealed class TraceCapture : TraceListener
-    {
-        private readonly List<string> _messages = [];
-
-        public TraceCapture() => Trace.Listeners.Add(this);
-
-        public IReadOnlyList<string> Messages
-        {
-            get
-            {
-                lock (_messages)
-                {
-                    return [.. _messages];
-                }
-            }
-        }
-
-        public override void Write(string? message) => Record(message);
-
-        public override void WriteLine(string? message) => Record(message);
-
-        public override void TraceEvent(TraceEventCache? eventCache, string source, TraceEventType eventType, int id, string? message)
-            => Record(message);
-
-        public override void TraceEvent(TraceEventCache? eventCache, string source, TraceEventType eventType, int id, string? format, params object?[]? args)
-            => Record(args is { Length: > 0 } && format is not null ? string.Format(System.Globalization.CultureInfo.InvariantCulture, format, args) : format);
-
-        private void Record(string? message)
-        {
-            if (message is null)
-            {
-                return;
-            }
-
-            lock (_messages)
-            {
-                _messages.Add(message);
-            }
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            Trace.Listeners.Remove(this);
-            base.Dispose(disposing);
-        }
+            .Should().Contain(["ja", "tr", "hu", "nb", "sr-latn"]);
     }
 }

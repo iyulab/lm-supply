@@ -9,7 +9,8 @@ namespace LMSupply.Ocr;
 /// </summary>
 /// <remarks>
 /// A delete removes the language's recognizer and keeps the detection model every language shares; languages of one script
-/// share their recognizer, so deleting one leaves the others not available offline either.
+/// share their recognizer, so deleting one leaves the others not available offline either. A language that has no model is refused
+/// by the queries and the download with <see cref="UnsupportedOcrLanguageException"/>, and has nothing to delete.
 /// </remarks>
 public sealed class OcrArtifacts : IModelArtifacts
 {

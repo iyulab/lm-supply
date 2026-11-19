@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace LMSupply.Ocr.Models;
 
@@ -56,30 +57,57 @@ public sealed class OcrRecognitionModelRegistry : ModelRegistryBase<RecognitionM
     /// <summary>
     /// Resolves a recognition model for a specific language code.
     /// Always returns the model with its primary alias (e.g., "crnn-korean-v5" rather than "ko").
-    /// Falls back to English if the language is not found, and says so through a trace warning -
-    /// the English recognizer cannot read another script, so its output would otherwise pass for a
-    /// result. <see cref="GetSupportedLanguages"/> lists the codes that resolve without falling back.
-    /// Supports region codes (e.g., "en-US" resolves via "en").
+    /// The code is read as a BCP 47 tag or a POSIX locale name: <c>_</c> and <c>-</c> separate subtags, case is
+    /// ignored, a script subtag counts before the region (<c>sr-Latn-RS</c> is Latin letters, <c>sr</c> Cyrillic) and
+    /// the regionless language is the last resort (<c>en-US</c> resolves via <c>en</c>) - but only when its recognizer reads the script
+    /// the code names (<c>bs-Cyrl</c> is refused: <c>bs</c> is the Latin recognizer's).
+    /// A language with no recognition model is refused: another script's recognizer would still return text, so it is
+    /// never substituted. Pass <c>"en"</c> to read with the English recognizer on purpose.
+    /// <see cref="GetSupportedLanguages"/> lists the codes that have a model.
     /// </summary>
-    /// <param name="languageCode">ISO language code (e.g., "en", "ko", "zh-cn").</param>
+    /// <param name="languageCode">Language code (e.g., "en", "ko", "zh-cn", "ko_KR", "sr-Latn").</param>
     /// <returns>The recognition model for the specified language.</returns>
+    /// <exception cref="ArgumentException"><paramref name="languageCode"/> is null or white space.</exception>
+    /// <exception cref="UnsupportedOcrLanguageException">No recognition model covers the language.</exception>
     public RecognitionModelInfo ResolveForLanguage(string languageCode)
     {
-        // Try direct lookup (handles "en", "ko", "zh", "zh-cn", "zh-tw", etc.)
-        if (TryResolve(languageCode, out var model) && model is not null)
-            return FindPrimaryModel(model);
+        if (TryResolveForLanguage(languageCode, out var model))
+            return model;
 
-        // Try just the language part (e.g., "en" from "en-US")
-        var langPart = languageCode.Split('-')[0];
-        if (TryResolve(langPart, out model) && model is not null)
-            return FindPrimaryModel(model);
+        throw new UnsupportedOcrLanguageException(languageCode, GetSupportedLanguages().ToList());
+    }
 
-        // Fall back to English - visibly. A recognizer that cannot read the script still returns text.
-        Trace.TraceWarning(
-            $"[OcrRecognitionModelRegistry] No recognition model for language '{languageCode}'; using the English " +
-            "recognizer instead. Text in another script will not be read correctly. " +
-            "GetSupportedLanguages() lists the codes that have a model.");
-        return Resolve("crnn-en-v5");
+    /// <summary>
+    /// Like <see cref="ResolveForLanguage"/>, but answers <see langword="false"/> instead of throwing when no
+    /// recognition model covers the language.
+    /// </summary>
+    /// <param name="languageCode">Language code, as for <see cref="ResolveForLanguage"/>.</param>
+    /// <param name="model">The recognition model with its primary alias, when the result is <see langword="true"/>.</param>
+    /// <exception cref="ArgumentException"><paramref name="languageCode"/> is null or white space.</exception>
+    public bool TryResolveForLanguage(string languageCode, [NotNullWhen(true)] out RecognitionModelInfo? model)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageCode);
+
+        var script = OcrLanguageCode.ScriptOf(languageCode);
+        foreach (var candidate in OcrLanguageCode.Candidates(languageCode))
+        {
+            if (!TryResolve(candidate, out var found) || found is null)
+                continue;
+
+            var primary = FindPrimaryModel(found);
+
+            // A code that names its script ("bs-Cyrl") is not read by a language-only entry of the other script ("bs" is the
+            // Latin recognizer's): the recognizer would still return text, in letters it has no dictionary for.
+            if (script is not null && !OcrLanguageCode.NamesScript(candidate, script)
+                && !OcrLanguageCode.ReadsScript(primary.AliasName, script))
+                continue;
+
+            model = primary;
+            return true;
+        }
+
+        model = null;
+        return false;
     }
 
     /// <summary>

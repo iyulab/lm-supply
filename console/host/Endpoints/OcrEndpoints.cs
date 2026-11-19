@@ -77,9 +77,12 @@ public static class OcrEndpoints
                     Id = ApiHelper.GenerateId("ocr"),
                     Model = $"{scope.Model.DetectionModelId}+{scope.Model.RecognitionModelId}",
                     FullText = result.FullText,
-                    Pages = [new Infrastructure.Vision.OcrPage { Width = imageWidth, Height = imageHeight, Blocks = blocks }],
-                    DetectedLanguages = [new DetectedLanguage { LanguageCode = language, Confidence = 1.0f }]
+                    Pages = [new Infrastructure.Vision.OcrPage { Width = imageWidth, Height = imageHeight, Blocks = blocks }]
                 });
+            }
+            catch (LMSupply.Ocr.UnsupportedOcrLanguageException ex)
+            {
+                return ApiHelper.Error(ex.Message);
             }
             catch (Exception ex)
             {

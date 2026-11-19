@@ -214,13 +214,11 @@ public class ModelRegistryTests
     }
 
     [Fact]
-    public void RecognitionRegistry_ResolveForLanguage_UnknownLanguage_ShouldFallbackToEnglish()
+    public void RecognitionRegistry_ResolveForLanguage_UnknownLanguage_IsRefused()
     {
-        // Act
-        var model = OcrRecognitionModelRegistry.Default.ResolveForLanguage("unknown");
+        var act = () => OcrRecognitionModelRegistry.Default.ResolveForLanguage("unknown");
 
-        // Assert
-        model.LanguageCodes.Should().Contain("en");
+        act.Should().Throw<UnsupportedOcrLanguageException>();
     }
 
     [Fact]
