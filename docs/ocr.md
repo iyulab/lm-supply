@@ -64,7 +64,7 @@ await using var chinese = await LocalOcr.LoadForLanguageAsync("zh");
 // Or specify the recognition model explicitly
 await using var explicitModel = await LocalOcr.LoadAsync(
     detectionModel: "default",
-    recognitionModel: "crnn-chinese-v3");
+    recognitionModel: "crnn-chinese-v5");
 ```
 
 ### Which languages can be recognized
@@ -94,17 +94,19 @@ its output for such text would otherwise look like a result.
 | Alias | Languages |
 |-------|-----------|
 | `default` | English |
-| `crnn-en-v3` | English |
-| `crnn-korean-v3` | Korean |
-| `crnn-chinese-v3` | Chinese (Simplified/Traditional), Japanese |
-| `crnn-latin-v3` | Spanish, French, German, Italian, Portuguese, Dutch, Polish, Czech, Slovak, Turkish, Hungarian, Nordic, Baltic, Indonesian, Malay, Filipino, and more |
-| `crnn-arabic-v3` | Arabic, Urdu, Persian |
-| `crnn-cyrillic-v3` | Russian, Ukrainian, Bulgarian, Belarusian, Serbian, Macedonian |
-| `crnn-devanagari-v3` | Hindi, Marathi, Nepali, Sanskrit |
-| `crnn-greek-v3` | Greek |
-| `crnn-thai-v3` | Thai |
-| `crnn-tamil-v3` | Tamil |
-| `crnn-telugu-v3` | Telugu |
+| `crnn-en-v5` | English |
+| `crnn-korean-v5` | Korean |
+| `crnn-chinese-v5` | Chinese (Simplified/Traditional), Japanese |
+| `crnn-latin-v5` | Spanish, French, German, Italian, Portuguese, Dutch, Polish, Czech, Slovak, Turkish, Hungarian, Nordic, Baltic, Indonesian, Malay, Filipino, Latvian, Welsh, Afrikaans, and more |
+| `crnn-arabic-v5` | Arabic, Urdu, Persian |
+| `crnn-cyrillic-v5` | Russian, Ukrainian, Bulgarian, Belarusian, Serbian, Macedonian |
+| `crnn-devanagari-v5` | Hindi, Marathi, Nepali, Sanskrit |
+| `crnn-greek-v5` | Greek |
+| `crnn-thai-v5` | Thai |
+| `crnn-tamil-v5` | Tamil |
+| `crnn-telugu-v5` | Telugu |
+
+The suffix names the PP-OCR generation of the model behind the alias.
 
 You can also use any HuggingFace PaddleOCR-compatible model by its full repository ID:
 

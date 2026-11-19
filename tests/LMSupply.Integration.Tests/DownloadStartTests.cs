@@ -132,8 +132,8 @@ public class DownloadStartTests
 
     [Theory]
     [InlineData("default", null)]           // Default detection + default recognition
-    [InlineData("default", "crnn-en-v3")]   // English recognition
-    [InlineData("default", "crnn-korean-v3")] // Korean recognition
+    [InlineData("default", "crnn-en-v5")]   // English recognition
+    [InlineData("default", "crnn-korean-v5")] // Korean recognition
     public async Task Ocr_DownloadStarts_ForAlias(string detectionModel, string? recognitionModel)
     {
         await VerifyDownloadStartsAsync(

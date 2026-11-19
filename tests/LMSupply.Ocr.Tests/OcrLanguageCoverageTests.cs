@@ -22,7 +22,7 @@ public class OcrLanguageCoverageTests
     [InlineData("ja-JP")]
     public void Japanese_ReachesTheChineseRecognizer_WhoseDictionaryHoldsKana(string code)
     {
-        OcrRecognitionModelRegistry.Default.ResolveForLanguage(code).Subfolder.Should().Be("languages/chinese");
+        OcrRecognitionModelRegistry.Default.ResolveForLanguage(code).AliasName.Should().Be("crnn-chinese-v5");
     }
 
     [Theory]
@@ -45,9 +45,45 @@ public class OcrLanguageCoverageTests
     [InlineData("fil-PH")]
     [InlineData("nb-NO")]
     [InlineData("nn")]
+    [InlineData("lv")]
+    [InlineData("cy")]
+    [InlineData("af")]
     public void LatinScriptLanguages_ReachTheLatinRecognizer(string code)
     {
-        OcrRecognitionModelRegistry.Default.ResolveForLanguage(code).Subfolder.Should().Be("languages/latin");
+        OcrRecognitionModelRegistry.Default.ResolveForLanguage(code).AliasName.Should().Be("crnn-latin-v5");
+    }
+
+    [Fact]
+    public void EveryLanguageCode_ReachesTheRecognizerThatOwnsIt()
+    {
+        var registry = OcrRecognitionModelRegistry.Default;
+        var primaries = registry.GetAvailableModels()
+            .Where(m => m.AliasName.StartsWith("crnn-", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        primaries.Should().HaveCountGreaterThan(1);
+
+        foreach (var primary in primaries)
+        {
+            foreach (var code in primary.LanguageCodes)
+            {
+                registry.ResolveForLanguage(code).AliasName.Should().Be(primary.AliasName,
+                    $"'{code}' is a language of {primary.AliasName}, and models that live in a repository of their own have no subfolder to tell them apart by");
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData("ta", "crnn-tamil-v5")]
+    [InlineData("te", "crnn-telugu-v5")]
+    [InlineData("hi", "crnn-devanagari-v5")]
+    [InlineData("ar", "crnn-arabic-v5")]
+    [InlineData("ru", "crnn-cyrillic-v5")]
+    [InlineData("sr", "crnn-cyrillic-v5")]
+    [InlineData("th", "crnn-thai-v5")]
+    [InlineData("el", "crnn-greek-v5")]
+    public void ALanguage_ReachesItsOwnRecognizer(string code, string alias)
+    {
+        OcrRecognitionModelRegistry.Default.ResolveForLanguage(code).AliasName.Should().Be(alias);
     }
 
     [Fact]
@@ -57,10 +93,22 @@ public class OcrLanguageCoverageTests
 
         var model = OcrRecognitionModelRegistry.Default.ResolveForLanguage("xx-unsupported-test");
 
-        model.Subfolder.Should().Be("languages/english");
+        model.AliasName.Should().Be("crnn-en-v5");
         capture.Messages.Should().Contain(m => m.Contains("xx-unsupported-test") && m.Contains("English"),
             "a recognizer that cannot read the script produces confident garbage, so the substitution " +
             "must be visible to whoever is looking at the output");
+    }
+
+    [Theory]
+    [InlineData("vi")]
+    [InlineData("uz")]
+    public void ALatinScriptLanguage_WhoseLettersTheDictionaryLacks_IsNotClaimed(string code)
+    {
+        using var capture = new TraceCapture();
+
+        OcrRecognitionModelRegistry.Default.ResolveForLanguage(code).AliasName.Should().Be("crnn-en-v5");
+
+        capture.Messages.Should().Contain(m => m.Contains($"'{code}'"));
     }
 
     [Theory]

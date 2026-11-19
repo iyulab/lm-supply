@@ -2,6 +2,13 @@ namespace LMSupply.Ocr.Models;
 
 /// <summary>
 /// Provides definitions for built-in OCR text recognition models.
+/// A primary alias ends in the PP-OCR generation of the model behind it; all of them are PP-OCRv5.
+/// English, Korean, Chinese/Japanese, Greek and Thai come from the conversion repository named by <c>DefaultRepoId</c> with a
+/// <c>dict.txt</c>, each dictionary byte-identical to the PaddleOCR dictionary of that generation. Arabic, Cyrillic, Devanagari,
+/// Latin, Tamil and Telugu come from PaddleOCR's own PP-OCRv5 repositories, whose dictionary is the <c>character_dict</c> list of
+/// <c>inference.yml</c>: for Arabic, Devanagari, Tamil and Telugu the conversion repository serves only PP-OCRv3 models, and its
+/// Latin and East Slavic ones carry the first PP-OCRv5 dictionaries (Latin 502 entries, now 836; East Slavic lacks the letters
+/// Serbian and Macedonian add, which the Cyrillic model has).
 /// Each model is registered under its primary alias, and additional entries
 /// are created for each supported language code so that language codes
 /// work directly as registry lookups.
@@ -15,10 +22,10 @@ internal static class DefaultRecognitionModels
     /// <summary>
     /// PaddleOCR English Recognition (CRNN).
     /// </summary>
-    public static RecognitionModelInfo CrnnEnV3 { get; } = new(
+    public static RecognitionModelInfo CrnnEnV5 { get; } = new(
         RepoId: DefaultRepoId,
-        AliasName: "crnn-en-v3",
-        DisplayName: "PaddleOCR English Recognition",
+        AliasName: "crnn-en-v5",
+        DisplayName: "PP-OCRv5 English Recognition",
         ModelFile: "rec.onnx",
         DictFile: "dict.txt",
         LanguageCodes: ["en"])
@@ -30,10 +37,10 @@ internal static class DefaultRecognitionModels
     /// <summary>
     /// PaddleOCR Korean Recognition (CRNN).
     /// </summary>
-    public static RecognitionModelInfo CrnnKoreanV3 { get; } = new(
+    public static RecognitionModelInfo CrnnKoreanV5 { get; } = new(
         RepoId: DefaultRepoId,
-        AliasName: "crnn-korean-v3",
-        DisplayName: "PaddleOCR Korean Recognition",
+        AliasName: "crnn-korean-v5",
+        DisplayName: "PP-OCRv5 Korean Recognition",
         ModelFile: "rec.onnx",
         DictFile: "dict.txt",
         LanguageCodes: ["ko"])
@@ -46,10 +53,10 @@ internal static class DefaultRecognitionModels
     /// PaddleOCR Chinese/Japanese Recognition (CRNN). One model reads both: its dictionary carries
     /// hiragana and katakana alongside the CJK ideographs, and the upstream model card lists Japanese.
     /// </summary>
-    public static RecognitionModelInfo CrnnChineseV3 { get; } = new(
+    public static RecognitionModelInfo CrnnChineseV5 { get; } = new(
         RepoId: DefaultRepoId,
-        AliasName: "crnn-chinese-v3",
-        DisplayName: "PaddleOCR Chinese/Japanese Recognition",
+        AliasName: "crnn-chinese-v5",
+        DisplayName: "PP-OCRv5 Chinese/Japanese Recognition",
         ModelFile: "rec.onnx",
         DictFile: "dict.txt",
         LanguageCodes: ["zh", "zh-cn", "zh-tw", "ja"])
@@ -60,22 +67,21 @@ internal static class DefaultRecognitionModels
 
     /// <summary>
     /// PaddleOCR Latin Recognition (CRNN).
-    /// Covers: la, es, fr, de, it, pt, nl, pl, ro, cs, sv, da, no, fi.
+    /// Covers: la, es, fr, de, it, pt, nl, pl, ro, cs, sv, da, no, fi, lv, cy, af and more (see the codes below).
     /// </summary>
-    public static RecognitionModelInfo CrnnLatinV3 { get; } = new(
-        RepoId: DefaultRepoId,
-        AliasName: "crnn-latin-v3",
-        DisplayName: "PaddleOCR Latin Recognition",
-        ModelFile: "rec.onnx",
-        DictFile: "dict.txt",
+    public static RecognitionModelInfo CrnnLatinV5 { get; } = new(
+        RepoId: "PaddlePaddle/latin_PP-OCRv5_mobile_rec_onnx",
+        AliasName: "crnn-latin-v5",
+        DisplayName: "PP-OCRv5 Latin Recognition",
+        ModelFile: "inference.onnx",
+        DictFile: "inference.yml",
         // Every code below is backed by the model's dictionary: it holds each of that language's
-        // letters beyond ASCII (Turkish ş ğ ı, Hungarian ő ű, Icelandic þ ð, ...). Latvian, Welsh,
-        // Afrikaans, Uzbek and Vietnamese are left out - the dictionary lacks some of their letters.
+        // letters beyond ASCII (Turkish ş ğ ı, Hungarian ő ű, Icelandic þ ð, Latvian ā ē ģ ķ ļ ņ ...). Uzbek and
+        // Vietnamese are left out - the dictionary lacks the Latin ʻ of Uzbek and the tone-marked vowels of Vietnamese.
         // nb/nn/fil are the codes an OS locale reports for Norwegian and Filipino.
         LanguageCodes: ["la", "es", "fr", "de", "it", "pt", "nl", "pl", "ro", "cs", "sk", "sv", "da", "no", "nb", "nn",
-            "fi", "is", "et", "lt", "hu", "hr", "bs", "sl", "sq", "ga", "tr", "id", "ms", "sw", "tl", "fil"])
+            "fi", "is", "et", "lt", "lv", "hu", "hr", "bs", "sl", "sq", "ga", "tr", "id", "ms", "sw", "tl", "fil", "cy", "af"])
     {
-        Subfolder = "languages/latin",
         License = "Apache-2.0"
     };
 
@@ -83,15 +89,14 @@ internal static class DefaultRecognitionModels
     /// PaddleOCR Arabic Recognition (CRNN).
     /// Covers: ar, ur, fa.
     /// </summary>
-    public static RecognitionModelInfo CrnnArabicV3 { get; } = new(
-        RepoId: DefaultRepoId,
-        AliasName: "crnn-arabic-v3",
-        DisplayName: "PaddleOCR Arabic Recognition",
-        ModelFile: "rec.onnx",
-        DictFile: "dict.txt",
+    public static RecognitionModelInfo CrnnArabicV5 { get; } = new(
+        RepoId: "PaddlePaddle/arabic_PP-OCRv5_mobile_rec_onnx",
+        AliasName: "crnn-arabic-v5",
+        DisplayName: "PP-OCRv5 Arabic Recognition",
+        ModelFile: "inference.onnx",
+        DictFile: "inference.yml",
         LanguageCodes: ["ar", "ur", "fa"])
     {
-        Subfolder = "languages/arabic",
         License = "Apache-2.0"
     };
 
@@ -99,15 +104,14 @@ internal static class DefaultRecognitionModels
     /// PaddleOCR Cyrillic/Slavic Recognition (CRNN).
     /// Covers: ru, uk, bg, be, sr, mk.
     /// </summary>
-    public static RecognitionModelInfo CrnnCyrillicV3 { get; } = new(
-        RepoId: DefaultRepoId,
-        AliasName: "crnn-cyrillic-v3",
-        DisplayName: "PaddleOCR Cyrillic/Slavic Recognition",
-        ModelFile: "rec.onnx",
-        DictFile: "dict.txt",
+    public static RecognitionModelInfo CrnnCyrillicV5 { get; } = new(
+        RepoId: "PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec_onnx",
+        AliasName: "crnn-cyrillic-v5",
+        DisplayName: "PP-OCRv5 Cyrillic/Slavic Recognition",
+        ModelFile: "inference.onnx",
+        DictFile: "inference.yml",
         LanguageCodes: ["ru", "uk", "bg", "be", "sr", "mk"])
     {
-        Subfolder = "languages/eslav",
         License = "Apache-2.0"
     };
 
@@ -115,25 +119,24 @@ internal static class DefaultRecognitionModels
     /// PaddleOCR Devanagari Recognition (CRNN).
     /// Covers: hi, mr, ne, sa.
     /// </summary>
-    public static RecognitionModelInfo CrnnDevanagariV3 { get; } = new(
-        RepoId: DefaultRepoId,
-        AliasName: "crnn-devanagari-v3",
-        DisplayName: "PaddleOCR Devanagari Recognition",
-        ModelFile: "rec.onnx",
-        DictFile: "dict.txt",
+    public static RecognitionModelInfo CrnnDevanagariV5 { get; } = new(
+        RepoId: "PaddlePaddle/devanagari_PP-OCRv5_mobile_rec_onnx",
+        AliasName: "crnn-devanagari-v5",
+        DisplayName: "PP-OCRv5 Devanagari Recognition",
+        ModelFile: "inference.onnx",
+        DictFile: "inference.yml",
         LanguageCodes: ["hi", "mr", "ne", "sa"])
     {
-        Subfolder = "languages/hindi",
         License = "Apache-2.0"
     };
 
     /// <summary>
     /// PaddleOCR Greek Recognition (CRNN).
     /// </summary>
-    public static RecognitionModelInfo CrnnGreekV3 { get; } = new(
+    public static RecognitionModelInfo CrnnGreekV5 { get; } = new(
         RepoId: DefaultRepoId,
-        AliasName: "crnn-greek-v3",
-        DisplayName: "PaddleOCR Greek Recognition",
+        AliasName: "crnn-greek-v5",
+        DisplayName: "PP-OCRv5 Greek Recognition",
         ModelFile: "rec.onnx",
         DictFile: "dict.txt",
         LanguageCodes: ["el"])
@@ -145,10 +148,10 @@ internal static class DefaultRecognitionModels
     /// <summary>
     /// PaddleOCR Thai Recognition (CRNN).
     /// </summary>
-    public static RecognitionModelInfo CrnnThaiV3 { get; } = new(
+    public static RecognitionModelInfo CrnnThaiV5 { get; } = new(
         RepoId: DefaultRepoId,
-        AliasName: "crnn-thai-v3",
-        DisplayName: "PaddleOCR Thai Recognition",
+        AliasName: "crnn-thai-v5",
+        DisplayName: "PP-OCRv5 Thai Recognition",
         ModelFile: "rec.onnx",
         DictFile: "dict.txt",
         LanguageCodes: ["th"])
@@ -160,30 +163,28 @@ internal static class DefaultRecognitionModels
     /// <summary>
     /// PaddleOCR Tamil Recognition (CRNN).
     /// </summary>
-    public static RecognitionModelInfo CrnnTamilV3 { get; } = new(
-        RepoId: DefaultRepoId,
-        AliasName: "crnn-tamil-v3",
-        DisplayName: "PaddleOCR Tamil Recognition",
-        ModelFile: "rec.onnx",
-        DictFile: "dict.txt",
+    public static RecognitionModelInfo CrnnTamilV5 { get; } = new(
+        RepoId: "PaddlePaddle/ta_PP-OCRv5_mobile_rec_onnx",
+        AliasName: "crnn-tamil-v5",
+        DisplayName: "PP-OCRv5 Tamil Recognition",
+        ModelFile: "inference.onnx",
+        DictFile: "inference.yml",
         LanguageCodes: ["ta"])
     {
-        Subfolder = "languages/tamil",
         License = "Apache-2.0"
     };
 
     /// <summary>
     /// PaddleOCR Telugu Recognition (CRNN).
     /// </summary>
-    public static RecognitionModelInfo CrnnTeluguV3 { get; } = new(
-        RepoId: DefaultRepoId,
-        AliasName: "crnn-telugu-v3",
-        DisplayName: "PaddleOCR Telugu Recognition",
-        ModelFile: "rec.onnx",
-        DictFile: "dict.txt",
+    public static RecognitionModelInfo CrnnTeluguV5 { get; } = new(
+        RepoId: "PaddlePaddle/te_PP-OCRv5_mobile_rec_onnx",
+        AliasName: "crnn-telugu-v5",
+        DisplayName: "PP-OCRv5 Telugu Recognition",
+        ModelFile: "inference.onnx",
+        DictFile: "inference.yml",
         LanguageCodes: ["te"])
     {
-        Subfolder = "languages/telugu",
         License = "Apache-2.0"
     };
 
@@ -200,22 +201,22 @@ internal static class DefaultRecognitionModels
         // All primary models in registration order
         RecognitionModelInfo[] primaryModels =
         [
-            CrnnEnV3,
-            CrnnKoreanV3,
-            CrnnChineseV3,
-            CrnnLatinV3,
-            CrnnArabicV3,
-            CrnnCyrillicV3,
-            CrnnDevanagariV3,
-            CrnnGreekV3,
-            CrnnThaiV3,
-            CrnnTamilV3,
-            CrnnTeluguV3,
+            CrnnEnV5,
+            CrnnKoreanV5,
+            CrnnChineseV5,
+            CrnnLatinV5,
+            CrnnArabicV5,
+            CrnnCyrillicV5,
+            CrnnDevanagariV5,
+            CrnnGreekV5,
+            CrnnThaiV5,
+            CrnnTamilV5,
+            CrnnTeluguV5,
         ];
 
         var result = new List<RecognitionModelInfo>();
 
-        // Register primary aliases first (crnn-*-v3) so that the base class
+        // Register primary aliases first (crnn-*-v5) so that the base class
         // deduplication picks these as the canonical entries in GetAvailableModels().
         foreach (var model in primaryModels)
         {
@@ -223,7 +224,7 @@ internal static class DefaultRecognitionModels
         }
 
         // "default" alias points to English
-        result.Add(CrnnEnV3 with { AliasName = "default" });
+        result.Add(CrnnEnV5 with { AliasName = "default" });
 
         // Register language code aliases (en, ko, zh, etc.)
         foreach (var model in primaryModels)

@@ -365,8 +365,8 @@ public class OcrFunctionalTests
     public void L_GetRecognitionModelForLanguage_FallsBackToEnglish()
     {
         // Japanese is read by the Chinese/Japanese model (its dictionary carries kana); a language no model lists falls back to English
-        OcrRecognitionModelRegistry.Default.ResolveForLanguage("ja").AliasName.Should().Be("crnn-chinese-v3");
-        OcrRecognitionModelRegistry.Default.ResolveForLanguage("km").AliasName.Should().Be("crnn-en-v3",
+        OcrRecognitionModelRegistry.Default.ResolveForLanguage("ja").AliasName.Should().Be("crnn-chinese-v5");
+        OcrRecognitionModelRegistry.Default.ResolveForLanguage("km").AliasName.Should().Be("crnn-en-v5",
             "unsupported language should fall back to English recognition");
     }
 
@@ -382,7 +382,7 @@ public class OcrFunctionalTests
         var model = OcrRecognitionModelRegistry.Default.ResolveForLanguage(language);
 
         model.Should().NotBeNull($"language '{language}' should resolve to a valid model");
-        model.AliasName.Should().Be("crnn-latin-v3",
+        model.AliasName.Should().Be("crnn-latin-v5",
             $"Latin-script language '{language}' should map to the Latin recognition model");
     }
 

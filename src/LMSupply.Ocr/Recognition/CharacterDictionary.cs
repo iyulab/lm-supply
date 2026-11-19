@@ -12,7 +12,7 @@ internal sealed class CharacterDictionary
     /// <summary>
     /// Creates a new character dictionary from a dictionary file.
     /// </summary>
-    /// <param name="dictPath">Path to the dictionary file (one character per line).</param>
+    /// <param name="dictPath">Path to the dictionary file: one character per line, or a PaddleOCR <c>inference.yml</c> whose <c>character_dict</c> list is read.</param>
     /// <param name="useSpace">Whether to include space character.</param>
     public CharacterDictionary(string dictPath, bool useSpace = true)
     {
@@ -23,8 +23,8 @@ internal sealed class CharacterDictionary
         _characters.Add("<blank>");
         _blankIndex = 0;
 
-        // Load characters from dictionary file
-        var lines = File.ReadAllLines(dictPath);
+        // Load characters from the dictionary file: one per line, or the character_dict list of a PaddleOCR inference.yml
+        IReadOnlyList<string> lines = IsInferenceConfig(dictPath) ? PaddleInferenceConfig.ReadCharacterDictionary(dictPath) : File.ReadAllLines(dictPath);
         foreach (var line in lines)
         {
             if (!string.IsNullOrEmpty(line))
@@ -43,6 +43,9 @@ internal sealed class CharacterDictionary
             _charToIndex[" "] = index;
         }
     }
+
+    private static bool IsInferenceConfig(string path) =>
+        path.EndsWith(".yml", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets the number of characters in the dictionary (including blank).

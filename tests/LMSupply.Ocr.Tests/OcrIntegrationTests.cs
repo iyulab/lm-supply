@@ -277,7 +277,7 @@ public class OcrIntegrationTests : IDisposable
     public async Task ExplicitModelAlias_ShouldLoadCorrectModel()
     {
         // Arrange & Act
-        await using var ocr = await LocalOcr.LoadAsync(detectionModel: "dbnet-v3", recognitionModel: "crnn-en-v3", cancellationToken: TestContext.Current.CancellationToken);
+        await using var ocr = await LocalOcr.LoadAsync(detectionModel: "dbnet-v3", recognitionModel: "crnn-en-v5", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         ocr.Should().NotBeNull();
@@ -412,10 +412,10 @@ public class OcrIntegrationTests : IDisposable
 
         // Assert
         models.Should().NotBeEmpty();
-        models.Should().Contain("crnn-en-v3");
-        models.Should().Contain("crnn-korean-v3");
-        models.Should().Contain("crnn-chinese-v3");
-        models.Should().Contain("crnn-latin-v3");
+        models.Should().Contain("crnn-en-v5");
+        models.Should().Contain("crnn-korean-v5");
+        models.Should().Contain("crnn-chinese-v5");
+        models.Should().Contain("crnn-latin-v5");
     }
 
     [Fact]

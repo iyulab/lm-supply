@@ -154,10 +154,10 @@ public class ModelRegistryTests
     }
 
     [Fact]
-    public void RecognitionRegistry_Resolve_CrnnEnV3_ShouldReturnModel()
+    public void RecognitionRegistry_Resolve_CrnnEnV5_ShouldReturnModel()
     {
         // Act
-        var model = OcrRecognitionModelRegistry.Default.Resolve("crnn-en-v3");
+        var model = OcrRecognitionModelRegistry.Default.Resolve("crnn-en-v5");
 
         // Assert
         model.Should().NotBeNull();
@@ -171,7 +171,7 @@ public class ModelRegistryTests
     public void RecognitionRegistry_Resolve_KoreanAlias_ShouldReturnModel()
     {
         // Act
-        var model = OcrRecognitionModelRegistry.Default.Resolve("crnn-korean-v3");
+        var model = OcrRecognitionModelRegistry.Default.Resolve("crnn-korean-v5");
 
         // Assert
         model.Should().NotBeNull();
@@ -184,8 +184,8 @@ public class ModelRegistryTests
     public void RecognitionRegistry_TryResolve_CaseInsensitive_ShouldWork()
     {
         // Act
-        var result1 = OcrRecognitionModelRegistry.Default.TryResolve("CRNN-EN-V3", out var model1);
-        var result2 = OcrRecognitionModelRegistry.Default.TryResolve("Crnn-En-V3", out var model2);
+        var result1 = OcrRecognitionModelRegistry.Default.TryResolve("CRNN-EN-V5", out var model1);
+        var result2 = OcrRecognitionModelRegistry.Default.TryResolve("Crnn-En-V5", out var model2);
 
         // Assert
         result1.Should().BeTrue();
@@ -289,10 +289,10 @@ public class ModelRegistryTests
     }
 
     [Fact]
-    public void CrnnEnV3Model_ShouldHaveCorrectConfiguration()
+    public void CrnnEnV5Model_ShouldHaveCorrectConfiguration()
     {
         // Act
-        var model = OcrRecognitionModelRegistry.Default.Resolve("crnn-en-v3");
+        var model = OcrRecognitionModelRegistry.Default.Resolve("crnn-en-v5");
 
         // Assert
         model.InputHeight.Should().Be(48);
@@ -328,7 +328,7 @@ public class ModelRegistryTests
         var registry = new OcrRecognitionModelRegistry(DefaultRecognitionModels.All);
 
         // Act
-        registry.RegisterAlias("my-rec-alias", "crnn-en-v3");
+        registry.RegisterAlias("my-rec-alias", "crnn-en-v5");
         var result = registry.TryResolve("my-rec-alias", out var model);
 
         // Assert
@@ -369,7 +369,7 @@ public class ModelRegistryTests
         // Assert
         aliases.Should().Contain(a => a.Name == "auto");
         aliases.Should().Contain(a => a.Name == "default");
-        aliases.Should().Contain(a => a.Name == "crnn-en-v3");
+        aliases.Should().Contain(a => a.Name == "crnn-en-v5");
         aliases.Should().Contain(a => a.Name == "en");
         aliases.Should().Contain(a => a.Name == "ko");
         aliases.Should().Contain(a => a.Name == "zh");
