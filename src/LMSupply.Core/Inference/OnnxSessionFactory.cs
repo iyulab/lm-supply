@@ -694,6 +694,11 @@ public static class OnnxSessionFactory
         // Configure execution provider
         gpuEpAppended = ConfigureExecutionProvider(options, provider, deviceId);
 
+        // The OpenVINO plugin refuses external-data files that resolve outside the model's directory (the Hugging Face
+        // cache links them out of it) and the session would end on the CPU provider; give it the files in the directory.
+        if (provider == ExecutionProvider.OpenVino)
+            modelPath = OpenVinoModelStaging.Resolve(modelPath);
+
         return new InferenceSession(modelPath, options);
     }
 
