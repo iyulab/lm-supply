@@ -290,7 +290,9 @@ public sealed record ChatCompletionChunkChoice
 {
     public int Index { get; init; }
     public required ChatCompletionDelta Delta { get; init; }
+    /// <summary>Why the choice ended; written as <c>null</c> on a chunk that does not end it, as OpenAI clients expect.</summary>
     [JsonPropertyName("finish_reason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? FinishReason { get; init; }
     /// <summary>The log probabilities of the tokens in this chunk, when the request set <c>logprobs</c>.</summary>
     public ChatCompletionLogprobs? Logprobs { get; init; }
