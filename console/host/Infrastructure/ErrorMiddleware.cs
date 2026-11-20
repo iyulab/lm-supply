@@ -12,12 +12,21 @@ public sealed partial class ErrorMiddleware(RequestDelegate next, ILogger<ErrorM
         }
         catch (Exception ex) when (!context.Response.HasStarted)
         {
-            LogUnhandledException(logger, ex, context.Request.Method, context.Request.Path);
-            await WriteErrorAsync(context, ex);
+            var status = await WriteErrorAsync(context, ex);
+            var method = context.Request.Method;
+            var path = context.Request.Path.Value ?? string.Empty;
+            if (status >= 500)
+            {
+                LogUnhandledException(logger, ex, method, path);
+            }
+            else
+            {
+                LogRefusedRequest(logger, method, path, status);
+            }
         }
     }
 
-    private static async Task WriteErrorAsync(HttpContext context, Exception ex)
+    private static async Task<int> WriteErrorAsync(HttpContext context, Exception ex)
     {
         var (status, type, code, message) = ex switch
         {
@@ -38,7 +47,11 @@ public sealed partial class ErrorMiddleware(RequestDelegate next, ILogger<ErrorM
             error = new { message, type, code }
         });
         await context.Response.WriteAsync(body);
+        return status;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Refused {Method} {Path} with {Status}")]
+    private static partial void LogRefusedRequest(ILogger logger, string method, string path, int status);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Unhandled exception for {Method} {Path}")]
     private static partial void LogUnhandledException(ILogger logger, Exception ex, string method, string path);
