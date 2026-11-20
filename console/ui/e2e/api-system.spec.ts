@@ -55,16 +55,17 @@ test.describe('System API', () => {
     expect(resp.status()).not.toBe(405);
   });
 
-  test('GET /api/system/metrics/stream uses text/event-stream', async ({ request }) => {
-    // Make the request and check content-type without consuming full stream
-    const resp = await request.get(`${BASE}/api/system/metrics/stream`);
-    if (resp.status() === 200) {
-      const ct = resp.headers()['content-type'];
-      expect(ct).toContain('text/event-stream');
-    } else {
-      // Endpoint might not be implemented — should exist
-      expect(resp.status()).not.toBe(404);
-      expect(resp.status()).not.toBe(405);
+  test('GET /api/system/metrics/stream uses text/event-stream', async () => {
+    // The stream never ends: read the headers and the first event, then close the connection
+    const controller = new AbortController();
+    try {
+      const resp = await fetch(`${BASE}/api/system/metrics/stream`, { signal: controller.signal });
+      expect(resp.status).toBe(200);
+      expect(resp.headers.get('content-type')).toContain('text/event-stream');
+      const first = await resp.body!.getReader().read();
+      expect(new TextDecoder().decode(first.value)).toMatch(/^data: /);
+    } finally {
+      controller.abort();
     }
   });
 });

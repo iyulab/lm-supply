@@ -1,13 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { PNG_DATA_URL } from './fixtures';
-
-const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
+import { BASE, requireAnyCachedModel } from './host-capabilities';
 
 // ================================================================
 // Basic Chat Completions
 // ================================================================
 test.describe('Basic Chat Completions', () => {
   test('response has required OpenAI fields', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -15,20 +15,18 @@ test.describe('Basic Chat Completions', () => {
         max_completion_tokens: 10,
       },
     });
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(body).toHaveProperty('id');
-      expect(body.object).toBe('chat.completion');
-      expect(typeof body.created).toBe('number');
-      expect(body).toHaveProperty('model');
-      expect(body.choices[0].message).toHaveProperty('content');
-      expect(body).toHaveProperty('usage');
-    } else {
-      expect([404, 503]).toContain(resp.status());
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body).toHaveProperty('id');
+    expect(body.object).toBe('chat.completion');
+    expect(typeof body.created).toBe('number');
+    expect(body).toHaveProperty('model');
+    expect(body.choices[0].message).toHaveProperty('content');
+    expect(body).toHaveProperty('usage');
   });
 
   test('finish_reason is "stop"', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -36,12 +34,9 @@ test.describe('Basic Chat Completions', () => {
         max_completion_tokens: 5,
       },
     });
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(body.choices[0].finish_reason).toBe('stop');
-    } else {
-      expect([404, 503]).toContain(resp.status());
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.choices[0].finish_reason).toBe('stop');
   });
 
   test('empty messages returns 400', async ({ request }) => {
@@ -54,6 +49,7 @@ test.describe('Basic Chat Completions', () => {
   });
 
   test('system + user messages accepted', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -64,9 +60,7 @@ test.describe('Basic Chat Completions', () => {
         max_completion_tokens: 5,
       },
     });
-    expect([200, 404, 503]).toContain(resp.status());
-    expect(resp.status()).not.toBe(400);
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   test('max_completion_tokens parameter accepted', async ({ request }) => {
@@ -122,6 +116,7 @@ test.describe('Basic Chat Completions', () => {
 // ================================================================
 test.describe('Chat Streaming', () => {
   test('streaming response uses text/event-stream', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -130,15 +125,13 @@ test.describe('Chat Streaming', () => {
         max_tokens: 20,
       },
     });
-    if (resp.status() === 200) {
-      const ct = resp.headers()['content-type'];
-      expect(ct).toContain('text/event-stream');
-    } else {
-      expect([404, 503]).toContain(resp.status());
-    }
+    expect(resp.status()).toBe(200);
+    const ct = resp.headers()['content-type'];
+    expect(ct).toContain('text/event-stream');
   });
 
   test('streaming response ends with [DONE]', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -147,12 +140,9 @@ test.describe('Chat Streaming', () => {
         max_tokens: 5,
       },
     });
-    if (resp.status() === 200) {
-      const text = await resp.text();
-      expect(text).toContain('data: [DONE]');
-    } else {
-      expect([404, 503]).toContain(resp.status());
-    }
+    expect(resp.status()).toBe(200);
+    const text = await resp.text();
+    expect(text).toContain('data: [DONE]');
   });
 });
 
@@ -161,6 +151,7 @@ test.describe('Chat Streaming', () => {
 // ================================================================
 test.describe('Multiple Choices', () => {
   test('n=3 returns 3 choices', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -169,15 +160,13 @@ test.describe('Multiple Choices', () => {
         max_tokens: 5,
       },
     });
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(body.choices.length).toBe(3);
-    } else {
-      expect([404, 503]).toContain(resp.status());
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.choices.length).toBe(3);
   });
 
   test('n=3 choices have indices 0, 1, 2', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -186,13 +175,12 @@ test.describe('Multiple Choices', () => {
         max_tokens: 5,
       },
     });
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      const indices = body.choices.map((c: { index: number }) => c.index);
-      expect(indices).toContain(0);
-      expect(indices).toContain(1);
-      expect(indices).toContain(2);
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    const indices = body.choices.map((c: { index: number }) => c.index);
+    expect(indices).toContain(0);
+    expect(indices).toContain(1);
+    expect(indices).toContain(2);
   });
 });
 
@@ -227,6 +215,7 @@ test.describe('Tool Calls', () => {
   });
 
   test('tool_choice: none returns text response without tool_calls', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -236,13 +225,10 @@ test.describe('Tool Calls', () => {
         max_tokens: 30,
       },
     });
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      // tool_choice: none → no tool_calls
-      expect(body.choices[0].message.tool_calls ?? null).toBeNull();
-    } else {
-      expect([404, 503]).toContain(resp.status());
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    // tool_choice: none → no tool_calls
+    expect(body.choices[0].message.tool_calls ?? null).toBeNull();
   });
 });
 

@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
+import { BASE, requireHub } from './host-capabilities';
 
 // ================================================================
 // GET /v1/models — OpenAI-compatible list
@@ -53,13 +52,10 @@ test.describe('GET /v1/models', () => {
 test.describe('GET /v1/models/{model}', () => {
   test('existing alias returns 200 with ModelInfo', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models/default`);
-    // May be 404 if no models registered, or 200 with model info
-    expect([200, 404]).toContain(resp.status());
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(body.id).toBeTruthy();
-      expect(body.object).toBe('model');
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.id).toBeTruthy();
+    expect(body.object).toBe('model');
   });
 
   test('nonexistent model returns 404 with error envelope', async ({ request }) => {
@@ -147,14 +143,15 @@ test.describe('Cache Management API', () => {
 // ================================================================
 test.describe('Download API', () => {
   test('POST /api/download/check with known repoId returns metadata', async ({ request }) => {
+    await requireHub(request);
     const resp = await request.post(`${BASE}/api/download/check`, {
       data: { repoId: 'BAAI/bge-small-en-v1.5' },
     });
-    expect([200, 404, 503]).toContain(resp.status());
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(body).toBeTruthy();
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.exists).toBe(true);
+    expect(body.repoId).toBe('BAAI/bge-small-en-v1.5');
+    expect(body.fileCount).toBeGreaterThan(0);
   });
 
   test('POST /api/download/check with missing repoId returns 400', async ({ request }) => {

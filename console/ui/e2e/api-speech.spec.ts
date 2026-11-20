@@ -1,21 +1,18 @@
 import { test, expect } from '@playwright/test';
-
-const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
+import { BASE, requireCachedModel } from './host-capabilities';
 
 // ================================================================
 // POST /v1/audio/speech
 // ================================================================
 test.describe('TTS Speech Synthesis', () => {
   test('default WAV response has correct Content-Type', async ({ request }) => {
+    await requireCachedModel(request, 'synthesizer');
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', input: 'Hello, this is a test.', voice: 'alloy' },
     });
-    if (resp.status() === 200) {
-      const ct = resp.headers()['content-type'];
-      expect(ct).toMatch(/audio\/(wav|x-wav|wave)/);
-    } else {
-      expect([404, 503]).toContain(resp.status());
-    }
+    expect(resp.status()).toBe(200);
+    const ct = resp.headers()['content-type'];
+    expect(ct).toMatch(/audio\/(wav|x-wav|wave)/);
   });
 
   test('all OpenAI voice names accepted (not 422)', async ({ request }) => {
@@ -29,15 +26,13 @@ test.describe('TTS Speech Synthesis', () => {
   });
 
   test('format pcm returns audio/pcm Content-Type', async ({ request }) => {
+    await requireCachedModel(request, 'synthesizer');
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', input: 'test', response_format: 'pcm' },
     });
-    if (resp.status() === 200) {
-      const ct = resp.headers()['content-type'];
-      expect(ct).toMatch(/audio\/(pcm|wav|x-wav)/);
-    } else {
-      expect([404, 503]).toContain(resp.status());
-    }
+    expect(resp.status()).toBe(200);
+    const ct = resp.headers()['content-type'];
+    expect(ct).toMatch(/audio\/(pcm|wav|x-wav)/);
   });
 
   test('format mp3 accepted (not 422)', async ({ request }) => {
@@ -73,25 +68,23 @@ test.describe('TTS Speech Synthesis', () => {
   });
 
   test('Content-Disposition includes filename', async ({ request }) => {
+    await requireCachedModel(request, 'synthesizer');
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', input: 'test', response_format: 'wav' },
     });
-    if (resp.status() === 200) {
-      const cd = resp.headers()['content-disposition'];
-      if (cd) {
-        expect(cd).toContain('attachment');
-        expect(cd).toContain('filename');
-      }
-    }
+    expect(resp.status()).toBe(200);
+    const cd = resp.headers()['content-disposition'];
+    expect(cd).toContain('attachment');
+    expect(cd).toContain('filename');
   });
 
   test('response delivers chunked/streaming data', async ({ request }) => {
+    await requireCachedModel(request, 'synthesizer');
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', input: 'Hello world.', voice: 'alloy' },
     });
-    if (resp.status() === 200) {
-      const body = await resp.body();
-      expect(body.length).toBeGreaterThan(0);
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.body();
+    expect(body.length).toBeGreaterThan(0);
   });
 });

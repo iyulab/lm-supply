@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-
-const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
+import { BASE, requireCachedModel } from './host-capabilities';
+import { KOREAN_HELLO } from './fixtures';
 
 test.describe('API Compliance — Infrastructure', () => {
   test('all responses include X-Request-Id header', async ({ request }) => {
@@ -61,16 +61,13 @@ test.describe('API Compliance — Models', () => {
 
 test.describe('API Compliance — Embeddings', () => {
   test('base64 encoding_format returns string embedding', async ({ request }) => {
+    await requireCachedModel(request, 'embedder');
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'hello', encoding_format: 'base64' }
     });
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(typeof body.data[0].embedding).toBe('string');
-    } else {
-      // model not loaded — acceptable
-      expect([404, 503]).toContain(resp.status());
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(typeof body.data[0].embedding).toBe('string');
   });
 
   test('dimensions parameter in request is accepted', async ({ request }) => {
@@ -205,27 +202,27 @@ test.describe('API Compliance — Images', () => {
 
 test.describe('API Compliance — Translation', () => {
   test('POST /v2/translate is registered (not 404)', async ({ request }) => {
-    const resp = await request.post(`http://localhost:5000/v2/translate`, {
-      data: { text: ['hello'], target_lang: 'KO' }
+    const resp = await request.post(`${BASE}/v2/translate`, {
+      data: { text: [KOREAN_HELLO], source_lang: 'KO', target_lang: 'EN' }
     });
     expect(resp.status()).not.toBe(404);
     expect(resp.status()).not.toBe(405);
   });
 
   test('DeepL format response has translations array', async ({ request }) => {
-    const resp = await request.post(`http://localhost:5000/v2/translate`, {
-      data: { text: ['hello'], target_lang: 'KO' }
+    await requireCachedModel(request, 'translator');
+    const resp = await request.post(`${BASE}/v2/translate`, {
+      data: { text: [KOREAN_HELLO], source_lang: 'KO', target_lang: 'EN' }
     });
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(Array.isArray(body.translations)).toBe(true);
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(Array.isArray(body.translations)).toBe(true);
   });
 });
 
 test.describe('API Compliance — Rerank', () => {
   test('rerank accepts object[] documents with rank_fields', async ({ request }) => {
-    const resp = await request.post(`${BASE}/rerank`, {
+    const resp = await request.post(`${BASE}/v1/rerank`, {
       data: {
         model: 'default',
         query: 'test query',
@@ -241,17 +238,17 @@ test.describe('API Compliance — Rerank', () => {
   });
 
   test('rerank response includes meta when successful', async ({ request }) => {
-    const resp = await request.post(`${BASE}/rerank`, {
+    await requireCachedModel(request, 'reranker');
+    const resp = await request.post(`${BASE}/v1/rerank`, {
       data: {
         model: 'default',
         query: 'test',
         documents: ['doc one', 'doc two']
       }
     });
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(body.meta).toBeTruthy();
-      expect(body.meta.tokens).toBeTruthy();
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.meta).toBeTruthy();
+    expect(body.meta.tokens).toBeTruthy();
   });
 });

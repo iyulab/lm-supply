@@ -1,24 +1,24 @@
 import { test, expect } from '@playwright/test';
+import { BASE, requireCachedModel } from './host-capabilities';
+import { KOREAN_COUNT, KOREAN_HELLO, KOREAN_THANKS } from './fixtures';
 
-const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
+// The registered translation models translate into English (the default one from Korean).
+const KOREAN = KOREAN_HELLO;
 
 // ================================================================
 // POST /v1/translate (Custom API)
 // ================================================================
 test.describe('Custom Translation API', () => {
   test('basic translation returns translated text', async ({ request }) => {
+    await requireCachedModel(request, 'translator');
     const resp = await request.post(`${BASE}/v1/translate`, {
-      data: { text: 'Hello', source_language: 'en', target_language: 'ko', model: 'default' },
+      data: { input: KOREAN, model: 'default' },
     });
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(body).toBeTruthy();
-      // Response should contain some translated text
-      const bodyStr = JSON.stringify(body);
-      expect(bodyStr.length).toBeGreaterThan(5);
-    } else {
-      expect([404, 503]).toContain(resp.status());
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.translations.length).toBe(1);
+    expect(body.translations[0].source_text).toBe(KOREAN);
+    expect(body.translations[0].translated_text.length).toBeGreaterThan(0);
   });
 
   test('missing text field returns 400', async ({ request }) => {
@@ -43,18 +43,16 @@ test.describe('Custom Translation API', () => {
 // ================================================================
 test.describe('DeepL-compatible Translation', () => {
   test('response format matches DeepL: {translations:[{detected_source_language,text}]}', async ({ request }) => {
+    await requireCachedModel(request, 'translator');
     const resp = await request.post(`${BASE}/v2/translate`, {
-      data: { text: ['Hello', 'World'], target_lang: 'KO' },
+      data: { text: [KOREAN, KOREAN_THANKS], source_lang: 'KO', target_lang: 'EN' },
     });
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(Array.isArray(body.translations)).toBe(true);
-      expect(body.translations.length).toBe(2);
-      expect(body.translations[0]).toHaveProperty('detected_source_language');
-      expect(body.translations[0]).toHaveProperty('text');
-    } else {
-      expect([404, 503]).toContain(resp.status());
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(Array.isArray(body.translations)).toBe(true);
+    expect(body.translations.length).toBe(2);
+    expect(body.translations[0]).toHaveProperty('detected_source_language');
+    expect(body.translations[0]).toHaveProperty('text');
   });
 
   test('uppercase target_lang code is handled (KO not ko)', async ({ request }) => {
@@ -73,13 +71,13 @@ test.describe('DeepL-compatible Translation', () => {
   });
 
   test('array input returns same-length translations array', async ({ request }) => {
+    await requireCachedModel(request, 'translator');
     const resp = await request.post(`${BASE}/v2/translate`, {
-      data: { text: ['One', 'Two', 'Three'], target_lang: 'KO' },
+      data: { text: KOREAN_COUNT, source_lang: 'KO', target_lang: 'EN' },
     });
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(body.translations.length).toBe(3);
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.translations.length).toBe(3);
   });
 
   test('missing target_lang returns 400', async ({ request }) => {
@@ -90,13 +88,13 @@ test.describe('DeepL-compatible Translation', () => {
   });
 
   test('detected_source_language is uppercase', async ({ request }) => {
+    await requireCachedModel(request, 'translator');
     const resp = await request.post(`${BASE}/v2/translate`, {
-      data: { text: ['Hello'], target_lang: 'KO' },
+      data: { text: [KOREAN], source_lang: 'KO', target_lang: 'EN' },
     });
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      const lang = body.translations[0].detected_source_language;
-      expect(lang).toBe(lang.toUpperCase());
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    const lang = body.translations[0].detected_source_language;
+    expect(lang).toBe(lang.toUpperCase());
   });
 });

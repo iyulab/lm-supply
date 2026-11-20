@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/base.fixture';
+import { BASE, requireCachedModel } from './host-capabilities';
 
 // ================================================================
 // API — Image Generation + Error Responses
@@ -9,7 +10,8 @@ test.describe('API Image Generation', () => {
 
   // POST /v1/images/generations (OpenAI-compatible)
   test('POST /v1/images/generations returns b64_json', async ({ request }) => {
-    const response = await request.post('/v1/images/generations', {
+    await requireCachedModel(request, 'imagegenerator');
+    const response = await request.post(`${BASE}/v1/images/generations`, {
       data: {
         model: 'default',
         prompt: 'a simple red circle on white background',
@@ -18,23 +20,19 @@ test.describe('API Image Generation', () => {
       },
     });
 
-    if (response.status() === 200) {
-      const body = await response.json();
-      expect(body).toHaveProperty('data');
-      expect(Array.isArray(body.data)).toBe(true);
-      expect(body.data.length).toBe(1);
-      expect(body.data[0]).toHaveProperty('b64_json');
-      expect(body.data[0].b64_json.length).toBeGreaterThan(100);
-    } else {
-      // Model may not be available
-      const body = await response.json();
-      expect(body).toHaveProperty('error');
-    }
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body).toHaveProperty('data');
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(body.data.length).toBe(1);
+    expect(body.data[0]).toHaveProperty('b64_json');
+    expect(body.data[0].b64_json.length).toBeGreaterThan(100);
   });
 
   // POST /v1/images/generate (extended format)
   test('POST /v1/images/generate returns extended response', async ({ request }) => {
-    const response = await request.post('/v1/images/generate', {
+    await requireCachedModel(request, 'imagegenerator');
+    const response = await request.post(`${BASE}/v1/images/generate`, {
       data: {
         model: 'default',
         prompt: 'a blue square',
@@ -44,22 +42,18 @@ test.describe('API Image Generation', () => {
       },
     });
 
-    if (response.status() === 200) {
-      const body = await response.json();
-      expect(body).toHaveProperty('data');
-      expect(Array.isArray(body.data)).toBe(true);
-      // Extended fields
-      expect(body).toHaveProperty('generation_time_ms');
-      expect(body).toHaveProperty('model');
-    } else {
-      const body = await response.json();
-      expect(body).toHaveProperty('error');
-    }
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body).toHaveProperty('data');
+    expect(Array.isArray(body.data)).toBe(true);
+    // Extended fields
+    expect(body).toHaveProperty('generation_time_ms');
+    expect(body).toHaveProperty('model');
   });
 
   // GET /v1/images/models returns available models
   test('GET /v1/images/models returns model list', async ({ request }) => {
-    const response = await request.get('/v1/images/models');
+    const response = await request.get(`${BASE}/v1/images/models`);
     expect(response.status()).toBe(200);
 
     const body = await response.json();
@@ -76,7 +70,7 @@ test.describe('API Image Generation', () => {
 
   // GET /v1/translate/languages returns language pairs
   test('GET /v1/translate/languages returns language pairs', async ({ request }) => {
-    const response = await request.get('/v1/translate/languages');
+    const response = await request.get(`${BASE}/v1/translate/languages`);
     expect(response.status()).toBe(200);
 
     const body = await response.json();
@@ -94,7 +88,7 @@ test.describe('API Image Generation', () => {
 test.describe('API Error Responses', () => {
   // POST /v1/chat/completions with empty messages returns 400
   test('POST /v1/chat/completions with empty messages returns error', async ({ request }) => {
-    const response = await request.post('/v1/chat/completions', {
+    const response = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
         messages: [],
@@ -106,7 +100,7 @@ test.describe('API Error Responses', () => {
 
   // POST /v1/rerank with empty query returns 400
   test('POST /v1/rerank with missing query returns error', async ({ request }) => {
-    const response = await request.post('/v1/rerank', {
+    const response = await request.post(`${BASE}/v1/rerank`, {
       data: {
         model: 'default',
         documents: ['test'],
@@ -117,7 +111,7 @@ test.describe('API Error Responses', () => {
 
   // POST /v1/embeddings with empty input returns 400
   test('POST /v1/embeddings with missing input returns error', async ({ request }) => {
-    const response = await request.post('/v1/embeddings', {
+    const response = await request.post(`${BASE}/v1/embeddings`, {
       data: {
         model: 'default',
       },
@@ -127,7 +121,7 @@ test.describe('API Error Responses', () => {
 
   // POST to nonexistent path returns 404
   test('POST to nonexistent path returns 404', async ({ request }) => {
-    const response = await request.post('/v1/nonexistent', {
+    const response = await request.post(`${BASE}/v1/nonexistent`, {
       data: { test: true },
     });
     expect(response.status()).toBe(404);
@@ -135,7 +129,7 @@ test.describe('API Error Responses', () => {
 
   // DELETE nonexistent cached model returns 404
   test('DELETE nonexistent cached model returns 404', async ({ request }) => {
-    const response = await request.delete('/api/cache/models/nonexistent%2Ffake-model');
+    const response = await request.delete(`${BASE}/api/cache/models/nonexistent%2Ffake-model`);
     expect(response.status()).toBeGreaterThanOrEqual(400);
   });
 });

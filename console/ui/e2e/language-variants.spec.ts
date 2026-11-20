@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/base.fixture';
+import { BASE, requireCachedModel, requireCachedRepo } from './host-capabilities';
 import { mockJsonEndpoint } from './fixtures/api-mocks';
 import fs from 'fs';
 import path from 'path';
@@ -103,29 +104,26 @@ test.describe('Language Variants', () => {
 
   // Korean TTS via API
   test('POST /v1/audio/speech with Korean text returns audio', async ({ request }) => {
-    const response = await request.post('/v1/audio/speech', {
+    await requireCachedModel(request, 'synthesizer', 'korean');
+    const response = await request.post(`${BASE}/v1/audio/speech`, {
       data: {
-        model: 'default',
+        model: 'korean',
         input: '안녕하세요, 테스트입니다.',
       },
     });
 
-    // May succeed or return error (model availability)
-    if (response.status() === 200) {
-      const contentType = response.headers()['content-type'] ?? '';
-      expect(contentType).toContain('audio/');
-      const body = await response.body();
-      expect(body.length).toBeGreaterThan(0);
-    } else {
-      const body = await response.json();
-      expect(body).toHaveProperty('error');
-    }
+    expect(response.status()).toBe(200);
+    const contentType = response.headers()['content-type'] ?? '';
+    expect(contentType).toContain('audio/');
+    const body = await response.body();
+    expect(body.length).toBeGreaterThan(0);
   });
 
   // Korean OCR via API
   test('POST /v1/images/ocr with language=ko returns text', async ({ request }) => {
+    await requireCachedRepo(request, 'monkt/paddleocr-onnx', 'OCR models');
     const imageBuffer = fs.readFileSync(TEST_IMAGE);
-    const response = await request.post('/v1/images/ocr', {
+    const response = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {
         model: 'default',
         file: { name: 'test-image.png', mimeType: 'image/png', buffer: imageBuffer },
@@ -133,13 +131,9 @@ test.describe('Language Variants', () => {
       },
     });
 
-    if (response.status() === 200) {
-      const body = await response.json();
-      expect(body).toHaveProperty('text');
-      expect(body).toHaveProperty('blocks');
-    } else {
-      const body = await response.json();
-      expect(body).toHaveProperty('error');
-    }
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(typeof body.full_text).toBe('string');
+    expect(Array.isArray(body.pages)).toBe(true);
   });
 });
