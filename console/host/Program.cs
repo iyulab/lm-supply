@@ -27,6 +27,10 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.MaxRequestBodySize = 500 * 1024 * 1024; // 500MB
 });
 
+// A request the framework cannot read (a missing required property, a body that is not valid JSON) throws to the error
+// middleware, which answers it with the error envelope. Without this the framework answers 400 itself, with an empty body.
+builder.Services.Configure<Microsoft.AspNetCore.Routing.RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
+
 // JSON serialization settings
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
