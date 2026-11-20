@@ -16,14 +16,15 @@ public static class ApiHelper
     /// <summary>
     /// Create an error response
     /// </summary>
-    public static IResult Error(string message, string type = "invalid_request_error", int statusCode = 400)
+    public static IResult Error(string message, string type = "invalid_request_error", int statusCode = 400, string? code = null)
     {
         var error = new ErrorResponse
         {
             Error = new ErrorDetail
             {
                 Message = message,
-                Type = type
+                Type = type,
+                Code = code
             }
         };
 

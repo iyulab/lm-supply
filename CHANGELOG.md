@@ -7,6 +7,7 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Fixed
+- **`GET /v1/models/{id}` answers an unknown model with the same error envelope as the other endpoints** (`type: invalid_request_error`, `code: model_not_found`); it answered `type: model_not_found` without a code.
 - **Streaming chat chunks carry `"finish_reason": null` while the choice continues.** The console host left the field out of every chunk but the last; OpenAI clients and schemas expect the key on each chunk.
 - **The console host answers a request it cannot read with the error envelope.** A body that lacks a required property (an embeddings request without `input`) or is not valid JSON got `400` with an empty body in the default (Production) environment; it now gets `400` with `{"error": {message, type, code}}`, as the other client errors do.
 - **The console host answers `400` for an uploaded image it cannot decode** (`POST /v1/images/ocr`, `/segment`, `/caption`, `/detect`: a damaged file, or a format the loader does not read), naming the supported formats, where it answered `500 internal_error`.

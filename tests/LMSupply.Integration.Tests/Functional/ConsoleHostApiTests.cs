@@ -1832,12 +1832,14 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_ModelById_UnknownId_Returns404()
     {
-        // OpenAI answers an unknown model id with 404 model_not_found; so does the host
+        // OpenAI answers an unknown model id with 404, type invalid_request_error and code model_not_found; so does the host
         var response = await _client.GetAsync("/v1/models/nonexistent-model", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
-        json.GetProperty("error").GetProperty("type").GetString().Should().Be("model_not_found");
+        var error = json.GetProperty("error");
+        error.GetProperty("type").GetString().Should().Be("invalid_request_error");
+        error.GetProperty("code").GetString().Should().Be("model_not_found");
     }
 
     [Fact]
