@@ -7,6 +7,7 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Fixed
+- **`POST /v2/translate` picks the translation model by language pair and can answer `200`.** It looked for a model alias `default-<target_lang>`, which no registry holds, so every request answered `404 model_not_found`. It now uses the model that translates into `target_lang` (out of `source_lang`, when given); `400` asks for `source_lang` when several models translate into the target, and a target no model translates into still answers `404 model_not_found`.
 - **`POST /v1/embeddings` answers `400` for an empty input string** (`"input": ""` or an empty element of an array), as OpenAI does; it embedded the empty string and answered `200`.
 - **`POST /v1/images/vqa` answers `400` when the model cannot answer questions** (`code: model_not_supported`); it answered `500 internal_error`. No registered captioner supports visual question answering yet.
 - **`GET /v1/models/{id}` answers an unknown model with the same error envelope as the other endpoints** (`type: invalid_request_error`, `code: model_not_found`); it answered `type: model_not_found` without a code.

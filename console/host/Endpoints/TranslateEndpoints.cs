@@ -107,8 +107,19 @@ public static class TranslateEndpoints
                 var targetLang = request.TargetLang.ToLowerInvariant();
                 var sourceLang = request.SourceLang?.ToLowerInvariant();
 
-                // Find appropriate model: try "default-{targetLang}" alias, fallback to "default"
-                var modelAlias = $"default-{targetLang}";
+                // The model is chosen by language pair: the one that translates into the target language (out of the source
+                // language, when given). A target no model translates into resolves to no alias, so the answer is model_not_found.
+                var candidates = LMSupply.Translator.LocalTranslator.GetAllModels()
+                    .Where(m => string.Equals(m.TargetLanguage, targetLang, StringComparison.OrdinalIgnoreCase)
+                        && (sourceLang is null || string.Equals(m.SourceLanguage, sourceLang, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                if (candidates.Count > 1)
+                {
+                    return ApiHelper.Error(
+                        $"'source_lang' is required: more than one model translates into '{targetLang}' ({string.Join(", ", candidates.Select(m => m.SourceLanguage))})");
+                }
+
+                var modelAlias = candidates.Count == 1 ? candidates[0].AliasName : $"default-{targetLang}";
 
                 await using var scope = await manager.GetTranslatorAsync(modelAlias, ct);
 
