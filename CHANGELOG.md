@@ -7,6 +7,7 @@ breaking changes, and each one is marked **Breaking** with a migration note.
 ## [Unreleased]
 
 ### Fixed
+- **`POST /v1/embeddings` answers `400` for an empty input string** (`"input": ""` or an empty element of an array), as OpenAI does; it embedded the empty string and answered `200`.
 - **`POST /v1/images/vqa` answers `400` when the model cannot answer questions** (`code: model_not_supported`); it answered `500 internal_error`. No registered captioner supports visual question answering yet.
 - **`GET /v1/models/{id}` answers an unknown model with the same error envelope as the other endpoints** (`type: invalid_request_error`, `code: model_not_found`); it answered `type: model_not_found` without a code.
 - **Streaming chat chunks carry `"finish_reason": null` while the choice continues.** The console host left the field out of every chunk but the last; OpenAI clients and schemas expect the key on each chunk.

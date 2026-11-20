@@ -22,6 +22,11 @@ public static class EmbedEndpoints
                     return ApiHelper.Error("'input' field is required");
                 }
 
+                if (inputs.Any(string.IsNullOrEmpty))
+                {
+                    return ApiHelper.Error("'input' must not contain an empty string");
+                }
+
                 await using var scope = await manager.GetEmbedderAsync(request.Model, ct);
                 var embeddings = await scope.Model.EmbedAsync(inputs, ct);
 
