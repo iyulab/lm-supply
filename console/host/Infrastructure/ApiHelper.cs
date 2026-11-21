@@ -94,6 +94,23 @@ public static class ApiHelper
     }
 
     /// <summary>
+    /// Awaits a model call on uploaded audio. Audio the library refuses as input — bytes that are no audio format it reads, a recording
+    /// with no samples (<see cref="InvalidDataException"/>) — is the caller's mistake, so it surfaces as an <see cref="ArgumentException"/>
+    /// that <see cref="InternalError"/> answers with 400. The library's message says what is wrong and holds no host detail, so it is passed on.
+    /// </summary>
+    public static async Task<T> ForUploadedAudio<T>(Task<T> call)
+    {
+        try
+        {
+            return await call;
+        }
+        catch (InvalidDataException ex)
+        {
+            throw new ArgumentException(ex.Message, ex);
+        }
+    }
+
+    /// <summary>
     /// Parse input that can be string or array of strings
     /// </summary>
     public static List<string> ParseInput(System.Text.Json.JsonElement input)

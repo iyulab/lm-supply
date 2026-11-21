@@ -36,3 +36,14 @@ export const KOREAN_HELLO = '\uC548\uB155\uD558\uC138\uC694';
 export const KOREAN_THANKS = '\uAC10\uC0AC\uD569\uB2C8\uB2E4';
 /** Korean for "one", "two", "three". */
 export const KOREAN_COUNT = ['\uD558\uB098', '\uB458', '\uC14B'];
+
+/** A valid PCM WAV header (mono, 8 kHz, 16 bit) with no samples after it: a recording whose header was written and whose audio never was. */
+export function headerOnlyWav(): Buffer {
+  const buf = Buffer.alloc(44);
+  buf.write('RIFF', 0); buf.writeUInt32LE(36, 4); buf.write('WAVE', 8);
+  buf.write('fmt ', 12); buf.writeUInt32LE(16, 16); buf.writeUInt16LE(1, 20);
+  buf.writeUInt16LE(1, 22); buf.writeUInt32LE(8000, 24);
+  buf.writeUInt32LE(16000, 28); buf.writeUInt16LE(2, 32); buf.writeUInt16LE(16, 34);
+  buf.write('data', 36); buf.writeUInt32LE(0, 40);
+  return buf;
+}

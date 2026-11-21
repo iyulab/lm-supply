@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { BASE, requireCachedModel } from './host-capabilities';
-import { minimalWav } from './fixtures';
+import { headerOnlyWav, minimalWav } from './fixtures';
 
 // ================================================================
 // POST /v1/audio/transcriptions
@@ -104,6 +104,23 @@ test.describe('Audio Transcriptions', () => {
     });
     expect(resp.status()).not.toBe(422);
   });
+
+  // Audio the library cannot use is the caller's mistake: 400 naming the problem, not the opaque 500 of an unexpected failure.
+  for (const [name, buffer, message] of [
+    ['bytes that are no audio format', Buffer.alloc(44), 'not in a format'],
+    ['a WAV header with no samples', headerOnlyWav(), 'no samples'],
+  ] as const) {
+    test(`${name} returns 400`, async ({ request }) => {
+      await requireCachedModel(request, 'transcriber');
+      const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
+        multipart: { file: { name: 'bad.wav', mimeType: 'audio/wav', buffer }, model: 'default' },
+      });
+      expect(resp.status()).toBe(400);
+      const body = await resp.json();
+      expect(body.error.type).toBe('invalid_request_error');
+      expect(body.error.message).toContain(message);
+    });
+  }
 
   test('missing file returns 400 with error message', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
