@@ -122,8 +122,9 @@ public static class ChatEndpoints
                     }
                     else
                     {
-                        var tokens = scope.Model.GenerateChatAsync(messages, options, ct);
-                        await SseHelper.StreamChatCompletionAsync(context, scope.Model.ModelId, tokens, ct);
+                        // The chunks carry the reason the model stopped, so an answer cut by the token limit ends with "length"
+                        var chunks = scope.Model.GenerateChatStreamAsync(messages, options, ct);
+                        await SseHelper.StreamChatCompletionAsync(context, scope.Model.ModelId, chunks, ct);
                     }
                 }
                 catch (Exception ex)

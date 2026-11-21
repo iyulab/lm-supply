@@ -45,6 +45,18 @@ test.describe('Basic Chat Completions', () => {
     const body = await cut.json();
     expect(body.usage.completion_tokens).toBe(8);
     expect(body.choices[0].finish_reason).toBe('length');
+
+    // The same limit on a streamed answer: the final chunk carries the reason.
+    const streamed = await request.post(`${BASE}/v1/chat/completions`, {
+      data: { model: 'gguf:qwen3-balanced', messages: [{ role: 'user', content: 'Write a long essay about rivers.' }], max_completion_tokens: 8, stream: true },
+      timeout: 240_000,
+    });
+    expect(streamed.status()).toBe(200);
+    const reasons = (await streamed.text()).split('\n')
+      .filter(l => l.startsWith('data: {'))
+      .map(l => JSON.parse(l.slice(6)).choices[0].finish_reason)
+      .filter(r => r);
+    expect(reasons).toEqual(['length']);
   });
 
   test('empty messages returns 400', async ({ request }) => {
