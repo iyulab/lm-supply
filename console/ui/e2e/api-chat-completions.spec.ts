@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { PNG_DATA_URL } from './fixtures';
-import { BASE, requireAnyCachedModel, requireCachedRepo } from './host-capabilities';
+import { BASE, requireAnyCachedModel, requireCachedModel } from './host-capabilities';
 
 // ================================================================
 // Basic Chat Completions
@@ -28,7 +28,7 @@ test.describe('Basic Chat Completions', () => {
   // A model served by llama-server says why it stopped: a limit that ends the answer is `length`, not `stop`. (The budget of the first
   // request holds a thinking model's reasoning as well as its answer.)
   test('finish_reason is "stop" when the answer ends and "length" when the token limit ends it', async ({ request }) => {
-    await requireCachedRepo(request, 'unsloth/Qwen3.5-9B-GGUF', 'the model of gguf:qwen3-balanced');
+    await requireCachedModel(request, 'generator', 'gguf:qwen3-balanced');
     test.setTimeout(300_000);
     const ended = await request.post(`${BASE}/v1/chat/completions`, {
       data: { model: 'gguf:qwen3-balanced', messages: [{ role: 'user', content: 'Say hi.' }], max_completion_tokens: 2000 },

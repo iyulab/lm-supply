@@ -189,6 +189,25 @@ test.describe('Registry API', () => {
     }
   });
 
+  // The generator list is the library's two catalogs (GGUF aliases and ONNX entries), with "default" first: the one the hardware picks.
+  test('GET /api/registry/models/generator lists the library catalogs and says per alias whether it is cached', async ({ request }) => {
+    const resp = await request.get(`${BASE}/api/registry/models/generator`);
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    const aliases: string[] = body.models.map((m: { aliasName: string }) => m.aliasName);
+    expect(aliases[0]).toBe('default');
+    expect(aliases).toContain('gguf:qwen3-balanced');
+    expect(aliases.filter(a => a.startsWith('gguf:')).length).toBeGreaterThan(5);
+    expect(new Set(aliases).size).toBe(aliases.length);
+
+    // An alias that is cached has its repository in the cache listing ("default" names no repository).
+    const cache = await (await request.get(`${BASE}/api/cache/models`)).json();
+    const repos = new Set((cache.models as { repoId: string }[]).map(m => m.repoId.toLowerCase()));
+    for (const model of body.models.filter((m: { aliasName: string; isCached: boolean }) => m.aliasName !== 'default' && m.isCached)) {
+      expect(repos.has(model.repoId.toLowerCase()), `${model.aliasName} is cached: ${model.repoId}`).toBe(true);
+    }
+  });
+
   // One repository holds many OCR models, each in a subfolder; the registry names the repository (a path inside it names no cache entry).
   test('GET /api/registry/models/ocr names repositories and says per model whether its files are cached', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/registry/models/ocr`);
