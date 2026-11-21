@@ -55,7 +55,8 @@ test.describe('Rerank', () => {
     expect(body.results[0].document).toBeFalsy();
   });
 
-  test('JSON object documents accepted (not 422)', async ({ request }) => {
+  test('JSON object documents accepted', async ({ request }) => {
+    await requireCachedModel(request, 'reranker');
     const resp = await request.post(`${BASE}/v1/rerank`, {
       data: {
         model: 'default',
@@ -66,10 +67,11 @@ test.describe('Rerank', () => {
         ],
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
-  test('rank_fields parameter accepted (not 422)', async ({ request }) => {
+  test('rank_fields parameter accepted', async ({ request }) => {
+    await requireCachedModel(request, 'reranker');
     const resp = await request.post(`${BASE}/v1/rerank`, {
       data: {
         model: 'default',
@@ -81,7 +83,7 @@ test.describe('Rerank', () => {
         rank_fields: ['title', 'body'],
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   test('meta field has billed_units.search_units', async ({ request }) => {

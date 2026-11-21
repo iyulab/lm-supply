@@ -57,19 +57,35 @@ test.describe('DeepL-compatible Translation', () => {
     expect(body.translations[0]).toHaveProperty('text');
   });
 
-  test('uppercase target_lang code is handled (KO not ko)', async ({ request }) => {
-    const resp = await request.post(`${BASE}/v2/translate`, {
-      data: { text: ['Hello'], target_lang: 'KO' },
+  // The registered models translate into English, so the pair that exists is KO to EN; the codes are read in either case.
+  test('language codes are read in lowercase as well as uppercase', async ({ request }) => {
+    await requireCachedModel(request, 'translator');
+    const upper = await request.post(`${BASE}/v2/translate`, {
+      data: { text: [KOREAN], source_lang: 'KO', target_lang: 'EN' },
     });
-    expect(resp.status()).not.toBe(422);
-    expect(resp.status()).not.toBe(400);
+    const lower = await request.post(`${BASE}/v2/translate`, {
+      data: { text: [KOREAN], source_lang: 'ko', target_lang: 'en' },
+    });
+    expect(upper.status()).toBe(200);
+    expect(lower.status()).toBe(200);
+    expect((await lower.json()).translations[0].text).toBe((await upper.json()).translations[0].text);
   });
 
   test('single string input (not array) accepted', async ({ request }) => {
+    await requireCachedModel(request, 'translator');
     const resp = await request.post(`${BASE}/v2/translate`, {
-      data: { text: 'Hello', target_lang: 'KO' },
+      data: { text: KOREAN, source_lang: 'KO', target_lang: 'EN' },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
+    expect((await resp.json()).translations).toHaveLength(1);
+  });
+
+  test('a target language no registered model translates into is 404 model_not_found', async ({ request }) => {
+    const resp = await request.post(`${BASE}/v2/translate`, {
+      data: { text: ['Hello'], target_lang: 'KO' },
+    });
+    expect(resp.status()).toBe(404);
+    expect((await resp.json()).error.code).toBe('model_not_found');
   });
 
   test('array input returns same-length translations array', async ({ request }) => {

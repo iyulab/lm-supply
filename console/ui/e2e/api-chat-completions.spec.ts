@@ -64,6 +64,7 @@ test.describe('Basic Chat Completions', () => {
   });
 
   test('max_completion_tokens parameter accepted', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -71,10 +72,11 @@ test.describe('Basic Chat Completions', () => {
         max_completion_tokens: 5,
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   test('max_tokens (legacy) parameter accepted', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -82,10 +84,11 @@ test.describe('Basic Chat Completions', () => {
         max_tokens: 5,
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   test('temperature and top_p parameters accepted', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -95,10 +98,11 @@ test.describe('Basic Chat Completions', () => {
         max_tokens: 5,
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   test('stop sequences parameter accepted', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -107,7 +111,7 @@ test.describe('Basic Chat Completions', () => {
         max_tokens: 20,
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 });
 
@@ -201,7 +205,8 @@ test.describe('Tool Calls', () => {
     },
   }];
 
-  test('tools parameter accepted (not 422)', async ({ request }) => {
+  test('tools parameter accepted', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -211,7 +216,7 @@ test.describe('Tool Calls', () => {
         max_tokens: 50,
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   test('tool_choice: none returns text response without tool_calls', async ({ request }) => {
@@ -237,6 +242,7 @@ test.describe('Tool Calls', () => {
 // ================================================================
 test.describe('Response Format', () => {
   test('response_format json_object accepted', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -245,10 +251,11 @@ test.describe('Response Format', () => {
         max_tokens: 30,
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
-  test('invalid response_format type returns 400 or is ignored', async ({ request }) => {
+  test('an unknown response_format type is ignored', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -257,8 +264,8 @@ test.describe('Response Format', () => {
         max_tokens: 5,
       },
     });
-    // Either 400 (rejected) or 200/404/503 (ignored)
-    expect(resp.status()).not.toBe(422);
+    // The host reads the types it knows (json_object) and leaves the rest alone.
+    expect(resp.status()).toBe(200);
   });
 });
 
@@ -266,7 +273,8 @@ test.describe('Response Format', () => {
 // Multimodal (image_url)
 // ================================================================
 test.describe('Multimodal Vision', () => {
-  test('base64 image_url accepted in messages (not 422)', async ({ request }) => {
+  test('base64 image_url accepted in messages', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -280,10 +288,11 @@ test.describe('Multimodal Vision', () => {
         max_tokens: 20,
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
-  test('localhost URL in image_url accepted (not 422)', async ({ request }) => {
+  test('localhost URL in image_url accepted', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -297,6 +306,6 @@ test.describe('Multimodal Vision', () => {
         max_tokens: 20,
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 });

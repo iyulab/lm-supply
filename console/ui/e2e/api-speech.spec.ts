@@ -15,13 +15,14 @@ test.describe('TTS Speech Synthesis', () => {
     expect(ct).toMatch(/audio\/(wav|x-wav|wave)/);
   });
 
-  test('all OpenAI voice names accepted (not 422)', async ({ request }) => {
+  test('all OpenAI voice names accepted', async ({ request }) => {
+    await requireCachedModel(request, 'synthesizer');
     const voices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
     for (const voice of voices) {
       const resp = await request.post(`${BASE}/v1/audio/speech`, {
         data: { model: 'default', input: 'test', voice },
       });
-      expect(resp.status()).not.toBe(422);
+      expect(resp.status()).toBe(200);
     }
   });
 
@@ -35,28 +36,31 @@ test.describe('TTS Speech Synthesis', () => {
     expect(ct).toMatch(/audio\/(pcm|wav|x-wav)/);
   });
 
-  test('format mp3 accepted (not 422)', async ({ request }) => {
+  test('format mp3 accepted', async ({ request }) => {
+    await requireCachedModel(request, 'synthesizer');
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', input: 'test', response_format: 'mp3' },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
-  test('formats opus/flac/aac accepted (not 422)', async ({ request }) => {
+  test('formats opus/flac/aac accepted', async ({ request }) => {
+    await requireCachedModel(request, 'synthesizer');
     for (const fmt of ['opus', 'flac', 'aac']) {
       const resp = await request.post(`${BASE}/v1/audio/speech`, {
         data: { model: 'default', input: 'test', response_format: fmt },
       });
-      expect(resp.status()).not.toBe(422);
+      expect(resp.status()).toBe(200);
     }
   });
 
-  test('speed parameter 0.25–4.0 accepted (not 422)', async ({ request }) => {
+  test('speed parameter 0.25–4.0 accepted', async ({ request }) => {
+    await requireCachedModel(request, 'synthesizer');
     for (const speed of [0.25, 1.0, 2.0, 4.0]) {
       const resp = await request.post(`${BASE}/v1/audio/speech`, {
         data: { model: 'default', input: 'test', speed },
       });
-      expect(resp.status()).not.toBe(422);
+      expect(resp.status()).toBe(200);
     }
   });
 

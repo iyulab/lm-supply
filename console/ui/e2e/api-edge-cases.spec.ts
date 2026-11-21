@@ -92,20 +92,6 @@ test.describe('Token Counts', () => {
 });
 
 // ================================================================
-// DeepL endpoint robustness
-// ================================================================
-test.describe('DeepL Edge Cases', () => {
-  test('lowercase target_lang also handled (ko → KO internally)', async ({ request }) => {
-    // Some clients might send lowercase
-    const resp = await request.post(`${BASE}/v2/translate`, {
-      data: { text: ['Hello'], target_lang: 'ko' },
-    });
-    // Either 200 (accepted) or 400 (strict uppercase required) — not 422
-    expect(resp.status()).not.toBe(422);
-  });
-});
-
-// ================================================================
 // Image size variants
 // ================================================================
 test.describe('Size Variants', () => {

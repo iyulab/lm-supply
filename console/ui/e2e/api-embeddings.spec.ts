@@ -70,10 +70,11 @@ test.describe('Embeddings', () => {
   });
 
   test('dimensions > actual returns full vector without error', async ({ request }) => {
+    await requireCachedModel(request, 'embedder');
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'hello', dimensions: 99999 },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
     expect(resp.status()).not.toBe(400);
   });
 

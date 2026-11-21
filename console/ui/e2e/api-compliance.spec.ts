@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { BASE, requireCachedModel } from './host-capabilities';
-import { KOREAN_HELLO } from './fixtures';
+import { BASE, requireAnyCachedModel, requireCachedModel } from './host-capabilities';
+import { KOREAN_HELLO, minimalWav } from './fixtures';
 
 test.describe('API Compliance — Infrastructure', () => {
   test('all responses include X-Request-Id header', async ({ request }) => {
@@ -71,16 +71,18 @@ test.describe('API Compliance — Embeddings', () => {
   });
 
   test('dimensions parameter in request is accepted', async ({ request }) => {
+    await requireCachedModel(request, 'embedder');
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'hello', dimensions: 64 }
     });
     // 200 or model-not-found — not 422 (invalid param)
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 });
 
 test.describe('API Compliance — Chat', () => {
   test('chat request with tools field is accepted', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -90,10 +92,11 @@ test.describe('API Compliance — Chat', () => {
       }
     });
     // Not 422 — tools field must be accepted
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   test('response_format json_object is accepted', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -102,10 +105,11 @@ test.describe('API Compliance — Chat', () => {
         max_tokens: 20
       }
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   test('n parameter is accepted', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -114,10 +118,11 @@ test.describe('API Compliance — Chat', () => {
         max_tokens: 5
       }
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   test('max_completion_tokens alias is accepted', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -125,7 +130,7 @@ test.describe('API Compliance — Chat', () => {
         max_completion_tokens: 5
       }
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 });
 
@@ -146,22 +151,24 @@ test.describe('API Compliance — Audio', () => {
   });
 
   test('transcription accepts srt response_format', async ({ request }) => {
+    await requireCachedModel(request, 'transcriber');
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: {
-        file: { name: 'test.wav', mimeType: 'audio/wav', buffer: Buffer.alloc(44, 0) },
+        file: { name: 'test.wav', mimeType: 'audio/wav', buffer: minimalWav() },
         model: 'default',
         response_format: 'srt'
       }
     });
-    // Not 422 — srt format must be recognized
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
+    expect(resp.headers()['content-type']).toContain('text/plain');
   });
 
   test('TTS accepts pcm response_format', async ({ request }) => {
+    await requireCachedModel(request, 'synthesizer');
     const resp = await request.post(`${BASE}/v1/audio/speech`, {
       data: { model: 'default', input: 'hello', response_format: 'pcm' }
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 });
 
@@ -186,17 +193,19 @@ test.describe('API Compliance — Images', () => {
   });
 
   test('image generation accepts n parameter', async ({ request }) => {
+    await requireCachedModel(request, 'imagegenerator');
     const resp = await request.post(`${BASE}/v1/images/generations`, {
       data: { prompt: 'test', model: 'default', n: 2, size: '256x256' }
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   test('image generation accepts quality parameter', async ({ request }) => {
+    await requireCachedModel(request, 'imagegenerator');
     const resp = await request.post(`${BASE}/v1/images/generations`, {
       data: { prompt: 'test', model: 'default', quality: 'hd', size: '256x256' }
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 });
 
@@ -222,6 +231,7 @@ test.describe('API Compliance — Translation', () => {
 
 test.describe('API Compliance — Rerank', () => {
   test('rerank accepts object[] documents with rank_fields', async ({ request }) => {
+    await requireCachedModel(request, 'reranker');
     const resp = await request.post(`${BASE}/v1/rerank`, {
       data: {
         model: 'default',
@@ -234,7 +244,7 @@ test.describe('API Compliance — Rerank', () => {
       }
     });
     // Not 422 — rank_fields+object documents must be accepted
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   test('rerank response includes meta when successful', async ({ request }) => {

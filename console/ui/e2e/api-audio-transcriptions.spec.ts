@@ -83,7 +83,8 @@ test.describe('Audio Transcriptions', () => {
     expect(text).toContain('WEBVTT');
   });
 
-  test('prompt parameter accepted (not 422)', async ({ request }) => {
+  test('prompt parameter accepted', async ({ request }) => {
+    await requireCachedModel(request, 'transcriber');
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: {
         file: { name: 'test.wav', mimeType: 'audio/wav', buffer: minimalWav() },
@@ -91,10 +92,10 @@ test.describe('Audio Transcriptions', () => {
         prompt: 'This is a test audio file.',
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
-  test('temperature parameter accepted (not 422)', async ({ request }) => {
+  test('temperature parameter accepted', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: {
         file: { name: 'test.wav', mimeType: 'audio/wav', buffer: minimalWav() },
@@ -102,7 +103,7 @@ test.describe('Audio Transcriptions', () => {
         temperature: '0.5',
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   // Audio the library cannot use is the caller's mistake: 400 naming the problem, not the opaque 500 of an unexpected failure.
@@ -145,7 +146,8 @@ test.describe('Audio Translations', () => {
     expect(resp.status()).not.toBe(405);
   });
 
-  test('verbose_json for translations accepted (not 422)', async ({ request }) => {
+  test('verbose_json for translations accepted', async ({ request }) => {
+    await requireCachedModel(request, 'transcriber');
     const resp = await request.post(`${BASE}/v1/audio/translations`, {
       multipart: {
         file: { name: 'test.wav', mimeType: 'audio/wav', buffer: minimalWav() },
@@ -153,10 +155,11 @@ test.describe('Audio Translations', () => {
         response_format: 'verbose_json',
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   test('srt/vtt/text formats all accepted by translations endpoint', async ({ request }) => {
+    await requireCachedModel(request, 'transcriber');
     for (const format of ['json', 'text', 'srt', 'vtt']) {
       const resp = await request.post(`${BASE}/v1/audio/translations`, {
         multipart: {
@@ -165,7 +168,7 @@ test.describe('Audio Translations', () => {
           response_format: format,
         },
       });
-      expect(resp.status()).not.toBe(422);
+      expect(resp.status()).toBe(200);
     }
   });
 });

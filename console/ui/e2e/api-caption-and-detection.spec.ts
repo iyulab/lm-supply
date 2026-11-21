@@ -86,7 +86,8 @@ test.describe('Object Detection', () => {
     }
   });
 
-  test('confidence_threshold parameter accepted (not 422)', async ({ request }) => {
+  test('confidence_threshold parameter accepted', async ({ request }) => {
+    await requireCachedModel(request, 'detector');
     const resp = await request.post(`${BASE}/v1/images/detect`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -94,7 +95,7 @@ test.describe('Object Detection', () => {
         confidence_threshold: '0.7',
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
   test('output_format coco returns COCO JSON structure', async ({ request }) => {

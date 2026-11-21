@@ -84,18 +84,20 @@ test.describe('Image Generations (OpenAI compat)', () => {
     expect(resp.status()).toBe(400);
   });
 
-  test('steps parameter accepted (not 422)', async ({ request }) => {
+  test('steps parameter accepted', async ({ request }) => {
+    await requireCachedModel(request, 'imagegenerator');
     const resp = await request.post(`${BASE}/v1/images/generations`, {
       data: { prompt: 'test', model: 'default', size: '256x256', steps: 4 },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 
-  test('seed parameter accepted (not 422)', async ({ request }) => {
+  test('seed parameter accepted', async ({ request }) => {
+    await requireCachedModel(request, 'imagegenerator');
     const resp = await request.post(`${BASE}/v1/images/generations`, {
       data: { prompt: 'test', model: 'default', size: '256x256', seed: 42 },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 });
 
@@ -124,7 +126,8 @@ test.describe('Image Edits', () => {
     expect(resp.status()).toBe(400);
   });
 
-  test('edits with response_format url returns url (not 422)', async ({ request }) => {
+  test('edits with response_format url returns url', async ({ request }) => {
+    await requireCachedModel(request, 'imagegenerator');
     const resp = await request.post(`${BASE}/v1/images/edits`, {
       multipart: {
         image: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
@@ -132,7 +135,7 @@ test.describe('Image Edits', () => {
         response_format: 'url',
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
   });
 });
 
