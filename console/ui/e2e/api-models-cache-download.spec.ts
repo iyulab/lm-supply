@@ -67,9 +67,11 @@ test.describe('GET /v1/models/{model}', () => {
   });
 
   test('URL-encoded slash in model ID is handled', async ({ request }) => {
-    // Should return 200 or 404, not 400/422/500
+    // The id is no registered alias: a 404 with the error envelope, not a 400 for the slash or a 500.
     const resp = await request.get(`${BASE}/v1/models/microsoft%2FFlorence-2-base`);
-    expect([200, 404]).toContain(resp.status());
+    expect(resp.status()).toBe(404);
+    const body = await resp.json();
+    expect(body.error.code).toBe('model_not_found');
   });
 });
 
@@ -114,9 +116,9 @@ test.describe('Cache Management API', () => {
     const resp = await request.get(`${BASE}/api/cache/models/type/embedder`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
-    expect(body).toHaveProperty('models');
-    if (body.models.length > 0) {
-      for (const model of body.models) {
+    expect(Array.isArray(body)).toBe(true);
+    if (body.length > 0) {
+      for (const model of body) {
         expect(model.detectedType?.toLowerCase()).toContain('embed');
       }
     }
@@ -161,14 +163,12 @@ test.describe('Download API', () => {
     expect(resp.status()).toBe(400);
   });
 
-  test('SSE download stream uses text/event-stream', async ({ request }) => {
-    // Just verify the endpoint exists and uses SSE format
-    const resp = await request.post(`${BASE}/api/download/start`, {
-      data: { repoId: 'BAAI/bge-small-en-v1.5' },
-    });
-    // Endpoint exists (not 404/405) — actual streaming test requires live download
-    expect(resp.status()).not.toBe(404);
-    expect(resp.status()).not.toBe(405);
+  test('POST /api/download/model without a repository is refused before any download starts', async ({ request }) => {
+    // The streaming answer needs a live download, which a test must not start; the refusal shows the endpoint is there.
+    const resp = await request.post(`${BASE}/api/download/model`, { data: {} });
+    expect(resp.status()).toBe(400);
+    const body = await resp.json();
+    expect(body.error.message).toContain('RepoId');
   });
 });
 
@@ -186,6 +186,18 @@ test.describe('Registry API', () => {
     for (const mt of body.modelTypes) {
       expect(mt).toHaveProperty('type');
       expect(mt).toHaveProperty('models');
+    }
+  });
+
+  // One repository holds many OCR models, each in a subfolder; the registry names the repository (a path inside it names no cache entry).
+  test('GET /api/registry/models/ocr names repositories and says per model whether its files are cached', async ({ request }) => {
+    const resp = await request.get(`${BASE}/api/registry/models/ocr`);
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.models.length).toBeGreaterThan(0);
+    for (const model of body.models) {
+      expect(model.repoId, model.aliasName).toMatch(/^[^/]+\/[^/]+$/);
+      expect(typeof model.isCached).toBe('boolean');
     }
   });
 

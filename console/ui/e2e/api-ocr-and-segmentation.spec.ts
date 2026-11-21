@@ -1,78 +1,81 @@
 import { test, expect } from '@playwright/test';
-import { PNG_BUFFER } from './fixtures';
-import { BASE, requireCachedModel, requireCachedRepo } from './host-capabilities';
-
-/** The repository that holds the OCR detection and recognition models. */
-const OCR_REPO = 'monkt/paddleocr-onnx';
+import { PNG_BUFFER, TEXT_PAGE_PNG } from './fixtures';
+import { BASE, requireCachedModel, requireCachedOcr } from './host-capabilities';
 
 // ================================================================
 // POST /v1/images/ocr
 // ================================================================
 test.describe('OCR', () => {
   test('response: id, model, full_text, pages[].blocks[].text/confidence/bounding_box/lines', async ({ request }) => {
-    await requireCachedRepo(request, OCR_REPO, 'OCR models');
+    await requireCachedOcr(request, 'crnn-en-v5');
     const resp = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {
-        file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
+        file: { name: 'text-page.png', mimeType: 'image/png', buffer: TEXT_PAGE_PNG },
       },
     });
     expect(resp.status()).toBe(200);
     const body = await resp.json();
     expect(body).toHaveProperty('id');
     expect(body).toHaveProperty('model');
-    expect(body).toHaveProperty('full_text');
-    expect(Array.isArray(body.pages)).toBe(true);
-    if (body.pages.length > 0 && body.pages[0].blocks?.length > 0) {
-      const block = body.pages[0].blocks[0];
-      expect(block).toHaveProperty('text');
-      expect(block).toHaveProperty('confidence');
-      expect(block).toHaveProperty('bounding_box');
-      expect(block).toHaveProperty('lines');
-    }
+    expect(body.full_text).toContain('receipt for seven days');
+    expect(body.pages).toHaveLength(1);
+    expect(body.pages[0].width).toBe(1000);
+    expect(body.pages[0].height).toBe(220);
+    // An image with two printed lines: two blocks, each one line, in reading order.
+    expect(body.pages[0].blocks).toHaveLength(2);
+    const block = body.pages[0].blocks[0];
+    expect(block.text).toContain('receipt');
+    expect(block.confidence).toBeGreaterThan(0.5);
+    expect(block).toHaveProperty('bounding_box');
+    expect(block.lines).toHaveLength(1);
+    expect(block.lines[0].text).toBe(block.text);
   });
 
   test('full_text is a single string', async ({ request }) => {
-    await requireCachedRepo(request, OCR_REPO, 'OCR models');
+    await requireCachedOcr(request, 'crnn-en-v5');
     const resp = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {
-        file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
+        file: { name: 'text-page.png', mimeType: 'image/png', buffer: TEXT_PAGE_PNG },
       },
     });
     expect(resp.status()).toBe(200);
     const body = await resp.json();
-    expect(typeof body.full_text).toBe('string');
+    // The lines of the blocks, in order, joined by a newline.
+    expect(body.full_text).toBe(body.pages[0].blocks.map((b: { text: string }) => b.text).join('\n'));
   });
 
   test('bounding_box has x, y, width, height float fields', async ({ request }) => {
-    await requireCachedRepo(request, OCR_REPO, 'OCR models');
+    await requireCachedOcr(request, 'crnn-en-v5');
     const resp = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {
-        file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
+        file: { name: 'text-page.png', mimeType: 'image/png', buffer: TEXT_PAGE_PNG },
       },
     });
     expect(resp.status()).toBe(200);
     const body = await resp.json();
-    if (body.pages[0]?.blocks?.length > 0) {
-      const bb = body.pages[0].blocks[0].bounding_box;
-      expect(typeof bb.x).toBe('number');
-      expect(typeof bb.y).toBe('number');
-      expect(typeof bb.width).toBe('number');
-      expect(typeof bb.height).toBe('number');
-    }
+    const bb = body.pages[0].blocks[0].bounding_box;
+    for (const field of ['x', 'y', 'width', 'height']) expect(typeof bb[field], field).toBe('number');
+    // Inside the page, and the first line is above the second.
+    expect(bb.x + bb.width).toBeLessThanOrEqual(body.pages[0].width);
+    expect(bb.y + bb.height).toBeLessThanOrEqual(body.pages[0].height);
+    expect(bb.y).toBeLessThan(body.pages[0].blocks[1].bounding_box.y);
   });
 
-  test('language parameter accepted (not 422)', async ({ request }) => {
+  test('language parameter selects the recognizer of that language', async ({ request }) => {
+    await requireCachedOcr(request, 'crnn-en-v5');
     const resp = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {
-        file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },
+        file: { name: 'text-page.png', mimeType: 'image/png', buffer: TEXT_PAGE_PNG },
         language: 'en',
       },
     });
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.model).toContain('crnn-en-v5');
   });
 
   test('response does not claim a detected language', async ({ request }) => {
-    await requireCachedRepo(request, OCR_REPO, 'OCR models');
+    await requireCachedOcr(request, 'crnn-en-v5');
     const resp = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {
         file: { name: 'test.png', mimeType: 'image/png', buffer: PNG_BUFFER },

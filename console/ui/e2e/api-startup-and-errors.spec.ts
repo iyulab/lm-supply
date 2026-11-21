@@ -93,11 +93,11 @@ test.describe('ErrorMiddleware', () => {
     expect(resp.headers()['x-request-id']).toBe(myId);
   });
 
-  test('server auto-generates UUID X-Request-Id when not provided', async ({ request }) => {
+  test('server auto-generates a GUID X-Request-Id when not provided', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models`);
     const reqId = resp.headers()['x-request-id'];
     expect(reqId).toBeTruthy();
-    // UUID v4 pattern: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-    expect(reqId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    // A GUID, written without dashes (the form the host's other generated ids use): 32 hex digits.
+    expect(reqId).toMatch(/^[0-9a-f]{32}$/i);
   });
 });

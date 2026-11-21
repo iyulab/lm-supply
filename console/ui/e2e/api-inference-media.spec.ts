@@ -1,16 +1,13 @@
 import { test, expect } from './fixtures/base.fixture';
-import { BASE, requireCachedModel, requireCachedRepo } from './host-capabilities';
+import { BASE, requireCachedModel, requireCachedOcr } from './host-capabilities';
+import { minimalWav } from './fixtures';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const TEST_AUDIO = path.resolve(__dirname, 'fixtures/test-files/test-audio.wav');
 const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png');
-
-/** The repository that holds the OCR detection and recognition models. */
-const OCR_REPO = 'monkt/paddleocr-onnx';
 
 // ================================================================
 // API Inference — Audio + Media endpoints
@@ -21,7 +18,8 @@ test.describe('API Inference — Audio & Media', () => {
 
   // POST /v1/audio/transcriptions returns transcription text
   test('POST /v1/audio/transcriptions returns text', async ({ request }) => {
-    const audioBuffer = fs.readFileSync(TEST_AUDIO);
+    // A second of silence; the fixture file test-audio.wav holds one sample, which is no audio to transcribe (400).
+    const audioBuffer = minimalWav();
     const response = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: {
         model: 'default',
@@ -37,7 +35,7 @@ test.describe('API Inference — Audio & Media', () => {
 
   // POST /v1/audio/transcriptions with verbose_json
   test('POST /v1/audio/transcriptions verbose returns segments', async ({ request }) => {
-    const audioBuffer = fs.readFileSync(TEST_AUDIO);
+    const audioBuffer = minimalWav();
     const response = await request.post(`${BASE}/v1/audio/transcriptions`, {
       multipart: {
         model: 'default',
@@ -130,7 +128,7 @@ test.describe('API Inference — Audio & Media', () => {
 
   // POST /v1/images/ocr returns the recognized text
   test('POST /v1/images/ocr returns the recognized text', async ({ request }) => {
-    await requireCachedRepo(request, OCR_REPO, 'OCR models');
+    await requireCachedOcr(request, 'crnn-en-v5');
     const imageBuffer = fs.readFileSync(TEST_IMAGE);
     const response = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {

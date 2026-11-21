@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures/base.fixture';
-import { BASE, requireCachedModel, requireCachedRepo } from './host-capabilities';
+import { BASE, requireCachedModel, requireCachedOcr } from './host-capabilities';
 import { mockJsonEndpoint, mockOcrResponseWithLines } from './fixtures/api-mocks';
 import fs from 'fs';
 import path from 'path';
@@ -109,7 +109,7 @@ test.describe('Language Variants', () => {
 
   // Korean OCR via API
   test('POST /v1/images/ocr with language=ko returns text', async ({ request }) => {
-    await requireCachedRepo(request, 'monkt/paddleocr-onnx', 'OCR models');
+    await requireCachedOcr(request, 'crnn-korean-v5');
     const imageBuffer = fs.readFileSync(TEST_IMAGE);
     const response = await request.post(`${BASE}/v1/images/ocr`, {
       multipart: {

@@ -10,23 +10,25 @@ test.describe('System API', () => {
     const resp = await request.get(`${BASE}/api/system/status`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
-    expect(body).toHaveProperty('engineReady');
-    expect(body).toHaveProperty('gpuAvailable');
-    expect(body).toHaveProperty('cpuUsage');
-    expect(body).toHaveProperty('ramUsageMB');
-    expect(body).toHaveProperty('ramTotalMB');
-    expect(body).toHaveProperty('processMemoryMB');
+    // The metrics sit in `status`, next to the models that are loaded.
+    expect(body).toHaveProperty('loadedModels');
+    expect(body).toHaveProperty('models');
+    expect(body.status).toHaveProperty('engineReady');
+    expect(body.status).toHaveProperty('gpuAvailable');
+    expect(body.status).toHaveProperty('cpuUsage');
+    expect(body.status).toHaveProperty('ramUsageMB');
+    expect(body.status).toHaveProperty('ramTotalMB');
+    expect(body.status).toHaveProperty('processMemoryMB');
   });
 
   test('GET /api/system/gpu returns GPU info or null', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/system/gpu`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
-    // Either GPU info or null fields when no GPU
-    if (body.gpuName !== null) {
-      expect(body).toHaveProperty('gpuName');
-      expect(body).toHaveProperty('gpuProvider');
-    }
+    // Without a GPU the host still names what it computes on ("CPU Only") and says no GPU is available.
+    expect(typeof body.isAvailable).toBe('boolean');
+    expect(typeof body.name).toBe('string');
+    expect(typeof body.provider).toBe('string');
   });
 
   test('GET /api/system/memory returns memory metrics', async ({ request }) => {

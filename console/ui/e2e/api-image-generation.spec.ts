@@ -18,7 +18,7 @@ test.describe('Image Generations (OpenAI compat)', () => {
     expect(body.data[0].b64_json || body.data[0].url).toBeTruthy();
   });
 
-  test('response_format url returns data[0].url with localhost path', async ({ request }) => {
+  test('response_format url returns data[0].url on the host the request went to', async ({ request }) => {
     await requireCachedModel(request, 'imagegenerator');
     const resp = await request.post(`${BASE}/v1/images/generations`, {
       data: { prompt: 'A cat', model: 'default', size: '256x256', response_format: 'url' },
@@ -26,7 +26,7 @@ test.describe('Image Generations (OpenAI compat)', () => {
     expect(resp.status()).toBe(200);
     const body = await resp.json();
     expect(body.data[0].url).toBeTruthy();
-    expect(body.data[0].url).toContain('localhost');
+    expect(body.data[0].url).toContain(new URL(BASE).host);
   });
 
   test('URL from response_format url is accessible', async ({ request }) => {

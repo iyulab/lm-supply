@@ -23,18 +23,20 @@ test.describe('Custom Translation API', () => {
 
   test('missing text field returns 400', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/translate`, {
-      data: { source_language: 'en', target_language: 'ko', model: 'default' },
+      data: { model: 'default' },
     });
     expect(resp.status()).toBe(400);
   });
 
-  test('invalid language code returns appropriate error', async ({ request }) => {
+  // The registered models are language pairs; a name that is none of them is a 404 that lists the ones there are.
+  test('a model that is no registered translation pair returns 404 listing the known ones', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/translate`, {
-      data: { text: 'Hello', source_language: 'xx', target_language: 'zz', model: 'default' },
+      data: { input: 'Hello', model: 'no-such-pair' },
     });
-    // Should return 400 or 404 (not 200 or 422)
-    expect(resp.status()).not.toBe(200);
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(404);
+    const body = await resp.json();
+    expect(body.error.code).toBe('model_not_found');
+    expect(body.error.message).toContain('ko-en');
   });
 });
 

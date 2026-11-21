@@ -152,6 +152,6 @@ test.describe('API Model Management', () => {
     expect(model).toHaveProperty('id');
     expect(model).toHaveProperty('object', 'model');
     expect(model).toHaveProperty('created');
-    expect(model).toHaveProperty('ownedBy');
+    expect(model).toHaveProperty('owned_by');
   });
 });

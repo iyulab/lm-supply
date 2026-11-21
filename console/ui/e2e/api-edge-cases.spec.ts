@@ -118,8 +118,11 @@ test.describe('Size Variants', () => {
   });
 
   test('size 1024x1024 accepted (not 400)', async ({ request }) => {
+    // A 1024x1024 image takes minutes on a CPU-only host: the request, not the answer, is what this test is about.
+    test.setTimeout(600_000);
     const resp = await request.post(`${BASE}/v1/images/generations`, {
       data: { prompt: 'test', model: 'default', size: '1024x1024' },
+      timeout: 540_000,
     });
     expect(resp.status()).not.toBe(400);
   });

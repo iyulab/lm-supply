@@ -1,3 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/** A page of two printed lines in English («Please keep your receipt for seven days.» / «The library is closed on Mondays.»): an image with text in it. */
+export const TEXT_PAGE_PNG = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'fixtures/text-page.png'));
+
 /** A valid 1x1 red PNG, for multipart image uploads. */
 export const PNG_BUFFER = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',

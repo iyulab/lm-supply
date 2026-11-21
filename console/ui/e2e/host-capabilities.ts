@@ -38,13 +38,16 @@ export async function requireAnyCachedModel(request: APIRequestContext, type: st
   test.skip(!models.some(m => m.isCached), `no ${type} model is in the local model cache on this host`);
 }
 
-/** Skips the test unless the repository is in the local model cache. */
-export async function requireCachedRepo(request: APIRequestContext, repoId: string, what: string): Promise<void> {
-  const resp = await request.get(`${BASE}/api/cache/models`);
-  expect(resp.status(), 'GET /api/cache/models').toBe(200);
-  const body = await resp.json();
-  const cached = (body.models as { repoId: string }[]).some(m => m.repoId.toLowerCase() === repoId.toLowerCase());
-  test.skip(!cached, `${what} (${repoId}) is not in the local model cache on this host`);
+/**
+ * Skips the test unless the files an OCR request reads are in the local model cache: the default detector and the recognizer of
+ * the language (the registry's OCR entries say per model whether its own files are cached, not only whether its repository is).
+ */
+export async function requireCachedOcr(request: APIRequestContext, recognizer: string): Promise<void> {
+  const models = await registryModels(request, 'ocr');
+  for (const alias of ['dbnet-v5', recognizer]) {
+    const model = models.find(m => m.aliasName === alias);
+    test.skip(!model?.isCached, `OCR model '${alias}' is not in the local model cache on this host`);
+  }
 }
 
 /** Skips the test unless the Hugging Face Hub answers from this machine (the host reads model metadata from it). */
