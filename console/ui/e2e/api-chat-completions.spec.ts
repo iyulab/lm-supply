@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { PNG_DATA_URL } from './fixtures';
-import { BASE, requireAnyCachedModel } from './host-capabilities';
+import { BASE, requireAnyCachedModel, requireCachedRepo } from './host-capabilities';
 
 // ================================================================
 // Basic Chat Completions
@@ -25,18 +25,26 @@ test.describe('Basic Chat Completions', () => {
     expect(body).toHaveProperty('usage');
   });
 
-  test('finish_reason is "stop"', async ({ request }) => {
-    await requireAnyCachedModel(request, 'generator');
-    const resp = await request.post(`${BASE}/v1/chat/completions`, {
-      data: {
-        model: 'default',
-        messages: [{ role: 'user', content: 'Say one word.' }],
-        max_completion_tokens: 5,
-      },
+  // A model served by llama-server says why it stopped: a limit that ends the answer is `length`, not `stop`. (The budget of the first
+  // request holds a thinking model's reasoning as well as its answer.)
+  test('finish_reason is "stop" when the answer ends and "length" when the token limit ends it', async ({ request }) => {
+    await requireCachedRepo(request, 'unsloth/Qwen3.5-9B-GGUF', 'the model of gguf:qwen3-balanced');
+    test.setTimeout(300_000);
+    const ended = await request.post(`${BASE}/v1/chat/completions`, {
+      data: { model: 'gguf:qwen3-balanced', messages: [{ role: 'user', content: 'Say hi.' }], max_completion_tokens: 2000 },
+      timeout: 240_000,
     });
-    expect(resp.status()).toBe(200);
-    const body = await resp.json();
-    expect(body.choices[0].finish_reason).toBe('stop');
+    expect(ended.status()).toBe(200);
+    expect((await ended.json()).choices[0].finish_reason).toBe('stop');
+
+    const cut = await request.post(`${BASE}/v1/chat/completions`, {
+      data: { model: 'gguf:qwen3-balanced', messages: [{ role: 'user', content: 'Write a long essay about rivers.' }], max_completion_tokens: 8 },
+      timeout: 240_000,
+    });
+    expect(cut.status()).toBe(200);
+    const body = await cut.json();
+    expect(body.usage.completion_tokens).toBe(8);
+    expect(body.choices[0].finish_reason).toBe('length');
   });
 
   test('empty messages returns 400', async ({ request }) => {

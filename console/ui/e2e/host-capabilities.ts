@@ -50,6 +50,15 @@ export async function requireCachedOcr(request: APIRequestContext, recognizer: s
   }
 }
 
+/** Skips the test unless the repository is in the local model cache (for a model the registry listing does not name, such as a `gguf:` alias). */
+export async function requireCachedRepo(request: APIRequestContext, repoId: string, what: string): Promise<void> {
+  const resp = await request.get(`${BASE}/api/cache/models`);
+  expect(resp.status(), 'GET /api/cache/models').toBe(200);
+  const body = await resp.json();
+  const cached = (body.models as { repoId: string }[]).some(m => m.repoId.toLowerCase() === repoId.toLowerCase());
+  test.skip(!cached, `${what} (${repoId}) is not in the local model cache on this host`);
+}
+
 /** Skips the test unless the Hugging Face Hub answers from this machine (the host reads model metadata from it). */
 export async function requireHub(request: APIRequestContext): Promise<void> {
   let reachable = false;

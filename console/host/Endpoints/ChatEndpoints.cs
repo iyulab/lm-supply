@@ -207,7 +207,7 @@ public static class ChatEndpoints
                         // Parse tool calls if tools are enabled
                         IReadOnlyList<ToolCall>? toolCalls = null;
                         string? content = result.Content;
-                        string finishReason = "stop";
+                        string finishReason = result.FinishReason ?? "stop";
 
                         if (toolsEnabled)
                         {
