@@ -536,6 +536,7 @@ public static class OnnxSessionFactory
             return (true, null);
 
         // Last resort: try direct load
+        string? directLoadFailure = null;
         try
         {
             var libName = OperatingSystem.IsWindows() ? "onnxruntime"
@@ -543,25 +544,20 @@ public static class OnnxSessionFactory
                 : OperatingSystem.IsMacOS() ? "libonnxruntime.dylib"
                 : "onnxruntime";
 
-            if (NativeLibrary.TryLoad(libName, out var handle))
-            {
-                NativeLibrary.Free(handle);
-                return (true, null);
-            }
+            var handle = NativeLibrary.Load(libName);
+            NativeLibrary.Free(handle);
+            return (true, null);
         }
-        catch
+        catch (Exception ex)
         {
-            // Swallow - fall through to error message
+            // Fall through to the error message; the text is kept in case the loader recorded nothing of its own.
+            directLoadFailure = string.Join(' ', ex.Message.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         }
 
-        var message = OperatingSystem.IsWindows()
-            ? "ONNX Runtime native library failed to load. This usually means Visual C++ Redistributable 2015-2022 is not installed. "
-              + "Download from: https://aka.ms/vs/17/release/vc_redist.x64.exe"
-            : OperatingSystem.IsLinux()
-                ? "ONNX Runtime native library failed to load. Ensure required shared libraries are installed (libstdc++, libgomp)."
-                : "ONNX Runtime native library failed to load. Ensure required system libraries are installed.";
-
-        return (false, message);
+        // The refusal of the registered (downloaded or shipped) runtime is the informative one: it names the file the app was
+        // actually told to use, where the direct load above only looked for a system-wide copy.
+        var loaderReason = NativeLoader.Instance.GetLastLoadFailure("onnxruntime") ?? directLoadFailure;
+        return (false, NativeLoadFailureMessage.ForOnnxRuntime(NativeLoadFailureMessage.CurrentPlatform, loaderReason));
     }
 
     /// <summary>
