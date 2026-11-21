@@ -2,6 +2,7 @@ using LMSupply.Console.Host.Infrastructure;
 using LMSupply.Console.Host.Services;
 using LMSupply.Captioner;
 using LMSupply.Detector;
+using LMSupply.Download;
 using LMSupply.Embedder;
 using LMSupply.Ocr;
 using LMSupply.Reranker;
@@ -33,7 +34,7 @@ public static class ModelRegistryEndpoints
 
             var registry = new ModelRegistry
             {
-                ModelTypes = GetAllModelTypes(cachedRepoIds)
+                ModelTypes = GetAllModelTypes(cachedRepoIds, cache.CacheDirectory)
             };
 
             return Results.Ok(registry);
@@ -48,7 +49,7 @@ public static class ModelRegistryEndpoints
             var cachedModels = cache.GetCachedModels();
             var cachedRepoIds = cachedModels.Select(m => m.RepoId).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            var modelType = GetModelTypeByName(type, cachedRepoIds);
+            var modelType = GetModelTypeByName(type, cachedRepoIds, cache.CacheDirectory);
             if (modelType == null)
             {
                 return ApiHelper.Error($"Unknown model type: {type}", "invalid_request_error", 404);
@@ -61,7 +62,7 @@ public static class ModelRegistryEndpoints
         .WithDescription("Returns all aliases and repo IDs for a specific model type.");
     }
 
-    private static List<ModelTypeInfo> GetAllModelTypes(HashSet<string> cachedRepoIds)
+    private static List<ModelTypeInfo> GetAllModelTypes(HashSet<string> cachedRepoIds, string cacheDirectory)
     {
         return
         [
@@ -72,14 +73,14 @@ public static class ModelRegistryEndpoints
             CreateSynthesizerModels(cachedRepoIds),
             CreateTranslatorModels(cachedRepoIds),
             CreateCaptionerModels(cachedRepoIds),
-            CreateOcrModels(cachedRepoIds),
+            CreateOcrModels(cacheDirectory),
             CreateDetectorModels(cachedRepoIds),
             CreateSegmenterModels(cachedRepoIds),
             CreateImageGeneratorModels(cachedRepoIds),
         ];
     }
 
-    private static ModelTypeInfo? GetModelTypeByName(string type, HashSet<string> cachedRepoIds)
+    private static ModelTypeInfo? GetModelTypeByName(string type, HashSet<string> cachedRepoIds, string cacheDirectory)
     {
         return type.ToLowerInvariant() switch
         {
@@ -90,7 +91,7 @@ public static class ModelRegistryEndpoints
             "synthesizer" => CreateSynthesizerModels(cachedRepoIds),
             "translator" => CreateTranslatorModels(cachedRepoIds),
             "captioner" => CreateCaptionerModels(cachedRepoIds),
-            "ocr" => CreateOcrModels(cachedRepoIds),
+            "ocr" => CreateOcrModels(cacheDirectory),
             "detector" => CreateDetectorModels(cachedRepoIds),
             "segmenter" => CreateSegmenterModels(cachedRepoIds),
             "imagegenerator" or "imagegen" or "image" => CreateImageGeneratorModels(cachedRepoIds),
@@ -176,9 +177,31 @@ public static class ModelRegistryEndpoints
     private static ModelTypeInfo CreateCaptionerModels(HashSet<string> cachedRepoIds) => FromRegistry(
         "captioner", "Captioner", "Image captioning models", LocalCaptioner.Registry.GetAvailableModels(), cachedRepoIds);
 
-    private static ModelTypeInfo CreateOcrModels(HashSet<string> cachedRepoIds) => FromRegistry<IModelInfoBase>(
-        "ocr", "OCR", "Text detection and recognition models",
-        [.. LocalOcr.DetectionRegistry.GetAvailableModels(), .. LocalOcr.RecognitionRegistry.GetAvailableModels()], cachedRepoIds);
+    // The OCR models are not listed through FromRegistry: one repository holds many of them, each in a subfolder, so the registry's id
+    // is «repository/subfolder» — no repository, and never in the cache listing, which names repositories. Each model is cached
+    // when the files its loader reads (the model, and a recognizer's dictionary) are in its subfolder.
+    private static ModelTypeInfo CreateOcrModels(string cacheDirectory) => new()
+    {
+        Type = "ocr",
+        DisplayName = "OCR",
+        Description = "Text detection and recognition models",
+        Models =
+        [
+            .. LocalOcr.DetectionRegistry.GetAvailableModels().Select(m => OcrModel(
+                m.AliasName, m.RepoId, m.Subfolder, m.Description, [m.ModelFile], cacheDirectory)),
+            .. LocalOcr.RecognitionRegistry.GetAvailableModels().Select(m => OcrModel(
+                m.AliasName, m.RepoId, m.Subfolder, m.Description, [m.ModelFile, m.DictFile], cacheDirectory)),
+        ]
+    };
+
+    private static ModelAliasInfo OcrModel(
+        string alias, string repoId, string? subfolder, string? description, string[] files, string cacheDirectory) => new()
+    {
+        AliasName = alias,
+        RepoId = repoId,
+        Description = description ?? alias,
+        IsCached = CacheManager.GetMissingFiles(cacheDirectory, repoId, files, subfolder).Count == 0
+    };
 
     private static ModelTypeInfo CreateDetectorModels(HashSet<string> cachedRepoIds) => FromRegistry(
         "detector", "Object Detector", "Object detection models", LocalDetector.Registry.GetAvailableModels(), cachedRepoIds);
