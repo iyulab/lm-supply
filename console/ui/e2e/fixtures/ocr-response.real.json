@@ -1,0 +1,57 @@
+{
+  "id": "ocr-fixture",
+  "model": "default+crnn-en-v5",
+  "full_text": "Please keep your receipt for seven days.\nThe library is closed on Mondays.",
+  "pages": [
+    {
+      "width": 1000,
+      "height": 220,
+      "blocks": [
+        {
+          "text": "Please keep your receipt for seven days.",
+          "confidence": 0.9823281,
+          "bounding_box": {
+            "x": 33,
+            "y": 42,
+            "width": 668,
+            "height": 40
+          },
+          "lines": [
+            {
+              "text": "Please keep your receipt for seven days.",
+              "confidence": 0.9823281,
+              "bounding_box": {
+                "x": 33,
+                "y": 42,
+                "width": 668,
+                "height": 40
+              }
+            }
+          ]
+        },
+        {
+          "text": "The library is closed on Mondays.",
+          "confidence": 0.9715032,
+          "bounding_box": {
+            "x": 33,
+            "y": 120,
+            "width": 558,
+            "height": 44
+          },
+          "lines": [
+            {
+              "text": "The library is closed on Mondays.",
+              "confidence": 0.9715032,
+              "bounding_box": {
+                "x": 33,
+                "y": 120,
+                "width": 558,
+                "height": 44
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

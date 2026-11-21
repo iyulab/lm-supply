@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures/base.fixture';
-import { mockJsonEndpoint, mockCaptionResponse, mockVqaResponse, mockOcrResponse, mockImageGenerationResponse, mockJsonError } from './fixtures/api-mocks';
+import { mockJsonEndpoint, mockCaptionResponse, mockVqaResponse, mockOcrResponse, mockOcrResponseWithLines, mockImageGenerationResponse, mockJsonError } from './fixtures/api-mocks';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -27,15 +27,18 @@ test.describe('Caption — mock inference results', () => {
     await fileInput.setInputFiles(TEST_IMAGE);
 
     // Caption text should appear
-    await expect(page.getByText('A red pixel on a white background')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('a sign that says please keep your receipt for seven days')).toBeVisible({ timeout: 15_000 });
 
     // Confidence should be shown
-    await expect(page.getByText(/Confidence: 87\.0%/)).toBeVisible();
+    await expect(page.getByText(/Confidence: 60\.6%/)).toBeVisible();
   });
 
   // Alternatives listed
   test('alternative captions are listed', async ({ page }) => {
-    const mockResponse = mockCaptionResponse();
+    const mockResponse = mockCaptionResponse([
+      { caption: 'A small colored dot', confidence: 0.4 },
+      { caption: 'A minimal test image', confidence: 0.3 },
+    ]);
     await mockJsonEndpoint(page, '**/v1/images/caption', mockResponse);
 
     const fileInput = page.locator('input[type="file"]');
@@ -76,7 +79,7 @@ test.describe('Caption — mock inference results', () => {
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(TEST_IMAGE);
 
-    await expect(page.getByText('A red pixel on a white background')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('a sign that says please keep your receipt for seven days')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(/\d+ ms/)).toBeVisible();
   });
 });
@@ -103,7 +106,7 @@ test.describe('OCR — mock inference results', () => {
     await expect(page.getByText('Recognized Text')).toBeVisible({ timeout: 15_000 });
 
     // Text should appear in monospace area
-    const textArea = page.locator('.font-mono').filter({ hasText: 'Hello World' }).first();
+    const textArea = page.locator('.font-mono').filter({ hasText: 'Please keep your receipt' }).first();
     await expect(textArea).toBeVisible();
   });
 
@@ -123,7 +126,7 @@ test.describe('OCR — mock inference results', () => {
 
   // No text detected
   test('no text detected shows placeholder', async ({ page }) => {
-    const emptyResponse = { id: 'ocr-mock', model: 'mock-ocr', text: '', blocks: [] };
+    const emptyResponse = mockOcrResponseWithLines([]);
     await mockJsonEndpoint(page, '**/v1/images/ocr', emptyResponse);
 
     const fileInput = page.locator('input[type="file"]');

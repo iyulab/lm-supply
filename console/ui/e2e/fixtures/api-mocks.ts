@@ -1,4 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Page, Route } from '@playwright/test';
+import type { CaptionResponse, OcrResponse } from '../../src/api/types';
 
 /**
  * API mock helpers for Playwright E2E tests.
@@ -194,15 +198,11 @@ export function mockTranslateResponse(text: string) {
   };
 }
 
-/** Generate mock caption response */
-export function mockCaptionResponse() {
-  return {
-    id: 'caption-mock',
-    model: 'mock-captioner',
-    caption: 'A red pixel on a white background',
-    confidence: 0.87,
-    alternatives: ['A small colored dot', 'A minimal test image'],
-  };
+/** Caption response in the shape the running host answers with (e2e/fixtures/caption-response.real.json, captured from POST /v1/images/caption). */
+export function mockCaptionResponse(alternatives: { caption: string; confidence: number }[] = []) {
+  const real = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'caption-response.real.json'), 'utf-8')) as CaptionResponse;
+  const extra = alternatives.map((alt, i) => ({ ...real.choices[0], index: i + 1, caption: alt.caption, confidence: alt.confidence }));
+  return { ...real, choices: [...real.choices, ...extra] };
 }
 
 /** Generate mock VQA response */
@@ -216,17 +216,26 @@ export function mockVqaResponse(question: string) {
   };
 }
 
-/** Generate mock OCR response */
+/**
+ * OCR response in the shape the running host answers with: a real response (e2e/fixtures/ocr-response.real.json, captured from
+ * POST /v1/images/ocr) rather than a hand-written one, so a UI that reads another shape fails here instead of in front of a user.
+ */
 export function mockOcrResponse() {
-  return {
-    id: 'ocr-mock',
-    model: 'mock-ocr',
-    text: 'Hello World\nLine 2',
-    blocks: [
-      { text: 'Hello World', confidence: 0.98, boundingBox: { x: 10, y: 10, width: 200, height: 30 } },
-      { text: 'Line 2', confidence: 0.95, boundingBox: { x: 10, y: 50, width: 100, height: 30 } },
-    ],
-  };
+  return JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'ocr-response.real.json'), 'utf-8')) as OcrResponse;
+}
+
+/** The same real response with the recognized lines replaced — for tests that need other text (another language, an empty page). */
+export function mockOcrResponseWithLines(lines: { text: string; confidence: number }[]): OcrResponse {
+  const real = mockOcrResponse();
+  const template = real.pages[0].blocks[0];
+  const blocks = lines.map((line, index) => ({
+    ...template,
+    text: line.text,
+    confidence: line.confidence,
+    bounding_box: { ...template.bounding_box, y: template.bounding_box.y + index * 60 },
+    lines: [{ text: line.text, confidence: line.confidence, bounding_box: { ...template.bounding_box, y: template.bounding_box.y + index * 60 } }],
+  }));
+  return { ...real, full_text: lines.map((line) => line.text).join('\n'), pages: [{ ...real.pages[0], blocks }] };
 }
 
 /** Generate a minimal WAV buffer (for synthesize mock) */

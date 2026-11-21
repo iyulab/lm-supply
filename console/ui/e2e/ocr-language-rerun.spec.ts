@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/base.fixture';
+import { mockOcrResponseWithLines } from './fixtures/api-mocks';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -16,8 +17,8 @@ test.describe('OCR — language change re-run', () => {
   test('changing OCR language and re-uploading produces new result', async ({ page }) => {
     let ocrCallCount = 0;
     const ocrResults = [
-      { text: 'Hello World', blocks: [{ text: 'Hello World', confidence: 0.98 }], language: 'en' },
-      { text: '안녕 세계', blocks: [{ text: '안녕 세계', confidence: 0.95 }], language: 'ko' },
+      mockOcrResponseWithLines([{ text: 'Hello World', confidence: 0.98 }]),
+      mockOcrResponseWithLines([{ text: '안녕 세계', confidence: 0.95 }]),
     ];
 
     // Set up mock BEFORE navigation

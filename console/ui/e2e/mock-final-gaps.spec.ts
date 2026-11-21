@@ -168,7 +168,7 @@ test.describe('Caption — auto-trigger on upload', () => {
     });
 
     // Caption API should be called automatically (no button click needed)
-    await expect(page.getByText('A red pixel on a white background')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('a sign that says please keep your receipt for seven days')).toBeVisible({ timeout: 10_000 });
     expect(captionApiCalled).toBe(true);
   });
 });

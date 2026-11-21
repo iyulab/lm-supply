@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures/base.fixture';
 import { BASE, requireCachedModel, requireCachedRepo } from './host-capabilities';
-import { mockJsonEndpoint } from './fixtures/api-mocks';
+import { mockJsonEndpoint, mockOcrResponseWithLines } from './fixtures/api-mocks';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -65,22 +65,10 @@ test.describe('Language Variants', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          text: '안녕하세요 세계',
-          blocks: [
-            {
-              text: '안녕하세요',
-              confidence: 0.95,
-              boundingBox: { x: 10, y: 10, width: 100, height: 20 },
-            },
-            {
-              text: '세계',
-              confidence: 0.92,
-              boundingBox: { x: 120, y: 10, width: 60, height: 20 },
-            },
-          ],
-          language: 'ko',
-        }),
+        body: JSON.stringify(mockOcrResponseWithLines([
+          { text: '안녕하세요', confidence: 0.95 },
+          { text: '세계', confidence: 0.92 },
+        ])),
       });
     });
 

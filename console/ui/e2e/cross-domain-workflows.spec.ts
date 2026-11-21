@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures/base.fixture';
-import { mockJsonEndpoint, mockChatStream } from './fixtures/api-mocks';
+import { mockJsonEndpoint, mockChatStream, mockCaptionResponse } from './fixtures/api-mocks';
 
 // ================================================================
 // Cross-domain workflows: multi-page interactions, mode switching
@@ -55,17 +55,7 @@ test.describe('Embed → Rerank workflow', () => {
 test.describe('Caption → VQA mode switching', () => {
   test('switching modes preserves uploaded image preview', async ({ page }) => {
     // Mock caption endpoint
-    await page.route('**/v1/images/caption', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          caption: 'A test image',
-          model: 'test-model',
-          processing_time_ms: 100,
-        }),
-      });
-    });
+    await mockJsonEndpoint(page, '**/v1/images/caption', mockCaptionResponse());
 
     await page.goto('/caption');
     await expect(page.locator('main').getByRole('heading', { name: /Caption/ })).toBeVisible();
@@ -82,7 +72,7 @@ test.describe('Caption → VQA mode switching', () => {
     });
 
     // Wait for caption result
-    await expect(page.getByText('A test image')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('a sign that says please keep your receipt for seven days')).toBeVisible({ timeout: 10_000 });
 
     // Switch to VQA mode
     await page.getByRole('button', { name: 'Visual QA' }).click();
@@ -109,17 +99,7 @@ test.describe('Caption → VQA mode switching', () => {
     });
 
     // Also mock caption for initial upload
-    await page.route('**/v1/images/caption', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          caption: 'A test image',
-          model: 'test-model',
-          processing_time_ms: 100,
-        }),
-      });
-    });
+    await mockJsonEndpoint(page, '**/v1/images/caption', mockCaptionResponse());
 
     await page.goto('/caption');
     await expect(page.locator('main').getByRole('heading', { name: /Caption/ })).toBeVisible();
@@ -136,7 +116,7 @@ test.describe('Caption → VQA mode switching', () => {
     });
 
     // Wait for caption
-    await expect(page.getByText('A test image')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('a sign that says please keep your receipt for seven days')).toBeVisible({ timeout: 10_000 });
 
     // Switch to VQA
     await page.getByRole('button', { name: 'Visual QA' }).click();
