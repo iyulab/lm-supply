@@ -1212,6 +1212,8 @@ await foreach (var token in model.GenerateChatAsync(messages, options))
 }
 ```
 
+**A thinking model spends `MaxTokens` on its reasoning first.** The reasoning counts against the limit, and a reply that is cut while the model is still reasoning has no visible text: a short structured answer takes about 4,000 tokens with thinking on (measured on Qwen 3.5 4B and 9B), and with a `MaxTokens` of a few hundred the call returns an empty reply whose finish reason is `length`. Give a thinking model a limit that holds its reasoning and its answer, or turn thinking off (`Thinking = ThinkingMode.Off`) when the answer is short.
+
 To check whether a model has this issue programmatically:
 
 ```csharp
