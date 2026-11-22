@@ -1082,6 +1082,7 @@ RuntimeManager.Configure(new RuntimeManagerOptions
   hold every library the provider needs. A CPU-only bundle serves CPU, the Auto provider chain moves past GPU providers it
   cannot serve, and an explicit GPU request fails with the missing file named. Take the files from the
   `Microsoft.ML.OnnxRuntime` package (same version as the managed assembly LMSupply references) for each RID you ship.
+- **Signed macOS apps**: an app signed with the hardened runtime and library validation (no `com.apple.security.cs.disable-library-validation` entitlement) refuses the ONNX Runtime LMSupply downloads into its cache at first use - Microsoft signed it, not your team - and every model load fails with «ONNX Runtime native library failed to load»; the message then carries the loader's text («code signature … not valid for use in process», «different Team IDs»). Ship the runtime with the app instead: put the files of the `Microsoft.ML.OnnxRuntime` package's `runtimes/osx-arm64/native` folder into your bundle, sign them with the app, and point `RuntimeDirectory` at that folder. Nothing is downloaded then.
 - **`DisableAutoDownload`**: the runtime comes from the runtime cache (see *Non-HF Artifacts* below). A miss throws
   `ModelLoadException`, and no version lookup or background update check is made. Without a pin, an older cached version
   stands in when the expected one is absent (with a warning). With `PinnedVersion`, only that version is accepted.

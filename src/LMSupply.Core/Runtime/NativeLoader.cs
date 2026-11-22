@@ -19,6 +19,9 @@ public sealed class NativeLoader : IDisposable
     private readonly Dictionary<string, string> _libraryPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IntPtr> _loadedLibraries = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _loadedLibraryPaths = new(StringComparer.OrdinalIgnoreCase);
+    // The loader's own words for the last refused load of a library (the dlopen / LoadLibrary text), kept so the error a caller
+    // sees later can say why instead of only that the library is not there.
+    private readonly Dictionary<string, string> _loadFailures = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<Assembly> _registeredAssemblies = new();
     private readonly HashSet<string> _addedDllDirectories = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<IntPtr> _dllDirectoryCookies = new();
@@ -256,10 +259,46 @@ public sealed class NativeLoader : IDisposable
             return;
         }
 
-        if (NativeLibrary.TryLoad(libraryPath, out var handle))
+        if (TryLoadRecordingFailure(normalizedName, libraryPath, out var handle))
         {
             _loadedLibraries[normalizedName] = handle;
             _loadedLibraryPaths[normalizedName] = libraryPath;
+        }
+    }
+
+    /// <summary>
+    /// Loads the library at <paramref name="path"/> like <see cref="NativeLibrary.TryLoad(string, out IntPtr)"/>, and when the
+    /// loader refuses it keeps the loader's own explanation under <paramref name="normalizedName"/> (see
+    /// <see cref="GetLastLoadFailure"/>). Call with <c>_lock</c> held.
+    /// </summary>
+    private bool TryLoadRecordingFailure(string normalizedName, string path, out IntPtr handle)
+    {
+        try
+        {
+            handle = NativeLibrary.Load(path);
+            _loadFailures.Remove(normalizedName);
+            return true;
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException)
+        {
+            handle = IntPtr.Zero;
+            // The message of a dlopen / LoadLibrary refusal runs over several lines; one line is what an error message wants.
+            _loadFailures[normalizedName] = string.Join(' ', ex.Message.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The loader's explanation for the last time it refused to load <paramref name="libraryName"/> (the text of the
+    /// <c>dlopen</c> / <c>LoadLibrary</c> failure, which on macOS says «code signature … not valid for use in process» when
+    /// library validation rejects a binary another team signed), or null when no refused load was recorded — a successful
+    /// load clears it.
+    /// </summary>
+    internal string? GetLastLoadFailure(string libraryName)
+    {
+        lock (_lock)
+        {
+            return _loadFailures.TryGetValue(NormalizeLibraryName(libraryName), out var reason) ? reason : null;
         }
     }
 
@@ -300,7 +339,7 @@ public sealed class NativeLoader : IDisposable
             // Try to find and load the library
             if (_libraryPaths.TryGetValue(normalizedName, out var path))
             {
-                if (NativeLibrary.TryLoad(path, out handle))
+                if (TryLoadRecordingFailure(normalizedName, path, out handle))
                 {
                     _loadedLibraries[normalizedName] = handle;
                     return true;
@@ -312,7 +351,7 @@ public sealed class NativeLoader : IDisposable
             {
                 if (_libraryPaths.TryGetValue(variation, out path))
                 {
-                    if (NativeLibrary.TryLoad(path, out handle))
+                    if (TryLoadRecordingFailure(normalizedName, path, out handle))
                     {
                         _loadedLibraries[normalizedName] = handle;
                         return true;
