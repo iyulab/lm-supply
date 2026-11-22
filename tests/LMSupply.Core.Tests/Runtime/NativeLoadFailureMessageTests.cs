@@ -44,6 +44,7 @@ public class NativeLoadFailureMessageTests
         message.Should().Contain("The loader said:").And.Contain("have different Team IDs");
         message.Should().Contain("RuntimeManagerOptions.RuntimeDirectory").And.Contain("ship the native ONNX Runtime with the application");
         message.Should().Contain("com.apple.security.cs.disable-library-validation");
+        message.Should().NotContain("Ensure required system libraries", "the generic hint points at the wrong fix for a signing refusal");
     }
 
     [Fact]
@@ -53,6 +54,7 @@ public class NativeLoadFailureMessageTests
 
         message.Should().Contain("The loader said: dlopen(x, 0x0001)");
         message.Should().NotContain("RuntimeDirectory", "the signing remedy belongs to the signing refusal only");
+        message.Should().Contain("Ensure required system libraries are installed.");
     }
 
     [Theory]

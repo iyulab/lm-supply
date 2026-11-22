@@ -45,7 +45,13 @@ internal static class NativeLoadFailureMessage
     /// <summary>The message for a native ONNX Runtime that failed to load; <paramref name="loaderReason"/> is the loader's own text, if known.</summary>
     public static string ForOnnxRuntime(NativeLoadPlatform platform, string? loaderReason)
     {
-        var message = platform switch
+        var codeSigningRefusal = platform == NativeLoadPlatform.MacOS && IsCodeSigningRefusal(loaderReason);
+
+        // A recognised library-validation refusal has its own remedy below; the generic «install system libraries» hint would
+        // send the reader to the wrong fix first.
+        var message = codeSigningRefusal
+            ? "ONNX Runtime native library failed to load."
+            : platform switch
         {
             NativeLoadPlatform.Windows =>
                 "ONNX Runtime native library failed to load. This usually means Visual C++ Redistributable 2015-2022 is not installed. "
@@ -59,7 +65,7 @@ internal static class NativeLoadFailureMessage
         if (!string.IsNullOrWhiteSpace(loaderReason))
             message += $" The loader said: {loaderReason}";
 
-        if (platform == NativeLoadPlatform.MacOS && IsCodeSigningRefusal(loaderReason))
+        if (codeSigningRefusal)
         {
             message += " macOS library validation refuses a native library that is not signed by the same team as the application - "
                 + "which is what happens to the ONNX Runtime LMSupply downloads into its cache at first use. In a signed (hardened-runtime) "
