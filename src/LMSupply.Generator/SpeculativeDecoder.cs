@@ -66,6 +66,8 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
         var currentPrompt = prompt;
         var generatedText = string.Empty;
         var maxTokens = options?.MaxTokens ?? 256;
+        // Set when a round ends the answer itself; a loop that falls out through its token limit leaves it false
+        var endedOnItsOwn = false;
 
         // Draft options (lower temperature for more predictable outputs)
         var draftOptions = CreateDraftOptions(options);
@@ -87,7 +89,11 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
                 if (draftCandidates.Count >= SpeculationLength) break;
             }
 
-            if (draftCandidates.Count == 0) break;
+            if (draftCandidates.Count == 0)
+            {
+                endedOnItsOwn = true;
+                break;
+            }
             draftTokens += draftCandidates.Count;
 
             // Step 2: Verify with target model
@@ -142,6 +148,7 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
             // Check for end of generation (simple heuristic)
             if (generatedText.EndsWith('\n') && generatedText.TrimEnd().EndsWith('.'))
             {
+                endedOnItsOwn = true;
                 break;
             }
         }
@@ -153,7 +160,8 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
             DraftTokens = draftTokens,
             AcceptedTokens = acceptedTokens,
             TargetTokens = targetTokens,
-            ElapsedMilliseconds = sw.ElapsedMilliseconds
+            ElapsedMilliseconds = sw.ElapsedMilliseconds,
+            FinishReason = endedOnItsOwn ? "stop" : "length"
         };
     }
 

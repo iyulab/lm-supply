@@ -104,8 +104,8 @@ public static class ChatEndpoints
                         using var decoder = new SpeculativeDecoder(
                             new BorrowedGeneratorModel(draftScope.Model),
                             new BorrowedGeneratorModel(scope.Model));
-                        var tokens = ToStringTokens(decoder.GenerateAsync(prompt, options, ct));
-                        await SseHelper.StreamChatCompletionAsync(context, scope.Model.ModelId, tokens, ct);
+                        var chunks = ToChunks(decoder, decoder.GenerateAsync(prompt, options, ct), ct);
+                        await SseHelper.StreamChatCompletionAsync(context, scope.Model.ModelId, chunks, ct);
                     }
                     else if (request.Logprobs == true)
                     {
@@ -117,8 +117,8 @@ public static class ChatEndpoints
                     else if (isStrictJson)
                     {
                         // Strict JSON: buffer full response, validate, retry up to 3 times, then stream result
-                        var tokens = StreamValidatedJsonAsync(scope.Model, messages, options, request.ResponseFormat!, ct);
-                        await SseHelper.StreamChatCompletionAsync(context, scope.Model.ModelId, tokens, ct);
+                        var chunks = StreamValidatedJsonAsync(scope.Model, messages, options, request.ResponseFormat!, ct);
+                        await SseHelper.StreamChatCompletionAsync(context, scope.Model.ModelId, chunks, ct);
                     }
                     else
                     {
@@ -183,7 +183,7 @@ public static class ChatEndpoints
                         {
                             Index = i,
                             Message = new ChatCompletionResponseMessage { Role = "assistant", Content = result.Content },
-                            FinishReason = "stop"
+                            FinishReason = specResult.Stats.FinishReason
                         });
 
                         aggregatedUsage = i == 0
@@ -308,10 +308,10 @@ public static class ChatEndpoints
         };
 
     /// <summary>
-    /// Buffers complete generation, validates JSON, retries up to 3 times, then yields result as a single token.
-    /// Used for streaming strict json_schema responses.
+    /// Buffers complete generation, validates JSON, retries up to 3 times, then yields the result as a single chunk that
+    /// carries why the last attempt ended. Used for streaming strict json_schema responses.
     /// </summary>
-    private static async IAsyncEnumerable<string> StreamValidatedJsonAsync(
+    private static async IAsyncEnumerable<ChatStreamChunk> StreamValidatedJsonAsync(
         IGeneratorModel model,
         IEnumerable<ChatMessage> messages,
         GenerationOptions options,
@@ -324,7 +324,7 @@ public static class ChatEndpoints
             result = await model.GenerateChatWithUsageAsync(messages, options, ct);
             if (ResponseFormatHelper.ValidateJson(result.Content, format)) break;
         }
-        yield return result.Content;
+        yield return new ChatStreamChunk { Text = result.Content, FinishReason = result.FinishReason ?? "stop" };
     }
 
     /// <summary>
@@ -359,14 +359,17 @@ public static class ChatEndpoints
     }
 
     /// <summary>
-    /// Converts IAsyncEnumerable&lt;SpeculativeToken&gt; to IAsyncEnumerable&lt;string&gt;.
+    /// Converts the decoder's tokens to chunks; the last chunk carries why the generation ended, which the decoder
+    /// knows only once it has finished.
     /// </summary>
-    private static async IAsyncEnumerable<string> ToStringTokens(
+    private static async IAsyncEnumerable<ChatStreamChunk> ToChunks(
+        SpeculativeDecoder decoder,
         IAsyncEnumerable<SpeculativeToken> source,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         await foreach (var t in source.WithCancellation(ct))
-            yield return t.Token;
+            yield return new ChatStreamChunk { Text = t.Token };
+        yield return new ChatStreamChunk { FinishReason = decoder.GetLastStats().FinishReason };
     }
 
     /// <summary>

@@ -59,6 +59,38 @@ test.describe('Basic Chat Completions', () => {
     expect(reasons).toEqual(['length']);
   });
 
+  // The two streams that are not a plain pass-through of the model's chunks — a strict `json_schema` answer (buffered, validated, then sent) and
+  // a speculative one (`draft_model`) — say the same: a limit that cuts the answer is `length`.
+  test('a streamed strict json_schema answer and a streamed speculative answer cut by the token limit end with "length"', async ({ request }) => {
+    await requireCachedModel(request, 'generator', 'gguf:qwen3-balanced');
+    test.setTimeout(480_000);
+    const finalReasons = async (extra: Record<string, unknown>) => {
+      const streamed = await request.post(`${BASE}/v1/chat/completions`, {
+        data: {
+          model: 'gguf:qwen3-balanced',
+          messages: [{ role: 'user', content: 'Write a long essay about rivers.' }],
+          max_completion_tokens: 8,
+          stream: true,
+          ...extra,
+        },
+        timeout: 240_000,
+      });
+      expect(streamed.status()).toBe(200);
+      return (await streamed.text()).split('\n')
+        .filter(l => l.startsWith('data: {'))
+        .map(l => JSON.parse(l.slice(6)).choices[0].finish_reason)
+        .filter(r => r);
+    };
+
+    expect(await finalReasons({
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: 'essay', strict: true, schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
+      },
+    })).toEqual(['length']);
+    expect(await finalReasons({ draft_model: 'gguf:qwen3-balanced' })).toEqual(['length']);
+  });
+
   test('empty messages returns 400', async ({ request }) => {
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: { model: 'default', messages: [] },

@@ -161,6 +161,38 @@ public class SpeculativeDecoderTests
     }
 
     [Fact]
+    public async Task Stats_FinishReason_IsLength_WhenTheTokenLimitEndsTheAnswer()
+    {
+        var draftModel = Substitute.For<IGeneratorModel>();
+        var targetModel = Substitute.For<IGeneratorModel>();
+        draftModel.GenerateAsync(Arg.Any<string>(), Arg.Any<GenerationOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ => CreateAsyncEnumerable("a", "b", "c"));
+        targetModel.GenerateAsync(Arg.Any<string>(), Arg.Any<GenerationOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ => CreateAsyncEnumerable("a", "b", "c"));
+        using var decoder = new SpeculativeDecoder(draftModel, targetModel);
+
+        var result = await decoder.GenerateCompleteAsync("Test", new GenerationOptions { MaxTokens = 3 }, TestContext.Current.CancellationToken);
+
+        result.Text.Should().Be("abc");
+        result.Stats.FinishReason.Should().Be("length");
+        decoder.GetLastStats().FinishReason.Should().Be("length");
+    }
+
+    [Fact]
+    public async Task Stats_FinishReason_IsStop_WhenTheDraftModelHasNothingMoreToSay()
+    {
+        var draftModel = Substitute.For<IGeneratorModel>();
+        var targetModel = Substitute.For<IGeneratorModel>();
+        draftModel.GenerateAsync(Arg.Any<string>(), Arg.Any<GenerationOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ => CreateAsyncEnumerable());
+        using var decoder = new SpeculativeDecoder(draftModel, targetModel);
+
+        var result = await decoder.GenerateCompleteAsync("Test", new GenerationOptions { MaxTokens = 50 }, TestContext.Current.CancellationToken);
+
+        result.Stats.FinishReason.Should().Be("stop");
+    }
+
+    [Fact]
     public async Task GenerateCompleteAsync_WhenDisposed_ThrowsObjectDisposedException()
     {
         // Arrange

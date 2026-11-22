@@ -34,15 +34,18 @@ test.describe('Cache Success Paths', () => {
 // Streaming chunk validation
 // ================================================================
 test.describe('Streaming Detail', () => {
-  test('last streaming chunk has finish_reason=stop', async ({ request }) => {
+  // The limit must leave room for the answer to end (a thinking model spends part of it on reasoning): a stream cut by its limit says `length`.
+  test('last streaming chunk has finish_reason=stop when the answer ends', async ({ request }) => {
     await requireAnyCachedModel(request, 'generator');
+    test.setTimeout(300_000);
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
         messages: [{ role: 'user', content: 'Say hi.' }],
         stream: true,
-        max_tokens: 5,
+        max_tokens: 2000,
       },
+      timeout: 240_000,
     });
     expect(resp.status()).toBe(200);
     const text = await resp.text();

@@ -110,6 +110,12 @@ public sealed record SpeculativeStats
     public required int TargetTokens { get; init; }
 
     /// <summary>
+    /// Why the generation ended: <c>"length"</c> when it reached the token limit before the models finished the answer,
+    /// <c>"stop"</c> when it ended on its own.
+    /// </summary>
+    public string FinishReason { get; init; } = "stop";
+
+    /// <summary>
     /// Acceptance rate (AcceptedTokens / DraftTokens).
     /// </summary>
     public double AcceptanceRate =>
