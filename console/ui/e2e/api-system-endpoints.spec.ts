@@ -68,8 +68,9 @@ test.describe('API System Endpoints', () => {
 
   // GET /api/system/metrics/stream returns SSE stream
   test('GET /api/system/metrics/stream returns SSE events', async ({ page }) => {
-    // Navigate first so page has a valid origin for relative URLs
-    await page.goto('/');
+    // The page only has to give the fetch below an origin for its relative URL. /health is a document that stays where it is; the app's
+    // own pages redirect after they load, which destroyed the evaluation's context now and then.
+    await page.goto('/health');
 
     // Use page.evaluate with fetch + AbortController to read first SSE event
     const result = await page.evaluate(async () => {

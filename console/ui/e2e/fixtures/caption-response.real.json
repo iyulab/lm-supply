@@ -1,0 +1,17 @@
+{
+  "id": "caption-fixture",
+  "object": "image.caption",
+  "created": 1795227631,
+  "model": "default",
+  "choices": [
+    {
+      "index": 0,
+      "caption": "a sign that says please keep your receipt for seven days",
+      "confidence": 0.60556257,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "image_tokens": 196
+  }
+}

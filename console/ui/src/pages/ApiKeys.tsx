@@ -95,7 +95,7 @@ function ShowKeyDialog({ result, onClose }: { result: ApiKeyCreatedResponse; onC
 function StatsPanel() {
   const { stats, statsDays, fetchStats } = useApiKeyStore();
 
-  useEffect(() => { fetchStats(statsDays); }, [statsDays]);
+  useEffect(() => { fetchStats(statsDays); }, [statsDays, fetchStats]);
 
   const dayOptions = [1, 7, 30];
 

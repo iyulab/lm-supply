@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures/base.fixture';
-import { mockJsonEndpoint, mockBlobEndpoint, mockWavBuffer, mockTranslateResponse } from './fixtures/api-mocks';
+import { mockBlobEndpoint, mockWavBuffer, mockTranslateResponse } from './fixtures/api-mocks';
 import path from 'path';
 import { fileURLToPath } from 'url';
 

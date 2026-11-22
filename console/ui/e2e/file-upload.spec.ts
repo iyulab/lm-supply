@@ -6,7 +6,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png');
-const TEST_AUDIO = path.resolve(__dirname, 'fixtures/test-files/test-audio.wav');
 
 // ================================================================
 // File upload UI behavior — vision pages

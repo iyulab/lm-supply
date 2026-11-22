@@ -80,7 +80,7 @@ public static class TranscribeEndpoints
                 options.Temperature = temperature;
             }
 
-            var result = await scope.Model.TranscribeAsync(ms.ToArray(), options, ct);
+            var result = await ApiHelper.ForUploadedAudio(scope.Model.TranscribeAsync(ms.ToArray(), options, ct));
 
             var segments = result.Segments?.Select((s, i) => new Models.OpenAI.TranscriptionSegment
             {

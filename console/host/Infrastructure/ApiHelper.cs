@@ -16,14 +16,15 @@ public static class ApiHelper
     /// <summary>
     /// Create an error response
     /// </summary>
-    public static IResult Error(string message, string type = "invalid_request_error", int statusCode = 400)
+    public static IResult Error(string message, string type = "invalid_request_error", int statusCode = 400, string? code = null)
     {
         var error = new ErrorResponse
         {
             Error = new ErrorDetail
             {
                 Message = message,
-                Type = type
+                Type = type,
+                Code = code
             }
         };
 
@@ -89,6 +90,23 @@ public static class ApiHelper
         catch (InvalidDataException ex)
         {
             throw new ArgumentException("The uploaded file is not an image that can be decoded (JPEG, PNG, WebP, GIF, BMP or ICO).", ex);
+        }
+    }
+
+    /// <summary>
+    /// Awaits a model call on uploaded audio. Audio the library refuses as input — bytes that are no audio format it reads, a recording
+    /// with no samples (<see cref="InvalidDataException"/>) — is the caller's mistake, so it surfaces as an <see cref="ArgumentException"/>
+    /// that <see cref="InternalError"/> answers with 400. The library's message says what is wrong and holds no host detail, so it is passed on.
+    /// </summary>
+    public static async Task<T> ForUploadedAudio<T>(Task<T> call)
+    {
+        try
+        {
+            return await call;
+        }
+        catch (InvalidDataException ex)
+        {
+            throw new ArgumentException(ex.Message, ex);
         }
     }
 

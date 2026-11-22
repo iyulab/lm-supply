@@ -201,6 +201,9 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
             }
 
             var generatedTokenCount = 0;
+            // The sequence's length after each step: the model's end token is not appended, so a step that ends the generation leaves the
+            // sequence as it was, and its last token is then the one before — output once already.
+            var sequenceLength = generator.GetSequence(0).Length;
             // Honor the MaxTokens safety-net contract on the ONNX path too: previously this fell back
             // to int.MaxValue when MaxNewTokens was unset, ignoring MaxTokens and letting low-end models
             // run on to the full context window. ResolveMaxOutputTokens mirrors the llama-server path.
@@ -222,9 +225,13 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel, IDiagnosticsSink
                 }
 
                 generator.GenerateNextToken();
-                generatedTokenCount++;
 
                 var outputTokens = generator.GetSequence(0);
+                if (outputTokens.Length == sequenceLength)
+                    break;   // the end token: the generator is done and nothing was added
+
+                sequenceLength = outputTokens.Length;
+                generatedTokenCount++;
                 var newToken = outputTokens[^1];
                 var decoded = tokenizerStream.Decode(newToken);
 

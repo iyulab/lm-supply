@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/base.fixture';
+import { BASE, requireHub } from './host-capabilities';
 
 // ================================================================
 // API Model Management Endpoints
@@ -7,7 +8,7 @@ import { test, expect } from './fixtures/base.fixture';
 test.describe('API Model Management', () => {
   // GET /api/registry/models returns all domain types
   test('GET /api/registry/models returns 11 domain types', async ({ request }) => {
-    const response = await request.get('/api/registry/models');
+    const response = await request.get(`${BASE}/api/registry/models`);
     expect(response.status()).toBe(200);
 
     const body = await response.json();
@@ -34,7 +35,7 @@ test.describe('API Model Management', () => {
 
   // GET /api/registry/models/embedder returns only embedder models
   test('GET /api/registry/models/embedder returns embedder models only', async ({ request }) => {
-    const response = await request.get('/api/registry/models/embedder');
+    const response = await request.get(`${BASE}/api/registry/models/embedder`);
     expect(response.status()).toBe(200);
 
     const body = await response.json();
@@ -53,7 +54,7 @@ test.describe('API Model Management', () => {
 
   // GET /api/cache/models returns cached model list
   test('GET /api/cache/models returns cached models array', async ({ request }) => {
-    const response = await request.get('/api/cache/models');
+    const response = await request.get(`${BASE}/api/cache/models`);
     expect(response.status()).toBe(200);
 
     const body = await response.json();
@@ -72,7 +73,7 @@ test.describe('API Model Management', () => {
 
   // GET /api/cache/loaded returns loaded models
   test('GET /api/cache/loaded returns loaded models array', async ({ request }) => {
-    const response = await request.get('/api/cache/loaded');
+    const response = await request.get(`${BASE}/api/cache/loaded`);
     expect(response.status()).toBe(200);
 
     const body = await response.json();
@@ -88,7 +89,7 @@ test.describe('API Model Management', () => {
 
   // GET /api/cache/stats returns cache statistics
   test('GET /api/cache/stats returns cache statistics', async ({ request }) => {
-    const response = await request.get('/api/cache/stats');
+    const response = await request.get(`${BASE}/api/cache/stats`);
     expect(response.status()).toBe(200);
 
     const body = await response.json();
@@ -105,7 +106,7 @@ test.describe('API Model Management', () => {
 
   // POST /api/download/check with valid repoId
   test('POST /api/download/check returns model info for valid repo', async ({ request }) => {
-    const response = await request.post('/api/download/check', {
+    const response = await request.post(`${BASE}/api/download/check`, {
       data: { repoId: 'sentence-transformers/all-MiniLM-L6-v2' },
     });
     expect(response.status()).toBe(200);
@@ -120,23 +121,22 @@ test.describe('API Model Management', () => {
   });
 
   // POST /api/download/check with invalid repoId
-  test('POST /api/download/check returns error for nonexistent repo', async ({ request }) => {
-    const response = await request.post('/api/download/check', {
+  test('POST /api/download/check reports a nonexistent repo as not existing', async ({ request }) => {
+    await requireHub(request);
+    const response = await request.post(`${BASE}/api/download/check`, {
       data: { repoId: 'nonexistent/fake-model-999' },
     });
 
-    // Should return error status or exists=false
+    // The Hub answers 'no such repository' as a result, not as a failure of the request
+    expect(response.status()).toBe(200);
     const body = await response.json();
-    if (response.status() === 200) {
-      expect(body.exists).toBe(false);
-    } else {
-      expect(response.status()).toBeGreaterThanOrEqual(400);
-    }
+    expect(body.exists).toBe(false);
+    expect(body.fileCount).toBe(0);
   });
 
   // GET /v1/models returns OpenAI-compatible model list
   test('GET /v1/models returns OpenAI-compatible model list', async ({ request }) => {
-    const response = await request.get('/v1/models');
+    const response = await request.get(`${BASE}/v1/models`);
     expect(response.status()).toBe(200);
 
     const body = await response.json();
@@ -152,6 +152,6 @@ test.describe('API Model Management', () => {
     expect(model).toHaveProperty('id');
     expect(model).toHaveProperty('object', 'model');
     expect(model).toHaveProperty('created');
-    expect(model).toHaveProperty('ownedBy');
+    expect(model).toHaveProperty('owned_by');
   });
 });

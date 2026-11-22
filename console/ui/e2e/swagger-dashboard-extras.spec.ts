@@ -40,8 +40,11 @@ test.describe('Dashboard — CPU-only state', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: /Dashboard/ })).toBeVisible();
 
-    // GPU should show as unavailable or CPU
-    await expect(page.getByText(/CPU|Not Available|No GPU/i)).toBeVisible({ timeout: 5_000 });
+    // The GPU indicator is the failed (red) one, and no GPU provider is named. (The old assertion matched /CPU/ in the CPU-usage card, which is
+    // always there, and failed on three matches.)
+    const gpuIndicator = page.getByText('GPU Available', { exact: true }).locator('xpath=..');
+    await expect(gpuIndicator.locator('svg.text-red-500')).toBeVisible({ timeout: 5_000 });
+    await expect(gpuIndicator.locator('svg.text-green-500')).toHaveCount(0);
 
     // VRAM card should not show values or show N/A
     const vramText = page.getByText(/VRAM/i);

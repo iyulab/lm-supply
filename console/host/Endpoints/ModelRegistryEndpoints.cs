@@ -2,6 +2,7 @@ using LMSupply.Console.Host.Infrastructure;
 using LMSupply.Console.Host.Services;
 using LMSupply.Captioner;
 using LMSupply.Detector;
+using LMSupply.Download;
 using LMSupply.Embedder;
 using LMSupply.Ocr;
 using LMSupply.Reranker;
@@ -9,6 +10,7 @@ using LMSupply.Segmenter;
 using LMSupply.Synthesizer;
 using LMSupply.Transcriber;
 using LMSupply.Generator;
+using LMSupply.Generator.Gguf;
 using LMSupply.ImageGenerator.Models;
 
 namespace LMSupply.Console.Host.Endpoints;
@@ -26,14 +28,14 @@ public static class ModelRegistryEndpoints
             ;
 
         // GET /api/registry/models - Get all model types with their aliases
-        group.MapGet("/models", (CacheService cache) =>
+        group.MapGet("/models", async (CacheService cache) =>
         {
             var cachedModels = cache.GetCachedModels();
             var cachedRepoIds = cachedModels.Select(m => m.RepoId).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             var registry = new ModelRegistry
             {
-                ModelTypes = GetAllModelTypes(cachedRepoIds)
+                ModelTypes = await GetAllModelTypesAsync(cachedRepoIds, cache.CacheDirectory)
             };
 
             return Results.Ok(registry);
@@ -43,12 +45,12 @@ public static class ModelRegistryEndpoints
         .WithDescription("Returns a comprehensive list of all model types, their available aliases, and the actual HuggingFace repository IDs.");
 
         // GET /api/registry/models/{type} - Get models for specific type
-        group.MapGet("/models/{type}", (string type, CacheService cache) =>
+        group.MapGet("/models/{type}", async (string type, CacheService cache) =>
         {
             var cachedModels = cache.GetCachedModels();
             var cachedRepoIds = cachedModels.Select(m => m.RepoId).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            var modelType = GetModelTypeByName(type, cachedRepoIds);
+            var modelType = await GetModelTypeByNameAsync(type, cachedRepoIds, cache.CacheDirectory);
             if (modelType == null)
             {
                 return ApiHelper.Error($"Unknown model type: {type}", "invalid_request_error", 404);
@@ -61,36 +63,36 @@ public static class ModelRegistryEndpoints
         .WithDescription("Returns all aliases and repo IDs for a specific model type.");
     }
 
-    private static List<ModelTypeInfo> GetAllModelTypes(HashSet<string> cachedRepoIds)
+    private static async Task<List<ModelTypeInfo>> GetAllModelTypesAsync(HashSet<string> cachedRepoIds, string cacheDirectory)
     {
         return
         [
-            CreateGeneratorModels(cachedRepoIds),
+            await CreateGeneratorModelsAsync(cacheDirectory),
             CreateEmbedderModels(cachedRepoIds),
             CreateRerankerModels(cachedRepoIds),
             CreateTranscriberModels(cachedRepoIds),
             CreateSynthesizerModels(cachedRepoIds),
             CreateTranslatorModels(cachedRepoIds),
             CreateCaptionerModels(cachedRepoIds),
-            CreateOcrModels(cachedRepoIds),
+            CreateOcrModels(cacheDirectory),
             CreateDetectorModels(cachedRepoIds),
             CreateSegmenterModels(cachedRepoIds),
             CreateImageGeneratorModels(cachedRepoIds),
         ];
     }
 
-    private static ModelTypeInfo? GetModelTypeByName(string type, HashSet<string> cachedRepoIds)
+    private static async Task<ModelTypeInfo?> GetModelTypeByNameAsync(string type, HashSet<string> cachedRepoIds, string cacheDirectory)
     {
         return type.ToLowerInvariant() switch
         {
-            "generator" => CreateGeneratorModels(cachedRepoIds),
+            "generator" => await CreateGeneratorModelsAsync(cacheDirectory),
             "embedder" => CreateEmbedderModels(cachedRepoIds),
             "reranker" => CreateRerankerModels(cachedRepoIds),
             "transcriber" => CreateTranscriberModels(cachedRepoIds),
             "synthesizer" => CreateSynthesizerModels(cachedRepoIds),
             "translator" => CreateTranslatorModels(cachedRepoIds),
             "captioner" => CreateCaptionerModels(cachedRepoIds),
-            "ocr" => CreateOcrModels(cachedRepoIds),
+            "ocr" => CreateOcrModels(cacheDirectory),
             "detector" => CreateDetectorModels(cachedRepoIds),
             "segmenter" => CreateSegmenterModels(cachedRepoIds),
             "imagegenerator" or "imagegen" or "image" => CreateImageGeneratorModels(cachedRepoIds),
@@ -98,41 +100,56 @@ public static class ModelRegistryEndpoints
         };
     }
 
-    /// <summary>
-    /// Resolves a generator alias to the repository id the cache is actually keyed by.
-    ///
-    /// <para>
-    /// <c>WellKnownModels.Generator</c> deliberately names registry aliases rather than repository
-    /// ids for some tiers (<c>"phi-4-mini"</c>), and the cache index is built from directory names
-    /// of the form <c>models--org--name</c> — so it only ever contains <c>org/name</c> strings.
-    /// Comparing an alias against it therefore reported "not cached" for a model sitting on disk,
-    /// and the response's <c>RepoId</c> field carried something that was not a repository id.
-    /// </para>
-    ///
-    /// <para>
-    /// <c>"default"</c> stays unresolved on purpose: the generator picks it by hardware at load
-    /// time, so there is no single repository id this endpoint could name for it.
-    /// </para>
-    /// </summary>
-    private static string ResolveGeneratorRepoId(string idOrAlias)
-        => GeneratorModelRegistry.Default.TryResolve(idOrAlias, out var model) && model is not null
-            ? model.ModelId
-            : idOrAlias;
-
-    private static ModelTypeInfo CreateGeneratorModels(HashSet<string> cachedRepoIds) => new()
+    // The generator catalogs are two: the GGUF aliases (served by llama-server) and the ONNX entries. Both are listed from the library, and
+    // whether an alias is cached is asked of the library too — it knows which file a GGUF alias picks for this host's memory and what
+    // "default" resolves to here, which no repository id this endpoint could name says.
+    private static async Task<ModelTypeInfo> CreateGeneratorModelsAsync(string cacheDirectory)
     {
-        Type = "generator",
-        DisplayName = "Text Generator",
-        Description = "LLM text generation models",
-        Models =
-        [
-            new ModelAliasInfo { AliasName = "default", RepoId = ResolveGeneratorRepoId(WellKnownModels.Generator.Default), Description = "Microsoft Phi-4 Mini (3.8B, MIT)", IsCached = cachedRepoIds.Contains(ResolveGeneratorRepoId(WellKnownModels.Generator.Default)) },
-            new ModelAliasInfo { AliasName = "fast", RepoId = ResolveGeneratorRepoId(WellKnownModels.Generator.Fast), Description = "Phi-4 Mini (3.8B, fastest FC-capable)", IsCached = cachedRepoIds.Contains(ResolveGeneratorRepoId(WellKnownModels.Generator.Fast)) },
-            new ModelAliasInfo { AliasName = "quality", RepoId = ResolveGeneratorRepoId(WellKnownModels.Generator.Quality), Description = "Microsoft Phi-4 (14B, highest quality)", IsCached = cachedRepoIds.Contains(ResolveGeneratorRepoId(WellKnownModels.Generator.Quality)) },
-            new ModelAliasInfo { AliasName = "medium", RepoId = ResolveGeneratorRepoId(WellKnownModels.Generator.Medium), Description = "Phi-3.5 Mini (3.8B, 128K context)", IsCached = cachedRepoIds.Contains(ResolveGeneratorRepoId(WellKnownModels.Generator.Medium)) },
-            new ModelAliasInfo { AliasName = "large", RepoId = ResolveGeneratorRepoId(WellKnownModels.Generator.Large), Description = "Microsoft Phi-4 (14B, highest quality)", IsCached = cachedRepoIds.Contains(ResolveGeneratorRepoId(WellKnownModels.Generator.Large)) },
-        ]
-    };
+        var options = new GeneratorOptions { CacheDirectory = cacheDirectory };
+        var models = new List<ModelAliasInfo>
+        {
+            // "default" is picked by the hardware at load time, so it names no one repository
+            new()
+            {
+                AliasName = "default",
+                RepoId = "default",
+                Description = "Chosen by the hardware when it is loaded",
+                IsCached = await LocalGenerator.IsModelDownloadedAsync("default", options)
+            }
+        };
+
+        foreach (var alias in LocalGenerator.Registry.GetAliases().Where(a => a.Kind == AliasKind.System && a.Name != "auto"))
+        {
+            var entry = LocalGenerator.Registry.Resolve(alias.Name);
+            models.Add(new ModelAliasInfo
+            {
+                AliasName = alias.Name,
+                RepoId = entry.ModelId,
+                Description = entry.Description ?? alias.Name,
+                IsCached = await LocalGenerator.IsModelDownloadedAsync(alias.Name, options)
+            });
+        }
+
+        foreach (var alias in GgufModelRegistry.GetAliases().Where(a => !a.Equals("gguf:auto", StringComparison.OrdinalIgnoreCase)))
+        {
+            var info = GgufModelRegistry.Resolve(alias)!;
+            models.Add(new ModelAliasInfo
+            {
+                AliasName = alias,
+                RepoId = info.RepoId,
+                Description = info.DisplayName,
+                IsCached = await LocalGenerator.IsModelDownloadedAsync(alias, options)
+            });
+        }
+
+        return new ModelTypeInfo
+        {
+            Type = "generator",
+            DisplayName = "Text Generator",
+            Description = "LLM text generation models",
+            Models = models
+        };
+    }
 
     private static ModelTypeInfo CreateEmbedderModels(HashSet<string> cachedRepoIds) => FromRegistry(
         "embedder", "Text Embedder", "Text embedding models for semantic search", LocalEmbedder.Registry.GetAvailableModels(), cachedRepoIds);
@@ -176,9 +193,31 @@ public static class ModelRegistryEndpoints
     private static ModelTypeInfo CreateCaptionerModels(HashSet<string> cachedRepoIds) => FromRegistry(
         "captioner", "Captioner", "Image captioning models", LocalCaptioner.Registry.GetAvailableModels(), cachedRepoIds);
 
-    private static ModelTypeInfo CreateOcrModels(HashSet<string> cachedRepoIds) => FromRegistry<IModelInfoBase>(
-        "ocr", "OCR", "Text detection and recognition models",
-        [.. LocalOcr.DetectionRegistry.GetAvailableModels(), .. LocalOcr.RecognitionRegistry.GetAvailableModels()], cachedRepoIds);
+    // The OCR models are not listed through FromRegistry: one repository holds many of them, each in a subfolder, so the registry's id
+    // is «repository/subfolder» — no repository, and never in the cache listing, which names repositories. Each model is cached
+    // when the files its loader reads (the model, and a recognizer's dictionary) are in its subfolder.
+    private static ModelTypeInfo CreateOcrModels(string cacheDirectory) => new()
+    {
+        Type = "ocr",
+        DisplayName = "OCR",
+        Description = "Text detection and recognition models",
+        Models =
+        [
+            .. LocalOcr.DetectionRegistry.GetAvailableModels().Select(m => OcrModel(
+                m.AliasName, m.RepoId, m.Subfolder, m.Description, [m.ModelFile], cacheDirectory)),
+            .. LocalOcr.RecognitionRegistry.GetAvailableModels().Select(m => OcrModel(
+                m.AliasName, m.RepoId, m.Subfolder, m.Description, [m.ModelFile, m.DictFile], cacheDirectory)),
+        ]
+    };
+
+    private static ModelAliasInfo OcrModel(
+        string alias, string repoId, string? subfolder, string? description, string[] files, string cacheDirectory) => new()
+    {
+        AliasName = alias,
+        RepoId = repoId,
+        Description = description ?? alias,
+        IsCached = CacheManager.GetMissingFiles(cacheDirectory, repoId, files, subfolder).Count == 0
+    };
 
     private static ModelTypeInfo CreateDetectorModels(HashSet<string> cachedRepoIds) => FromRegistry(
         "detector", "Object Detector", "Object detection models", LocalDetector.Registry.GetAvailableModels(), cachedRepoIds);

@@ -10,23 +10,25 @@ test.describe('System API', () => {
     const resp = await request.get(`${BASE}/api/system/status`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
-    expect(body).toHaveProperty('engineReady');
-    expect(body).toHaveProperty('gpuAvailable');
-    expect(body).toHaveProperty('cpuUsage');
-    expect(body).toHaveProperty('ramUsageMB');
-    expect(body).toHaveProperty('ramTotalMB');
-    expect(body).toHaveProperty('processMemoryMB');
+    // The metrics sit in `status`, next to the models that are loaded.
+    expect(body).toHaveProperty('loadedModels');
+    expect(body).toHaveProperty('models');
+    expect(body.status).toHaveProperty('engineReady');
+    expect(body.status).toHaveProperty('gpuAvailable');
+    expect(body.status).toHaveProperty('cpuUsage');
+    expect(body.status).toHaveProperty('ramUsageMB');
+    expect(body.status).toHaveProperty('ramTotalMB');
+    expect(body.status).toHaveProperty('processMemoryMB');
   });
 
   test('GET /api/system/gpu returns GPU info or null', async ({ request }) => {
     const resp = await request.get(`${BASE}/api/system/gpu`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
-    // Either GPU info or null fields when no GPU
-    if (body.gpuName !== null) {
-      expect(body).toHaveProperty('gpuName');
-      expect(body).toHaveProperty('gpuProvider');
-    }
+    // Without a GPU the host still names what it computes on ("CPU Only") and says no GPU is available.
+    expect(typeof body.isAvailable).toBe('boolean');
+    expect(typeof body.name).toBe('string');
+    expect(typeof body.provider).toBe('string');
   });
 
   test('GET /api/system/memory returns memory metrics', async ({ request }) => {
@@ -55,16 +57,17 @@ test.describe('System API', () => {
     expect(resp.status()).not.toBe(405);
   });
 
-  test('GET /api/system/metrics/stream uses text/event-stream', async ({ request }) => {
-    // Make the request and check content-type without consuming full stream
-    const resp = await request.get(`${BASE}/api/system/metrics/stream`);
-    if (resp.status() === 200) {
-      const ct = resp.headers()['content-type'];
-      expect(ct).toContain('text/event-stream');
-    } else {
-      // Endpoint might not be implemented — should exist
-      expect(resp.status()).not.toBe(404);
-      expect(resp.status()).not.toBe(405);
+  test('GET /api/system/metrics/stream uses text/event-stream', async () => {
+    // The stream never ends: read the headers and the first event, then close the connection
+    const controller = new AbortController();
+    try {
+      const resp = await fetch(`${BASE}/api/system/metrics/stream`, { signal: controller.signal });
+      expect(resp.status).toBe(200);
+      expect(resp.headers.get('content-type')).toContain('text/event-stream');
+      const first = await resp.body!.getReader().read();
+      expect(new TextDecoder().decode(first.value)).toMatch(/^data: /);
+    } finally {
+      controller.abort();
     }
   });
 });

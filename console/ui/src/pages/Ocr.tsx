@@ -14,6 +14,7 @@ export function Ocr() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const blocks = (result?.pages ?? []).flatMap((page) => page.blocks);
 
   useEffect(() => {
     api.getOcrLanguages().then((langs) => {
@@ -126,29 +127,29 @@ export function Ocr() {
           <div>
             <h2 className="text-lg font-semibold mb-2">Recognized Text</h2>
             <div className="p-4 bg-muted rounded whitespace-pre-wrap font-mono text-sm">
-              {result.text || '(No text detected)'}
+              {result.full_text || '(No text detected)'}
             </div>
           </div>
 
           <div className="flex gap-4 text-sm text-muted-foreground">
             <span>Model: {result.model}</span>
-            <span>Blocks: {result.blocks?.length ?? 0}</span>
+            <span>Blocks: {blocks.length}</span>
             {elapsedMs != null && <span>{elapsedMs.toLocaleString()} ms</span>}
           </div>
 
-          {result.blocks && result.blocks.length > 0 && (
+          {blocks.length > 0 && (
             <div>
               <h3 className="font-medium mb-2">Text Blocks</h3>
               <div className="space-y-1 max-h-64 overflow-auto">
-                {result.blocks.map((block) => (
-                  <div key={`${block.text.substring(0, 30)}-${block.confidence}`} className="flex gap-2 text-sm p-2 bg-muted rounded">
+                {blocks.map((block, index) => (
+                  <div key={`${index}-${block.text.substring(0, 30)}`} className="flex gap-2 text-sm p-2 bg-muted rounded">
                     <span className="text-muted-foreground flex-shrink-0">
                       [{(block.confidence * 100).toFixed(0)}%]
                     </span>
                     <span className="font-mono">{block.text}</span>
-                    {block.boundingBox && (
+                    {block.bounding_box && (
                       <span className="text-muted-foreground text-xs ml-auto">
-                        ({block.boundingBox.x}, {block.boundingBox.y}) {block.boundingBox.width}x{block.boundingBox.height}
+                        ({block.bounding_box.x}, {block.bounding_box.y}) {block.bounding_box.width}x{block.bounding_box.height}
                       </span>
                     )}
                   </div>

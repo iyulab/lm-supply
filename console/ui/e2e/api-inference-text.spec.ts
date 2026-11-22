@@ -32,7 +32,8 @@ test.describe('API Inference — Text', () => {
 
   // POST /v1/chat/completions (streaming)
   test('POST /v1/chat/completions streaming returns SSE tokens', async ({ page }) => {
-    await page.goto('/');
+    // /health stays where it is; the app's own pages redirect after they load, which destroyed the evaluation's context now and then.
+    await page.goto('/health');
 
     const result = await page.evaluate(async () => {
       const response = await fetch('/v1/chat/completions', {

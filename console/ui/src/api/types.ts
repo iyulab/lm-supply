@@ -247,17 +247,31 @@ export interface BoundingBox {
   height: number;
 }
 
+export interface OcrLine {
+  text: string;
+  confidence: number;
+  bounding_box: BoundingBox;
+}
+
 export interface OcrBlock {
   text: string;
   confidence: number;
-  boundingBox?: BoundingBox;
+  bounding_box: BoundingBox;
+  lines?: OcrLine[];
 }
 
+export interface OcrPage {
+  width: number;
+  height: number;
+  blocks: OcrBlock[];
+}
+
+// The shape POST /v1/images/ocr answers with; e2e/fixtures/ocr-response.real.json is a response of the running host.
 export interface OcrResponse {
   id: string;
   model: string;
-  text: string;
-  blocks?: OcrBlock[];
+  full_text: string;
+  pages: OcrPage[];
 }
 
 export interface OcrLanguage {

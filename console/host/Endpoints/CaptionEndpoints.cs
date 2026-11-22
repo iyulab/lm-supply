@@ -1,3 +1,4 @@
+using LMSupply.Captioner;
 using LMSupply.Console.Host.Infrastructure;
 using LMSupply.Console.Host.Models.OpenAI;
 using LMSupply.Console.Host.Services;
@@ -101,7 +102,16 @@ public static class CaptionEndpoints
                 await stream.CopyToAsync(memoryStream, ct);
                 memoryStream.Position = 0;
 
-                var result = await scope.Model.AnswerAsync(memoryStream, question, ct);
+                VqaResult result;
+                try
+                {
+                    result = await scope.Model.AnswerAsync(memoryStream, question, ct);
+                }
+                catch (NotSupportedException ex)
+                {
+                    // The chosen model cannot answer questions: a request the caller can change, not a server failure
+                    return ApiHelper.Error(ex.Message, "invalid_request_error", 400, "model_not_supported");
+                }
 
                 return Results.Ok(new VqaResponse
                 {

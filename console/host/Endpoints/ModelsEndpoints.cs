@@ -194,7 +194,7 @@ public static class ModelsEndpoints
                 string.Equals(m.Id, model, StringComparison.OrdinalIgnoreCase));
 
             if (found is null)
-                return ApiHelper.Error($"Model '{model}' not found", "model_not_found", 404);
+                return ApiHelper.Error($"Model '{model}' not found", "invalid_request_error", 404, "model_not_found");
 
             return Results.Ok(new Models.OpenAI.ModelInfo
             {

@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures/base.fixture';
-import { mockChatStream, mockJsonEndpoint, mockEmbedResponse } from './fixtures/api-mocks';
+import { mockChatStream } from './fixtures/api-mocks';
 
 // ================================================================
 // Input edge cases — XSS, RTL, very long text

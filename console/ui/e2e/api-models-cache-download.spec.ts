@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
+import { BASE, requireHub } from './host-capabilities';
 
 // ================================================================
 // GET /v1/models — OpenAI-compatible list
@@ -18,8 +17,6 @@ test.describe('GET /v1/models', () => {
     const resp = await request.get(`${BASE}/v1/models`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
-    const ids: string[] = body.data.map((m: { id: string }) => m.id.toLowerCase());
-    const combined = ids.join(' ');
     // Check presence of each domain via capabilities or id
     expect(body.data.some((m: { capabilities?: string[] }) =>
       m.capabilities?.includes('embeddings') || m.capabilities?.includes('text-embedding')
@@ -41,7 +38,7 @@ test.describe('GET /v1/models', () => {
   test('standard aliases (default, fast, quality) are present', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models`);
     const body = await resp.json();
-    const ids: string[] = body.data.map((m: { id: string }) => m.id);
+    const ids: string[] = body.data.map((m: { id: string }) => m.id.toLowerCase());
     const hasDefault = ids.some(id => id === 'default' || id.endsWith(':default') || id.includes('default'));
     expect(hasDefault).toBe(true);
   });
@@ -53,13 +50,10 @@ test.describe('GET /v1/models', () => {
 test.describe('GET /v1/models/{model}', () => {
   test('existing alias returns 200 with ModelInfo', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models/default`);
-    // May be 404 if no models registered, or 200 with model info
-    expect([200, 404]).toContain(resp.status());
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(body.id).toBeTruthy();
-      expect(body.object).toBe('model');
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.id).toBeTruthy();
+    expect(body.object).toBe('model');
   });
 
   test('nonexistent model returns 404 with error envelope', async ({ request }) => {
@@ -71,9 +65,11 @@ test.describe('GET /v1/models/{model}', () => {
   });
 
   test('URL-encoded slash in model ID is handled', async ({ request }) => {
-    // Should return 200 or 404, not 400/422/500
+    // The id is no registered alias: a 404 with the error envelope, not a 400 for the slash or a 500.
     const resp = await request.get(`${BASE}/v1/models/microsoft%2FFlorence-2-base`);
-    expect([200, 404]).toContain(resp.status());
+    expect(resp.status()).toBe(404);
+    const body = await resp.json();
+    expect(body.error.code).toBe('model_not_found');
   });
 });
 
@@ -118,9 +114,9 @@ test.describe('Cache Management API', () => {
     const resp = await request.get(`${BASE}/api/cache/models/type/embedder`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
-    expect(body).toHaveProperty('models');
-    if (body.models.length > 0) {
-      for (const model of body.models) {
+    expect(Array.isArray(body)).toBe(true);
+    if (body.length > 0) {
+      for (const model of body) {
         expect(model.detectedType?.toLowerCase()).toContain('embed');
       }
     }
@@ -147,14 +143,15 @@ test.describe('Cache Management API', () => {
 // ================================================================
 test.describe('Download API', () => {
   test('POST /api/download/check with known repoId returns metadata', async ({ request }) => {
+    await requireHub(request);
     const resp = await request.post(`${BASE}/api/download/check`, {
       data: { repoId: 'BAAI/bge-small-en-v1.5' },
     });
-    expect([200, 404, 503]).toContain(resp.status());
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(body).toBeTruthy();
-    }
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.exists).toBe(true);
+    expect(body.repoId).toBe('BAAI/bge-small-en-v1.5');
+    expect(body.fileCount).toBeGreaterThan(0);
   });
 
   test('POST /api/download/check with missing repoId returns 400', async ({ request }) => {
@@ -164,14 +161,12 @@ test.describe('Download API', () => {
     expect(resp.status()).toBe(400);
   });
 
-  test('SSE download stream uses text/event-stream', async ({ request }) => {
-    // Just verify the endpoint exists and uses SSE format
-    const resp = await request.post(`${BASE}/api/download/start`, {
-      data: { repoId: 'BAAI/bge-small-en-v1.5' },
-    });
-    // Endpoint exists (not 404/405) — actual streaming test requires live download
-    expect(resp.status()).not.toBe(404);
-    expect(resp.status()).not.toBe(405);
+  test('POST /api/download/model without a repository is refused before any download starts', async ({ request }) => {
+    // The streaming answer needs a live download, which a test must not start; the refusal shows the endpoint is there.
+    const resp = await request.post(`${BASE}/api/download/model`, { data: {} });
+    expect(resp.status()).toBe(400);
+    const body = await resp.json();
+    expect(body.error.message).toContain('RepoId');
   });
 });
 
@@ -189,6 +184,37 @@ test.describe('Registry API', () => {
     for (const mt of body.modelTypes) {
       expect(mt).toHaveProperty('type');
       expect(mt).toHaveProperty('models');
+    }
+  });
+
+  // The generator list is the library's two catalogs (GGUF aliases and ONNX entries), with "default" first: the one the hardware picks.
+  test('GET /api/registry/models/generator lists the library catalogs and says per alias whether it is cached', async ({ request }) => {
+    const resp = await request.get(`${BASE}/api/registry/models/generator`);
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    const aliases: string[] = body.models.map((m: { aliasName: string }) => m.aliasName);
+    expect(aliases[0]).toBe('default');
+    expect(aliases).toContain('gguf:qwen3-balanced');
+    expect(aliases.filter(a => a.startsWith('gguf:')).length).toBeGreaterThan(5);
+    expect(new Set(aliases).size).toBe(aliases.length);
+
+    // An alias that is cached has its repository in the cache listing ("default" names no repository).
+    const cache = await (await request.get(`${BASE}/api/cache/models`)).json();
+    const repos = new Set((cache.models as { repoId: string }[]).map(m => m.repoId.toLowerCase()));
+    for (const model of body.models.filter((m: { aliasName: string; isCached: boolean }) => m.aliasName !== 'default' && m.isCached)) {
+      expect(repos.has(model.repoId.toLowerCase()), `${model.aliasName} is cached: ${model.repoId}`).toBe(true);
+    }
+  });
+
+  // One repository holds many OCR models, each in a subfolder; the registry names the repository (a path inside it names no cache entry).
+  test('GET /api/registry/models/ocr names repositories and says per model whether its files are cached', async ({ request }) => {
+    const resp = await request.get(`${BASE}/api/registry/models/ocr`);
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.models.length).toBeGreaterThan(0);
+    for (const model of body.models) {
+      expect(model.repoId, model.aliasName).toMatch(/^[^/]+\/[^/]+$/);
+      expect(typeof model.isCached).toBe('boolean');
     }
   });
 

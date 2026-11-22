@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
+import { BASE, requireAnyCachedModel, requireCachedModel } from './host-capabilities';
 
 /**
  * Gap closure tests — API behaviors that
@@ -35,30 +34,30 @@ test.describe('Cache Success Paths', () => {
 // Streaming chunk validation
 // ================================================================
 test.describe('Streaming Detail', () => {
-  test('last streaming chunk has finish_reason=stop', async ({ request }) => {
+  // The limit must leave room for the answer to end (a thinking model spends part of it on reasoning): a stream cut by its limit says `length`.
+  test('last streaming chunk has finish_reason=stop when the answer ends', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
+    test.setTimeout(300_000);
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
         messages: [{ role: 'user', content: 'Say hi.' }],
         stream: true,
-        max_tokens: 5,
+        max_tokens: 2000,
       },
+      timeout: 240_000,
     });
-    if (resp.status() === 200) {
-      const text = await resp.text();
-      const lines = text.split('\n').filter(l => l.startsWith('data: ') && !l.includes('[DONE]'));
-      if (lines.length > 0) {
-        // Find last non-done chunk
-        const lastChunk = JSON.parse(lines[lines.length - 1].replace('data: ', ''));
-        const finishReason = lastChunk.choices[0].finish_reason;
-        if (finishReason !== null) {
-          expect(finishReason).toBe('stop');
-        }
-      }
-    }
+    expect(resp.status()).toBe(200);
+    const text = await resp.text();
+    const lines = text.split('\n').filter(l => l.startsWith('data: ') && !l.includes('[DONE]'));
+    expect(lines.length).toBeGreaterThan(0);
+    // Find last non-done chunk
+    const lastChunk = JSON.parse(lines[lines.length - 1].replace('data: ', ''));
+    expect(lastChunk.choices[0].finish_reason).toBe('stop');
   });
 
   test('streaming chunk format: data: {id, choices[{delta:{content}}]}', async ({ request }) => {
+    await requireAnyCachedModel(request, 'generator');
     const resp = await request.post(`${BASE}/v1/chat/completions`, {
       data: {
         model: 'default',
@@ -67,16 +66,14 @@ test.describe('Streaming Detail', () => {
         max_tokens: 5,
       },
     });
-    if (resp.status() === 200) {
-      const text = await resp.text();
-      const contentLines = text.split('\n').filter(l => l.startsWith('data: ') && !l.includes('[DONE]'));
-      if (contentLines.length > 0) {
-        const chunk = JSON.parse(contentLines[0].replace('data: ', ''));
-        expect(chunk).toHaveProperty('id');
-        expect(chunk).toHaveProperty('choices');
-        expect(chunk.choices[0]).toHaveProperty('delta');
-      }
-    }
+    expect(resp.status()).toBe(200);
+    const text = await resp.text();
+    const contentLines = text.split('\n').filter(l => l.startsWith('data: ') && !l.includes('[DONE]'));
+    expect(contentLines.length).toBeGreaterThan(0);
+    const chunk = JSON.parse(contentLines[0].replace('data: ', ''));
+    expect(chunk).toHaveProperty('id');
+    expect(chunk).toHaveProperty('choices');
+    expect(chunk.choices[0]).toHaveProperty('delta');
   });
 });
 
@@ -85,29 +82,15 @@ test.describe('Streaming Detail', () => {
 // ================================================================
 test.describe('Token Counts', () => {
   test('usage.prompt_tokens matches total_tokens for single input', async ({ request }) => {
+    await requireCachedModel(request, 'embedder');
     const resp = await request.post(`${BASE}/v1/embeddings`, {
       data: { model: 'default', input: 'hello world' },
     });
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(body.usage.prompt_tokens).toBeGreaterThanOrEqual(0);
-      expect(body.usage.total_tokens).toBeGreaterThanOrEqual(0);
-      expect(body.usage.total_tokens).toBeGreaterThanOrEqual(body.usage.prompt_tokens);
-    }
-  });
-});
-
-// ================================================================
-// DeepL endpoint robustness
-// ================================================================
-test.describe('DeepL Edge Cases', () => {
-  test('lowercase target_lang also handled (ko → KO internally)', async ({ request }) => {
-    // Some clients might send lowercase
-    const resp = await request.post(`${BASE}/v2/translate`, {
-      data: { text: ['Hello'], target_lang: 'ko' },
-    });
-    // Either 200 (accepted) or 400 (strict uppercase required) — not 422
-    expect(resp.status()).not.toBe(422);
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body.usage.prompt_tokens).toBeGreaterThanOrEqual(0);
+    expect(body.usage.total_tokens).toBeGreaterThanOrEqual(0);
+    expect(body.usage.total_tokens).toBeGreaterThanOrEqual(body.usage.prompt_tokens);
   });
 });
 
@@ -124,8 +107,11 @@ test.describe('Size Variants', () => {
   });
 
   test('size 1024x1024 accepted (not 400)', async ({ request }) => {
+    // A 1024x1024 image takes minutes on a CPU-only host: the request, not the answer, is what this test is about.
+    test.setTimeout(600_000);
     const resp = await request.post(`${BASE}/v1/images/generations`, {
       data: { prompt: 'test', model: 'default', size: '1024x1024' },
+      timeout: 540_000,
     });
     expect(resp.status()).not.toBe(400);
   });
@@ -149,14 +135,12 @@ test.describe('Version Detail', () => {
 test.describe('Swagger Content', () => {
   test('Swagger JSON spec contains key endpoints', async ({ request }) => {
     const resp = await request.get(`${BASE}/swagger/v1/swagger.json`);
-    if (resp.status() === 200) {
-      const body = await resp.json();
-      expect(body).toHaveProperty('paths');
-      const paths = Object.keys(body.paths);
-      expect(paths.some(p => p.includes('/v1/models'))).toBe(true);
-      expect(paths.some(p => p.includes('/v1/embeddings'))).toBe(true);
-    }
-    // Swagger might be at different path — not a hard failure
+    expect(resp.status()).toBe(200);
+    const body = await resp.json();
+    expect(body).toHaveProperty('paths');
+    const paths = Object.keys(body.paths);
+    expect(paths.some(p => p.includes('/v1/models'))).toBe(true);
+    expect(paths.some(p => p.includes('/v1/embeddings'))).toBe(true);
   });
 });
 

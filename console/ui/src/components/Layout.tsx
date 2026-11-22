@@ -233,13 +233,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function Layout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-
-  // Close sidebar on route change (mobile)
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [location.pathname]);
+  // The sidebar is open for the route it was opened on, so a route change closes it (mobile) without an effect
+  const [openedOn, setOpenedOn] = useState<string | null>(null);
+  const sidebarOpen = openedOn === location.pathname;
+  const setSidebarOpen = (open: boolean) => setOpenedOn(open ? location.pathname : null);
 
   return (
     <div className="flex h-screen bg-background">

@@ -61,7 +61,6 @@ test.describe('Dashboard — plan items', () => {
     // Get initial CPU value
     const cpuText = page.getByText(/%/).first();
     await expect(cpuText).toBeVisible();
-    const initialText = await cpuText.textContent();
 
     // Wait for at least one poll cycle (5 seconds) + buffer
     await page.waitForTimeout(6000);

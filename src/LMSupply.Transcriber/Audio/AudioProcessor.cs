@@ -75,7 +75,35 @@ internal static class AudioProcessor
     private static InvalidDataException EmptyAudio(string source) =>
         new($"The audio is empty ({source} holds 0 bytes), so there is nothing to transcribe. Record or supply audio first.");
 
-    private static float[] LoadAudio(string audioPath)
+    /// <summary>
+    /// Runs a decoder and holds its result to what the callers rely on: input that is no audio format the library reads surfaces as
+    /// <see cref="InvalidDataException"/> (the decoder's <see cref="FormatException"/> says it in the decoder's words, and is no type a
+    /// caller can tell from a bug), and audio that decodes to no samples is refused instead of being handed to the model, which
+    /// answers silence with a sentence of its own.
+    /// </summary>
+    private static float[] Decoded(Func<float[]> decode, string source)
+    {
+        float[] samples;
+        try
+        {
+            samples = decode();
+        }
+        catch (FormatException ex)
+        {
+            throw new InvalidDataException(
+                $"The audio ({source}) is not in a format this library reads (WAV, MP3, or Opus in WebM or Ogg): {ex.Message}", ex);
+        }
+
+        if (samples.Length == 0)
+            throw new InvalidDataException($"The audio ({source}) holds no samples, so there is nothing to transcribe. Record or supply audio first.");
+
+        return samples;
+    }
+
+    private static float[] LoadAudio(string audioPath) =>
+        Decoded(() => ReadAudioFile(audioPath), $"the file '{Path.GetFileName(audioPath)}'");
+
+    private static float[] ReadAudioFile(string audioPath)
     {
         // The length through the cache manager: a file that is a link (an audio file linked into place) is read at its target's size.
         if (LMSupply.Download.CacheManager.TryGetContentLength(audioPath, out var fileLength) && fileLength == 0)
@@ -98,7 +126,10 @@ internal static class AudioProcessor
         return ProcessAudioReader(reader);
     }
 
-    private static float[] LoadAudioFromStream(MemoryStream stream)
+    private static float[] LoadAudioFromStream(MemoryStream stream) =>
+        Decoded(() => ReadAudioStream(stream), "the stream or byte array");
+
+    private static float[] ReadAudioStream(MemoryStream stream)
     {
         // The same processing as a file: mono, then resampled to 16 kHz. This path used to read the WAV as it was —
         // a 44.1 kHz stereo stream came back as 16 000 samples per second of *interleaved 44.1 kHz frames*, audio at

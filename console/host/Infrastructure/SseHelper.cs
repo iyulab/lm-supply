@@ -15,81 +15,8 @@ public static class SseHelper
     };
 
     /// <summary>
-    /// Stream chat completions in OpenAI format
-    /// </summary>
-    public static async Task StreamChatCompletionAsync(
-        HttpContext context,
-        string model,
-        IAsyncEnumerable<string> tokens,
-        CancellationToken cancellationToken = default)
-    {
-        await SetSseHeadersAsync(context);
-
-        var id = $"chatcmpl-{Guid.NewGuid():N}";
-        var created = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-        // First chunk with role
-        var firstChunk = new ChatCompletionChunk
-        {
-            Id = id,
-            Model = model,
-            Created = created,
-            Choices =
-            [
-                new ChatCompletionChunkChoice
-                {
-                    Index = 0,
-                    Delta = new ChatCompletionDelta { Role = "assistant" }
-                }
-            ]
-        };
-        await WriteDataAsync(context, firstChunk, cancellationToken);
-
-        // Content chunks
-        await foreach (var token in tokens.WithCancellation(cancellationToken))
-        {
-            var chunk = new ChatCompletionChunk
-            {
-                Id = id,
-                Model = model,
-                Created = created,
-                Choices =
-                [
-                    new ChatCompletionChunkChoice
-                    {
-                        Index = 0,
-                        Delta = new ChatCompletionDelta { Content = token }
-                    }
-                ]
-            };
-            await WriteDataAsync(context, chunk, cancellationToken);
-        }
-
-        // Final chunk with finish_reason
-        var finalChunk = new ChatCompletionChunk
-        {
-            Id = id,
-            Model = model,
-            Created = created,
-            Choices =
-            [
-                new ChatCompletionChunkChoice
-                {
-                    Index = 0,
-                    Delta = new ChatCompletionDelta(),
-                    FinishReason = "stop"
-                }
-            ]
-        };
-        await WriteDataAsync(context, finalChunk, cancellationToken);
-
-        await context.Response.WriteAsync("data: [DONE]\n\n", cancellationToken);
-        await context.Response.Body.FlushAsync(cancellationToken);
-    }
-
-    /// <summary>
     /// Streams a chat completion from the model's chunks, carrying each chunk's log probabilities — the path a request
-    /// that sets <c>logprobs</c> takes. Reasoning deltas are not sent (the text path does not send them either).
+    /// that sets <c>logprobs</c> takes. Reasoning deltas are not sent.
     /// </summary>
     public static async Task StreamChatCompletionAsync(
         HttpContext context,
