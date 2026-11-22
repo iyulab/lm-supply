@@ -522,6 +522,43 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
 
     [Fact]
     [Trait("Axis", "API-Error")]
+    public async Task A_known_API_path_asked_with_the_wrong_method_is_405_with_Allow()
+    {
+        var put = await _client.PutAsync("/v1/embeddings", JsonContent.Create(new { model = "default", input = "x" }), TestContext.Current.CancellationToken);
+        var get = await _client.GetAsync("/v1/chat/completions", TestContext.Current.CancellationToken);
+
+        put.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+        put.Content.Headers.Allow.Should().Contain("POST");
+        get.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+        get.Content.Headers.Allow.Should().Contain("POST");
+        var json = await get.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
+        json.GetProperty("error").GetProperty("type").GetString().Should().Be("invalid_request_error");
+    }
+
+    [Fact]
+    [Trait("Axis", "API-Error")]
+    public async Task A_JSON_endpoint_posted_a_form_is_415()
+    {
+        var form = new StringContent("model=default&input=test", Encoding.UTF8, "application/x-www-form-urlencoded");
+
+        var response = await _client.PostAsync("/v1/embeddings", form, TestContext.Current.CancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.UnsupportedMediaType);
+    }
+
+    [Fact]
+    [Trait("Axis", "API-Error")]
+    public async Task An_unknown_path_is_still_404_whatever_the_method()
+    {
+        var put = await _client.PutAsync("/v1/no-such-endpoint", JsonContent.Create(new { }), TestContext.Current.CancellationToken);
+        var post = await _client.PostAsync("/v1/no-such-endpoint", JsonContent.Create(new { }), TestContext.Current.CancellationToken);
+
+        put.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        post.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    [Trait("Axis", "API-Error")]
     public async Task POST_Rerank_MissingQuery_Returns400()
     {
         string[] docs = ["doc1"];

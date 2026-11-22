@@ -174,23 +174,27 @@ app.MapGet("/", () =>
 
 // SPA fallback: non-API GET paths go to index.html (client-side routing)
 // Only match GET requests — POST/PUT/DELETE to unknown routes should return 404, not HTML
-app.MapFallback(context =>
+app.MapFallback(async context =>
 {
+    // A known API path asked the wrong way is 405 / 415, not «not found» (routing hands such requests to this fallback)
+    if (await RouteMismatch.TryWriteAsync(context))
+        return;
+
     if (!HttpMethods.IsGet(context.Request.Method))
     {
         context.Response.StatusCode = 404;
-        return Task.CompletedTask;
+        return;
     }
 
     var indexFile = embeddedProvider?.GetFileInfo("index.html");
     if (indexFile is { Exists: true })
     {
         context.Response.ContentType = "text/html";
-        return indexFile.CreateReadStream().CopyToAsync(context.Response.Body);
+        await indexFile.CreateReadStream().CopyToAsync(context.Response.Body);
+        return;
     }
 
     context.Response.StatusCode = 404;
-    return Task.CompletedTask;
 });
 
 app.Run();
