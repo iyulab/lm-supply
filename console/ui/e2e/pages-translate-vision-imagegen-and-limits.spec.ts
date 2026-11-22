@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import type { Page, Route } from '@playwright/test';
+import type { Route } from '@playwright/test';
 
 const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 
@@ -7,11 +7,11 @@ const BASE = process.env.API_BASE_URL || 'http://localhost:5000';
 // Translate Page
 // ================================================================
 test.describe('Translate Page', () => {
-  test('source/target language selection present', async ({ page }) => {
+  // The language pair comes from the selected model, so the model selector is the language selection. (Reading `page.content()` right after
+  // domcontentloaded races the first render and saw an empty root.)
+  test('language-pair model selector present', async ({ page }) => {
     await page.goto('/translate');
-    await page.waitForLoadState('domcontentloaded');
-    const content = await page.content();
-    expect(content).toMatch(/language|source|target|translate/i);
+    await expect(page.locator('select').first()).toBeVisible({ timeout: 10000 });
   });
 
   test('translation input field visible', async ({ page }) => {
@@ -70,14 +70,14 @@ test.describe('Vision Pages', () => {
 // ================================================================
 test.describe('ImageGenerate Page', () => {
   test('prompt input field present', async ({ page }) => {
-    await page.goto('/generate');
+    await page.goto('/image-generate');
     await page.waitForLoadState('domcontentloaded');
     const input = page.locator('textarea, input[type="text"], input[placeholder]').first();
     await expect(input).toBeVisible({ timeout: 10000 });
   });
 
   test('size/steps options visible', async ({ page }) => {
-    await page.goto('/generate');
+    await page.goto('/image-generate');
     await page.waitForLoadState('domcontentloaded');
     const content = await page.content();
     expect(content).toMatch(/size|steps|width|height|512|256/i);
