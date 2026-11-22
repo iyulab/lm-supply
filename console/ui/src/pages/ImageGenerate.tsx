@@ -29,17 +29,13 @@ export function ImageGenerate() {
   const [models, setModels] = useState<ImageModelInfo[]>([]);
 
   useEffect(() => {
-    loadModels();
+    let cancelled = false;
+    api.getImageModels().then(
+      modelList => { if (!cancelled) setModels(modelList); },
+      err => console.error('Failed to load models:', err),
+    );
+    return () => { cancelled = true; };
   }, []);
-
-  const loadModels = async () => {
-    try {
-      const modelList = await api.getImageModels();
-      setModels(modelList);
-    } catch (err) {
-      console.error('Failed to load models:', err);
-    }
-  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
