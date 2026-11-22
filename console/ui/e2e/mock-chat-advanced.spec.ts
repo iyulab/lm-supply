@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures/base.fixture';
-import { mockChatStream, mockJsonError } from './fixtures/api-mocks';
+import { mockChatStream } from './fixtures/api-mocks';
 
 // ================================================================
 // Chat page — advanced mock tests

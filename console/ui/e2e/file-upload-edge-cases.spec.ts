@@ -1,12 +1,4 @@
 import { test, expect } from './fixtures/base.fixture';
-import { mockJsonEndpoint, mockJsonError, mockCaptionResponse, mockOcrResponse } from './fixtures/api-mocks';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const TEST_IMAGE = path.resolve(__dirname, 'fixtures/test-files/test-image.png');
-
 // ================================================================
 // File upload edge cases
 // Covers: empty file, wrong format as image, image formats, audio formats

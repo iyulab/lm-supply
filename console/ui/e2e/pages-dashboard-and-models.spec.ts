@@ -94,11 +94,6 @@ test.describe('Dashboard Page', () => {
     // Look for ONNX or engine-ready indicator
     const content = await page.content();
     expect(content.length).toBeGreaterThan(100);
-    // Page loads without error
-    const errorEl = page.locator('text=Error').first();
-    const hasError = await errorEl.isVisible().catch(() => false);
-    // Error might be showing because models aren't loaded — that's ok
-    expect(true).toBe(true);
   });
 
   test('empty cache shows empty state message', async ({ page }) => {

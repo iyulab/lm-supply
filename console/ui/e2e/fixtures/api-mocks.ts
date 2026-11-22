@@ -77,11 +77,9 @@ export async function mockBlobEndpoint(
 export async function mockChatStream(
   page: Page,
   urlPattern: string | RegExp,
-  tokens: string[],
-  options?: { delay?: number }
+  tokens: string[]
 ) {
   await page.route(urlPattern, async (route: Route) => {
-    const tokenDelay = options?.delay ?? 10;
     const lines: string[] = [];
 
     for (const token of tokens) {
@@ -129,7 +127,7 @@ export function mockEmbedResponse(texts: string[], dimensions: number = 384) {
 }
 
 /** Generate mock rerank response */
-export function mockRerankResponse(documents: string[], query: string) {
+export function mockRerankResponse(documents: string[]) {
   return {
     id: 'rerank-mock',
     model: 'mock-reranker',

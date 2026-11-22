@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures/base.fixture';
-import { mockJsonEndpoint, mockChatStream, mockCaptionResponse } from './fixtures/api-mocks';
+import { mockJsonEndpoint, mockCaptionResponse } from './fixtures/api-mocks';
 
 // ================================================================
 // Cross-domain workflows: multi-page interactions, mode switching

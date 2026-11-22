@@ -7,8 +7,8 @@ export const test = base.extend<{
   /** Wait for initial page load (API calls settle) */
   waitForPageReady: () => Promise<void>;
 }>({
-  waitForPageReady: async ({ page }, use) => {
-    await use(async () => {
+  waitForPageReady: async ({ page }, provide) => {
+    await provide(async () => {
       // Wait for any loading spinners to disappear
       const spinner = page.locator('.animate-spin');
       if (await spinner.count() > 0) {

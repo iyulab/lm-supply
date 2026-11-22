@@ -22,9 +22,7 @@ test.describe('Transcribe page', () => {
 
   // Drop zone visible when model not selected
   test('file input is disabled when no model is selected', async ({ page }) => {
-    // Initially while loading, the file input should be disabled
-    const fileInput = page.locator('input[type="file"]');
-    // File input exists but may be hidden — check the drop zone text
+    // The file input may be hidden — check the drop zone
     const dropZone = page.locator('.border-dashed');
     await expect(dropZone).toBeVisible();
   });

@@ -17,8 +17,6 @@ test.describe('GET /v1/models', () => {
     const resp = await request.get(`${BASE}/v1/models`);
     expect(resp.status()).toBe(200);
     const body = await resp.json();
-    const ids: string[] = body.data.map((m: { id: string }) => m.id.toLowerCase());
-    const combined = ids.join(' ');
     // Check presence of each domain via capabilities or id
     expect(body.data.some((m: { capabilities?: string[] }) =>
       m.capabilities?.includes('embeddings') || m.capabilities?.includes('text-embedding')
@@ -40,7 +38,7 @@ test.describe('GET /v1/models', () => {
   test('standard aliases (default, fast, quality) are present', async ({ request }) => {
     const resp = await request.get(`${BASE}/v1/models`);
     const body = await resp.json();
-    const ids: string[] = body.data.map((m: { id: string }) => m.id);
+    const ids: string[] = body.data.map((m: { id: string }) => m.id.toLowerCase());
     const hasDefault = ids.some(id => id === 'default' || id.endsWith(':default') || id.includes('default'));
     expect(hasDefault).toBe(true);
   });

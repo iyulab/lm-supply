@@ -52,7 +52,7 @@ export async function requireCachedOcr(request: APIRequestContext, recognizer: s
 
 /** Skips the test unless the Hugging Face Hub answers from this machine (the host reads model metadata from it). */
 export async function requireHub(request: APIRequestContext): Promise<void> {
-  let reachable = false;
+  let reachable: boolean;
   try {
     const resp = await request.get('https://huggingface.co/api/models/BAAI/bge-small-en-v1.5', { timeout: 10_000 });
     reachable = resp.ok();

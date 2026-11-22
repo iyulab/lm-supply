@@ -17,7 +17,7 @@ test.describe('Rerank — mock inference results', () => {
   test('rerank results show ranked documents', async ({ page }) => {
     const docs = ['Machine learning basics', 'Deep learning for NLP', 'Cooking recipes'];
     const query = 'artificial intelligence';
-    const mockResponse = mockRerankResponse(docs, query);
+    const mockResponse = mockRerankResponse(docs);
 
     await mockJsonEndpoint(page, '**/v1/rerank', mockResponse);
 
@@ -33,7 +33,7 @@ test.describe('Rerank — mock inference results', () => {
   // Result items show position number, score, and text
   test('results show position numbers and scores', async ({ page }) => {
     const docs = ['Document A', 'Document B', 'Document C'];
-    const mockResponse = mockRerankResponse(docs, 'test query');
+    const mockResponse = mockRerankResponse(docs);
 
     await mockJsonEndpoint(page, '**/v1/rerank', mockResponse);
 
@@ -54,7 +54,7 @@ test.describe('Rerank — mock inference results', () => {
 
   // Elapsed time shown after reranking
   test('elapsed time shown after reranking', async ({ page }) => {
-    const mockResponse = mockRerankResponse(['Doc 1'], 'query');
+    const mockResponse = mockRerankResponse(['Doc 1']);
     await mockJsonEndpoint(page, '**/v1/rerank', mockResponse);
 
     await page.getByPlaceholder('Enter your query...').fill('query');

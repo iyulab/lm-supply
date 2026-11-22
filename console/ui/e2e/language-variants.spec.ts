@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures/base.fixture';
 import { BASE, requireCachedModel, requireCachedOcr } from './host-capabilities';
-import { mockJsonEndpoint, mockOcrResponseWithLines } from './fixtures/api-mocks';
+import { mockOcrResponseWithLines } from './fixtures/api-mocks';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';

@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures/base.fixture';
-import { mockJsonEndpoint, mockJsonError, mockCaptionResponse, mockModelsPageApis } from './fixtures/api-mocks';
+import { mockCaptionResponse, mockModelsPageApis } from './fixtures/api-mocks';
 
 // ================================================================
 // Final coverage gap closure: 6.6, 14.3.4, 8.1.2
@@ -121,8 +121,9 @@ test.describe('Models — unload model', () => {
     await expect(unloadBtn).toBeVisible();
     await unloadBtn.click();
 
-    // Verify unload was called
+    // Verify unload was called, for the model that was shown
     await expect.poll(() => unloadCalled, { timeout: 5_000 }).toBe(true);
+    expect(decodeURIComponent(unloadKey)).toBe(`${loadedModel.modelType}:${loadedModel.modelId}`);
 
     // After unload, loaded models should be empty
     await expect(page.getByText('Loaded Models (0)')).toBeVisible({ timeout: 5_000 });

@@ -1,5 +1,4 @@
 import { test, expect } from './fixtures/base.fixture';
-import { mockChatStream, mockJsonEndpoint } from './fixtures/api-mocks';
 
 // ================================================================
 // Network Error Scenarios
@@ -100,7 +99,6 @@ test.describe('Network Error Scenarios', () => {
         await route.abort('connectionrefused');
       } else {
         // Subsequent requests succeed with streaming response
-        const encoder = new TextEncoder();
         const tokens = ['Recovery', ' successful', '!'];
         const chunks = tokens.map((token) => {
           const data = JSON.stringify({
