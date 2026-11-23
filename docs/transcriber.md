@@ -344,6 +344,53 @@ Not produced. Despite its name, `WordTimestamps = true` gives **segment**-level 
 warping), which the transcriber does not implement. For word timing use a tool built for it, such as
 whisper-timestamped or faster-whisper.
 
+## Microsoft.Extensions.AI
+
+`model.AsSpeechToTextClient()` returns a `LocalSpeechToTextClient`, an `ISpeechToTextClient` over a loaded transcriber, so a
+library that takes the standard contract uses a local Whisper or Parakeet model with no adapter of its own. Microsoft marks
+that contract experimental (`MEAI001`), and so is the client: suppress the same diagnostic where you use it. The client does
+not own the model.
+
+- **Input** is a stream holding a whole encoded recording (WAV, MP3, Opus, ...); its sample rate is read from the container, so
+  `SpeechToTextOptions.SpeechSampleRate` is not used.
+- **Options**: `SpeechLanguage` is the language hint. `TextLanguage` may be the speech language, or English, which turns on
+  Whisper's translation to English; any other text language throws `NotSupportedException`. `ModelId`, when set, must name the
+  loaded model. Speaker labelling, an initial prompt and the other decoding controls have no standard name: return a
+  `TranscribeOptions` from `RawRepresentationFactory` and it is used as it is, with the standard options applied over it.
+  Without one the client asks for segment timestamps, so a recording longer than one 30-second window comes back as
+  segments that follow the speech.
+- **Response**: one `TextContent` per segment, in order (`response.Text` reads as the transcript). Each carries its place on the
+  recording's time axis and its speaker (a label such as `"S1"`, stable within the recording, when `Diarize` was asked for) in
+  `AdditionalProperties`, under `LocalSpeechToTextClient.SegmentStartSecondsKey`, `SegmentEndSecondsKey` and `SpeakerKey`. The
+  response carries the model id, the span of the segments, and under `LanguageKey`, `LanguageProbabilityKey` and
+  `DurationSecondsKey` the language, how sure the identification was (absent when a hint was given) and the recording's
+  length. Word-level times are not available.
+- **Streaming**: `GetStreamingTextAsync` transcribes the recording whole and yields its segments in order, one update each;
+  it is the standard shape for a caller that handles segments one by one, not a way to get text before the model has finished.
+
+```csharp
+using Microsoft.Extensions.AI;
+
+#pragma warning disable MEAI001 // Microsoft.Extensions.AI marks its speech-to-text contract experimental
+
+await using var model = await LocalTranscriber.LoadAsync("default");
+ISpeechToTextClient client = model.AsSpeechToTextClient();
+
+await using var audio = File.OpenRead("meeting.wav");
+var response = await client.GetTextAsync(audio, new SpeechToTextOptions
+{
+    SpeechLanguage = "en",
+    RawRepresentationFactory = _ => new TranscribeOptions { Diarize = true, MaxSpeakers = 4 },
+});
+
+foreach (var segment in response.Contents.OfType<TextContent>())
+{
+    var properties = segment.AdditionalProperties!;
+    Console.WriteLine($"[{properties[LocalSpeechToTextClient.SegmentStartSecondsKey]:F1}s] " +
+        $"{properties[LocalSpeechToTextClient.SpeakerKey]}:{segment.Text}");
+}
+```
+
 ## Model Selection
 
 ### Query Available Models

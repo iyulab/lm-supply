@@ -21,6 +21,7 @@
     <PackageReference Include="NLayer.NAudioSupport" />
     <PackageReference Include="Concentus" />
     <PackageReference Include="MathNet.Numerics" />
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
   </ItemGroup>
 
 </Project>

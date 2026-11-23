@@ -25,6 +25,13 @@ Console.WriteLine($"Language: {result.Language}");
 Console.WriteLine($"Duration: {result.DurationSeconds}s");
 ```
 
+## Microsoft.Extensions.AI
+
+`model.AsSpeechToTextClient()` is the loaded transcriber as an `ISpeechToTextClient` (experimental, like Microsoft's contract:
+`MEAI001`): one `TextContent` per segment with its start and end on the recording's time axis and, with
+`TranscribeOptions.Diarize`, its speaker label. It does not own the model. See the
+[transcriber guide](https://github.com/iyulab/lm-supply/blob/main/docs/transcriber.md#microsoftextensionsai).
+
 ## Available Models
 
 | Alias | Model | Size | WER | Description |
