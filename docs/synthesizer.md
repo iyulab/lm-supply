@@ -59,8 +59,8 @@ dotnet add package LMSupply.Synthesizer
 |-------|-------|----------|-------------|------|----------|-------------|
 | `default` | LJSpeech | en-US | 22050 Hz | ~64MB | `espeak` / `en` | US English female (public domain) |
 | `lessac` | Lessac | en-US | 22050 Hz | ~64MB | `espeak` / `en-us` | High-quality US English female |
-| `fast` | Ryan | en-US | 16000 Hz | ~16MB | `espeak` / `en-us` | Fast US English male |
-| `quality` | Amy | en-US | 22050 Hz | ~64MB | `espeak` / `en-us` | High-quality US English female |
+| `ryan` | Ryan | en-US | 16000 Hz | ~16MB | `espeak` / `en-us` | Fast US English male |
+| `amy` | Amy | en-US | 22050 Hz | ~64MB | `espeak` / `en-us` | High-quality US English female |
 | `british` | Semaine | en-GB | 22050 Hz | ~64MB | `espeak` / `en-gb-x-rp` | British English, four speakers |
 | `korean` | KSS (medium) | ko-KR | 22050 Hz | ~63MB | `espeak` / `ko` | Korean female |
 | `chinese` | Huayan | zh-CN | 22050 Hz | ~64MB | `espeak` / `cmn` | Mandarin Chinese female |
@@ -241,7 +241,7 @@ A phonemizer you set is used for every voice, the English and Korean ones includ
 
 | The voice | `SynthesizeAsync(text)` |
 |-----------|-------------------------|
-| `espeak`, English (`default`, `lessac`, `fast`, `quality`, `british`) | Works, through the built-in English phonemizer ([English text](#english-text)). |
+| `espeak`, English (`default`, `lessac`, `ryan`, `amy`, `british`) | Works, through the built-in English phonemizer ([English text](#english-text)). |
 | `espeak`, Korean (`korean`) | Works, through the built-in Korean phonemizer ([Korean text](#korean-text)). |
 | `text` | Works. The phonemes are the characters of the text, lower-cased and decomposed (NFD), as one sentence. |
 | `espeak`, another language (`chinese`) | Throws `NotSupportedException`, naming the voice's phoneme type and language. No audio is returned. |
@@ -331,7 +331,7 @@ var options = new SynthesizerOptions
     Phonemizer = null                   // the text-to-phoneme step, for voices that need one
 };
 
-var synthesizer = await LocalSynthesizer.LoadAsync("quality", options);
+var synthesizer = await LocalSynthesizer.LoadAsync("amy", options);
 ```
 
 `CacheDirectory` moves the voice's files. The native ONNX Runtime package (about 160 MB for the CPU package) is provisioned
@@ -345,11 +345,11 @@ A host that asks before downloading reads what a load would fetch, without loadi
 
 ```csharp
 var artifacts = new SynthesizerArtifacts(new SynthesizerOptions { Provider = ExecutionProvider.Cpu });
-if (!await artifacts.IsAvailableOfflineAsync("quality"))
+if (!await artifacts.IsAvailableOfflineAsync("amy"))
 {
-    var remaining = await artifacts.GetRemainingDownloadAsync("quality");   // ModelBytes, RuntimeBytes, TotalBytes
+    var remaining = await artifacts.GetRemainingDownloadAsync("amy");   // ModelBytes, RuntimeBytes, TotalBytes
     // ... after the user agrees:
-    await artifacts.DownloadAsync("quality", progress);                      // the voice and the ONNX Runtime
+    await artifacts.DownloadAsync("amy", progress);                      // the voice and the ONNX Runtime
 }
 ```
 
@@ -479,10 +479,10 @@ the config is used and `GetModelInfo()` returns the config's values.
 
 ```csharp
 // For real-time applications (fastest)
-var realTime = await LocalSynthesizer.LoadAsync("fast");
+var realTime = await LocalSynthesizer.LoadAsync("ryan");
 
 // For highest quality
-var highQuality = await LocalSynthesizer.LoadAsync("quality");
+var highQuality = await LocalSynthesizer.LoadAsync("amy");
 ```
 
 ### GPU Acceleration
@@ -558,8 +558,8 @@ before shipping a voice:
 |-------|---------------------------------------------|
 | `default` | Public domain (LJ Speech) |
 | `lessac` | Blizzard 2013 Lessac research license (non-commercial) |
-| `fast` | CC BY-NC-SA 4.0 |
-| `quality` | Unspecified |
+| `ryan` | CC BY-NC-SA 4.0 |
+| `amy` | Unspecified |
 | `british` | CC BY-NC-SA 4.0 |
 | `korean` | CC BY-NC-SA 4.0 |
 | `chinese` | Unknown |

@@ -41,8 +41,8 @@ This formula is a rough estimate that includes model weight loading and runtime 
 | bge-m3 | 568M | ~2.3GB | ~4.5GB | 8K tokens |
 
 **Recommended:**
-- 💡 **Low Memory (< 4GB)**: `fast` (multilingual-e5-small)
-- ⚖️ **Balanced (4-8GB)**: `quality` (gte-large-en-v1.5), English-first
+- 💡 **Low Memory (< 4GB)**: `entry` (multilingual-e5-small)
+- ⚖️ **Balanced (4-8GB)**: `gte-large-en-v1.5`, English-first
 - 🚀 **Quality (8GB+)**: `default` (bge-m3) — 100+ languages, 8K context
 
 > These follow the aliases the embedder registry actually resolves. The table above lists other
@@ -140,15 +140,15 @@ LMSupply automatically selects the **best quantization file that fits your avail
 | Model | Parameters | ONNX Size | Est. Memory | Input Size |
 |-------|------------|-----------|-------------|------------|
 | RT-DETR v2 Small (`default`) | 20M | ~80MB | ~160MB | 640×640 |
-| RT-DETR v2 Mini-Small (`fast`) | 15M | ~126MB | ~250MB | 640×640 |
-| RT-DETR v2 Medium (`quality`) | 36M | ~133MB | ~270MB | 640×640 |
-| RT-DETR v2 Large (`large`) | 42M | ~169MB | ~340MB | 640×640 |
-| RT-DETR v2 XLarge (`xlarge`) | 76M | ~300MB | ~600MB | 640×640 |
+| RT-DETR v2 Mini-Small (`entry`) | 15M | ~126MB | ~250MB | 640×640 |
+| RT-DETR v2 Medium (`balanced`) | 36M | ~133MB | ~270MB | 640×640 |
+| RT-DETR v2 Large (`advanced`) | 42M | ~169MB | ~340MB | 640×640 |
+| RT-DETR v2 XLarge (`frontier`) | 76M | ~300MB | ~600MB | 640×640 |
 
 **Recommended:**
-- 💡 **Fast**: `fast`
+- 💡 **Fast**: `entry`
 - ⚖️ **Default**: `default`
-- 🚀 **Quality**: `quality` (or `large` / `xlarge`)
+- 🚀 **Quality**: `balanced` (or `advanced` / `frontier`)
 
 ---
 
@@ -223,7 +223,7 @@ OCR combines two models:
 |------|-------------------|
 | 4GB | Embedder (small), Reranker (mini), Detector (lite) |
 | 6GB | Embedder (base), Transcriber (small), Segmenter (B2) |
-| 8GB | Embedder (large), Generator (1-3B), Transcriber (medium) |
+| 8GB | Embedder (`multilingual-e5-large`), Generator (1-3B), Transcriber (medium) |
 | 12GB | Generator (3-4B), Transcriber (large-turbo) |
 | 16GB+ | Generator (7B+), multiple models simultaneously |
 
@@ -273,13 +273,13 @@ await using var lazyReranker = await LocalReranker.LoadAsync("default");
 Free memory explicitly with `DisposeAsync`:
 
 ```csharp
-await using (var model = await LocalEmbedder.LoadAsync("large"))
+await using (var model = await LocalEmbedder.LoadAsync("multilingual-e5-large"))
 {
     var embeddings = await model.EmbedAsync(texts);
 } // automatically released here
 
 // Or manual disposal
-var manual = await LocalEmbedder.LoadAsync("large");
+var manual = await LocalEmbedder.LoadAsync("multilingual-e5-large");
 try
 {
     // use
@@ -324,7 +324,7 @@ var onnx = await LocalGenerator.LoadAsync("microsoft/Phi-4-mini-instruct-onnx");
 Use `EstimatedMemoryBytes` to verify expected memory usage:
 
 ```csharp
-var model = await LocalEmbedder.LoadAsync("large");
+var model = await LocalEmbedder.LoadAsync("multilingual-e5-large");
 var memoryMB = model.EstimatedMemoryBytes / (1024 * 1024);
 Console.WriteLine($"Estimated memory: {memoryMB}MB");
 ```
@@ -356,7 +356,7 @@ Console.WriteLine($"Recommended Provider: {profile.RecommendedProvider}");
 
 ### Out of Memory Error
 
-1. **Use a smaller model**: `"default"` → `"fast"`
+1. **Use a smaller model**: `"default"` → `"entry"`
 2. **Change provider**: `ExecutionProvider.Cpu` (uses system RAM)
 3. **Release other models**: `await otherModel.DisposeAsync()`
 4. **Reduce batch size**: Process smaller amounts of data at once

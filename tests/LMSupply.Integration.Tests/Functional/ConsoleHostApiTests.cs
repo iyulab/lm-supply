@@ -1101,7 +1101,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task POST_ChatCompletions_MissingMessages_Returns400()
     {
-        var content = JsonContent.Create(new { model = "gguf:gemma4-fast" });
+        var content = JsonContent.Create(new { model = "gguf:gemma4-e2b" });
         var response = await _client.PostAsync("/v1/chat/completions", content, TestContext.Current.CancellationToken);
 
         // Missing required 'messages' field should return 400
@@ -1129,7 +1129,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [InlineData(false, 5, null, false, "requires 'logprobs': true")]
     [InlineData(true, 21, null, false, "between 0 and 20")]
     [InlineData(true, -1, null, false, "between 0 and 20")]
-    [InlineData(true, 2, "gguf:gemma4-fast", false, "draft_model")]
+    [InlineData(true, 2, "gguf:gemma4-e2b", false, "draft_model")]
     [InlineData(true, 2, null, true, "strict 'json_schema'")]
     public async Task POST_ChatCompletions_LogprobsOutsideOpenAIsRules_Returns400(
         bool logprobs, int topLogprobs, string? draftModel, bool streamedStrictJson, string message)

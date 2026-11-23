@@ -13,13 +13,13 @@ public static class CaptionerModels
     public static CaptionerModelInfo Default => Florence2Default;
 
     /// <summary>
-    /// ViT-GPT2 Image Captioning, alias <c>fast</c> — the smallest decoder, but it tends to name a familiar scene in
+    /// ViT-GPT2 Image Captioning, alias <c>entry</c> — the smallest decoder, but it tends to name a familiar scene in
     /// place of the photo's subject. It was the <c>default</c> alias before 0.104.0. GPT-2 tokenizer, 224x224 ViT
     /// preprocessing.
     /// </summary>
     public static CaptionerModelInfo VitGpt2 { get; } = new(
         RepoId: "Xenova/vit-gpt2-image-captioning",
-        AliasName: "fast",
+        AliasName: "entry",
         DisplayName: "ViT-GPT2 Image Captioning",
         EncoderFile: "encoder_model.onnx",
         DecoderFile: "decoder_model_merged.onnx",
@@ -31,13 +31,14 @@ public static class CaptionerModels
         EosTokenId: 50256,
         PadTokenId: 50256)
     {
+        Tier = ModelTier.Entry,
         Subfolder = "onnx",
         License = "Apache-2.0", // the converted model, nlpconnect/vit-gpt2-image-captioning
-        Description = "Fast: ViT-GPT2, the smallest decoder (the original GIT-Base COCO model is no longer accessible)"
+        Description = "Entry: ViT-GPT2, the smallest decoder (the original GIT-Base COCO model is no longer accessible)"
     };
 
     /// <summary>
-    /// Florence-2 base (fine-tuned), alias <c>quality</c> — a current vision-language model (MIT) that names the main
+    /// Florence-2 base (fine-tuned), alias <c>florence-2-base</c> — a current vision-language model (MIT) that names the main
     /// subjects of everyday photos where ViT-GPT2 tends to substitute a familiar scene. Captions at three levels of
     /// detail (<see cref="CaptionerOptions.Detail"/>). Every ONNX file is published in quantized variants; a load takes
     /// the one <see cref="LMSupplyOptionsBase.QuantizationHint"/> or the hardware tier picks (int8 ≈ 275 MB on most
@@ -45,7 +46,7 @@ public static class CaptionerModels
     /// </summary>
     public static CaptionerModelInfo Florence2Base { get; } = new(
         RepoId: "onnx-community/Florence-2-base-ft",
-        AliasName: "quality",
+        AliasName: "florence-2-base",
         DisplayName: "Florence-2 Base (fine-tuned)",
         EncoderFile: "vision_encoder.onnx",
         DecoderFile: "decoder_model_merged.onnx",
@@ -63,18 +64,19 @@ public static class CaptionerModels
         Architecture = CaptionerArchitecture.Florence2,
         DecoderStartTokenId = 2,
         HasQuantizationVariants = true,
-        Description = "Quality: Florence-2 base, names everyday subjects; brief, detailed or paragraph captions"
+        Description = "Florence-2 base, names everyday subjects; brief, detailed or paragraph captions"
     };
 
     /// <summary>
-    /// The same Florence-2 base model registered under <c>default</c> (since 0.104.0; ViT-GPT2 before). On 12 everyday
+    /// The same Florence-2 base model registered under <c>default</c>, which is its <c>basic</c> rung (since 0.104.0; ViT-GPT2 before). On 12 everyday
     /// CC0 photos ViT-GPT2 named 4 subjects wrongly and Florence-2 none, and its int8 download (≈ 275 MB) is smaller
     /// than ViT-GPT2's (≈ 960 MB).
     /// </summary>
     public static CaptionerModelInfo Florence2Default { get; } = Florence2Base with
     {
         AliasName = "default",
-        Description = "Default: Florence-2 base (same model as quality)"
+        Tier = ModelTier.Basic,
+        Description = "Basic (default): Florence-2 base (same model as florence-2-base)"
     };
 
     /// <summary>
@@ -84,8 +86,8 @@ public static class CaptionerModels
     /// </summary>
     public static IReadOnlyList<CaptionerModelInfo> All { get; } =
     [
-        Florence2Default, // default
-        VitGpt2,          // fast
-        Florence2Base,    // quality
+        Florence2Default, // default (basic)
+        VitGpt2,          // entry
+        Florence2Base,    // florence-2-base
     ];
 }

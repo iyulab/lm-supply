@@ -73,9 +73,9 @@ public class LocalGeneratorDefaultRoutingTests
     }
 
     [Theory]
-    [InlineData("gguf:gemma4-fast")]
-    [InlineData("gguf:gemma4-default")]
-    [InlineData("gguf:gemma4-balanced")]
+    [InlineData("gguf:gemma4-e2b")]
+    [InlineData("gguf:gemma4-e4b")]
+    [InlineData("gguf:gemma4-e4b-q8_0")]
     [InlineData("gguf:phi-4-mini")]   // registered alias — must not split on ':'
     [InlineData("gguf:qwen2.5-7b")]   // registered alias with hyphenated suffix
     public async Task LoadAsync_GgufPrefixedAlias_IsNotShreddedByQualifierSplit(string alias)
@@ -123,7 +123,7 @@ public class LocalGeneratorDefaultRoutingTests
 
         ex.Message.Should().Contain("gguf:unknown-model");
         ex.Message.Should().Contain("not a registered GGUF alias");
-        ex.Message.Should().Contain("gguf:gemma4-fast"); // should list known aliases
+        ex.Message.Should().Contain("gguf:gemma4-e2b"); // should list known aliases
     }
 
     [Fact]
@@ -137,10 +137,10 @@ public class LocalGeneratorDefaultRoutingTests
     }
 
     [Fact]
-    public void FastAlias_StillResolvesToPhi4Mini()
+    public void EntryAlias_ResolvesToPhi4Mini()
     {
         var registry = GeneratorModelRegistry.Default;
-        var resolved = registry.TryResolve("fast", out var info);
+        var resolved = registry.TryResolve("entry", out var info);
 
         resolved.Should().BeTrue();
         info.Should().NotBeNull();

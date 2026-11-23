@@ -47,17 +47,15 @@ public class TextGeneratorBuilderTests
     }
 
     [Theory]
-    [InlineData(GeneratorModelPreset.Default)]
-    [InlineData(GeneratorModelPreset.Fast)]
-    [InlineData(GeneratorModelPreset.Quality)]
-    [InlineData(GeneratorModelPreset.Small)]
-    public void WithModel_AcceptsAllPresets(GeneratorModelPreset preset)
+    [InlineData(ModelTier.Entry)]
+    [InlineData(ModelTier.Advanced)]
+    public void WithModel_AcceptsTheRungsTheOnnxCatalogHolds(ModelTier tier)
     {
         // Arrange
         var builder = TextGeneratorBuilder.Create();
 
         // Act & Assert - should not throw
-        builder.WithModel(preset);
+        builder.WithModel(tier);
     }
 
     [Fact]
@@ -293,20 +291,8 @@ public class TextGeneratorBuilderTests
     }
 
     [Theory]
-    [InlineData(GeneratorModelPreset.Default)]
-    public async Task BuildAsync_WithModelDefaultPreset_RoutesThroughLocalGeneratorAuto(GeneratorModelPreset preset)
-    {
-        // The Default preset shares the underlying alias with WithDefaultModel(),
-        // so it must follow the same routing.
-        var (lines, _) = await CaptureBuildAsync(
-            () => TextGeneratorBuilder.Create().WithModel(preset));
-
-        lines.Should().Contain(l => l.Contains("[LocalGenerator.auto]"));
-    }
-
-    [Theory]
-    [InlineData("gguf:gemma4-fast")]
-    [InlineData("gguf:gemma4-default")]
+    [InlineData("gguf:gemma4-e2b")]
+    [InlineData("gguf:gemma4-e4b")]
     public async Task BuildAsync_WithGgufAlias_RoutesThroughLocalGenerator(string alias)
     {
         // GGUF aliases must also bypass the ONNX factory. The negative signal is that

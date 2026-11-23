@@ -30,11 +30,9 @@ public class WellKnownModelsResolveTests
     public static TheoryData<string, string> GeneratorConstants() => new()
     {
         { nameof(WellKnownModels.Generator.Default), WellKnownModels.Generator.Default },
-        { nameof(WellKnownModels.Generator.Fast), WellKnownModels.Generator.Fast },
-        { nameof(WellKnownModels.Generator.Small), WellKnownModels.Generator.Small },
-        { nameof(WellKnownModels.Generator.Quality), WellKnownModels.Generator.Quality },
-        { nameof(WellKnownModels.Generator.Medium), WellKnownModels.Generator.Medium },
-        { nameof(WellKnownModels.Generator.Large), WellKnownModels.Generator.Large },
+        { nameof(WellKnownModels.Generator.Entry), WellKnownModels.Generator.Entry },
+        { nameof(WellKnownModels.Generator.Advanced), WellKnownModels.Generator.Advanced },
+        { nameof(WellKnownModels.Generator.Phi35Mini), WellKnownModels.Generator.Phi35Mini },
     };
 
     [Theory]

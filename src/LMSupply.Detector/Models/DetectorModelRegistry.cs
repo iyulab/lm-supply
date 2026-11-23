@@ -8,6 +8,19 @@ namespace LMSupply.Detector.Models;
 /// </summary>
 public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
 {
+    // COMPAT(remove-after: 0.150.0) — names retired in 0.144.0. They load nothing; the hint tells the
+    // person who typed one what replaced it.
+    private static readonly Dictionary<string, string> _retiredAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["fast"] = "it is now 'entry'",
+        ["quality"] = "it is now 'balanced'",
+        ["large"] = "it is now 'advanced'",
+        ["xlarge"] = "it is now 'frontier'",
+    };
+
+    /// <inheritdoc />
+    protected override IReadOnlyDictionary<string, string> RetiredAliases => _retiredAliases;
+
     /// <summary>
     /// Auto-selection candidates sorted by size descending (largest first).
     /// </summary>

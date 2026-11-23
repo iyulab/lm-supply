@@ -8,11 +8,11 @@ namespace LMSupply.Generator.Tests;
 /// <see cref="LocalGenerator.IsModelDownloadedAsync"/> answers a consent gate: <c>true</c> only when the load
 /// with the same id and options opens cached files. Each test builds its own cache directory, so the
 /// answer never depends on what this machine has downloaded. Sizes do not matter to the probe (the
-/// files here are a few bytes); the one registry model used, <c>gguf:qwen3-fast</c>, fits any host.
+/// files here are a few bytes); the one registry model used, <c>gguf:entry</c>, fits any host.
 /// </summary>
 public sealed class LocalGeneratorIsModelDownloadedTests : IDisposable
 {
-    private const string Alias = "gguf:qwen3-fast";
+    private const string Alias = "gguf:entry";
     private readonly string _cacheDir = Path.Combine(Path.GetTempPath(), "lmsupply-isdl-" + Guid.NewGuid().ToString("N"));
 
     public void Dispose()
@@ -99,7 +99,7 @@ public sealed class LocalGeneratorIsModelDownloadedTests : IDisposable
     [Fact]
     public async Task SplitRegistryModel_CountsOnlyWhenEveryShardIsCached()
     {
-        const string alias = "gguf:xlarge";
+        const string alias = "gguf:frontier";
         var info = GgufModelRegistry.Resolve(alias)!;
         var shards = GgufModelDownloader.GenerateShardFilenames(info.DefaultFile, info.ShardCount!.Value);
 

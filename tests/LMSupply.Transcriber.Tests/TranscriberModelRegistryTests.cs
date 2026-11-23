@@ -20,8 +20,8 @@ public class TranscriberModelRegistryTests
         var aliasNames = aliases.Select(a => a.Name).ToList();
 
         aliasNames.Should().Contain("default");
-        aliasNames.Should().Contain("fast");
-        aliasNames.Should().Contain("quality");
+        aliasNames.Should().Contain("entry");
+        aliasNames.Should().Contain("balanced");
     }
 
     [Fact]
@@ -35,10 +35,10 @@ public class TranscriberModelRegistryTests
 
     [Theory]
     [InlineData("default")]
-    [InlineData("fast")]
-    [InlineData("quality")]
-    [InlineData("large")]
-    [InlineData("large-ko")]
+    [InlineData("entry")]
+    [InlineData("balanced")]
+    [InlineData("frontier")]
+    [InlineData("turbo-ko")]
     public void TryResolve_ValidAlias_ShouldReturnModel(string alias)
     {
         var result = TranscriberModelRegistry.Default.TryResolve(alias, out var model);
@@ -85,13 +85,13 @@ public class TranscriberModelRegistryTests
     }
 
     /// <summary>
-    /// Verifies that the "large" alias points to whisper-large-v3-ONNX (public, full 32-layer model),
+    /// Verifies that the "frontier" alias points to whisper-large-v3-ONNX (public, full 32-layer model),
     /// not the gated whisper-large-v3 which requires HuggingFace authentication.
     /// </summary>
     [Fact]
     public void TryResolve_LargeAlias_ShouldResolveToFullV3Model()
     {
-        var result = TranscriberModelRegistry.Default.TryResolve("large", out var model);
+        var result = TranscriberModelRegistry.Default.TryResolve("frontier", out var model);
 
         result.Should().BeTrue();
         model.Should().NotBeNull();
@@ -174,7 +174,7 @@ public class TranscriberModelRegistryTests
     [Fact]
     public void TryResolve_LargeKoAlias_ShouldResolveToKoreanModel()
     {
-        var result = TranscriberModelRegistry.Default.TryResolve("large-ko", out var model);
+        var result = TranscriberModelRegistry.Default.TryResolve("turbo-ko", out var model);
 
         result.Should().BeTrue();
         model.Should().NotBeNull();
@@ -186,7 +186,7 @@ public class TranscriberModelRegistryTests
     [Fact]
     public void TryResolve_LargeKoAlias_ShouldHaveKoreanLanguage()
     {
-        var model = TranscriberModelRegistry.Default.Resolve("large-ko");
+        var model = TranscriberModelRegistry.Default.Resolve("turbo-ko");
 
         model.SupportedLanguages.Should().NotBeNull();
         model.SupportedLanguages.Should().Contain("ko");
@@ -199,7 +199,7 @@ public class TranscriberModelRegistryTests
         var aliases = TranscriberModelRegistry.Default.GetAliases();
         var aliasNames = aliases.Select(a => a.Name).ToList();
 
-        aliasNames.Should().Contain("large-ko");
+        aliasNames.Should().Contain("turbo-ko");
     }
 
     [Fact]
@@ -207,7 +207,7 @@ public class TranscriberModelRegistryTests
     {
         var registry = new TranscriberModelRegistry(TranscriberModels.All);
 
-        var act = () => registry.RegisterAlias("large-ko", "some/other-model");
+        var act = () => registry.RegisterAlias("turbo-ko", "some/other-model");
 
         act.Should().Throw<AliasConflictException>();
     }

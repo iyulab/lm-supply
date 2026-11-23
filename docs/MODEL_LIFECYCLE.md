@@ -251,7 +251,7 @@ await using (var embedder = await LocalEmbedder.LoadAsync("default"))
 }
 // Embedder released, VRAM freed
 
-await using (var reranker = await LocalReranker.LoadAsync("quality"))
+await using (var reranker = await LocalReranker.LoadAsync("balanced"))
 {
     ranked = await reranker.RerankAsync(query, documents);
 }

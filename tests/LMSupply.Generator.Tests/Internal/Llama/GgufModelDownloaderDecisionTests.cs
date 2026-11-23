@@ -128,8 +128,8 @@ public class GgufModelDownloaderDecisionTests
     }
 
     // ─── PlanFromCachedGroups — what a load settles on from the cache alone ───
-    // Two aliases can share one repository and differ only in the file (gemma4-default Q4_0,
-    // gemma4-balanced Q8_0). A cache holding only the smaller file must not turn the larger alias
+    // Two aliases can share one repository and differ only in the file (gemma4-e4b Q4_0,
+    // gemma4-e4b-q8_0 Q8_0). A cache holding only the smaller file must not turn the larger alias
     // into the smaller one on a host where the larger one fits.
 
     private static GgufModelInfo ModelWithEstimate(long? estimatedBytes) => Model() with { EstimatedSizeBytes = estimatedBytes };

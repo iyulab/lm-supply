@@ -7,7 +7,7 @@ namespace LMSupply.Integration.Tests.Functional;
 /// <summary>
 /// Comprehensive functional tests for the Generator domain.
 /// Tests L (loading), I (inference), Q (quality), E (edge cases) axes.
-/// Uses GGUF "gguf:gemma4-fast" for faster tests (smaller model via llama-server).
+/// Uses GGUF "gguf:gemma4-e2b" for faster tests (smaller model via llama-server).
 /// Requires GPU + network access. Run locally only.
 /// </summary>
 [Trait("Category", "Functional")]
@@ -15,7 +15,7 @@ namespace LMSupply.Integration.Tests.Functional;
 [Trait("Domain", "Generator")]
 public class GeneratorFunctionalTests
 {
-    private const string FastModel = "gguf:gemma4-fast";
+    private const string FastModel = "gguf:gemma4-e2b";
     // Thinking off and greedy: gemma4 reasons by default, and a 30-token budget spent on reasoning returns an empty answer
     // (Gemma4EmptyChatProbeTests); sampled, a raw prompt sometimes draws end-of-turn first and returns "" too. These facts test
     // generation paths, so they decode deterministically and skip the reasoning channel.
@@ -524,11 +524,9 @@ public class GeneratorFunctionalTests
     {
         WellKnownModels.Generator.Default.Should().Be("default",
             "Default routes through hardware-aware auto selection");
-        WellKnownModels.Generator.Fast.Should().Be("phi-4-mini",
-            "Fast pins the ONNX path explicitly (Phi-4 Mini)");
-        WellKnownModels.Generator.Quality.Should().Contain("phi-4");
-        WellKnownModels.Generator.Small.Should().Be(WellKnownModels.Generator.Fast,
-            "Small should be an alias for Fast");
+        WellKnownModels.Generator.Entry.Should().Be("phi-4-mini",
+            "Entry pins the ONNX path explicitly (Phi-4 Mini)");
+        WellKnownModels.Generator.Advanced.Should().Contain("phi-4");
     }
 
     // ── Model-Loading Tests: Auto Alias, Empty Messages ──────────

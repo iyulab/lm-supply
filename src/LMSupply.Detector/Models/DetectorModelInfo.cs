@@ -24,6 +24,12 @@ public sealed record DetectorModelInfo : IModelInfoBase, IModelMemoryInfo
     public required string AliasName { get; init; }
 
     /// <summary>
+    /// The rung this model holds on the domain's ladder (<see cref="ModelTier"/>), or <see langword="null"/> when it is
+    /// off the ladder — a variant, a voice or a preset. The rung's name is an alias of the model.
+    /// </summary>
+    public ModelTier? Tier { get; init; }
+
+    /// <summary>
     /// Gets or sets the display name.
     /// </summary>
     public required string DisplayName { get; init; }

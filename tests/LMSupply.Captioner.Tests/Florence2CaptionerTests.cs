@@ -24,12 +24,12 @@ public sealed class Florence2CaptionerTests : IDisposable
     [Fact]
     public void QualityAlias_ResolvesToFlorence2()
     {
-        var model = LocalCaptioner.Registry.Resolve("quality");
+        var model = LocalCaptioner.Registry.Resolve("basic");
 
         model.Architecture.Should().Be(CaptionerArchitecture.Florence2);
         model.RepoId.Should().Be("onnx-community/Florence-2-base-ft");
         model.HasQuantizationVariants.Should().BeTrue();
-        LocalCaptioner.GetAvailableModels().Should().Contain("quality");
+        LocalCaptioner.GetAvailableModels().Should().Contain("basic");
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public sealed class Florence2CaptionerTests : IDisposable
     {
         LocalCaptioner.Registry.Resolve("default").Architecture.Should().Be(CaptionerArchitecture.Florence2);
         LocalCaptioner.Registry.Resolve("auto").Architecture.Should().Be(CaptionerArchitecture.Florence2);
-        LocalCaptioner.Registry.Resolve("fast").Architecture.Should().Be(CaptionerArchitecture.VitGpt2);
+        LocalCaptioner.Registry.Resolve("entry").Architecture.Should().Be(CaptionerArchitecture.VitGpt2);
     }
 
     [Theory]
@@ -74,7 +74,7 @@ public sealed class Florence2CaptionerTests : IDisposable
     {
         var options = new CaptionerOptions { Detail = CaptionDetail.Detailed, CacheDirectory = _dir, DisableAutoDownload = true };
 
-        var load = () => LocalCaptioner.LoadAsync("fast", options, cancellationToken: Ct);
+        var load = () => LocalCaptioner.LoadAsync("entry", options, cancellationToken: Ct);
 
         // NotSupported, not ModelNotFound: the refusal comes before the (offline) cache lookup.
         await load.Should().ThrowAsync<NotSupportedException>().WithMessage("*quality*");
@@ -85,7 +85,7 @@ public sealed class Florence2CaptionerTests : IDisposable
     {
         var options = new CaptionerOptions { Prompt = "a photo of", CacheDirectory = _dir, DisableAutoDownload = true };
 
-        var load = () => LocalCaptioner.LoadAsync("quality", options, cancellationToken: Ct);
+        var load = () => LocalCaptioner.LoadAsync("basic", options, cancellationToken: Ct);
 
         await load.Should().ThrowAsync<NotSupportedException>().WithMessage("*Detail*");
     }

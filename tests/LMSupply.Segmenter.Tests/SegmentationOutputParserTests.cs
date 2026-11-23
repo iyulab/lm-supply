@@ -99,12 +99,12 @@ public sealed class SegmentationOutputParserTests
     {
         var registry = SegmenterModelRegistry.Default;
 
-        var selfie = registry.Resolve("fast");
+        var selfie = registry.Resolve("entry");
         selfie.OutputKind.Should().Be(SegmenterOutputKind.ForegroundAlpha);
         selfie.InputNormalization.Should().Be(SegmenterInputNormalization.UnitRange);
         selfie.ClassLabels.Should().Equal("background", "person");
 
-        var maskFormer = registry.Resolve("quality");
+        var maskFormer = registry.Resolve("balanced");
         maskFormer.OutputKind.Should().Be(SegmenterOutputKind.QueryMasks);
         maskFormer.NumClasses.Should().Be(847);
         maskFormer.ClassLabels.Should().BeNull("its names come from the model's own configuration");

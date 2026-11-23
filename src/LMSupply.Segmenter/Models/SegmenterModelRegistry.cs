@@ -8,6 +8,18 @@ namespace LMSupply.Segmenter.Models;
 /// </summary>
 public sealed class SegmenterModelRegistry : ModelRegistryBase<SegmenterModelInfo>
 {
+    // COMPAT(remove-after: 0.150.0) — names retired in 0.144.0. They load nothing; the hint tells the
+    // person who typed one what replaced it.
+    private static readonly Dictionary<string, string> _retiredAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["fast"] = "it is now 'entry'",
+        ["quality"] = "it is now 'balanced'",
+        ["large"] = "it named the same model as 'default'; use 'basic' (or 'default')",
+    };
+
+    /// <inheritdoc />
+    protected override IReadOnlyDictionary<string, string> RetiredAliases => _retiredAliases;
+
     /// <summary>
     /// Auto-selection candidates sorted by size descending (largest first).
     /// </summary>

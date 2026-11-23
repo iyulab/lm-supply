@@ -58,7 +58,7 @@ public static class SynthesizerModels
     public static SynthesizerModelInfo EnUsRyan { get; } = new()
     {
         Id = "rhasspy/piper-voices",
-        AliasName = "fast",
+        AliasName = "ryan",
         DisplayName = "English US (Ryan)",
         Architecture = "VITS",
         Language = "en-US",
@@ -80,7 +80,7 @@ public static class SynthesizerModels
     public static SynthesizerModelInfo EnUsAmy { get; } = new()
     {
         Id = "rhasspy/piper-voices",
-        AliasName = "quality",
+        AliasName = "amy",
         DisplayName = "English US (Amy)",
         Architecture = "VITS",
         Language = "en-US",

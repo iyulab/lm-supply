@@ -23,9 +23,9 @@ public class DetectorModelRegistryTests
     }
 
     [Theory]
-    [InlineData("quality", "xnorpx/rt-detr2-onnx:m")]
-    [InlineData("fast", "xnorpx/rt-detr2-onnx:ms")]
-    [InlineData("large", "xnorpx/rt-detr2-onnx:l")]
+    [InlineData("balanced", "xnorpx/rt-detr2-onnx:m")]
+    [InlineData("entry", "xnorpx/rt-detr2-onnx:ms")]
+    [InlineData("advanced", "xnorpx/rt-detr2-onnx:l")]
     public void Resolve_BuiltInAliases_ShouldReturnCorrectModel(string alias, string expectedId)
     {
         var model = _registry.Resolve(alias);
@@ -104,7 +104,7 @@ public class DetectorModelRegistryTests
         var aliases = _registry.GetAliases();
 
         var aliasNames = aliases.Select(a => a.Name).ToList();
-        aliasNames.Should().Contain(["auto", "default", "quality", "fast", "large", "xlarge", "face", "plate", "pose", "pose-quality", "pose-multi"]);
+        aliasNames.Should().Contain(["auto", "default", "balanced", "entry", "advanced", "frontier", "face", "plate", "pose", "pose-quality", "pose-multi"]);
         aliases.Should().AllSatisfy(a => a.Kind.Should().Be(AliasKind.System));
     }
 

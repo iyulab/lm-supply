@@ -15,8 +15,8 @@ public class LocalSynthesizerTests
         // Assert
         models.Should().NotBeEmpty();
         models.Should().Contain("default");
-        models.Should().Contain("fast");
-        models.Should().Contain("quality");
+        models.Should().Contain("ryan");
+        models.Should().Contain("amy");
     }
 
     [Fact]
@@ -26,7 +26,7 @@ public class LocalSynthesizerTests
         var models = LocalSynthesizer.GetAllModels().ToList();
 
         // Assert
-        models.Select(m => m.AliasName).Should().Equal("default", "lessac", "fast", "quality", "british", "korean", "chinese");
+        models.Select(m => m.AliasName).Should().Equal("default", "lessac", "ryan", "amy", "british", "korean", "chinese");
         models.Should().AllSatisfy(m =>
         {
             m.Id.Should().NotBeNullOrEmpty();

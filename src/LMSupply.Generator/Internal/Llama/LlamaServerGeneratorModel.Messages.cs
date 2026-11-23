@@ -124,7 +124,7 @@ internal sealed partial class LlamaServerGeneratorModel
     /// Conditionally prepends a textual reinforcement of the active tool schemas as a
     /// system message when the formatter opts in via
     /// <see cref="IChatFormatter.RenderToolPromptFragment"/>. Small/quantized models
-    /// (Gemma 4 E4B at gguf:gemma4-default) misinterpret llama-server's raw JSON-schema
+    /// (Gemma 4 E4B at gguf:gemma4-e4b) misinterpret llama-server's raw JSON-schema
     /// rendering and emit empty tool args; the textual fragment raises first-attempt
     /// success.
     /// </summary>

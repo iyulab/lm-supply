@@ -434,7 +434,7 @@ public sealed class GgufModelDownloader : IDisposable
     /// </summary>
     /// <remarks>
     /// A smaller cached quantization stands in for the default only when the default would not fit either.
-    /// Otherwise it is another alias's file: <c>gguf:gemma4-balanced</c> (Q8_0) and <c>gguf:gemma4-default</c>
+    /// Otherwise it is another alias's file: <c>gguf:gemma4-e4b-q8_0</c> (Q8_0) and <c>gguf:gemma4-e4b</c>
     /// (Q4_0) share one repository, and a cache holding only Q4_0 must not turn the first into the second.
     /// </remarks>
     internal static string? PlanFromCachedGroups(

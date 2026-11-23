@@ -17,22 +17,22 @@ public class GgufLoadIdentityTests
     [Fact]
     public void Describe_SubstitutedQuantization_NamesTheLoadedQuantization()
     {
-        var balanced = GgufModelRegistry.Resolve("gguf:gemma4-balanced")!;
+        var balanced = GgufModelRegistry.Resolve("gguf:gemma4-e4b-q8_0")!;
         balanced.DefaultFile.Should().Be("gemma-4-E4B-it-Q8_0.gguf", "the case this pins is Q8_0 requested, Q4_0 loaded");
 
-        var identity = GgufLoadIdentity.Describe("gguf:gemma4-balanced", balanced, CachedPath("gemma-4-E4B-it-Q4_0.gguf"));
+        var identity = GgufLoadIdentity.Describe("gguf:gemma4-e4b-q8_0", balanced, CachedPath("gemma-4-E4B-it-Q4_0.gguf"));
 
         identity.ModelId.Should().Be("Gemma 4 E4B Instruct (Q4_0)");
-        identity.RequestedModelId.Should().Be("gguf:gemma4-balanced");
+        identity.RequestedModelId.Should().Be("gguf:gemma4-e4b-q8_0");
         identity.RequestedFile.Should().Be("gemma-4-E4B-it-Q8_0.gguf");
     }
 
     [Fact]
     public void Describe_DefaultLoaded_KeepsTheRegistryDisplayName()
     {
-        var balanced = GgufModelRegistry.Resolve("gguf:gemma4-balanced")!;
+        var balanced = GgufModelRegistry.Resolve("gguf:gemma4-e4b-q8_0")!;
 
-        var identity = GgufLoadIdentity.Describe("gguf:gemma4-balanced", balanced, CachedPath(balanced.DefaultFile));
+        var identity = GgufLoadIdentity.Describe("gguf:gemma4-e4b-q8_0", balanced, CachedPath(balanced.DefaultFile));
 
         identity.ModelId.Should().Be(balanced.DisplayName);
     }
@@ -40,10 +40,10 @@ public class GgufLoadIdentityTests
     [Fact]
     public void Describe_DisplayNameWithoutQuantization_AppendsTheLoadedOne()
     {
-        var model = GgufModelRegistry.Resolve("gguf:gemma4-default")!;
+        var model = GgufModelRegistry.Resolve("gguf:gemma4-e4b")!;
         model.DisplayName.Should().Be("Gemma 4 E4B Instruct");
 
-        var identity = GgufLoadIdentity.Describe("gguf:gemma4-default", model, CachedPath("gemma-4-E4B-it-Q2_K.gguf"));
+        var identity = GgufLoadIdentity.Describe("gguf:gemma4-e4b", model, CachedPath("gemma-4-E4B-it-Q2_K.gguf"));
 
         identity.ModelId.Should().Be("Gemma 4 E4B Instruct (Q2_K)");
     }
@@ -54,10 +54,10 @@ public class GgufLoadIdentityTests
         // The model used to look its known issues up by ModelId — the display name, which is not a registry
         // key — so every registry load reported none.
         GgufModelRegistry.Resolve("Gemma 4 E4B Instruct (Q8_0)").Should().BeNull();
-        var balanced = GgufModelRegistry.Resolve("gguf:gemma4-balanced")!;
+        var balanced = GgufModelRegistry.Resolve("gguf:gemma4-e4b-q8_0")!;
         balanced.KnownIssues.Should().NotBeEmpty();
 
-        var identity = GgufLoadIdentity.Describe("gguf:gemma4-balanced", balanced, CachedPath(balanced.DefaultFile));
+        var identity = GgufLoadIdentity.Describe("gguf:gemma4-e4b-q8_0", balanced, CachedPath(balanced.DefaultFile));
 
         identity.KnownIssues.Should().BeEquivalentTo(balanced.KnownIssues);
     }
@@ -78,12 +78,12 @@ public class GgufLoadIdentityTests
     {
         var info = new GeneratorModelInfo("Gemma 4 E4B Instruct (Q4_0)", "p", 4096, "gemma4", "llama-server-cuda")
         {
-            RequestedModelId = "gguf:gemma4-balanced",
+            RequestedModelId = "gguf:gemma4-e4b-q8_0",
             RequestedFile = "gemma-4-E4B-it-Q8_0.gguf",
             LoadedFile = "gemma-4-E4B-it-Q4_0.gguf",
         };
         info.IsQuantizationSubstituted.Should().BeTrue();
-        ((IModelInfoBase)info).AliasName.Should().Be("gguf:gemma4-balanced");
+        ((IModelInfoBase)info).AliasName.Should().Be("gguf:gemma4-e4b-q8_0");
 
         (info with { LoadedFile = "GEMMA-4-E4B-it-Q8_0.gguf" }).IsQuantizationSubstituted.Should().BeFalse();
         (info with { RequestedFile = null }).IsQuantizationSubstituted.Should().BeFalse("no alias was requested");

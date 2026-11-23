@@ -22,11 +22,11 @@ public class UserAliasResolutionInvariantTests
     public void UserAlias_WithUnresolvableTarget_ResolvesToFallbackOfTarget()
     {
         var registry = CreateRegistry();
-        registry.RegisterAlias("my-writer", "gguf:qwen3-quality");
+        registry.RegisterAlias("my-writer", "gguf:advanced");
 
         registry.TryResolve("my-writer", out var resolved).Should().BeTrue(
             "a registered user alias must always resolve — the user's mapping is explicit");
-        resolved!.Id.Should().Be("gguf:qwen3-quality",
+        resolved!.Id.Should().Be("gguf:advanced",
             "the fallback must carry the TARGET, never the alias name");
     }
 
@@ -34,10 +34,10 @@ public class UserAliasResolutionInvariantTests
     public void TryGetUserAliasTarget_ReturnsTargetForUserAlias()
     {
         var registry = CreateRegistry();
-        registry.RegisterAlias("my-writer", "gguf:qwen3-quality");
+        registry.RegisterAlias("my-writer", "gguf:advanced");
 
         registry.TryGetUserAliasTarget("my-writer", out var target).Should().BeTrue();
-        target.Should().Be("gguf:qwen3-quality");
+        target.Should().Be("gguf:advanced");
     }
 
     [Fact]

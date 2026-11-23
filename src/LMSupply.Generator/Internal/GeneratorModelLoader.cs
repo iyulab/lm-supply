@@ -260,7 +260,7 @@ internal static class GeneratorModelLoader
 
         var known = string.Join(", ", GgufModelRegistry.GetAliases());
         throw new ArgumentException(
-            $"'{modelId}' is not a registered GGUF alias. Known aliases: {known}. " +
+            $"'{modelId}' is not a registered GGUF alias. {(GgufModelRegistry.DescribeRetiredAlias(modelId) is { } retired ? retired + " " : "")}Known aliases: {known}. " +
             $"Register it in GgufModelRegistry or use a full HuggingFace repo ID (without the 'gguf:' prefix).",
             nameof(modelId));
     }

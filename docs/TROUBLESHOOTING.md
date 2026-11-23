@@ -54,7 +54,7 @@ ModelNotFoundException: Model 'invalid-model' not found
 **Solution:**
 ```csharp
 // Use built-in aliases
-await LocalEmbedder.LoadAsync("default");  // or "fast", "quality", "auto"
+await LocalEmbedder.LoadAsync("default");  // or "entry", "basic", "auto"
 
 // Or use full HuggingFace ID
 await LocalEmbedder.LoadAsync("BAAI/bge-base-en-v1.5");
@@ -173,7 +173,7 @@ OutOfMemoryException or CUDA out of memory
 await LocalEmbedder.LoadAsync("auto");
 
 // 2. Use smaller model explicitly
-await LocalEmbedder.LoadAsync("fast");
+await LocalEmbedder.LoadAsync("entry");
 
 // 3. Load models sequentially, not simultaneously
 await using (var embedder = await LocalEmbedder.LoadAsync("default"))

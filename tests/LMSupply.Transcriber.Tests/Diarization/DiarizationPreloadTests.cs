@@ -119,7 +119,7 @@ public sealed class DiarizationPreloadIntegrationTests : IDisposable
         var sink = new Sink();
 
         await using (await LocalTranscriber.LoadAsync(
-            "fast",
+            "entry",
             new TranscriberOptions { CacheDirectory = _cache, Provider = ExecutionProvider.Cpu, PreloadDiarization = true },
             sink,
             ct))
@@ -144,12 +144,12 @@ public sealed class DiarizationPreloadIntegrationTests : IDisposable
         {
             CacheDirectory = _cache, Provider = ExecutionProvider.Cpu, PreloadDiarization = true, DisableAutoDownload = true,
         };
-        var load = () => LocalTranscriber.LoadAsync("fast", offline, null, ct);
+        var load = () => LocalTranscriber.LoadAsync("entry", offline, null, ct);
         await load.Should().ThrowAsync<ModelNotFoundException>();
 
         // Without preload the same offline load succeeds — the pair is only needed by a diarized call.
         offline.PreloadDiarization = false;
-        await using (await LocalTranscriber.LoadAsync("fast", offline, null, ct))
+        await using (await LocalTranscriber.LoadAsync("entry", offline, null, ct))
         {
         }
     }

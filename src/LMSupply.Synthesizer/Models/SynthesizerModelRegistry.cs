@@ -7,6 +7,17 @@ namespace LMSupply.Synthesizer.Models;
 /// </summary>
 public sealed class SynthesizerModelRegistry : ModelRegistryBase<SynthesizerModelInfo>
 {
+    // COMPAT(remove-after: 0.150.0) — names retired in 0.144.0. They load nothing; the hint tells the
+    // person who typed one what replaced it.
+    private static readonly Dictionary<string, string> _retiredAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["fast"] = "it is now the voice 'ryan'",
+        ["quality"] = "it is now the voice 'amy'",
+    };
+
+    /// <inheritdoc />
+    protected override IReadOnlyDictionary<string, string> RetiredAliases => _retiredAliases;
+
     /// <summary>
     /// Auto-selection candidates sorted by size descending (largest first).
     /// TTS models are small (~16-64MB), so VRAM is rarely a constraint;
@@ -14,9 +25,9 @@ public sealed class SynthesizerModelRegistry : ModelRegistryBase<SynthesizerMode
     /// </summary>
     private static readonly SynthesizerModelInfo[] AutoCandidates =
     [
-        SynthesizerModels.EnUsAmy,     // 64MB - quality
+        SynthesizerModels.EnUsAmy,     // 64MB - amy
         SynthesizerModels.EnUsLessac,  // 63MB - default
-        SynthesizerModels.EnUsRyan,    // 16MB - fast
+        SynthesizerModels.EnUsRyan,    // 16MB - ryan
     ];
 
     /// <summary>

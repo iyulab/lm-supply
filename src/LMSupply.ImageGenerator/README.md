@@ -31,6 +31,8 @@ await result.SaveAsync("output.png");
 | `fast` | LCM-Dreamshaper-V7 | 2 | Fastest generation, slightly lower quality |
 | `quality` | LCM-Dreamshaper-V7 | 4 | Higher guidance scale for better adherence |
 
+`fast` and `quality` are step-count presets of the one model, not rungs of a ladder; `default` is the `basic` rung.
+
 ## Generation Options
 
 ```csharp

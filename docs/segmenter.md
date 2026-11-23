@@ -39,12 +39,11 @@ Console.WriteLine($"Class at (100,100): {segmenter.ClassLabels[classId]}");
 | Alias | Model | Size | mIoU | Description |
 |-------|-------|------|------|-------------|
 | `default` | SegFormer-B0 | ~15MB | 38.0 | Lightweight, fast inference |
-| `fast` | SegFormer-B1 | ~55MB | 42.2 | Balanced speed and accuracy |
-| `quality` | SegFormer-B2 | ~110MB | 46.5 | Higher accuracy |
-| `large` | SegFormer-B5 | ~340MB | 51.0 | Highest accuracy |
+| `entry` | MediaPipe Selfie | ~3MB | - | Person/background only: portrait and selfie segmentation |
+| `balanced` | MaskFormer ResNet50 | ~178MB | 44.5 | Higher accuracy over the full 847-class ADE20K label set |
 | `interactive` | MobileSAM | ~45MB | - | Point/box prompt segmentation (`LoadInteractiveAsync`) |
 
-All semantic segmentation models are trained on ADE20K (150 classes) with MIT license.
+SegFormer-B0 (`default`, also `basic`) is trained on ADE20K (150 classes) with MIT license.
 
 You can also use any HuggingFace segmentation model by its full ID:
 
@@ -65,7 +64,7 @@ var options = new SegmenterOptions
     CacheDirectory = "/custom/cache"       // Custom model cache directory
 };
 
-var segmenter = await LocalSegmenter.LoadAsync("quality", options);
+var segmenter = await LocalSegmenter.LoadAsync("balanced", options);
 ```
 
 ### Working with Segmentation Results

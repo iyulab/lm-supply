@@ -283,7 +283,7 @@ public class CrossDomainScenarioTests
     public async Task Scenario_GenerateAndEmbed_OutputHasSemanticMeaning()
     {
         // 1. Generate text about a topic
-        await using var generator = await LocalGenerator.LoadAsync("gguf:gemma4-fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var generator = await LocalGenerator.LoadAsync("gguf:gemma4-e2b", cancellationToken: TestContext.Current.CancellationToken);
         var generated = await generator.GenerateCompleteAsync("Machine learning is", new Generator.Models.GenerationOptions { MaxTokens = 30, Temperature = 0f, DoSample = false }, TestContext.Current.CancellationToken);
 
         generated.Should().NotBeNullOrEmpty();
@@ -355,7 +355,7 @@ public class CrossDomainScenarioTests
         translatedEmb.Length.Should().BeGreaterThan(0);
 
         // 3. Generate a summary using the translated text
-        await using var generator = await LocalGenerator.LoadAsync("gguf:gemma4-fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var generator = await LocalGenerator.LoadAsync("gguf:gemma4-e2b", cancellationToken: TestContext.Current.CancellationToken);
         // An instruct model takes the request as a chat turn: a raw prompt with no chat template makes gemma4 end its turn
         // at once (1 token, finish "stop"); thinking off so a 50-token budget goes to the answer
         var summary = await generator.GenerateChatCompleteAsync(

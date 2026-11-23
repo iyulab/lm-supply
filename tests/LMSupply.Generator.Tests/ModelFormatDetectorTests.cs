@@ -110,8 +110,8 @@ public class ModelFormatDetectorTests
     }
 
     [Theory]
-    [InlineData("fast")]
-    [InlineData("quality")]
+    [InlineData("entry")]
+    [InlineData("advanced")]
     public void Detect_WellKnownAliases_ReturnsOnnx(string alias)
     {
         // Well-known aliases in registry should resolve to ONNX

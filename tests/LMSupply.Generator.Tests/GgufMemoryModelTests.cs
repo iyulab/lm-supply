@@ -101,7 +101,7 @@ public class GgufMemoryModelTests : IDisposable
     public void Apple32Gb_TheSelectorsPick_IsAGpuLoadAtTheContextItJudged()
     {
         var usable = Usable(AppleSilicon32Gb);
-        var quality = GgufModelRegistry.Resolve("gguf:qwen3-quality")!;
+        var quality = GgufModelRegistry.Resolve("gguf:advanced")!;
 
         foreach (var context in new[] { 4096, 8192, 16384, 32768 })
         {

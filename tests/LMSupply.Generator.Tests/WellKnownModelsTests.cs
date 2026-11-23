@@ -12,54 +12,47 @@ public class WellKnownModelsTests
     }
 
     [Fact]
-    public void Generator_Quality_IsPhi4()
+    public void Generator_Advanced_IsPhi4()
     {
         // Assert
-        WellKnownModels.Generator.Quality.Should().Be("microsoft/phi-4-onnx");
+        WellKnownModels.Generator.Advanced.Should().Be("microsoft/phi-4-onnx");
     }
 
     [Fact]
-    public void Generator_Fast_IsPhi4MiniAlias()
+    public void Generator_Entry_IsPhi4Mini()
     {
-        // Fast pins the ONNX path explicitly (Phi-4 Mini alias).
-        WellKnownModels.Generator.Fast.Should().Be("phi-4-mini");
+        // Entry pins the ONNX path explicitly (Phi-4 Mini).
+        WellKnownModels.Generator.Entry.Should().Be("phi-4-mini");
     }
 
     [Fact]
-    public void Generator_Small_IsSameAsFast()
+    public void GetLicenseTier_EntryModel_ReturnsMIT()
     {
-        // Assert
-        WellKnownModels.Generator.Small.Should().Be(WellKnownModels.Generator.Fast);
-    }
-
-    [Fact]
-    public void GetLicenseTier_FastModel_ReturnsMIT()
-    {
-        // Fast = "phi-4-mini" resolves to the MIT-licensed Phi-4 Mini.
-        var tier = WellKnownModels.GetLicenseTier(WellKnownModels.Generator.Fast);
+        // Entry = "phi-4-mini" resolves to the MIT-licensed Phi-4 Mini.
+        var tier = WellKnownModels.GetLicenseTier(WellKnownModels.Generator.Entry);
 
         tier.Should().Be(LicenseTier.MIT);
     }
 
     [Fact]
-    public void HasRestrictions_FastModel_ReturnsFalse()
+    public void HasRestrictions_EntryModel_ReturnsFalse()
     {
-        // Fast is "phi-4-mini" (MIT, no restrictions)
-        var hasRestrictions = WellKnownModels.HasRestrictions(WellKnownModels.Generator.Fast);
+        // Entry is "phi-4-mini" (MIT, no restrictions)
+        var hasRestrictions = WellKnownModels.HasRestrictions(WellKnownModels.Generator.Entry);
 
         hasRestrictions.Should().BeFalse();
     }
 
     [Fact]
-    public void GetUnrestrictedModels_ContainsFastAndQuality()
+    public void GetUnrestrictedModels_ContainsEntryAndAdvanced()
     {
         var models = WellKnownModels.GetUnrestrictedModels();
 
-        // Fast ("phi-4-mini" alias) and Quality are both MIT-licensed Phi-4 models.
+        // Entry ("phi-4-mini") and Advanced are both MIT-licensed Phi-4 models.
         // The platform-aware Default alias is intentionally excluded because it
         // routes through auto selection and has no single license tier.
-        models.Should().Contain(WellKnownModels.Generator.Fast);
-        models.Should().Contain(WellKnownModels.Generator.Quality);
+        models.Should().Contain(WellKnownModels.Generator.Entry);
+        models.Should().Contain(WellKnownModels.Generator.Advanced);
     }
 
     [Fact]

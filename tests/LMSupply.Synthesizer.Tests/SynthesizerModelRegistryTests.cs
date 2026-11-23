@@ -20,8 +20,8 @@ public class SynthesizerModelRegistryTests
 
     [Theory]
     [InlineData("default")]
-    [InlineData("fast")]
-    [InlineData("quality")]
+    [InlineData("ryan")]
+    [InlineData("amy")]
     [InlineData("british")]
     [InlineData("korean")]
     [InlineData("chinese")]
@@ -52,8 +52,8 @@ public class SynthesizerModelRegistryTests
     [Theory]
     [InlineData("rhasspy/piper-voices:en/en_US/ljspeech/medium", "default")]
     [InlineData("rhasspy/piper-voices:en/en_US/lessac/medium", "lessac")]
-    [InlineData("rhasspy/piper-voices:en/en_US/ryan/low", "fast")]
-    [InlineData("rhasspy/piper-voices:en/en_US/amy/medium", "quality")]
+    [InlineData("rhasspy/piper-voices:en/en_US/ryan/low", "ryan")]
+    [InlineData("rhasspy/piper-voices:en/en_US/amy/medium", "amy")]
     [InlineData("rhasspy/piper-voices:en/en_GB/semaine/medium", "british")]
     [InlineData("rhasspy/piper-voices:ko/ko_KR/kss/medium", "korean")]
     [InlineData("rhasspy/piper-voices:zh/zh_CN/huayan/medium", "chinese")]
@@ -122,8 +122,8 @@ public class SynthesizerModelRegistryTests
         // Assert
         aliasNames.Should().NotBeEmpty();
         aliasNames.Should().Contain("default");
-        aliasNames.Should().Contain("fast");
-        aliasNames.Should().Contain("quality");
+        aliasNames.Should().Contain("ryan");
+        aliasNames.Should().Contain("amy");
         aliasNames.Should().Contain("british");
         aliasNames.Should().Contain("korean");
         aliasNames.Should().NotContain("japanese");
@@ -239,7 +239,7 @@ public class DefaultModelsTests
     public void EnUsRyan_IsFastModel()
     {
         // Assert
-        SynthesizerModels.EnUsRyan.AliasName.Should().Be("fast");
+        SynthesizerModels.EnUsRyan.AliasName.Should().Be("ryan");
         SynthesizerModels.EnUsRyan.Language.Should().Be("en-US");
         SynthesizerModels.EnUsRyan.SampleRate.Should().Be(16000);
     }
@@ -248,7 +248,7 @@ public class DefaultModelsTests
     public void EnUsAmy_IsQualityModel()
     {
         // Assert
-        SynthesizerModels.EnUsAmy.AliasName.Should().Be("quality");
+        SynthesizerModels.EnUsAmy.AliasName.Should().Be("amy");
         SynthesizerModels.EnUsAmy.Language.Should().Be("en-US");
         SynthesizerModels.EnUsAmy.SampleRate.Should().Be(22050);
     }

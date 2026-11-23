@@ -79,8 +79,8 @@ voice) throws `NotSupportedException`; it is never spoken as noise.
 |-------|-------|----------|-------------|
 | `default` | LJSpeech | en-US | Female (public domain) |
 | `lessac` | Lessac | en-US | High-quality female |
-| `fast` | Ryan | en-US | Fast male voice |
-| `quality` | Amy | en-US | High-quality female |
+| `ryan` | Ryan | en-US | Fast male voice |
+| `amy` | Amy | en-US | High-quality female |
 | `british` | Semaine | en-GB | British, four speakers |
 | `korean` | KSS | ko-KR | Korean female |
 | `chinese` | Huayan | zh-CN | Mandarin female |

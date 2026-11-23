@@ -7,9 +7,9 @@ namespace LMSupply.Transcriber.Models;
 /// <remarks>
 /// <para>Alias naming convention:</para>
 /// <list type="bullet">
-///   <item><term>Standard tiers</term><description>fast, default, quality, large, turbo, medium, distil — multilingual or English</description></item>
+///   <item><term>Standard tiers</term><description>entry, basic (default), balanced, advanced, frontier, plus the model names turbo, medium, distil — multilingual or English</description></item>
 ///   <item><term>Language name</term><description>english — standalone language alias for backward compatibility</description></item>
-///   <item><term>Language-specific tier</term><description>{tier}-{lang} using ISO 639-1 codes — e.g., large-ko, fast-ja</description></item>
+///   <item><term>Language-specific tier</term><description>{tier or model name}-{lang} using ISO 639-1 codes — e.g., turbo-ko, entry-ja</description></item>
 /// </list>
 /// </remarks>
 public static class TranscriberModels
@@ -21,7 +21,8 @@ public static class TranscriberModels
     public static TranscriberModelInfo WhisperTiny { get; } = new()
     {
         Id = "onnx-community/whisper-tiny",
-        AliasName = "fast",
+        AliasName = "entry",
+        Tier = ModelTier.Entry,
         DisplayName = "Whisper Tiny",
         Architecture = "Whisper",
         ParametersM = 39f,
@@ -45,6 +46,7 @@ public static class TranscriberModels
     {
         Id = "onnx-community/whisper-base",
         AliasName = "default",
+        Tier = ModelTier.Basic,
         DisplayName = "Whisper Base",
         Architecture = "Whisper",
         ParametersM = 74f,
@@ -67,7 +69,8 @@ public static class TranscriberModels
     public static TranscriberModelInfo WhisperSmall { get; } = new()
     {
         Id = "onnx-community/whisper-small",
-        AliasName = "quality",
+        AliasName = "balanced",
+        Tier = ModelTier.Balanced,
         DisplayName = "Whisper Small",
         Architecture = "Whisper",
         ParametersM = 244f,
@@ -116,7 +119,8 @@ public static class TranscriberModels
     public static TranscriberModelInfo WhisperLargeV3 { get; } = new()
     {
         Id = "onnx-community/whisper-large-v3-ONNX",
-        AliasName = "large",
+        AliasName = "frontier",
+        Tier = ModelTier.Frontier,
         DisplayName = "Whisper Large V3",
         Architecture = "Whisper",
         ParametersM = 1550f,
@@ -141,6 +145,7 @@ public static class TranscriberModels
     {
         Id = "onnx-community/whisper-large-v3-turbo",
         AliasName = "turbo",
+        Tier = ModelTier.Advanced,
         DisplayName = "Whisper Large V3 Turbo",
         Architecture = "Whisper",
         ParametersM = 809f,
@@ -189,7 +194,7 @@ public static class TranscriberModels
     public static TranscriberModelInfo WhisperLargeV3TurboKorean { get; } = new()
     {
         Id = "onnx-community/whisper-large-v3-turbo-korean-ggml-ONNX",
-        AliasName = "large-ko",
+        AliasName = "turbo-ko",
         DisplayName = "Whisper Large V3 Turbo (Korean)",
         Architecture = "Whisper",
         ParametersM = 809f,

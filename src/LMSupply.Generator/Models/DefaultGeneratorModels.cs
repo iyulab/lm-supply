@@ -13,9 +13,9 @@ public static class DefaultGeneratorModels
     public static GeneratorModelEntry Default => Phi4Mini;
 
     /// <summary>
-    /// Gets the fast model. Currently same as Default since Phi4Mini is the smallest FC-capable ONNX model.
+    /// Gets the entry-rung model. Currently same as Default since Phi4Mini is the smallest FC-capable ONNX model.
     /// </summary>
-    public static GeneratorModelEntry Fast => Phi4Mini;
+    public static GeneratorModelEntry Entry => Phi4Mini;
 
     // ===== Tier 1: MIT License - No restrictions =====
 
@@ -28,8 +28,9 @@ public static class DefaultGeneratorModels
     {
         ModelId = "microsoft/Phi-4-mini-instruct-onnx",
         AliasName = "phi-4-mini",
+        Tier = ModelTier.Entry,
         DisplayName = "Phi-4 Mini",
-        Description = "Default: Phi-4 Mini, 3.8B params, MIT, 16K context",
+        Description = "Entry: Phi-4 Mini, 3.8B params, MIT, 16K context",
         ParameterCount = 3_800_000_000,
         License = LicenseTier.MIT,
         LicenseName = "MIT",
@@ -63,16 +64,17 @@ public static class DefaultGeneratorModels
     };
 
     /// <summary>
-    /// Microsoft Phi-4 - Quality model (MIT license).
+    /// Microsoft Phi-4 - Advanced model (MIT license).
     /// 14B parameters, 16K context, highest quality reasoning.
     /// Released: 2024-12, state-of-the-art for its size.
     /// </summary>
     public static GeneratorModelEntry Phi4 { get; } = new()
     {
         ModelId = "microsoft/phi-4-onnx",
-        AliasName = "quality",
+        AliasName = "phi-4",
+        Tier = ModelTier.Advanced,
         DisplayName = "Phi-4",
-        Description = "Quality: Phi-4, 14B params, MIT, highest quality reasoning",
+        Description = "Advanced: Phi-4, 14B params, MIT, highest quality reasoning",
         ParameterCount = 14_000_000_000,
         License = LicenseTier.MIT,
         LicenseName = "MIT",

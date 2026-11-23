@@ -15,6 +15,7 @@ public static class SegmenterModels
     {
         Id = "optimum/segformer-b0-finetuned-ade-512-512",
         AliasName = "default",
+        Tier = ModelTier.Basic,
         DisplayName = "SegFormer-B0",
         Architecture = "SegFormer",
         ParametersM = 3.7f,
@@ -36,7 +37,8 @@ public static class SegmenterModels
     public static SegmenterModelInfo MediaPipeSelfie { get; } = new()
     {
         Id = "onnx-community/mediapipe_selfie_segmentation",
-        AliasName = "fast",
+        AliasName = "entry",
+        Tier = ModelTier.Entry,
         DisplayName = "MediaPipe Selfie",
         Architecture = "MobileNetV3",
         ParametersM = 0.7f,
@@ -61,7 +63,8 @@ public static class SegmenterModels
     public static SegmenterModelInfo MaskFormerResNet50 { get; } = new()
     {
         Id = "onnx-community/maskformer-resnet50-ade20k-full",
-        AliasName = "quality",
+        AliasName = "balanced",
+        Tier = ModelTier.Balanced,
         DisplayName = "MaskFormer ResNet50",
         Architecture = "MaskFormer",
         ParametersM = 44f,
@@ -73,27 +76,6 @@ public static class SegmenterModels
         OnnxFile = "model.onnx",
         Dataset = "ADE20K-full",
         Description = "MaskFormer with ResNet50 for higher accuracy segmentation over the 847 classes of the full ADE20K label set.",
-        License = "Apache-2.0"
-    };
-
-    /// <summary>
-    /// SegFormer-B0 (large alias) - Same as default, largest available ONNX model.
-    /// Note: Larger SegFormer variants (B2-B5) don't have official ONNX exports.
-    /// </summary>
-    public static SegmenterModelInfo SegFormerB0Large { get; } = new()
-    {
-        Id = "optimum/segformer-b0-finetuned-ade-512-512",
-        AliasName = "large",
-        DisplayName = "SegFormer-B0 (Quality)",
-        Architecture = "SegFormer",
-        ParametersM = 3.7f,
-        SizeBytes = 15_100_000,
-        MIoU = 38.0f,
-        InputSize = 512,
-        NumClasses = 150,
-        OnnxFile = "model.onnx",
-        Dataset = "ADE20K",
-        Description = "SegFormer-B0 - largest ONNX-available SegFormer variant.",
         License = "Apache-2.0"
     };
 
@@ -127,7 +109,6 @@ public static class SegmenterModels
         SegFormerB0,
         MediaPipeSelfie,
         MaskFormerResNet50,
-        SegFormerB0Large,
         MobileSAM
     ];
 }

@@ -35,7 +35,7 @@ try
 
     // This was failing with DllNotFoundException before the fix
     await using var model = await TextGeneratorBuilder.Create()
-        .WithModel(GeneratorModelPreset.Default)
+        .WithDefaultModel()
         .BuildAsync();
 
     Console.WriteLine("\n[SUCCESS] Model loaded successfully!");

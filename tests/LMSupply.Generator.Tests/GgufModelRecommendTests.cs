@@ -24,7 +24,7 @@ public class GgufModelRecommendTests
     {
         var ladder = GgufModelRegistry.Recommend(512 * GiB, 0, 4096).Models;
 
-        ladder.Select(m => m.Tier).Should().Equal(ModelTier.Fast, ModelTier.Default, ModelTier.Balanced, ModelTier.Quality, ModelTier.ExtraLarge);
+        ladder.Select(m => m.Tier).Should().Equal(ModelTier.Entry, ModelTier.Basic, ModelTier.Balanced, ModelTier.Advanced, ModelTier.Frontier);
         ladder.Select(m => m.Judgement.TotalBytes).Should().BeInAscendingOrder();
         ladder.Should().OnlyContain(m => GgufModelRegistry.Resolve(m.Alias) != null);
         GgufModelRegistry.GetAllModels().Count(m => m.Tier is not null).Should().Be(ladder.Count);
@@ -111,9 +111,9 @@ public class GgufModelRecommendTests
         var models = GgufModelRegistry.Recommend(512 * GiB, 0, 4096).Models;
 
         models.Should().OnlyContain(m => !m.DisplayName.Contains('('));
-        models.Single(m => m.Tier == ModelTier.Quality).DisplayName.Should().Be("Qwen 3.6 35B A3B Instruct");
-        models.Single(m => m.Tier == ModelTier.Quality).Model.QuantizationType.Should().Be("IQ4_XS");
-        models.Single(m => m.Tier == ModelTier.ExtraLarge).DisplayName.Should().Be("Qwen 3.5 122B A10B");
+        models.Single(m => m.Tier == ModelTier.Advanced).DisplayName.Should().Be("Qwen 3.6 35B A3B Instruct");
+        models.Single(m => m.Tier == ModelTier.Advanced).Model.QuantizationType.Should().Be("IQ4_XS");
+        models.Single(m => m.Tier == ModelTier.Frontier).DisplayName.Should().Be("Qwen 3.5 122B A10B");
     }
 
     [Fact]

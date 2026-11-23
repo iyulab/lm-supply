@@ -41,7 +41,7 @@ public interface IChatFormatter
     /// <param name="tools">The tool definitions visible to the model on this turn.</param>
     /// <returns>A model-friendly textual fragment, or <c>null</c> to skip injection.</returns>
     /// <remarks>
-    /// Gemma 4 E4B at gguf:gemma4-default emits empty tool args because the native
+    /// Gemma 4 E4B at gguf:gemma4-e4b emits empty tool args because the native
     /// chat template's raw JSON schema is too dense; a textual marker line
     /// (<c>Required parameters (MUST be provided): &lt;name&gt; (&lt;type&gt;)</c>)
     /// raises first-attempt success.

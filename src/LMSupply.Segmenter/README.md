@@ -32,10 +32,9 @@ Console.WriteLine($"Class at (100,100): {segmenter.ClassLabels[classId]}");
 
 | Alias | Model | Size | mIoU | Classes | Description |
 |-------|-------|------|------|---------|-------------|
-| `default` | SegFormer-B0 | ~15MB | 38.0 | 150 (ADE20K) | Lightweight, fast |
-| `fast` | MediaPipe Selfie | ~3MB | - | 2 (`background`, `person`) | Portrait and selfie segmentation: finds people, nothing else |
-| `quality` | MaskFormer ResNet50 | ~178MB | 44.5 | 847 (full ADE20K) | Higher accuracy over the full label set |
-| `large` | SegFormer-B0 | ~15MB | 38.0 | 150 (ADE20K) | The same model as `default` |
+| `default` (also `basic`) | SegFormer-B0 | ~15MB | 38.0 | 150 (ADE20K) | Lightweight, fast |
+| `entry` | MediaPipe Selfie | ~3MB | - | 2 (`background`, `person`) | Portrait and selfie segmentation: finds people, nothing else |
+| `balanced` | MaskFormer ResNet50 | ~178MB | 44.5 | 847 (full ADE20K) | Higher accuracy over the full label set |
 | `interactive` | MobileSAM | ~45MB | - | - | Point/box prompts — `LocalSegmenter.LoadInteractiveAsync()` |
 
 `ClassLabels` names the classes of the model that is loaded, in class-id order.

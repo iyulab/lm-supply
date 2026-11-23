@@ -48,10 +48,10 @@ public sealed class LocalGeneratorDescribeTests : IDisposable
     [Fact]
     public async Task ACatalogAlias_IsDescribedWithItsCatalogFacts()
     {
-        var info = GgufModelRegistry.Resolve("gguf:qwen3-default")!;
+        var info = GgufModelRegistry.Resolve("gguf:basic")!;
         var hub = new FakeHub().Repo(info.RepoId, (info.DefaultFile, info.EstimatedSizeBytes ?? 3 * GB));
 
-        var probe = await Describe("gguf:qwen3-default", hub);
+        var probe = await Describe("gguf:basic", hub);
 
         probe.Status.Should().Be(ModelProbeStatus.Found);
         probe.Description!.DisplayName.Should().Be(info.DisplayName);

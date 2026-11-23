@@ -41,11 +41,11 @@ dotnet add package LMSupply.Transcriber
 
 | Alias | Model | Parameters | Size | WER | Description |
 |-------|-------|------------|------|-----|-------------|
-| `fast` | Whisper Tiny | 39M | ~150MB | 7.6% | Ultra-fast, lowest accuracy |
+| `entry` | Whisper Tiny | 39M | ~150MB | 7.6% | Ultra-fast, lowest accuracy |
 | `default` | Whisper Base | 74M | ~290MB | 5.0% | Balanced speed and accuracy |
-| `quality` | Whisper Small | 244M | ~970MB | 3.4% | Higher accuracy |
+| `balanced` | Whisper Small | 244M | ~970MB | 3.4% | Higher accuracy |
 | `medium` | Whisper Medium | 769M | ~3GB | 2.9% | High quality |
-| `large` | Whisper Large V3 | 1.5B | ~6GB | 2.5% | Highest accuracy |
+| `frontier` | Whisper Large V3 | 1.5B | ~6GB | 2.5% | Highest accuracy |
 | `english` | Whisper Base.en | 74M | ~290MB | 4.3% | Optimized for English |
 | `parakeet-tdt` | Parakeet TDT 0.6B v3 (int8, NVIDIA/istupakov ONNX) | 600M | ~670MB | n/a | Conformer + Token-and-Duration Transducer, 25 European languages. No 30 s window, no autoregressive text decoder (no runaway repetition), no translation, no language-id output (`Language` is `"und"` unless hinted). Opt-in by alias only — `auto` never selects it |
 
@@ -106,7 +106,7 @@ A hint (`Language = "ko"`) skips the step and leaves `LanguageProbability` null.
 is decoded: a code (`"ko"`), an English name (`"korean"`) or a code with a region (`"ko-KR"`) is accepted and
 `result.Language` reports the code; null, an empty string and white space all mean no hint, so the language is identified; any
 other value — `"kor"`, `"xx"` — throws an `ArgumentException` that lists the codes Whisper decodes, and so does a code the
-chosen model does not transcribe (`"en"` for `large-ko`, `"ko"` for an English-only or a Parakeet model). A hint is never
+chosen model does not transcribe (`"en"` for `turbo-ko`, `"ko"` for an English-only or a Parakeet model). A hint is never
 dropped silently. English-only
 models (`*.en`) have no language tokens and always report `en`. Before v0.58.0 the step did not
 exist — the prompt simply omitted the language token, which decoded non-English audio as English.
@@ -277,7 +277,7 @@ var options = new TranscriberOptions
     ThreadCount = 4                     // CPU threads
 };
 
-var transcriber = await LocalTranscriber.LoadAsync("quality", options);
+var transcriber = await LocalTranscriber.LoadAsync("balanced", options);
 ```
 
 `CacheDirectory` moves the model files. The native ONNX Runtime package (about 160 MB for the CPU package) is provisioned once
@@ -448,13 +448,13 @@ Audio is automatically:
 
 ```csharp
 // For real-time applications (fast)
-var realTime = await LocalTranscriber.LoadAsync("fast");
+var realTime = await LocalTranscriber.LoadAsync("entry");
 
 // For batch processing (quality)
-var batch = await LocalTranscriber.LoadAsync("quality");
+var batch = await LocalTranscriber.LoadAsync("balanced");
 
 // For maximum accuracy (large)
-var accurate = await LocalTranscriber.LoadAsync("large");
+var accurate = await LocalTranscriber.LoadAsync("frontier");
 ```
 
 ### GPU Acceleration
@@ -484,14 +484,14 @@ await other.DisposeAsync();
 
 ```csharp
 // Load and cache by name — reload returns cached instance
-var transcriber = await LocalTranscriber.Pool.GetOrLoadAsync("large");
+var transcriber = await LocalTranscriber.Pool.GetOrLoadAsync("frontier");
 
 // Check what's loaded
-bool loaded = LocalTranscriber.Pool.IsLoaded("large");
+bool loaded = LocalTranscriber.Pool.IsLoaded("frontier");
 var allLoaded = LocalTranscriber.Pool.GetLoadedModels();
 
 // Explicit unload
-await LocalTranscriber.Pool.UnloadAsync("large");
+await LocalTranscriber.Pool.UnloadAsync("frontier");
 await LocalTranscriber.Pool.UnloadAllAsync();
 ```
 
@@ -499,7 +499,7 @@ The pool uses LRU eviction and memory safety margins to stay within available GP
 
 ### ASP.NET Core Usage
 
-When loading large models (e.g., `large` ~3GB) inside a `BackgroundService`, use the pool or load before `WebApplication.Run()` to avoid Kestrel heartbeat warnings. The library internally uses `TaskCreationOptions.LongRunning` to prevent thread pool starvation during model initialization.
+When loading large models (e.g., `frontier` ~3GB) inside a `BackgroundService`, use the pool or load before `WebApplication.Run()` to avoid Kestrel heartbeat warnings. The library internally uses `TaskCreationOptions.LongRunning` to prevent thread pool starvation during model initialization.
 
 ```csharp
 using Microsoft.AspNetCore.Builder;
@@ -509,9 +509,9 @@ var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
 // Pre-warm the model before starting the server
-await using var transcriber = await LocalTranscriber.LoadAsync("large");
+await using var transcriber = await LocalTranscriber.LoadAsync("frontier");
 // ...or use the pool for persistent access
-_ = await LocalTranscriber.Pool.GetOrLoadAsync("large");
+_ = await LocalTranscriber.Pool.GetOrLoadAsync("frontier");
 
 app.Run();
 ```

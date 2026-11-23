@@ -1,9 +1,29 @@
 # The model catalog: how it is kept current
 
-LMSupply ships catalogs of models: aliases such as `gguf:qwen3-balanced` or `fast` that the library resolves to a
+LMSupply ships catalogs of models: aliases such as `gguf:balanced` or `entry` that the library resolves to a
 repository and a file, and a pool that `gguf:auto` picks from. The library chooses what each alias loads, so a consumer
 that shows a model's name or size next to an alias depends on what the library did with the catalog since it last looked.
 This page says when the catalog is reviewed and how a change reaches you.
+
+## The ladder: one set of names in every domain
+
+Every domain's catalog is a ladder of up to five rungs — `entry`, `basic`, `balanced`, `advanced`, `frontier`
+(`ModelTier`), ordered by capability and cost — and the name of a rung is an alias of its model in that domain's
+registry: `LocalEmbedder.LoadAsync("entry")`, `LocalTranscriber.LoadAsync("frontier")`, `LocalGenerator.LoadAsync("gguf:balanced")`.
+
+- **A rung names one distinct model.** Presets of one model (the image generator's step counts), voices and language
+  variants are not rungs. A domain fills only the rungs it has a model for; `registry.GetTiers()` lists them and
+  `ResolveTier(tier, TierFallback.Lower | Higher)` takes the nearest one when the caller asks for that. An absent rung
+  is `ModelNotFoundException` naming the rungs the domain holds — never a neighbour.
+- **A rung's name carries no model family or generation**, so it stays right when the catalog moves to a newer model:
+  `gguf:balanced` was Qwen3 8B and is Qwen 3.5 9B. What a rung loads changes only in a release, with a line in the
+  notes (below). To stay on one model, name the model (`multilingual-e5-large`, `gguf:qwen3.6-35b-a3b-q4_k_m`) or give
+  its repository id.
+- **`default` is the model the domain recommends** — wherever the domain has a `basic` rung, that one.
+- **The size adjectives `fast`, `quality`, `large` and `xlarge` are not aliases.** A retired name loads nothing, and the
+  "model not found" message says what replaced it.
+- The rungs are the library's words; an application shows its own. A rung is the domain's own step up — `frontier` of
+  the transcriber (Whisper large-v3) and `advanced` of the reranker are not the same size.
 
 ## Review cadence
 
@@ -11,7 +31,7 @@ This page says when the catalog is reviewed and how a change reaches you.
 |---|---|
 | Models of the generator (GGUF and ONNX), embedder and reranker catalogs: newer releases of a family, better quantizations, licence changes, entries to retire | at least monthly |
 | Models of the other tasks (transcriber, synthesizer, OCR, translator, captioner, detector, segmenter, image generator) | at least every two months |
-| Alias assignments: which model each tier alias (`fast`, `default`, `balanced`, `quality`, `large`) names, the default quantization, the automatic-selection pool | at least every two months, after the model review |
+| Alias assignments: which model each rung alias (`entry`, `basic`, `balanced`, `advanced`, `frontier`) and `default` name, the default quantization, the automatic-selection pool | at least every two months, after the model review |
 
 A review that finds nothing worth changing changes nothing; the cadence is how often the catalog is looked at, not a
 promise of a change.
@@ -21,7 +41,7 @@ promise of a change.
 A change of what an alias resolves to is behaviour, even though no signature changes. The release notes carry one line
 for each of these, in the section of the release that ships it:
 
-- an alias repointed to another repository or model: `qwen3-balanced: Qwen3 8B → Qwen 3.5 9B (why)`
+- an alias repointed to another repository or model: `balanced: Qwen3 8B → Qwen 3.5 9B (why)`
 - a different default file or quantization for an alias
 - a known-issue tag added to or removed from a model (for example `thinking-enabled-by-default`)
 - an alias retired or added, or a model moved into or out of the automatic-selection pool

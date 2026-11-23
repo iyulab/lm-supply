@@ -12,7 +12,7 @@ public class LocalEmbedderApiTests
 
         models.Should().NotBeEmpty();
         models.Should().Contain("default");
-        models.Should().Contain("fast");
+        models.Should().Contain("entry");
         models.Should().Contain("auto");
     }
 
@@ -155,9 +155,9 @@ public class LocalEmbedderApiTests
 
     [Theory]
     [InlineData("default")]
-    [InlineData("fast")]
-    [InlineData("quality")]
-    [InlineData("large")]
+    [InlineData("entry")]
+    [InlineData("basic")]
+    [InlineData("multilingual-e5-large")]
     public void GetAvailableModels_ContainsExpectedAliases(string expectedAlias)
     {
         var models = LocalEmbedder.GetAvailableModels().ToList();

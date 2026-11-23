@@ -37,6 +37,8 @@ public abstract class ModelRegistryBase<TModelInfo> : IModelRegistry<TModelInfo>
 
     private readonly List<TModelInfo> _allModels = [];
 
+    private readonly SortedDictionary<ModelTier, TModelInfo> _tiers = [];
+
     protected ModelRegistryBase(IEnumerable<TModelInfo> systemModels)
     {
         foreach (var model in systemModels)
@@ -57,6 +59,112 @@ public abstract class ModelRegistryBase<TModelInfo> : IModelRegistry<TModelInfo>
             if (!_modelsByShortName.ContainsKey(shortName))
                 _modelsByShortName[shortName] = model;
         }
+
+        // A rung is held by one model. The rung's name is an alias of it, so 'balanced' means the same thing in every
+        // domain; two different models on one rung is a catalog defect, not something to pick between at run time.
+        foreach (var model in systemModels)
+        {
+            if (model.Tier is not { } tier)
+                continue;
+
+            if (_tiers.TryGetValue(tier, out var holder)
+                && !holder.CatalogKey.Equals(model.CatalogKey, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"[{GetType().Name}] Rung '{tier.Alias()}' is claimed by two models: '{holder.CatalogKey}' and '{model.CatalogKey}'.");
+            }
+
+            _tiers[tier] = model;
+            var alias = tier.Alias();
+            if (_systemAliases.TryGetValue(alias, out var named))
+            {
+                if (!named.CatalogKey.Equals(model.CatalogKey, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        $"[{GetType().Name}] The alias '{alias}' names '{named.CatalogKey}' but the rung of that name is held by '{model.CatalogKey}'.");
+            }
+            else
+            {
+                _systemAliases[alias] = model;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Names this domain retired, each with the name that replaced it. A loader that is handed one answers with the
+    /// new name instead of "not found". This is a bridge for the people who typed the old name, not a way to resolve
+    /// it: the old name never loads anything.
+    /// </summary>
+    /// <remarks>COMPAT: delete the entries a release after they were added — see the CHANGELOG line that renamed them.</remarks>
+    protected virtual IReadOnlyDictionary<string, string> RetiredAliases { get; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// When <paramref name="name"/> is an alias this domain retired, the sentence that says what replaced it;
+    /// otherwise <see langword="null"/>. Loaders append it to their "unknown model" message.
+    /// </summary>
+    public string? DescribeRetiredAlias(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+
+        var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(name);
+        foreach (var (retired, replacement) in RetiredAliases)
+        {
+            if (retired.Equals(baseId, StringComparison.OrdinalIgnoreCase))
+                return $"'{retired}' is no longer an alias; {replacement}.";
+        }
+
+        return null;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<ModelTierEntry<TModelInfo>> GetTiers()
+        => _tiers.Select(kv => new ModelTierEntry<TModelInfo>(kv.Key, kv.Key.Alias(), kv.Value)).ToList();
+
+    /// <inheritdoc />
+    public bool TryResolveTier(ModelTier tier, out TModelInfo? modelInfo, TierFallback fallback = TierFallback.None)
+    {
+        if (_tiers.TryGetValue(tier, out modelInfo))
+            return true;
+
+        modelInfo = default;
+        switch (fallback)
+        {
+            case TierFallback.Lower:
+                foreach (var (rung, model) in _tiers.Reverse())
+                {
+                    if (rung < tier)
+                    {
+                        modelInfo = model;
+                        return true;
+                    }
+                }
+                break;
+            case TierFallback.Higher:
+                foreach (var (rung, model) in _tiers)
+                {
+                    if (rung > tier)
+                    {
+                        modelInfo = model;
+                        return true;
+                    }
+                }
+                break;
+        }
+
+        return false;
+    }
+
+    /// <inheritdoc />
+    public TModelInfo ResolveTier(ModelTier tier, TierFallback fallback = TierFallback.None)
+    {
+        if (TryResolveTier(tier, out var modelInfo, fallback))
+            return modelInfo!;
+
+        var held = _tiers.Count == 0
+            ? "this domain has no ladder"
+            : "it holds " + string.Join(", ", _tiers.Keys.Select(t => t.Alias()));
+        throw new ModelNotFoundException(
+            $"The '{tier.Alias()}' rung holds no model in this domain; {held}.", tier.Alias());
     }
 
     /// <inheritdoc />
@@ -76,6 +184,8 @@ public abstract class ModelRegistryBase<TModelInfo> : IModelRegistry<TModelInfo>
         var problem = string.IsNullOrWhiteSpace(modelIdOrAlias)
             ? "The model id or alias is empty."
             : $"Model '{modelIdOrAlias}' not found in registry.";
+        if (DescribeRetiredAlias(modelIdOrAlias) is { } retired)
+            problem += " " + retired;
 
         var aliases = _systemAliases.Keys
             .Concat(_userAliases.Keys)

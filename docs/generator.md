@@ -131,9 +131,9 @@ await foreach (var token in generator.GenerateAsync("Write a short story about a
 > `ExecutionProvider.OpenVino` (Intel GPU) serves ONNX sessions of the other modules, not text generation: both
 > generation paths refuse it.
 
-`gguf:auto` selects the largest Qwen3 model (`qwen3-fast/default/balanced/quality` pool) that fits the
+`gguf:auto` selects the largest Qwen3 model (`entry/basic/balanced/advanced` pool) that fits the
 VRAM budget, or — when VRAM is insufficient — the largest that fits the system RAM budget (CPU): system RAM
-less 4 GB, and at most half of system RAM (0.79.0 — before that a 32 GB host could get the ~18 GB `qwen3-quality`
+less 4 GB, and at most half of system RAM (0.79.0 — before that a 32 GB host could get the ~18 GB `advanced`
 by default; system memory is shared, a default must not take most of it). On an
 integrated GPU the llama.cpp backend is CPU (see [llama.md](llama.md#backend-selection)). Every candidate is sized for
 the load's `MaxContextLength` (unset = 4,096).
@@ -162,8 +162,8 @@ await using var onnx = await LocalGenerator.LoadAsync("microsoft/Phi-4-mini-inst
 await using var onnxAlias = await LocalGenerator.LoadAsync("phi-4-mini");
 
 // Pin a specific GGUF model
-await using var gguf = await LocalGenerator.LoadAsync("gguf:gemma4-default"); // Gemma 4 E4B
-await using var ggufXL = await LocalGenerator.LoadAsync("gguf:gemma4-large"); // Gemma 4 31B
+await using var gguf = await LocalGenerator.LoadAsync("gguf:gemma4-e4b"); // Gemma 4 E4B
+await using var ggufXL = await LocalGenerator.LoadAsync("gguf:gemma4-31b"); // Gemma 4 31B
 
 // Let the hardware decide (GGUF, sized to the host)
 await using var auto = await LocalGenerator.LoadAsync("auto");
@@ -178,10 +178,9 @@ await using var def  = await LocalGenerator.LoadAsync("default"); // same as "au
 // Default: the hardware-aware selection (see "Default and auto selection" above)
 var builder = TextGeneratorBuilder.Create().WithDefaultModel();
 
-// Or use presets
-builder.WithModel(GeneratorModelPreset.Default);   // same as WithDefaultModel()
-builder.WithModel(GeneratorModelPreset.Fast);      // Phi-4 Mini (smallest FC-capable)
-builder.WithModel(GeneratorModelPreset.Quality);   // Phi-4
+// Or take a rung of the ONNX catalog's ladder (ModelTier)
+builder.WithModel(ModelTier.Entry);      // Phi-4 Mini (smallest FC-capable)
+builder.WithModel(ModelTier.Advanced);   // Phi-4
 ```
 
 ### HuggingFace Models
@@ -208,10 +207,10 @@ nothing.
 
 ```csharp
 var options = new GeneratorOptions { Provider = ExecutionProvider.Auto };
-var path = await LocalGenerator.DownloadModelAsync("gguf:gemma4-default", options,
+var path = await LocalGenerator.DownloadModelAsync("gguf:gemma4-e4b", options,
     progress: new Progress<DownloadProgress>(p => Console.WriteLine(p.Phase)));
 // later, same id + options:
-await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-default", options);
+await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-e4b", options);
 ```
 
 Pass the same `Provider` both times: GGUF auto-quantization picks the file from the provider's
@@ -220,14 +219,14 @@ memory budget, so a different provider can warm a different file. Local paths ar
 `LocalGenerator.IsModelDownloadedAsync(modelId, options)` answers the question a consent gate asks —
 would `LoadAsync` with this id and these options download anything? — from the cache alone (no
 network, no runtime). It follows the same resolution, so it is about the *file the load opens*,
-not the repository: `gguf:gemma4-balanced` (Q8_0) is not downloaded just because
-`gguf:gemma4-default`'s Q4_0 file from the same repository is. Every shard of a split model must be
+not the repository: `gguf:gemma4-e4b-q8_0` (Q8_0) is not downloaded just because
+`gguf:gemma4-e4b`'s Q4_0 file from the same repository is. Every shard of a split model must be
 cached. An ONNX model counts once a completed download of it is in the cache. `false` means the load
 *may* download; the answer never errs toward `true`.
 
 ```csharp
-if (!await LocalGenerator.IsModelDownloadedAsync("gguf:qwen3-default", options))
-    await LocalGenerator.DownloadModelAsync("gguf:qwen3-default", options, progress);  // after consent
+if (!await LocalGenerator.IsModelDownloadedAsync("gguf:basic", options))
+    await LocalGenerator.DownloadModelAsync("gguf:basic", options, progress);  // after consent
 ```
 
 `LocalGenerator.GetDownloadSizeBytesAsync(modelId, options)` (0.93.0+) is the figure that consent
@@ -249,7 +248,7 @@ long bytes = await LocalGenerator.GetDownloadSizeBytesAsync("auto", options);   
 
 `GgufModelRegistry.Recommend` (0.141.0+) lists the catalog's models for the machine it runs on, in order, so an application
 does not keep a table of tiers and models that goes stale when an alias is repointed. The list is the catalog's *ladder* —
-the entries that carry a `GgufModelInfo.Tier` (`Fast`, `Default`, `Balanced`, `Quality`, `ExtraLarge`, named like the tier aliases;
+the entries that carry a `GgufModelInfo.Tier` (`ModelTier` `Entry`, `Basic`, `Balanced`, `Advanced`, `Frontier`, named like the rung aliases `gguf:entry` … `gguf:frontier`;
 show your own words for them) — smallest first by the memory each holds at the context length, every rung judged with the rule
 that automatic selection and the loader share.
 
@@ -324,7 +323,7 @@ using System.ComponentModel;
 using LMSupply.Generator;
 using Microsoft.Extensions.AI;
 
-await using var generator = await LocalGenerator.LoadAsync("gguf:gemma4-default");
+await using var generator = await LocalGenerator.LoadAsync("gguf:gemma4-e4b");
 IChatClient chat = generator.AsChatClient();
 
 var options = new ChatOptions { Tools = [AIFunctionFactory.Create(GetWeather)], MaxOutputTokens = 300 };
@@ -433,7 +432,7 @@ using LMSupply.Llama.Server;   // LlamaServerPool
 
 await oldModel.DisposeAsync();
 await LlamaServerPool.Instance.ReleaseIdleAsync();   // returns how many servers were stopped
-await using var newModel = await LocalGenerator.LoadAsync("gguf:qwen3-default");
+await using var newModel = await LocalGenerator.LoadAsync("gguf:basic");
 ```
 
 A server a live model is using is never stopped. Loading the new model *before* disposing the old one
@@ -469,11 +468,11 @@ using LMSupply.Generator;
 
 // Create draft (small/fast) and target (large/accurate) models
 var draftModel = await TextGeneratorBuilder.Create()
-    .WithModel(GeneratorModelPreset.Fast)
+    .WithModel(ModelTier.Entry)
     .BuildAsync();
 
 var targetModel = await TextGeneratorBuilder.Create()
-    .WithModel(GeneratorModelPreset.Quality)
+    .WithModel(ModelTier.Advanced)
     .BuildAsync();
 
 // Create speculative decoder
@@ -531,8 +530,8 @@ foreach (var modelId in factory.GetAvailableModels())
 | Alias | Model | Parameters | License |
 |-------|-------|------------|---------|
 | Default | the hardware-aware selection (`"default"`, see above) | — | — |
-| Fast | Phi-4-mini-instruct | 3.8B | MIT |
-| Quality | phi-4 | 14B | MIT |
+| Entry | Phi-4-mini-instruct | 3.8B | MIT |
+| Advanced | phi-4 | 14B | MIT |
 
 ## Chat Formats
 
@@ -590,22 +589,22 @@ The registry has two primary tiers: **Gemma 4** (multimodal, Apache 2.0) for exp
 
 | Alias | Model | Parameters | Quant | Weights | KV @ 4k | Total | Use Case |
 |-------|-------|------------|-------|---------|---------|-------|----------|
-| `gguf:gemma4-fast` | Gemma 4 E2B Instruct | 2.3B | Q4_K_M | ~3.1 GB | ~36 MB | ~3.1 GB | 4-6GB VRAM, iGPU/mobile |
-| `gguf:gemma4-default` | Gemma 4 E4B Instruct | 4.5B | Q4_0 | ~4.6 GB | ~104 MB | ~4.7 GB | 8GB VRAM |
-| `gguf:gemma4-balanced` | Gemma 4 E4B Instruct | 4.5B | Q8_0 | ~7.5 GB | ~104 MB | ~7.6 GB | 12GB VRAM (higher quality E4B) |
-| `gguf:gemma4-quality` | Gemma 4 26B A4B (MoE) | 26B (4B active) | Q4_0 | ~13.6 GB | ~380 MB | ~14.0 GB | 16-20GB VRAM |
-| `gguf:gemma4-large` | Gemma 4 31B Instruct | 31B (Dense) | Q4_0 | ~16.8 GB | ~1.5 GB | ~18.3 GB | 20-48GB VRAM |
+| `gguf:gemma4-e2b` | Gemma 4 E2B Instruct | 2.3B | Q4_K_M | ~3.1 GB | ~36 MB | ~3.1 GB | 4-6GB VRAM, iGPU/mobile |
+| `gguf:gemma4-e4b` | Gemma 4 E4B Instruct | 4.5B | Q4_0 | ~4.6 GB | ~104 MB | ~4.7 GB | 8GB VRAM |
+| `gguf:gemma4-e4b-q8_0` | Gemma 4 E4B Instruct | 4.5B | Q8_0 | ~7.5 GB | ~104 MB | ~7.6 GB | 12GB VRAM (higher quality E4B) |
+| `gguf:gemma4-26b-a4b` | Gemma 4 26B A4B (MoE) | 26B (4B active) | Q4_0 | ~13.6 GB | ~380 MB | ~14.0 GB | 16-20GB VRAM |
+| `gguf:gemma4-31b` | Gemma 4 31B Instruct | 31B (Dense) | Q4_0 | ~16.8 GB | ~1.5 GB | ~18.3 GB | 20-48GB VRAM |
 
 **Qwen3/3.5/3.6 aliases** — Apache 2.0, ChatML. `gguf:auto` selects from this pool:
 
 | Alias | Model | Parameters | Quant | Weights | KV @ 4k | Total | Notes |
 |-------|-------|------------|-------|---------|---------|-------|-------|
 | `gguf:auto` | Hardware-optimized (qwen3 pool) | varies | varies | varies | varies | varies | Auto-select by VRAM |
-| `gguf:qwen3-fast` | Qwen 3.5 2B Instruct | 2B | Q4_K_M | ~1.5 GB | ~48 MB | ~1.55 GB | |
-| `gguf:qwen3-default` | Qwen 3.5 4B Instruct | 4B | Q4_K_M | ~3.0 GB | ~128 MB | ~3.1 GB | thinking ON by default |
-| `gguf:qwen3-balanced` | Qwen 3.5 9B Instruct | 9B | Q4_K_M | ~5.7 GB | ~128 MB | ~5.8 GB | |
-| `gguf:qwen3-quality` | Qwen 3.6 35B A3B (IQ4_XS, MoE) | 35B (3B active) | IQ4_XS | ~17.7 GB | ~80 MB | ~17.8 GB | thinking ON; auto-pool |
-| `gguf:qwen3-large` | Qwen 3.6 35B A3B (Q4_K_M, MoE) | 35B (3B active) | Q4_K_M | ~22.1 GB | ~80 MB | ~22.2 GB | thinking ON; auto-pool excluded |
+| `gguf:entry` | Qwen 3.5 2B Instruct | 2B | Q4_K_M | ~1.5 GB | ~48 MB | ~1.55 GB | |
+| `gguf:basic` | Qwen 3.5 4B Instruct | 4B | Q4_K_M | ~3.0 GB | ~128 MB | ~3.1 GB | thinking ON by default |
+| `gguf:balanced` | Qwen 3.5 9B Instruct | 9B | Q4_K_M | ~5.7 GB | ~128 MB | ~5.8 GB | |
+| `gguf:advanced` | Qwen 3.6 35B A3B (IQ4_XS, MoE) | 35B (3B active) | IQ4_XS | ~17.7 GB | ~80 MB | ~17.8 GB | thinking ON; auto-pool |
+| `gguf:qwen3.6-35b-a3b-q4_k_m` | Qwen 3.6 35B A3B (Q4_K_M, MoE) | 35B (3B active) | Q4_K_M | ~22.1 GB | ~80 MB | ~22.2 GB | thinking ON; auto-pool excluded |
 
 **Other aliases:**
 
@@ -613,14 +612,14 @@ The registry has two primary tiers: **Gemma 4** (multimodal, Apache 2.0) for exp
 |-------|-------|------------|-------|------|-------|
 | `gguf:phi-4-mini` | Phi-4 Mini Instruct | 3.8B | Q4_K_M | ~2.4 GB | Phi3 chat format; strong KO/EN |
 | `gguf:qwen2.5-7b` | Qwen 2.5 7B Instruct | 7.6B | Q4_K_M | ~4.7 GB | ChatML; reliable tool calling |
-| `gguf:xlarge` | Qwen 3.5 122B A10B (MoE, split) | 122B (10B active) | Q4_K_M | ~76.5 GB (3 shards) | 96GB+ server |
+| `gguf:frontier` | Qwen 3.5 122B A10B (MoE, split) | 122B (10B active) | Q4_K_M | ~76.5 GB (3 shards) | 96GB+ server |
 
 > **KV cache footprint is included in auto-selection.** The `KV @ 4k` column shows the FP16 KV cache size at 4,096 tokens, from each file's
 > attention layout (`GgufModelInfo.KvCacheBytesPerToken` — KV heads × K/V head dims over the layers that keep a cache, plus a fixed
 > window for sliding-window layers). It grows linearly with the context: a dense-attention 8B model keeps 144 KiB per token (2.25 GB at 16k), the hybrid
 > Qwen 3.5 4B and 9B only 32 KiB (0.5 GB at 16k). llama-server reserves the full `--ctx-size` KV cache at load time, so a model that fits in weights but not in weights + KV will OOM at runtime. Use `LlamaOptions.TypeK = TypeV = KvCacheQuantizationType.Q8_0` (or `Q4_0`) to halve/quarter KV memory at the cost of slight quality loss.
 
-> **Split GGUF support**: `gguf:xlarge` is distributed as 3 shards (`-00001-of-00003`, etc.) in a `Q4_K_M/` subfolder. The downloader automatically fetches all shards; llama-server auto-loads the remaining parts when given the first shard path.
+> **Split GGUF support**: `gguf:frontier` is distributed as 3 shards (`-00001-of-00003`, etc.) in a `Q4_K_M/` subfolder. The downloader automatically fetches all shards; llama-server auto-loads the remaining parts when given the first shard path.
 
 #### Hardware-Optimized Selection (`gguf:auto`)
 
@@ -636,17 +635,17 @@ selection, `GgufModelRegistry.DefaultBudgetContextLength`, FP16 — the loaded s
 length up to 32,768 as memory allows, see the README's «How the context is sized») — on an 8 GB GPU `gguf:auto` picks Qwen 3.5 9B at 4,096 tokens and Qwen 3.5 4B at
 65,536, where the 9B's cache would not fit. The quantization choice before download is sized the same way.
 
-Auto-selection pool: `qwen3-fast`, `qwen3-default`, `qwen3-balanced`, `qwen3-quality` (`qwen3-large` is excluded — exceeds 24 GB × 85% budget). Models with `ThinkingEnabledByDefault` generate reasoning before answering. To stop the model from thinking at all, set `Thinking = ThinkingMode.Off` (forwards `enable_thinking=false` to the chat template — no reasoning tokens generated). To let it think but hide the `<think>...</think>` block from the returned text, set `FilterReasoningTokens = true` (reasoning is still generated). `ThinkingMode.Auto` (default) preserves each model's built-in behavior.
+Auto-selection pool: `entry`, `basic`, `balanced`, `advanced` (`qwen3.6-35b-a3b-q4_k_m` is excluded — exceeds 24 GB × 85% budget). Models with `ThinkingEnabledByDefault` generate reasoning before answering. To stop the model from thinking at all, set `Thinking = ThinkingMode.Off` (forwards `enable_thinking=false` to the chat template — no reasoning tokens generated). To let it think but hide the `<think>...</think>` block from the returned text, set `FilterReasoningTokens = true` (reasoning is still generated). `ThinkingMode.Auto` (default) preserves each model's built-in behavior.
 
 | Free VRAM | Budget | Selected Model | Reason |
 |-----------|--------|----------------|--------|
-| 0 / CPU only / `Provider = Cpu` | 0 | the largest that fits min(system RAM − 4 GB, system RAM ÷ 2) (16–32 GB RAM → `gguf:qwen3-balanced`, 64 GB → `gguf:qwen3-quality`); `gguf:qwen3-fast` if none fits | FitsInSystemRam / FallbackToSmallest |
-| 3 GB | ~2.55 GB | `gguf:qwen3-fast` | Fits (~2.25 GB total) |
-| 6 GB | ~5.1 GB | `gguf:qwen3-default` (Qwen 3.5 4B) | Fits (~4.25 GB); thinking ON |
-| 10 GB | ~8.5 GB | `gguf:qwen3-balanced` (Qwen 3.5 9B) | Fits (~5.8 GB) |
-| 24 GB | ~20.4 GB | `gguf:qwen3-quality` (Qwen 3.6 35B MoE) | Fits (~19.0 GB); thinking ON |
+| 0 / CPU only / `Provider = Cpu` | 0 | the largest that fits min(system RAM − 4 GB, system RAM ÷ 2) (16–32 GB RAM → `gguf:balanced`, 64 GB → `gguf:advanced`); `gguf:entry` if none fits | FitsInSystemRam / FallbackToSmallest |
+| 3 GB | ~2.55 GB | `gguf:entry` | Fits (~2.25 GB total) |
+| 6 GB | ~5.1 GB | `gguf:basic` (Qwen 3.5 4B) | Fits (~4.25 GB); thinking ON |
+| 10 GB | ~8.5 GB | `gguf:balanced` (Qwen 3.5 9B) | Fits (~5.8 GB) |
+| 24 GB | ~20.4 GB | `gguf:advanced` (Qwen 3.6 35B MoE) | Fits (~19.0 GB); thinking ON |
 
-> **Low-VRAM laptop guidance.** On Windows laptops with ≤4 GB NVIDIA VRAM (RTX 4050/4060 Laptop, etc.), no candidate may fit VRAM once the compositor and driver take their share. The auto path then picks the largest model that fits the system RAM budget (`FitsInSystemRam`; at most half of system RAM) and runs it mostly on the CPU — larger and slower than the GPU could run. For a fast small model on these hosts, set `AutoSelectionGoal = AutoSelectionGoal.Responsive` (it leaves hosts whose GPU holds a candidate unchanged, which naming `gguf:qwen3-fast` does not) or prefer the ONNX path explicitly: `LocalGenerator.LoadAsync("phi-4-mini")` (CUDA or CPU). The selection and its reason are logged with the `[LocalGenerator.auto]` prefix to `Trace`.
+> **Low-VRAM laptop guidance.** On Windows laptops with ≤4 GB NVIDIA VRAM (RTX 4050/4060 Laptop, etc.), no candidate may fit VRAM once the compositor and driver take their share. The auto path then picks the largest model that fits the system RAM budget (`FitsInSystemRam`; at most half of system RAM) and runs it mostly on the CPU — larger and slower than the GPU could run. For a fast small model on these hosts, set `AutoSelectionGoal = AutoSelectionGoal.Responsive` (it leaves hosts whose GPU holds a candidate unchanged, which naming `gguf:entry` does not) or prefer the ONNX path explicitly: `LocalGenerator.LoadAsync("phi-4-mini")` (CUDA or CPU). The selection and its reason are logged with the `[LocalGenerator.auto]` prefix to `Trace`.
 
 ```csharp
 // Let LMSupply choose the optimal model for your hardware
@@ -692,7 +691,7 @@ var options = new GeneratorOptions
     MaxContextLength = 4096
 };
 
-await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-default", options);
+await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-e4b", options);
 ```
 
 ### Advanced GGUF Options (LlamaOptions)
@@ -746,7 +745,7 @@ var options = new GeneratorOptions
     }
 };
 
-await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-quality", options);
+await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-26b-a4b", options);
 ```
 
 #### KV Cache Quantization
@@ -921,7 +920,7 @@ GGUF models support native tool calling via the `--jinja` flag (enabled by defau
 
 ```csharp
 // Tool calling is automatically available with GGUF models
-await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-default");  // Gemma 4 E4B (gemma4 formatter)
+await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-e4b");  // Gemma 4 E4B (gemma4 formatter)
 
 // Tool definitions use OpenAI-compatible format via llama-server
 ```
@@ -1090,7 +1089,7 @@ foreach (var c in answers)
 Gemma 4 models support an **extended thinking** mode activated via `GenerationOptions.Thinking`. Google recommends this for E2B/E4B models when complex function calling is required:
 
 ```csharp
-await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-default");  // Gemma 4 E4B
+await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-e4b");  // Gemma 4 E4B
 
 var messages = new[]
 {
@@ -1198,12 +1197,12 @@ if (info.GpuLayers.HasValue)
 
 ### Qwen3 Thinking Mode Enabled by Default
 
-Several Qwen3/3.5/3.6 models (`gguf:qwen3-default`, `gguf:qwen3-quality`, `gguf:qwen3-large`) have thinking mode enabled by default, causing `<think>...</think>` blocks to appear in all responses. This is tagged with `GgufModelKnownIssues.ThinkingEnabledByDefault`.
+Several Qwen3/3.5/3.6 models (`gguf:basic`, `gguf:advanced`, `gguf:qwen3.6-35b-a3b-q4_k_m`) have thinking mode enabled by default, causing `<think>...</think>` blocks to appear in all responses. This is tagged with `GgufModelKnownIssues.ThinkingEnabledByDefault`.
 
 To suppress think blocks, set `FilterReasoningTokens = true`:
 
 ```csharp
-await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-default");
+await using var model = await LocalGenerator.LoadAsync("gguf:basic");
 
 var options = new GenerationOptions { FilterReasoningTokens = true };
 await foreach (var token in model.GenerateChatAsync(messages, options))
@@ -1219,7 +1218,7 @@ To check whether a model has this issue programmatically:
 ```csharp
 using LMSupply.Generator.Gguf;
 
-var info = GgufModelRegistry.Resolve("gguf:qwen3-default");
+var info = GgufModelRegistry.Resolve("gguf:basic");
 bool thinkingOn = info?.KnownIssues.Contains(GgufModelKnownIssues.ThinkingEnabledByDefault) == true;
 ```
 

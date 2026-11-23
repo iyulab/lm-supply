@@ -37,7 +37,7 @@ public sealed class DescribeTests
     [InlineData("default")]
     [InlineData("default:fp16")] // a variant qualifier does not change which model this is
     [InlineData("multilingual")]
-    [InlineData("quality")]
+    [InlineData("balanced")]
     public void AnOnnxAlias_IsDescribedFromItsRegistryEntry(string alias)
     {
         var entry = LocalReranker.Registry.Resolve(alias.Split(':')[0]);

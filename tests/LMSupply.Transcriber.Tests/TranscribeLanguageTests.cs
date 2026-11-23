@@ -88,7 +88,7 @@ public class TranscribeLanguageTests
     [Fact]
     public void AModelFineTunedForOneLanguage_RejectsAnotherAndSaysWhatItTranscribes()
     {
-        var korean = TranscriberModelRegistry.Default.Resolve("large-ko");
+        var korean = TranscriberModelRegistry.Default.Resolve("turbo-ko");
 
         TranscriptionLanguage.Resolve(new TranscribeOptions { Language = "korean" }, korean)!.Language.Should().Be("ko");
 

@@ -15,7 +15,7 @@ namespace LMSupply;
 /// <c>~/.lmsupply/aliases.json</c>. Schema — domain-scoped alias maps:
 /// <code>
 /// {
-///   "generator": { "my-writer": "gguf:qwen3-quality" },
+///   "generator": { "my-writer": "gguf:advanced" },
 ///   "embedder":  { "my-embed": "BAAI/bge-m3" }
 /// }
 /// </code>

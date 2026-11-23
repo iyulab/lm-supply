@@ -18,7 +18,7 @@ public class GgufKnownAnswerIntegrationTests
     [InlineData("Is Paris the capital of France? Answer yes or no.", "Yes")]
     public async Task A_short_answer_is_exactly_the_answer(string question, string answer)
     {
-        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-default", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-e4b", cancellationToken: TestContext.Current.CancellationToken);
 
         var text = new StringBuilder();
         await foreach (var piece in model.GenerateChatAsync(

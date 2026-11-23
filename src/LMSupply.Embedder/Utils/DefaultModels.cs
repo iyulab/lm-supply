@@ -28,11 +28,12 @@ internal static class DefaultModels
         Parameters = 568_000_000,
         License = "MIT",
         AliasName = "default",
+        Tier = ModelTier.Basic,
         Dimensions = 1024,
         MaxSequenceLength = 8192,
         PoolingMode = PoolingMode.Cls,
         DoLowerCase = false,
-        Description = "Default: BGE-M3, 568M params, 100+ languages, 8K context, SOTA multilingual",
+        Description = "Basic (default): BGE-M3, 568M params, 100+ languages, 8K context, SOTA multilingual",
         Subfolder = "onnx"
     };
 
@@ -45,53 +46,13 @@ internal static class DefaultModels
         SizeBytes = 470_268_510,
         Parameters = 118_000_000,
         License = "MIT",
-        AliasName = "fast",
+        AliasName = "entry",
+        Tier = ModelTier.Entry,
         Dimensions = 384,
         MaxSequenceLength = 512,
         PoolingMode = PoolingMode.Mean,
         DoLowerCase = false,
-        Description = "Fast: multilingual-e5-small, 118M params, 100+ languages, lightweight",
-        Subfolder = "onnx",
-        QueryPrefix = "query: ",
-        DefaultPrefix = "query: ",
-        PassagePrefix = "passage: "
-    };
-
-    /// <summary>
-    /// Quality: BGE-M3, 568M params, 100+ languages, 8K context, SOTA multilingual, dense+sparse.
-    /// Same model as 'default'; exposed separately for pipelines that explicitly request quality tier.
-    /// </summary>
-    public static EmbedderModelInfo BgeM3QualityAlias { get; } = new()
-    {
-        RepoId = "BAAI/bge-m3",
-        SizeBytes = 2_267_545_531,
-        Parameters = 568_000_000,
-        License = "MIT",
-        AliasName = "quality",
-        Dimensions = 1024,
-        MaxSequenceLength = 8192,
-        PoolingMode = PoolingMode.Cls,
-        DoLowerCase = false,
-        Description = "Quality: BGE-M3, 568M params, 100+ languages, 8K context, SOTA multilingual",
-        Subfolder = "onnx"
-    };
-
-    /// <summary>
-    /// Large: multilingual-e5-large, 560M params, 100+ languages, highest dense quality.
-    /// Note: 512-token context limit. Use BGE-M3 (default) for long-document retrieval.
-    /// </summary>
-    public static EmbedderModelInfo MultilingualE5LargeAlias { get; } = new()
-    {
-        RepoId = "intfloat/multilingual-e5-large",
-        SizeBytes = 2_235_909_178,
-        Parameters = 560_000_000,
-        License = "MIT",
-        AliasName = "large",
-        Dimensions = 1024,
-        MaxSequenceLength = 512,
-        PoolingMode = PoolingMode.Mean,
-        DoLowerCase = false,
-        Description = "Large: multilingual-e5-large, 560M params, 100+ languages, highest dense quality",
+        Description = "Entry: multilingual-e5-small, 118M params, 100+ languages, lightweight",
         Subfolder = "onnx",
         QueryPrefix = "query: ",
         DefaultPrefix = "query: ",
@@ -318,10 +279,8 @@ internal static class DefaultModels
     public static IReadOnlyList<EmbedderModelInfo> All { get; } =
     [
         // Alias models (4 standard aliases)
-        BgeM3DefaultAlias,              // default
-        MultilingualE5SmallAlias,       // fast
-        BgeM3QualityAlias,              // quality
-        MultilingualE5LargeAlias,       // large
+        BgeM3DefaultAlias,              // default (basic)
+        MultilingualE5SmallAlias,       // entry
 
         // Explicit models (by short name)
         NomicEmbedTextV15,

@@ -54,8 +54,8 @@ public class ModelRegistryTests
     [Fact]
     public void DetectionRegistry_Resolve_FastAlias_ShouldReturnDbNetV3()
     {
-        // Act — "fast" alias (single-model domain)
-        var model = OcrDetectionModelRegistry.Default.Resolve("fast");
+        // Act — "entry" alias (single-model domain)
+        var model = OcrDetectionModelRegistry.Default.Resolve("entry");
 
         // Assert
         model.Should().NotBeNull();
@@ -343,7 +343,7 @@ public class ModelRegistryTests
         // Assert
         aliases.Should().Contain(a => a.Name == "auto");
         aliases.Should().Contain(a => a.Name == "default");
-        aliases.Should().Contain(a => a.Name == "fast");
+        aliases.Should().Contain(a => a.Name == "entry");
         aliases.Should().Contain(a => a.Name == "dbnet-v3");
     }
 
@@ -355,7 +355,7 @@ public class ModelRegistryTests
         DefaultDetectionModels.All.Should().Contain(DefaultDetectionModels.DbNetV5);
         DefaultDetectionModels.All.Should().Contain(DefaultDetectionModels.DbNetV5Default);
         DefaultDetectionModels.All.Should().Contain(DefaultDetectionModels.DbNetV3);
-        DefaultDetectionModels.All.Should().Contain(DefaultDetectionModels.DbNetV3Fast);
+        DefaultDetectionModels.All.Should().Contain(DefaultDetectionModels.DbNetV3Entry);
     }
 
     [Fact]

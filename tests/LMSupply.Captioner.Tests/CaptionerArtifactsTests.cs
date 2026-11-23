@@ -32,17 +32,17 @@ public sealed class CaptionerArtifactsTests : IDisposable
         DisableAutoDownload = downloadsDisabled,
     };
 
-    // The files a load of "fast" (ViT-GPT2) picks with these options, under the model's subfolder.
+    // The files a load of "entry" (ViT-GPT2) picks with these options, under the model's subfolder.
     private string[] FastModelFiles()
     {
-        var model = LocalCaptioner.Registry.Resolve("fast");
+        var model = LocalCaptioner.Registry.Resolve("entry");
         var suffix = LocalCaptioner.SelectVariantSuffix(model, Options());
         return LocalCaptioner.GetRequiredFiles(model, suffix).Select(f => $"{model.Subfolder}/{f}").ToArray();
     }
 
     private void SeedCachedFastModel(bool skipOneFile = false)
     {
-        var model = LocalCaptioner.Registry.Resolve("fast");
+        var model = LocalCaptioner.Registry.Resolve("entry");
         var files = FastModelFiles();
         var listing = Path.Combine(_cache, "models--" + model.RepoId.Replace("/", "--"), ".lmsupply", "listings", "main.json");
         Directory.CreateDirectory(Path.GetDirectoryName(listing)!);
@@ -63,13 +63,13 @@ public sealed class CaptionerArtifactsTests : IDisposable
         using var runtime = BundledRuntime.Use(_cache + "-runtime");
         var artifacts = new CaptionerArtifacts(Options());
         artifacts.Kind.Should().Be("captioner");
-        (await artifacts.IsAvailableOfflineAsync("fast", Ct)).Should().BeFalse("nothing is cached");
+        (await artifacts.IsAvailableOfflineAsync("entry", Ct)).Should().BeFalse("nothing is cached");
         Directory.Exists(_cache).Should().BeFalse("the check reads the cache only and writes nothing");
 
         SeedCachedFastModel();
 
-        (await artifacts.IsAvailableOfflineAsync("fast", Ct)).Should().BeTrue();
-        (await artifacts.GetRemainingDownloadAsync("fast", Ct)).ModelBytes.Should().Be(0);
+        (await artifacts.IsAvailableOfflineAsync("entry", Ct)).Should().BeTrue();
+        (await artifacts.GetRemainingDownloadAsync("entry", Ct)).ModelBytes.Should().Be(0);
     }
 
     [Fact]
@@ -80,15 +80,15 @@ public sealed class CaptionerArtifactsTests : IDisposable
 
         using (BundledRuntime.Use(_cache + "-runtime", present: false))
         {
-            (await artifacts.IsAvailableOfflineAsync("fast", Ct)).Should().BeFalse("a load would still need the ONNX Runtime");
-            (await artifacts.GetRemainingDownloadAsync("fast", Ct)).Should().Be(new RemainingDownload(0, null),
+            (await artifacts.IsAvailableOfflineAsync("entry", Ct)).Should().BeFalse("a load would still need the ONNX Runtime");
+            (await artifacts.GetRemainingDownloadAsync("entry", Ct)).Should().Be(new RemainingDownload(0, null),
                 "an application runtime directory that lacks it is not something a load downloads");
         }
 
         using (BundledRuntime.Use(_cache + "-runtime"))
         {
-            (await artifacts.IsAvailableOfflineAsync("fast", Ct)).Should().BeTrue();
-            (await artifacts.GetRemainingDownloadAsync("fast", Ct)).TotalBytes.Should().Be(0);
+            (await artifacts.IsAvailableOfflineAsync("entry", Ct)).Should().BeTrue();
+            (await artifacts.GetRemainingDownloadAsync("entry", Ct)).TotalBytes.Should().Be(0);
         }
     }
 
@@ -98,7 +98,7 @@ public sealed class CaptionerArtifactsTests : IDisposable
         using var runtime = BundledRuntime.Use(_cache + "-runtime");
         SeedCachedFastModel(skipOneFile: true);
 
-        (await LocalCaptioner.IsModelDownloadedAsync("fast", Options(), Ct)).Should().BeFalse("one file the load opens is missing");
+        (await LocalCaptioner.IsModelDownloadedAsync("entry", Options(), Ct)).Should().BeFalse("one file the load opens is missing");
     }
 
     [Fact]
@@ -109,9 +109,9 @@ public sealed class CaptionerArtifactsTests : IDisposable
         // Downloads disabled: the download must be satisfied from the cache, so this proves nothing is fetched.
         var artifacts = new CaptionerArtifacts(Options(downloadsDisabled: true));
 
-        await artifacts.DownloadAsync("fast", cancellationToken: Ct);
+        await artifacts.DownloadAsync("entry", cancellationToken: Ct);
 
-        (await artifacts.IsAvailableOfflineAsync("fast", Ct)).Should().BeTrue();
+        (await artifacts.IsAvailableOfflineAsync("entry", Ct)).Should().BeTrue();
     }
 
     [Fact]
@@ -121,10 +121,10 @@ public sealed class CaptionerArtifactsTests : IDisposable
         SeedCachedFastModel();
         var artifacts = new CaptionerArtifacts(Options());
 
-        artifacts.Delete("fast").Should().BeTrue();
+        artifacts.Delete("entry").Should().BeTrue();
 
-        (await artifacts.IsAvailableOfflineAsync("fast", Ct)).Should().BeFalse();
-        artifacts.Delete("fast").Should().BeFalse("nothing is left to delete");
+        (await artifacts.IsAvailableOfflineAsync("entry", Ct)).Should().BeFalse();
+        artifacts.Delete("entry").Should().BeFalse("nothing is left to delete");
     }
 
     [Fact]

@@ -16,6 +16,7 @@ public static class DetectorModels
     {
         Id = "xnorpx/rt-detr2-onnx:s",
         AliasName = "default",
+        Tier = ModelTier.Basic,
         DisplayName = "RT-DETR v2 Small",
         Architecture = "RT-DETR",
         ParametersM = 20f,
@@ -35,7 +36,8 @@ public static class DetectorModels
     public static DetectorModelInfo RtDetrV2M { get; } = new()
     {
         Id = "xnorpx/rt-detr2-onnx:m",
-        AliasName = "quality",
+        AliasName = "balanced",
+        Tier = ModelTier.Balanced,
         DisplayName = "RT-DETR v2 Medium",
         Architecture = "RT-DETR",
         ParametersM = 36f,
@@ -55,7 +57,8 @@ public static class DetectorModels
     public static DetectorModelInfo RtDetrV2L { get; } = new()
     {
         Id = "xnorpx/rt-detr2-onnx:l",
-        AliasName = "large",
+        AliasName = "advanced",
+        Tier = ModelTier.Advanced,
         DisplayName = "RT-DETR v2 Large",
         Architecture = "RT-DETR",
         ParametersM = 42f,
@@ -75,7 +78,8 @@ public static class DetectorModels
     public static DetectorModelInfo RtDetrV2MS { get; } = new()
     {
         Id = "xnorpx/rt-detr2-onnx:ms",
-        AliasName = "fast",
+        AliasName = "entry",
+        Tier = ModelTier.Entry,
         DisplayName = "RT-DETR v2 Mini-Small",
         Architecture = "RT-DETR",
         ParametersM = 15f,
@@ -95,7 +99,8 @@ public static class DetectorModels
     public static DetectorModelInfo RtDetrV2X { get; } = new()
     {
         Id = "xnorpx/rt-detr2-onnx:x",
-        AliasName = "xlarge",
+        AliasName = "frontier",
+        Tier = ModelTier.Frontier,
         DisplayName = "RT-DETR v2 XLarge",
         Architecture = "RT-DETR",
         ParametersM = 76f,

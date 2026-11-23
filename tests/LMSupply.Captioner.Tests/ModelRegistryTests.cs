@@ -22,8 +22,8 @@ public class ModelRegistryTests
     [Fact]
     public void TryResolve_WithFastAlias_ShouldReturnVitGpt2()
     {
-        // Act — "fast" now aliases to VitGpt2 (git-base-coco repo became inaccessible)
-        var result = CaptionerModelRegistry.Default.TryResolve("fast", out var modelInfo);
+        // Act — "entry" now aliases to VitGpt2 (git-base-coco repo became inaccessible)
+        var result = CaptionerModelRegistry.Default.TryResolve("entry", out var modelInfo);
 
         // Assert
         result.Should().BeTrue();
@@ -40,7 +40,7 @@ public class ModelRegistryTests
         // Assert
         result.Should().BeTrue();
         modelInfo.Should().NotBeNull();
-        modelInfo!.AliasName.Should().Be("fast");
+        modelInfo!.AliasName.Should().Be("entry");
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public class ModelRegistryTests
         var aliasNames = aliases.Select(a => a.Name).ToList();
         aliasNames.Should().Contain("auto");
         aliasNames.Should().Contain("default");
-        aliasNames.Should().Contain("fast");
+        aliasNames.Should().Contain("entry");
     }
 
     [Fact]
@@ -162,7 +162,7 @@ public class ModelRegistryTests
     public void VitGpt2Model_ShouldHaveCorrectConfiguration()
     {
         // Act
-        var model = CaptionerModelRegistry.Default.Resolve("fast");
+        var model = CaptionerModelRegistry.Default.Resolve("entry");
 
         // Assert
         model.EncoderFile.Should().Be("encoder_model.onnx");
@@ -179,7 +179,7 @@ public class ModelRegistryTests
     public void VitGpt2Model_ShouldUseViTGpt2PreprocessProfile()
     {
         // Act
-        var model = CaptionerModelRegistry.Default.Resolve("fast");
+        var model = CaptionerModelRegistry.Default.Resolve("entry");
 
         // Assert
         model.PreprocessProfile.Width.Should().Be(224);

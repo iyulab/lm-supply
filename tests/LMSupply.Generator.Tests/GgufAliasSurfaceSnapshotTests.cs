@@ -35,19 +35,19 @@ public class GgufAliasSurfaceSnapshotTests
     private static readonly string[] KnownAliases =
     [
         "gguf:auto",
-        "gguf:gemma4-balanced",
-        "gguf:gemma4-default",
-        "gguf:gemma4-fast",
-        "gguf:gemma4-large",
-        "gguf:gemma4-quality",
+        "gguf:gemma4-e4b-q8_0",
+        "gguf:gemma4-e4b",
+        "gguf:gemma4-e2b",
+        "gguf:gemma4-31b",
+        "gguf:gemma4-26b-a4b",
         "gguf:phi-4-mini",
         "gguf:qwen2.5-7b",
-        "gguf:qwen3-balanced",
-        "gguf:qwen3-default",
-        "gguf:qwen3-fast",
-        "gguf:qwen3-large",
-        "gguf:qwen3-quality",
-        "gguf:xlarge"
+        "gguf:balanced",
+        "gguf:basic",
+        "gguf:entry",
+        "gguf:qwen3.6-35b-a3b-q4_k_m",
+        "gguf:advanced",
+        "gguf:frontier"
     ];
 
     [Fact]

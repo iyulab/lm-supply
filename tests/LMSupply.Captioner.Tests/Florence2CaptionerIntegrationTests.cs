@@ -19,7 +19,7 @@ public sealed class Florence2CaptionerIntegrationTests
     [Fact]
     public async Task Quality_NamesTheFruitInABowlOfFruit()
     {
-        await using var captioner = await LocalCaptioner.LoadAsync("quality", cancellationToken: Ct);
+        await using var captioner = await LocalCaptioner.LoadAsync("basic", cancellationToken: Ct);
 
         var result = await captioner.CaptionAsync(Fixture("fruit-bowl.jpg"), Ct);
 
@@ -30,9 +30,9 @@ public sealed class Florence2CaptionerIntegrationTests
     [Fact]
     public async Task Quality_DetailedCaptionIsLongerThanTheBriefOne()
     {
-        await using var brief = await LocalCaptioner.LoadAsync("quality", cancellationToken: Ct);
+        await using var brief = await LocalCaptioner.LoadAsync("basic", cancellationToken: Ct);
         await using var detailed = await LocalCaptioner.LoadAsync(
-            "quality", new CaptionerOptions { Detail = CaptionDetail.Paragraph, MaxLength = 150 }, cancellationToken: Ct);
+            "basic", new CaptionerOptions { Detail = CaptionDetail.Paragraph, MaxLength = 150 }, cancellationToken: Ct);
 
         var b = await brief.CaptionAsync(Fixture("fruit-bowl.jpg"), Ct);
         var d = await detailed.CaptionAsync(Fixture("fruit-bowl.jpg"), Ct);
@@ -41,8 +41,8 @@ public sealed class Florence2CaptionerIntegrationTests
     }
 
     [Theory]
-    [InlineData("quality")]
-    [InlineData("fast")]
+    [InlineData("basic")]
+    [InlineData("entry")]
     public async Task BeamSearch_ReturnsTheBestCaption_AndTheRunnersUp(string alias)
     {
         await using var captioner = await LocalCaptioner.LoadAsync(alias, new CaptionerOptions { NumBeams = 3 }, cancellationToken: Ct);
@@ -58,7 +58,7 @@ public sealed class Florence2CaptionerIntegrationTests
     public async Task PromptTokens_MatchTheReferenceTokenizer()
     {
         // The ids Hugging Face's Florence-2 processor produces for the <CAPTION> task (tokenizers 0.23).
-        await using var captioner = await LocalCaptioner.LoadAsync("quality", cancellationToken: Ct);
+        await using var captioner = await LocalCaptioner.LoadAsync("basic", cancellationToken: Ct);
         var modelDir = Path.GetDirectoryName(Directory.GetFiles(
             Path.Combine(LMSupply.Download.CacheManager.GetDefaultCacheDirectory()), "vision_encoder*.onnx", SearchOption.AllDirectories)
             .First(p => p.Contains("Florence-2-base-ft", StringComparison.Ordinal)))!;
@@ -72,7 +72,7 @@ public sealed class Florence2CaptionerIntegrationTests
     public async Task DownloadSize_MatchesTheVariantTheLoadPicks()
     {
         var fp16 = await LocalCaptioner.GetDownloadSizeBytesAsync("quality:fp16", cancellationToken: Ct);
-        var int8 = await LocalCaptioner.GetDownloadSizeBytesAsync("quality", new CaptionerOptions { QuantizationHint = "int8" }, Ct);
+        var int8 = await LocalCaptioner.GetDownloadSizeBytesAsync("basic", new CaptionerOptions { QuantizationHint = "int8" }, Ct);
 
         int8.Should().BeInRange(250_000_000, 300_000_000);
         fp16.Should().BeGreaterThan(int8);

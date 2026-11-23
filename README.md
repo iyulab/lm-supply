@@ -64,7 +64,7 @@ float[] embedding = await model.EmbedAsync("Hello, world!");
 | [LMSupply.Reranker](docs/reranker.md) | Semantic reranking for search (`GetDownloadSizeBytesAsync`; `Describe` — name, backend and licence of what an id loads, GGUF aliases included) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Reranker.svg)](https://www.nuget.org/packages/LMSupply.Reranker) |
 | [LMSupply.Decider](docs/decider.md) | Typed decisions from a local model — choice, yes/no and score questions about a state, with a probability for every answer | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Decider.svg)](https://www.nuget.org/packages/LMSupply.Decider) |
 | [LMSupply.Generator](docs/generator.md) | Text generation & chat (ONNX + GGUF) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Generator.svg)](https://www.nuget.org/packages/LMSupply.Generator) |
-| [LMSupply.Captioner](docs/captioner.md) | Image → Text captioning (`default`/`quality` Florence-2 with brief/detailed/paragraph captions · `fast` ViT-GPT2; `GetDownloadSizeBytesAsync`) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Captioner.svg)](https://www.nuget.org/packages/LMSupply.Captioner) |
+| [LMSupply.Captioner](docs/captioner.md) | Image → Text captioning (`default`/`basic` Florence-2 with brief/detailed/paragraph captions · `entry` ViT-GPT2; `GetDownloadSizeBytesAsync`) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Captioner.svg)](https://www.nuget.org/packages/LMSupply.Captioner) |
 | [LMSupply.Ocr](docs/ocr.md) | Document OCR (`GetDownloadSizeBytesAsync` per language) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Ocr.svg)](https://www.nuget.org/packages/LMSupply.Ocr) |
 | [LMSupply.Detector](docs/detector.md) | Object detection | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Detector.svg)](https://www.nuget.org/packages/LMSupply.Detector) |
 | [LMSupply.Segmenter](docs/segmenter.md) | Image segmentation | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Segmenter.svg)](https://www.nuget.org/packages/LMSupply.Segmenter) |
@@ -247,7 +247,7 @@ string response = await generator.GenerateCompleteAsync("What is machine learnin
 
 // Fallback chain — try candidates in order, load first that succeeds
 await using var robust = await LocalGenerator.LoadWithFallbackChainAsync(
-    ["gguf:phi-4-mini", "gguf:qwen3-default"],
+    ["gguf:phi-4-mini", "gguf:basic"],
     onFailure: (id, ex) => Console.WriteLine($"Skipped {id}: {ex.Message}"));
 
 // Quality floor — prefer a specific model in 'auto' selection, fall back if unavailable
@@ -287,7 +287,7 @@ JSON output and usage included, whole or streamed. The client does not own the g
 using LMSupply.Generator;
 using Microsoft.Extensions.AI;
 
-await using var generator = await LocalGenerator.LoadAsync("gguf:gemma4-default");
+await using var generator = await LocalGenerator.LoadAsync("gguf:gemma4-e4b");
 IChatClient chat = generator.AsChatClient();
 
 var answer = await chat.GetResponseAsync("Name three primary colours.", new ChatOptions { MaxOutputTokens = 100 });
@@ -405,9 +405,9 @@ sealed class MyPhonemizer : IPhonemizer
 | Alias | Model | Dims | Params | Context | Best For |
 |-------|-------|------|--------|---------|----------|
 | `default` | bge-m3 | 1024 | 568M | 8192 | SOTA multilingual, 100+ languages (v0.34+) |
-| `quality` | bge-m3 | 1024 | 568M | 8192 | Same as `default`; for pipelines that pin quality tier |
-| `fast` | multilingual-e5-small | 384 | 118M | 512 | Lightweight multilingual, low latency |
-| `large` | multilingual-e5-large | 1024 | 560M | 512 | Highest dense quality, 100+ languages |
+| `basic` | bge-m3 | 1024 | 568M | 8192 | The same model as `default` |
+| `entry` | multilingual-e5-small | 384 | 118M | 512 | Lightweight multilingual, low latency |
+| `multilingual-e5-large` | multilingual-e5-large | 1024 | 560M | 512 | Highest dense quality, 100+ languages; holds no rung |
 
 ### Embedder (GGUF via llama-server)
 
@@ -426,12 +426,13 @@ GGUF models are auto-detected by `-GGUF` or `_gguf` in repo name, or `.gguf` fil
 | Alias | Model | Params | Context | Best For |
 |-------|-------|--------|---------|----------|
 | `default` | ms-marco-MiniLM-L-6-v2 | 22M | 512 | Balanced speed/quality |
-| `fast` | ms-marco-TinyBERT-L-2-v2 | 4.4M | 512 | Ultra-low latency |
-| `quality` | bge-reranker-base | 278M | 512 | Higher accuracy |
-| `large` | bge-reranker-large | 560M | 512 | Best accuracy |
+| `entry` | ms-marco-TinyBERT-L-2-v2 | 4.4M | 512 | Ultra-low latency |
+| `basic` | ms-marco-MiniLM-L-6-v2 | 22M | 512 | The same model as `default` |
+| `balanced` | bge-reranker-base | 278M | 512 | Higher accuracy |
+| `advanced` | bge-reranker-large | 560M | 512 | Best accuracy |
 | `multilingual` | bge-reranker-v2-m3 | 568M | 8192 | Long docs, 100+ languages |
 
-`quality` and `large` were trained on English and Chinese; for other languages use `multilingual` or `multilingual-fast`.
+`balanced` and `advanced` were trained on English and Chinese; for other languages use `multilingual` or `multilingual-fast`.
 
 ### Reranker (GGUF via llama-server)
 
@@ -467,34 +468,34 @@ before the first ONNX load:
 | Alias | Model | Params | Context | License | Notes |
 |-------|-------|--------|---------|---------|-------|
 | `phi-4-mini` | Phi-4-mini-instruct | 3.8B | 16K | MIT | Smallest FC-capable ONNX model |
-| `fast` | Phi-4-mini-instruct | 3.8B | 16K | MIT | Same as `phi-4-mini` |
-| `quality` | phi-4 | 14B | 16K | MIT | Best reasoning |
+| `entry` | Phi-4-mini-instruct | 3.8B | 16K | MIT | Same as `phi-4-mini` |
+| `advanced` | phi-4 | 14B | 16K | MIT | Best reasoning (also `phi-4`) |
 | `phi-3.5-mini` | Phi-3.5-mini-instruct | 3.8B | 128K | MIT | Long context (legacy) |
 
 **GGUF aliases** (via llama-server):
 
-The registry centers on the Gemma 4 and Qwen3 series. `gguf:auto` (and `"default"`/`"auto"`, which follow the same rule) picks from the **qwen3 auto-pool** (qwen3-fast/default/balanced/quality) the largest model that fits VRAM; when VRAM is insufficient, it picks the largest model that fits the system RAM budget (system RAM − 4 GB, at most half). With `GeneratorOptions.AutoSelectionGoal = Responsive`, it picks the smallest model on that path instead. Selection is based on the requested `MaxContextLength`. Setting `Provider = ExecutionProvider.Cpu` considers system RAM only and skips GPU detection. Use the Gemma 4 aliases by naming them explicitly or for hard-coded workloads.
+The registry centers on the Gemma 4 and Qwen3 series. `gguf:auto` (and `"default"`/`"auto"`, which follow the same rule) picks from the **qwen3 auto-pool** (entry/basic/balanced/advanced) the largest model that fits VRAM; when VRAM is insufficient, it picks the largest model that fits the system RAM budget (system RAM − 4 GB, at most half). With `GeneratorOptions.AutoSelectionGoal = Responsive`, it picks the smallest model on that path instead. Selection is based on the requested `MaxContextLength`. Setting `Provider = ExecutionProvider.Cpu` considers system RAM only and skips GPU detection. Use the Gemma 4 aliases by naming them explicitly or for hard-coded workloads.
 
 **Gemma 4 aliases** (Apache 2.0, multimodal, native function calling; requires llama.cpp **b8672+**):
 
 | Alias | Model | Params | Quant | Size | VRAM Target |
 |-------|-------|--------|-------|------|-------------|
-| `gguf:gemma4-fast` | Gemma 4 E2B Instruct | 2.3B | Q4_K_M | ~3.1 GB | <4GB iGPU/mobile |
-| `gguf:gemma4-default` | Gemma 4 E4B Instruct | 4.5B | Q4_0 | ~4.6 GB | 4-8GB |
-| `gguf:gemma4-balanced` | Gemma 4 E4B Instruct | 4.5B | Q8_0 | ~7.5 GB | 8-16GB (e.g. RTX 3060 12GB) |
-| `gguf:gemma4-quality` | Gemma 4 26B A4B (MoE) | 26B (4B active) | Q4_0 | ~13.6 GB | 16-20GB |
-| `gguf:gemma4-large` | Gemma 4 31B Instruct | 31B | Q4_0 | ~16.8 GB | 20-48GB |
+| `gguf:gemma4-e2b` | Gemma 4 E2B Instruct | 2.3B | Q4_K_M | ~3.1 GB | <4GB iGPU/mobile |
+| `gguf:gemma4-e4b` | Gemma 4 E4B Instruct | 4.5B | Q4_0 | ~4.6 GB | 4-8GB |
+| `gguf:gemma4-e4b-q8_0` | Gemma 4 E4B Instruct | 4.5B | Q8_0 | ~7.5 GB | 8-16GB (e.g. RTX 3060 12GB) |
+| `gguf:gemma4-26b-a4b` | Gemma 4 26B A4B (MoE) | 26B (4B active) | Q4_0 | ~13.6 GB | 16-20GB |
+| `gguf:gemma4-31b` | Gemma 4 31B Instruct | 31B | Q4_0 | ~16.8 GB | 20-48GB |
 
 **Qwen3/3.5/3.6 aliases** (Apache 2.0, ChatML, thinking mode; `gguf:auto` pool):
 
 | Alias | Model | Params | Quant | Size | VRAM Target | Notes |
 |-------|-------|--------|-------|------|-------------|-------|
 | `gguf:auto` | Hardware-optimized (qwen3 pool) | varies | varies | varies | Auto-select | |
-| `gguf:qwen3-fast` | Qwen 3.5 2B Instruct | 2B | Q4_K_M | ~1.5 GB | <3GB | |
-| `gguf:qwen3-default` | Qwen 3.5 4B Instruct | 4B | Q4_K_M | ~3.0 GB | 4-6GB | thinking ON by default |
-| `gguf:qwen3-balanced` | Qwen 3.5 9B Instruct | 9B | Q4_K_M | ~5.7 GB | 6-10GB | |
-| `gguf:qwen3-quality` | Qwen 3.6 35B A3B Instruct (IQ4_XS, MoE) | 35B (3B active) | IQ4_XS | ~17.7 GB | 20-24GB | thinking ON by default |
-| `gguf:qwen3-large` | Qwen 3.6 35B A3B Instruct (Q4_K_M, MoE) | 35B (3B active) | Q4_K_M | ~22.1 GB | 24GB+ | thinking ON; auto-pool excluded |
+| `gguf:entry` | Qwen 3.5 2B Instruct | 2B | Q4_K_M | ~1.5 GB | <3GB | |
+| `gguf:basic` | Qwen 3.5 4B Instruct | 4B | Q4_K_M | ~3.0 GB | 4-6GB | thinking ON by default |
+| `gguf:balanced` | Qwen 3.5 9B Instruct | 9B | Q4_K_M | ~5.7 GB | 6-10GB | |
+| `gguf:advanced` | Qwen 3.6 35B A3B Instruct (IQ4_XS, MoE) | 35B (3B active) | IQ4_XS | ~17.7 GB | 20-24GB | thinking ON by default |
+| `gguf:qwen3.6-35b-a3b-q4_k_m` | Qwen 3.6 35B A3B Instruct (Q4_K_M, MoE) | 35B (3B active) | Q4_K_M | ~22.1 GB | 24GB+ | thinking ON; auto-pool excluded |
 
 **Other aliases:**
 
@@ -502,7 +503,7 @@ The registry centers on the Gemma 4 and Qwen3 series. `gguf:auto` (and `"default
 |-------|-------|--------|-------|------|-------------|
 | `gguf:phi-4-mini` | Phi-4 Mini Instruct | 3.8B | Q4_K_M | ~2.4 GB | <4GB |
 | `gguf:qwen2.5-7b` | Qwen 2.5 7B Instruct | 7.6B | Q4_K_M | ~4.7 GB | 6-8GB |
-| `gguf:xlarge` | Qwen 3.5 122B A10B (MoE, split) | 122B (10B active) | Q4_K_M | ~76.5 GB (3 shards) | 48GB+ server |
+| `gguf:frontier` | Qwen 3.5 122B A10B (MoE, split) | 122B (10B active) | Q4_K_M | ~76.5 GB (3 shards) | 48GB+ server |
 
 ### Translator
 
@@ -517,14 +518,14 @@ The registry centers on the Gemma 4 and Qwen3 series. `gguf:auto` (and `"default
 
 | Alias | Model | Params | Size | WER | Best For |
 |-------|-------|--------|------|-----|----------|
-| `fast` | Whisper Tiny | 39M | ~150MB | 7.6% | Ultra-fast transcription |
-| `default` | Whisper Base | 74M | ~290MB | 5.0% | Balanced speed/quality |
-| `quality` | Whisper Small | 244M | ~970MB | 3.4% | Higher accuracy |
+| `entry` | Whisper Tiny | 39M | ~150MB | 7.6% | Ultra-fast transcription |
+| `default` (`basic`) | Whisper Base | 74M | ~290MB | 5.0% | Balanced speed/quality |
+| `balanced` | Whisper Small | 244M | ~970MB | 3.4% | Higher accuracy |
 | `medium` | Whisper Medium.en | 769M | ~3GB | 2.9% | English, word-level timestamps |
-| `large` | Whisper Large V3 | 1.5B | ~6GB | 2.5% | Best accuracy |
-| `turbo` | Whisper Large V3 Turbo | 809M | ~3.2GB | 2.7% | Near-V3 quality, much faster |
+| `frontier` | Whisper Large V3 | 1.5B | ~6GB | 2.5% | Best accuracy |
+| `turbo` (`advanced`) | Whisper Large V3 Turbo | 809M | ~3.2GB | 2.7% | Near-V3 quality, much faster |
 | `distil` | Distil-Whisper Large V3 | 756M | ~3GB | 2.8% | Fast distilled model, English |
-| `large-ko` | Whisper Large V3 Turbo (Korean fine-tune) | 809M | ~3.2GB | — | Korean speech |
+| `turbo-ko` | Whisper Large V3 Turbo (Korean fine-tune) | 809M | ~3.2GB | — | Korean speech |
 | `english` | Whisper Base.en | 74M | ~290MB | 4.3% | English-optimized |
 | `parakeet-tdt` | NVIDIA Parakeet TDT 0.6B v3 (int8, not Whisper) | 600M | ~670MB | — | Fast CPU transcription, 25 European languages; no translation |
 
@@ -534,8 +535,8 @@ The registry centers on the Gemma 4 and Qwen3 series. `gguf:auto` (and `"default
 |-------|-------|----------|-------------|---------------|
 | `default` | LJSpeech | en-US | 22050 Hz | Public domain |
 | `lessac` | Lessac | en-US | 22050 Hz | Blizzard 2013 research (non-commercial) |
-| `fast` | Ryan | en-US | 16000 Hz | CC BY-NC-SA 4.0 |
-| `quality` | Amy | en-US | 22050 Hz | Unspecified |
+| `ryan` | Ryan | en-US | 16000 Hz | CC BY-NC-SA 4.0 |
+| `amy` | Amy | en-US | 22050 Hz | Unspecified |
 | `british` | Semaine | en-GB | 22050 Hz | CC BY-NC-SA 4.0 |
 | `korean` | KSS | ko-KR | 22050 Hz | CC BY-NC-SA 4.0 |
 | `chinese` | Huayan | zh-CN | 22050 Hz | Unknown |
@@ -573,7 +574,7 @@ LMSupply detects your hardware and selects models accordingly:
 
 ### GGUF Models (via `gguf:auto`)
 
-`gguf:auto` selects from the **Qwen3 auto-pool** (`qwen3-fast`, `qwen3-default`, `qwen3-balanced`, `qwen3-quality`) based on VRAM. Models with `thinking-enabled-by-default` generate reasoning before the answer. Two independent controls:
+`gguf:auto` selects from the **Qwen3 auto-pool** (`entry`, `basic`, `balanced`, `advanced`) based on VRAM. Models with `thinking-enabled-by-default` generate reasoning before the answer. Two independent controls:
 
 - **`Thinking = ThinkingMode.Off`** — tells the model not to think at all (forwards `enable_thinking=false` to the chat template), so it answers directly and spends no tokens on reasoning. Best for latency/cost. `ThinkingMode.Auto` (default) keeps the model's own default; `ThinkingMode.On` forces it on.
 - **`FilterReasoningTokens = true`** — lets the model think but strips the `<think>...</think>` block from the returned text (reasoning is still generated). Use when you want the reasoning to happen but not surface.
@@ -587,10 +588,10 @@ Low-end/quantized models (the `FallbackToSmallest` tier below) are prone to *deg
 
 | Performance Tier | Free VRAM | Selected Model | Notes |
 |------------------|-----------|----------------|-------|
-| **Low** | CPU or <3GB | `gguf:qwen3-fast` (Qwen 3.5 2B) | FallbackToSmallest |
-| **Medium** | 4-6GB | `gguf:qwen3-default` (Qwen 3.5 4B) | thinking ON |
-| **High** | 6-10GB | `gguf:qwen3-balanced` (Qwen 3.5 9B) | |
-| **Ultra** | 20-24GB | `gguf:qwen3-quality` (Qwen 3.6 35B MoE) | thinking ON |
+| **Low** | CPU or <3GB | `gguf:entry` (Qwen 3.5 2B) | FallbackToSmallest |
+| **Medium** | 4-6GB | `gguf:basic` (Qwen 3.5 4B) | thinking ON |
+| **High** | 6-10GB | `gguf:balanced` (Qwen 3.5 9B) | |
+| **Ultra** | 20-24GB | `gguf:advanced` (Qwen 3.6 35B MoE) | thinking ON |
 
 #### Which models to offer on this machine
 
@@ -636,7 +637,7 @@ It reads one repository listing (the one the download that follows reuses) and d
 - **Zero configuration** - Just use `"auto"`, no hardware research needed
 - **Optimal performance** - Larger models on capable hardware
 - **Graceful degradation** - Smaller models on limited hardware
-- **Backward compatible** - Existing aliases (`"default"`, `"fast"`, `"quality"`) still work
+- **Backward compatible** - The `"default"` alias keeps working; the size adjectives `"fast"`, `"quality"` and `"large"` are retired in favour of the rungs `entry`, `basic`, `balanced`, `advanced`, `frontier` (see the CHANGELOG)
 
 ---
 
@@ -799,7 +800,7 @@ When set to a positive integer, the override is applied **before any safety marg
 
 **Quantization-aware downscale (low-spec).** After the model family is chosen, the download step picks the quantization file that fits the *backend-consistent* memory budget (VRAM on a GPU backend, RAM on a CPU/integrated-GPU backend), with the model's KV cache for the requested `MaxContextLength` (each registered alias records its cache layout, `GgufModelInfo.KvCacheBytesPerToken`). A capable host keeps the registry's default quant (e.g. `Q4_K_M`); a tight-memory host **downscales to a smaller quant** (`Q4 → Q3 → Q2`) so it loads instead of OOMing on the default. If no quant fits, the smallest is used with a `Trace.TraceWarning` (OOM risk surfaced, not silent). An explicit GPU pin or `preferredQuantization` is honored as-is. A cached quant is reused only when it fits the budget.
 
-**Which file was loaded.** `GetModelInfo()` describes the file the load opened, not the alias's default: `ModelId` names the loaded quantization (`gguf:gemma4-balanced` loaded as Q4_0 reports `Gemma 4 E4B Instruct (Q4_0)`), `RequestedModelId` is the id you passed, `RequestedFile` / `LoadedFile` are the alias's default and the file opened, and `IsQuantizationSubstituted` says a smaller quant stood in — so a UI can show what runs and why.
+**Which file was loaded.** `GetModelInfo()` describes the file the load opened, not the alias's default: `ModelId` names the loaded quantization (`gguf:gemma4-e4b-q8_0` loaded as Q4_0 reports `Gemma 4 E4B Instruct (Q4_0)`), `RequestedModelId` is the id you passed, `RequestedFile` / `LoadedFile` are the alias's default and the file opened, and `IsQuantizationSubstituted` says a smaller quant stood in — so a UI can show what runs and why.
 
 **Simulating a low-spec / RAM-limited host.** Set `LMSUPPLY_SYSTEM_RAM_MB` to force the RAM budget below physical RAM (mirrors `LMSUPPLY_VRAM_BUDGET_MB` for VRAM). Use it to match a container/cgroup memory limit, or to exercise the downscale path on a high-RAM dev box:
 
@@ -891,7 +892,7 @@ Use predefined aliases for quick access to popular models:
 ```csharp
 await using var embedder = await LocalEmbedder.LoadAsync("default");       // bge-m3 (multilingual SOTA)
 await using var fitted = await LocalGenerator.LoadAsync("gguf:auto");        // Hardware-optimized
-await using var qwen = await LocalGenerator.LoadAsync("gguf:qwen3-balanced"); // Qwen 3.5 9B
+await using var qwen = await LocalGenerator.LoadAsync("gguf:balanced"); // Qwen 3.5 9B
 ```
 
 ### 2. HuggingFace Repository ID (Full control)
@@ -911,7 +912,7 @@ await using var llama = await LocalGenerator.LoadAsync("bartowski/Llama-3.2-3B-I
 await using var coder = await LocalGenerator.LoadAsync("bartowski/Qwen2.5-Coder-7B-Instruct-GGUF");
 
 // Vision models
-await using var captioner = await LocalCaptioner.LoadAsync("Xenova/vit-gpt2-image-captioning"); // = "fast"; ViT-GPT2 and Florence-2 ("default") layouts are supported
+await using var captioner = await LocalCaptioner.LoadAsync("Xenova/vit-gpt2-image-captioning"); // = "entry"; ViT-GPT2 and Florence-2 ("default") layouts are supported
 await using var detector = await LocalDetector.LoadAsync("onnx-community/yolov8s");
 ```
 
@@ -956,7 +957,7 @@ environment variable). Top-level keys are per-module domains; loading is fail-so
 
 ```jsonc
 {
-  "generator": { "my-writer": "gguf:qwen3-quality" },
+  "generator": { "my-writer": "gguf:advanced" },
   "embedder":  { "my-embed": "BAAI/bge-m3" }
 }
 ```
@@ -974,7 +975,7 @@ file entries (last write wins). Alias names may not shadow system aliases
 (`default`, `auto`, ...) and may not contain `:` (reserved for variant qualifiers):
 
 ```csharp
-LocalGenerator.Registry.RegisterAlias("my-writer", "gguf:qwen3-quality");
+LocalGenerator.Registry.RegisterAlias("my-writer", "gguf:advanced");
 LocalEmbedder.Registry.RegisterAlias("my-embed", "BAAI/bge-m3");
 ```
 
@@ -1180,8 +1181,8 @@ using var dialog = new CancellationTokenSource();                          // ca
 await models.DownloadAsync("generator", "gguf:default", DownloadWaitMode.CancelWhenAbandoned, dialog.Token);
 ```
 
-A `gguf:` registry alias deletes the file it loads on this host (every shard of a split model) — `gguf:gemma4-default` and
-`gguf:gemma4-balanced` are two quantizations of one repository, and deleting one keeps the other; any other id names one
+A `gguf:` registry alias deletes the file it loads on this host (every shard of a split model) — `gguf:gemma4-e4b` and
+`gguf:gemma4-e4b-q8_0` are two quantizations of one repository, and deleting one keeps the other; any other id names one
 model per repository and deletes LMSupply's files of it. A delete removes LMSupply's own files only — another tool's snapshot
 in the shared cache, a local path and llama-server stay (a model still `Ready` after `DeleteAsync` loads from those). Without
 a lifecycle, `LocalGenerator.DeleteModel(id, options)`, `LocalEmbedder.DeleteModel(id, options)`,

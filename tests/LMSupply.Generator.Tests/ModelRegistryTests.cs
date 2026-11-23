@@ -23,7 +23,7 @@ public class ModelRegistryTests
     {
         // Fast alias now points to Phi4Mini (smallest FC-capable ONNX model)
         // Act
-        var model = GeneratorModelRegistry.Default.Resolve("fast");
+        var model = GeneratorModelRegistry.Default.Resolve("entry");
 
         // Assert
         model.Should().NotBeNull();
@@ -34,7 +34,7 @@ public class ModelRegistryTests
     public void Resolve_WithQualityAlias_ReturnsPhi4()
     {
         // Act
-        var model = GeneratorModelRegistry.Default.Resolve("quality");
+        var model = GeneratorModelRegistry.Default.Resolve("advanced");
 
         // Assert
         model.Should().NotBeNull();
@@ -121,8 +121,8 @@ public class ModelRegistryTests
         var aliasNames = aliases.Select(a => a.Name).ToList();
         aliasNames.Should().Contain("auto");
         aliasNames.Should().Contain("phi-4-mini");
-        aliasNames.Should().Contain("fast");
-        aliasNames.Should().Contain("quality");
+        aliasNames.Should().Contain("entry");
+        aliasNames.Should().Contain("advanced");
     }
 
     [Fact]
@@ -215,10 +215,10 @@ public class ModelRegistryTests
     }
 
     [Fact]
-    public void DefaultGeneratorModels_Fast_ShouldBePhi4Mini()
+    public void DefaultGeneratorModels_Entry_ShouldBePhi4Mini()
     {
         // Phi4Mini is the smallest FC-capable ONNX model
-        DefaultGeneratorModels.Fast.Should().Be(DefaultGeneratorModels.Phi4Mini);
+        DefaultGeneratorModels.Entry.Should().Be(DefaultGeneratorModels.Phi4Mini);
     }
 
     [Fact]

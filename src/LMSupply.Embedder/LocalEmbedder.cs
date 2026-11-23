@@ -274,7 +274,9 @@ public static class LocalEmbedder
     }
 
     private static ModelNotFoundException UnknownModel(string modelIdOrPath) => new(
-        $"Unknown model '{modelIdOrPath}'. Use a known catalog alias (e.g., 'default', 'fast'), " +
+        $"Unknown model '{modelIdOrPath}'. " +
+        (EmbedderModelRegistry.Default.DescribeRetiredAlias(modelIdOrPath) is { } retired ? retired + " " : "") +
+        "Use a known catalog alias (e.g., 'default', 'entry'), " +
         "a HuggingFace repo ID (e.g., 'sentence-transformers/all-MiniLM-L6-v2'), " +
         "or a local path to an ONNX model file.",
         modelIdOrPath);

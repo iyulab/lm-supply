@@ -326,7 +326,6 @@ public class InteractiveSegmentationTests
         SegmenterModels.SegFormerB0.IsInteractive.Should().BeFalse();
         SegmenterModels.MediaPipeSelfie.IsInteractive.Should().BeFalse();
         SegmenterModels.MaskFormerResNet50.IsInteractive.Should().BeFalse();
-        SegmenterModels.SegFormerB0Large.IsInteractive.Should().BeFalse();
     }
 
     #endregion

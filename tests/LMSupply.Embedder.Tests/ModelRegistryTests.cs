@@ -44,7 +44,7 @@ public class ModelRegistryTests
 
         aliases.Should().NotBeEmpty();
         aliases.Select(a => a.Name).Should().Contain("default");
-        aliases.Select(a => a.Name).Should().Contain("fast");
+        aliases.Select(a => a.Name).Should().Contain("entry");
         aliases.Select(a => a.Name).Should().Contain("auto");
     }
 
@@ -74,7 +74,7 @@ public class ModelRegistryTests
     [Fact]
     public void FastAlias_PointsToMultilingualE5Small()
     {
-        _registry.TryResolve("fast", out var info);
+        _registry.TryResolve("entry", out var info);
 
         info.Should().NotBeNull();
         info!.RepoId.Should().Be("intfloat/multilingual-e5-small");
@@ -83,7 +83,7 @@ public class ModelRegistryTests
     [Fact]
     public void QualityAlias_PointsToBgeM3()
     {
-        _registry.TryResolve("quality", out var info);
+        _registry.TryResolve("basic", out var info);
 
         info.Should().NotBeNull();
         info!.RepoId.Should().Be("BAAI/bge-m3");
@@ -171,8 +171,7 @@ public class ModelRegistryTests
     // --- Query/passage prefix convention ---
 
     [Theory]
-    [InlineData("fast", "query: ", "passage: ", "query: ")]
-    [InlineData("large", "query: ", "passage: ", "query: ")]
+    [InlineData("entry", "query: ", "passage: ", "query: ")]
     [InlineData("e5-small-v2", "query: ", "passage: ", "query: ")]
     [InlineData("e5-base-v2", "query: ", "passage: ", "query: ")]
     [InlineData("multilingual-e5-small", "query: ", "passage: ", "query: ")]
@@ -207,7 +206,7 @@ public class ModelRegistryTests
 
     [Theory]
     [InlineData("default")] // BGE-M3
-    [InlineData("quality")] // BGE-M3
+    [InlineData("basic")] // BGE-M3
     [InlineData("all-mpnet-base-v2")]
     [InlineData("gte-large-en-v1.5")]
     public void NonPrefixModels_HaveNoPromptPrefixes(string modelId)

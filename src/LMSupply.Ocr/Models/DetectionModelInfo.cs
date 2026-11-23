@@ -22,6 +22,12 @@ public record DetectionModelInfo(
     /// </summary>
     public string? Description => DisplayName;
 
+    /// <summary>
+    /// The rung this model holds on the domain's ladder (<see cref="ModelTier"/>), or <see langword="null"/> when it is
+    /// off the ladder. The rung's name is an alias of the model.
+    /// </summary>
+    public ModelTier? Tier { get; init; }
+
     // IModelInfoBase explicit implementation — include subfolder for uniqueness
     // because multiple models share the same RepoId with different subfolders.
     string IModelInfoBase.Id => Subfolder is not null ? $"{RepoId}/{Subfolder}" : RepoId;

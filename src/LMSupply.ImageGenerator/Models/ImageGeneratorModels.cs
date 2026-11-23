@@ -21,6 +21,7 @@ public static class ImageGeneratorModels
     {
         ModelId = "TheyCallMeHex/LCM-Dreamshaper-V7-ONNX",
         AliasName = "default",
+        Tier = ModelTier.Basic,
         ModelName = "LCM-Dreamshaper-V7",
         Description = "Default: LCM-Dreamshaper-V7, balanced speed and quality",
         Architecture = "LCM",

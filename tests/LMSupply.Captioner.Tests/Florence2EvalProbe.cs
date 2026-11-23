@@ -14,8 +14,8 @@ public sealed class Florence2EvalProbe
         Assert.SkipWhen(string.IsNullOrEmpty(dir), "LMSUPPLY_CAPTION_EVAL_DIR is not set.");
 
         var ct = TestContext.Current.CancellationToken;
-        await using var vit = await LocalCaptioner.LoadAsync("fast", cancellationToken: ct);
-        await using var florence = await LocalCaptioner.LoadAsync("quality", cancellationToken: ct);
+        await using var vit = await LocalCaptioner.LoadAsync("entry", cancellationToken: ct);
+        await using var florence = await LocalCaptioner.LoadAsync("basic", cancellationToken: ct);
 
         var lines = new List<string>();
         foreach (var image in Directory.GetFiles(dir!, "*.jpg").Order())

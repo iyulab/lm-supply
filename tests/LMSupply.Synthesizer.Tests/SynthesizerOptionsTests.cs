@@ -42,7 +42,7 @@ public class SynthesizerOptionsTests
         // Arrange
         var original = new SynthesizerOptions
         {
-            ModelId = "fast",
+            ModelId = "ryan",
             Provider = ExecutionProvider.Cpu,
             CacheDirectory = "/custom/cache",
             ThreadCount = 4

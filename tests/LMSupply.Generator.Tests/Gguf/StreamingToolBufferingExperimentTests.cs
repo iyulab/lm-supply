@@ -16,7 +16,7 @@ namespace LMSupply.Generator.Tests.Gguf;
 /// Leading hypothesis: when GenerationOptions.Tools is populated, the llama-server
 /// buffers content and emits it as one chunk, whereas the tools-absent path streams
 /// per token. This test measures text-chunk counts for the SAME prompt with tools
-/// ON vs OFF on the exact repro model (gguf:qwen3-fast = Qwen3.5-2B-Q4_K_M).
+/// ON vs OFF on the exact repro model (gguf:entry = Qwen3.5-2B-Q4_K_M).
 ///
 /// Run with: dotnet test --filter "FullyQualifiedName~StreamingToolBuffering"
 /// </summary>
@@ -40,7 +40,7 @@ public class StreamingToolBufferingExperimentTests
     [Fact]
     public async Task GenerateChatStreamAsync_ToolsOn_vs_ToolsOff_TextChunkCount()
     {
-        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", new GeneratorOptions { MaxContextLength = 4096 }, cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalGenerator.LoadAsync("gguf:entry", new GeneratorOptions { MaxContextLength = 4096 }, cancellationToken: TestContext.Current.CancellationToken);
 
         // A prompt that elicits a multi-sentence plain-text answer (no tool actually needed),
         // like an agent's "final answer" turn (finishReason=stop, multi-sentence).
@@ -102,7 +102,7 @@ public class StreamingToolBufferingExperimentTests
     [Fact]
     public async Task GenerateChatStreamAsync_MultiTurnToolHistory_FinalAnswerChunkCount()
     {
-        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", new GeneratorOptions { MaxContextLength = 4096 }, cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalGenerator.LoadAsync("gguf:entry", new GeneratorOptions { MaxContextLength = 4096 }, cancellationToken: TestContext.Current.CancellationToken);
 
         var weatherSchema = ParseSchema(
             """{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}""");
@@ -161,7 +161,7 @@ public class StreamingToolBufferingExperimentTests
     [Fact]
     public async Task ChatThinking_Probe_Qwen3_EnableThinkingToggle_and_NoThinkInjection()
     {
-        await using var model = await LocalGenerator.LoadAsync("gguf:qwen3-fast", new GeneratorOptions { MaxContextLength = 4096 }, cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalGenerator.LoadAsync("gguf:entry", new GeneratorOptions { MaxContextLength = 4096 }, cancellationToken: TestContext.Current.CancellationToken);
 
         string sys = "You are a helpful assistant.";
         string ask = "What is 2+2? Answer in one short sentence.";

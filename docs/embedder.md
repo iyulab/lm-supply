@@ -50,9 +50,9 @@ float[][] embeddings = await model.EmbedAsync(new[]
 |-------|-------|------------|--------|---------|----------|
 | `auto` | Hardware-optimized | varies | varies | varies | Auto-select by available VRAM |
 | `default` | bge-m3 | 1024 | 568M | 8192 | SOTA multilingual, 100+ langs, dense+sparse (v0.34+) |
-| `quality` | bge-m3 | 1024 | 568M | 8192 | Same as `default`; for pipelines that pin quality tier |
-| `fast` | multilingual-e5-small | 384 | 118M | 512 | Lightweight, 100+ langs |
-| `large` | multilingual-e5-large | 1024 | 560M | 512 | Highest dense quality, 100+ langs |
+| `basic` | bge-m3 | 1024 | 568M | 8192 | The same model as `default` |
+| `entry` | multilingual-e5-small | 384 | 118M | 512 | Lightweight, 100+ langs |
+| `multilingual-e5-large` | multilingual-e5-large | 1024 | 560M | 512 | Highest dense quality, 100+ langs; holds no rung |
 
 ### Using HuggingFace Repository ID
 
@@ -365,7 +365,7 @@ every model equals the `VectorSpaceRevision` it had before default prefixes exis
 
 ```csharp
 var retrieval = model.RetrievalVectorSpaceRevision;
-string? earlyRetrieval = await LocalEmbedder.GetRetrievalVectorSpaceRevisionAsync("fast");
+string? earlyRetrieval = await LocalEmbedder.GetRetrievalVectorSpaceRevisionAsync("entry");
 ```
 
 The execution provider and GPU are not part of the value (they change floating-point noise, not the
@@ -438,7 +438,7 @@ repository or path reports its own name and a null licence.
 2. **Use batch processing** - `EmbedAsync(string[])` is more efficient than multiple `EmbedAsync` calls
 3. **Enable GPU acceleration** - LMSupply automatically uses GPU when available
 4. **Warmup before production** - Call `WarmupAsync()` to avoid cold-start latency
-5. **Choose the right model** - Use `fast` for latency-sensitive, `quality` for accuracy
+5. **Choose the right model** - Use `entry` for latency-sensitive, `default` for accuracy
 
 ## GGUF vs ONNX
 

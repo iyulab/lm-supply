@@ -37,6 +37,12 @@ public record CaptionerModelInfo(
     /// </summary>
     public string? Description { get; init; }
 
+    /// <summary>
+    /// The rung this model holds on the domain's ladder (<see cref="ModelTier"/>), or <see langword="null"/> when it is
+    /// off the ladder. The rung's name is an alias of the model.
+    /// </summary>
+    public ModelTier? Tier { get; init; }
+
     // IModelInfoBase explicit implementation
     string IModelInfoBase.Id => RepoId;
     /// <summary>

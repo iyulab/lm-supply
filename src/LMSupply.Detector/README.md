@@ -38,10 +38,10 @@ foreach (var detection in results)
 | Alias | Model | Size | mAP | Licence | Classes |
 |-------|-------|------|-----|---------|---------|
 | `default` | RT-DETR v2 Small | ~80 MB | 48.1 | Apache-2.0 | COCO-80 |
-| `fast` | RT-DETR v2 Mini-Small | ~126 MB | 46.0 | Apache-2.0 | COCO-80 |
-| `quality` | RT-DETR v2 Medium | ~133 MB | 51.9 | Apache-2.0 | COCO-80 |
-| `large` | RT-DETR v2 Large | ~169 MB | 53.4 | Apache-2.0 | COCO-80 |
-| `xlarge` | RT-DETR v2 XLarge | ~300 MB | 54.3 | Apache-2.0 | COCO-80 |
+| `entry` | RT-DETR v2 Mini-Small | ~126 MB | 46.0 | Apache-2.0 | COCO-80 |
+| `balanced` | RT-DETR v2 Medium | ~133 MB | 51.9 | Apache-2.0 | COCO-80 |
+| `advanced` | RT-DETR v2 Large | ~169 MB | 53.4 | Apache-2.0 | COCO-80 |
+| `frontier` | RT-DETR v2 XLarge | ~300 MB | 54.3 | Apache-2.0 | COCO-80 |
 | `face` | YuNet 2023mar | ~227 KB | n/a | MIT | `face`, with 5 landmarks |
 | `plate` | LPD-YuNet 2023mar | ~4.1 MB | n/a | Apache-2.0 | `plate`, with 4 corners |
 | `pose` | MoveNet SinglePose Lightning | ~9.4 MB | n/a | Apache-2.0 | `person`, with 17 COCO keypoints |

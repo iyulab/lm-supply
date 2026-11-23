@@ -37,10 +37,10 @@ var fromStream = await captioner.CaptionAsync(stream);
 
 | Alias | Model | Download | Description |
 |-------|-------|----------|-------------|
-| `default` (also `quality`, `auto`) | Florence-2 base (MIT) | ~275 MB int8 · ~545 MB fp16 · ~1.1 GB fp32 | Names the main subjects of everyday photos; brief, detailed or paragraph captions |
-| `fast` | ViT-GPT2 (Apache-2.0) | ~960 MB | One-sentence captions; tends to name a familiar scene rather than the subject |
+| `default` (also `basic`, `auto`) | Florence-2 base (MIT) | ~275 MB int8 · ~545 MB fp16 · ~1.1 GB fp32 | Names the main subjects of everyday photos; brief, detailed or paragraph captions |
+| `entry` | ViT-GPT2 (Apache-2.0) | ~960 MB | One-sentence captions; tends to name a familiar scene rather than the subject |
 
-`default` was ViT-GPT2 before 0.104.0; load `fast` (or `Xenova/vit-gpt2-image-captioning`) to keep it.
+`default` was ViT-GPT2 before 0.104.0; load `entry` (or `Xenova/vit-gpt2-image-captioning`) to keep it.
 
 Florence-2 is published in quantized variants. A load takes the variant this machine's hardware tier picks (int8 on most
 machines), or the one named by `CaptionerOptions.QuantizationHint` or a qualifier (`"quality:fp16"`).
@@ -53,7 +53,7 @@ runtime (`TotalBytes`) — without downloading anything.
 ```csharp
 using LMSupply.Captioner;
 
-await using var captioner = await LocalCaptioner.LoadAsync("quality",
+await using var captioner = await LocalCaptioner.LoadAsync("basic",
     new CaptionerOptions { Detail = CaptionDetail.Paragraph, MaxLength = 150 });
 var result = await captioner.CaptionAsync("photo.jpg");
 ```
@@ -63,9 +63,9 @@ Decoding is greedy by default. `NumBeams = 3` (for example) runs a beam search a
 The two are exclusive.
 
 `Detail` is `Brief` (default, one sentence), `Detailed` or `Paragraph`; a paragraph needs a larger `MaxLength` than the
-default 50. Only `quality` reads it — `default` captions at one level and refuses any other value at load
-(`NotSupportedException`). The reverse holds for `Prompt`: `default` continues a caption from it, `quality` refuses it
-because its prompt selects a task.
+default 50. Only `basic` (`default` is the same model) reads it — `entry` captions at one level and refuses any other
+value at load (`NotSupportedException`). The reverse holds for `Prompt`: `entry` continues a caption from it, `basic`
+refuses it because its prompt selects a task.
 
 You can also use any HuggingFace vision-language model by its full ID:
 

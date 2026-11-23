@@ -12,8 +12,8 @@ public class LocalTranscriberTests
 
         models.Should().NotBeEmpty();
         models.Should().Contain("default");
-        models.Should().Contain("fast");
-        models.Should().Contain("quality");
+        models.Should().Contain("entry");
+        models.Should().Contain("balanced");
     }
 
     [Fact]
@@ -39,10 +39,10 @@ public class LocalTranscriberTests
     {
         var aliases = LocalTranscriber.GetAvailableModels().ToList();
 
-        aliases.Should().Contain("fast");
+        aliases.Should().Contain("entry");
         aliases.Should().Contain("default");
-        aliases.Should().Contain("quality");
-        aliases.Should().Contain("large");
+        aliases.Should().Contain("balanced");
+        aliases.Should().Contain("frontier");
     }
 
     [Fact]
@@ -57,8 +57,8 @@ public class LocalTranscriberTests
 
     [Theory]
     [InlineData("default")]
-    [InlineData("fast")]
-    [InlineData("quality")]
+    [InlineData("entry")]
+    [InlineData("balanced")]
     public void ResolveAlias_StandardAliases_ShouldResolve(string alias)
     {
         var result = TranscriberModelRegistry.Default.TryResolve(alias, out var model);

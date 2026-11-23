@@ -67,7 +67,7 @@ public class LocalGeneratorDownloadModelTests
     [Trait("Category", "Integration")]
     public async Task DownloadModelAsync_RegisteredGgufAlias_ReturnsTheFileLoadAsyncWouldOpen()
     {
-        const string alias = "gguf:gemma4-default";
+        const string alias = "gguf:gemma4-e4b";
         var options = new GeneratorOptions();
 
         var path = await LocalGenerator.DownloadModelAsync(alias, options, cancellationToken: TestContext.Current.CancellationToken);

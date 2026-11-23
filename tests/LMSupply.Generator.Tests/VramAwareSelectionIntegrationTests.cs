@@ -58,8 +58,8 @@ public class VramAwareSelectionIntegrationTests
 
         var model = GgufModelRegistry.GetAutoModel(gpu);
         model.Should().NotBeNull();
-        // CPU-only → 0 VRAM → nothing fits → fallback to smallest in auto pool (qwen3-fast: ~2.25GB total)
-        model.AliasName.Should().Be("gguf:qwen3-fast");
+        // CPU-only → 0 VRAM → nothing fits → fallback to smallest in auto pool (entry: ~2.25GB total)
+        model.AliasName.Should().Be("gguf:entry");
 
         var options = LlamaOptions.GetOptimalForHardware(
             gpu, model.EstimatedSizeBytes ?? 2_000_000_000L);

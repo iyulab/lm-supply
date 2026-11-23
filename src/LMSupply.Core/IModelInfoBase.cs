@@ -39,6 +39,12 @@ public interface IModelInfoBase
     /// Maximum context length in tokens, if applicable.
     /// </summary>
     int? ContextLength => null;
+
+    /// <summary>
+    /// The rung of the domain's ladder this model holds, or <see langword="null"/> when it is off the ladder (a language
+    /// variant, a voice, a preset, a model kept by name). The registry makes the rung's name an alias of the model.
+    /// </summary>
+    ModelTier? Tier => null;
 }
 
 /// <summary>
@@ -109,4 +115,22 @@ public interface IModelRegistry<TModelInfo> : IAliasRegistry where TModelInfo : 
     /// its entries, and models that share an id are all listed (see <see cref="IModelInfoBase.CatalogKey"/>).
     /// </summary>
     IReadOnlyList<TModelInfo> GetAvailableModels();
+
+    /// <summary>
+    /// The domain's ladder: the occupied rungs, lowest first. A rung is occupied by the one model whose
+    /// <see cref="IModelInfoBase.Tier"/> names it.
+    /// </summary>
+    IReadOnlyList<ModelTierEntry<TModelInfo>> GetTiers();
+
+    /// <summary>
+    /// Resolves a rung to its model. A rung the domain holds no model for is not answered with a neighbour unless
+    /// <paramref name="fallback"/> asks for one — which model a caller gets instead is the caller's choice.
+    /// </summary>
+    bool TryResolveTier(ModelTier tier, out TModelInfo? modelInfo, TierFallback fallback = TierFallback.None);
+
+    /// <summary>
+    /// Like <see cref="TryResolveTier"/>, but throws <see cref="Exceptions.ModelNotFoundException"/> naming the rungs the
+    /// domain does hold.
+    /// </summary>
+    TModelInfo ResolveTier(ModelTier tier, TierFallback fallback = TierFallback.None);
 }

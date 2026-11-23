@@ -25,7 +25,7 @@ public class RerankerOptionsTests
         var serverUpdateOptions = new LlamaServerUpdateOptions { PinnedVersion = "b7898" };
         var original = new RerankerOptions
         {
-            ModelId = "quality",
+            ModelId = "balanced",
             MaxSequenceLength = 256,
             CacheDirectory = "/custom/cache",
             Provider = ExecutionProvider.Cuda,
@@ -42,7 +42,7 @@ public class RerankerOptionsTests
         original.BatchSize = 128;
 
         // Clone should not be affected
-        clone.ModelId.Should().Be("quality");
+        clone.ModelId.Should().Be("balanced");
         clone.MaxSequenceLength.Should().Be(256);
         clone.CacheDirectory.Should().Be("/custom/cache");
         clone.Provider.Should().Be(ExecutionProvider.Cuda);

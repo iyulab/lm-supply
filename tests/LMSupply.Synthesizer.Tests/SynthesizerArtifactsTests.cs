@@ -13,7 +13,7 @@ namespace LMSupply.Synthesizer.Tests;
 public sealed class SynthesizerArtifactsTests : IDisposable
 {
     private const string Repo = "rhasspy/piper-voices";
-    private const string Amy = "en/en_US/amy/medium";        // "quality"
+    private const string Amy = "en/en_US/amy/medium";        // "amy"
     private const string Semaine = "en/en_GB/semaine/medium"; // "british"
     private readonly string _cache = Path.Combine(Path.GetTempPath(), "lmsupply-synthesizer-artifacts-" + Guid.NewGuid().ToString("N"));
 
@@ -60,16 +60,16 @@ public sealed class SynthesizerArtifactsTests : IDisposable
     {
         SeedListing();
 
-        (await LocalSynthesizer.GetDownloadSizeBytesAsync("quality", Options(), Ct)).Should().Be(6_050, "the other voice is not this one's");
-        (await LocalSynthesizer.GetRemainingDownloadBytesAsync("quality", Options(), Ct)).Should().Be(6_050);
-        (await LocalSynthesizer.IsModelDownloadedAsync("quality", Options(), Ct)).Should().BeFalse();
+        (await LocalSynthesizer.GetDownloadSizeBytesAsync("amy", Options(), Ct)).Should().Be(6_050, "the other voice is not this one's");
+        (await LocalSynthesizer.GetRemainingDownloadBytesAsync("amy", Options(), Ct)).Should().Be(6_050);
+        (await LocalSynthesizer.IsModelDownloadedAsync("amy", Options(), Ct)).Should().BeFalse();
 
         SeedVoice(Amy, modelLength: 100);
-        (await LocalSynthesizer.GetRemainingDownloadBytesAsync("quality", Options(), Ct)).Should().Be(6_000, "a partial file counts in full");
+        (await LocalSynthesizer.GetRemainingDownloadBytesAsync("amy", Options(), Ct)).Should().Be(6_000, "a partial file counts in full");
 
         SeedVoice(Amy);
-        (await LocalSynthesizer.GetRemainingDownloadBytesAsync("quality", Options(), Ct)).Should().Be(0);
-        (await LocalSynthesizer.IsModelDownloadedAsync("quality", Options(), Ct)).Should().BeTrue();
+        (await LocalSynthesizer.GetRemainingDownloadBytesAsync("amy", Options(), Ct)).Should().Be(0);
+        (await LocalSynthesizer.IsModelDownloadedAsync("amy", Options(), Ct)).Should().BeTrue();
         (await LocalSynthesizer.IsModelDownloadedAsync("british", Options(), Ct)).Should().BeFalse();
     }
 
@@ -83,24 +83,24 @@ public sealed class SynthesizerArtifactsTests : IDisposable
 
         using (BundledRuntime.Use(_cache + "-runtime", present: false))
         {
-            (await artifacts.IsAvailableOfflineAsync("quality", Ct)).Should().BeFalse();
-            (await artifacts.GetRemainingDownloadAsync("quality", Ct)).Should().Be(new RemainingDownload(0, null));
+            (await artifacts.IsAvailableOfflineAsync("amy", Ct)).Should().BeFalse();
+            (await artifacts.GetRemainingDownloadAsync("amy", Ct)).Should().Be(new RemainingDownload(0, null));
         }
 
         using (BundledRuntime.Use(_cache + "-runtime"))
         {
-            (await artifacts.IsAvailableOfflineAsync("quality", Ct)).Should().BeTrue();
-            (await artifacts.GetRemainingDownloadAsync("quality", Ct)).TotalBytes.Should().Be(0);
+            (await artifacts.IsAvailableOfflineAsync("amy", Ct)).Should().BeTrue();
+            (await artifacts.GetRemainingDownloadAsync("amy", Ct)).TotalBytes.Should().Be(0);
 
             // Downloads disabled: the download must be satisfied from the cache, so this proves nothing is fetched
-            await new SynthesizerArtifacts(Options(offline: true)).DownloadAsync("quality", cancellationToken: Ct);
+            await new SynthesizerArtifacts(Options(offline: true)).DownloadAsync("amy", cancellationToken: Ct);
         }
     }
 
     [Fact]
     public async Task A_voice_never_listed_into_this_cache_is_not_downloaded()
     {
-        (await LocalSynthesizer.IsModelDownloadedAsync("quality", Options(), Ct)).Should().BeFalse();
+        (await LocalSynthesizer.IsModelDownloadedAsync("amy", Options(), Ct)).Should().BeFalse();
         Directory.Exists(_cache).Should().BeFalse("the check reads the cache only and writes nothing");
     }
 
@@ -111,11 +111,11 @@ public sealed class SynthesizerArtifactsTests : IDisposable
         SeedVoice(Amy);
         SeedVoice(Semaine);
 
-        new SynthesizerArtifacts(Options()).Delete("quality").Should().BeTrue();
+        new SynthesizerArtifacts(Options()).Delete("amy").Should().BeTrue();
 
-        (await LocalSynthesizer.IsModelDownloadedAsync("quality", Options(), Ct)).Should().BeFalse();
+        (await LocalSynthesizer.IsModelDownloadedAsync("amy", Options(), Ct)).Should().BeFalse();
         (await LocalSynthesizer.IsModelDownloadedAsync("british", Options(), Ct)).Should().BeTrue("another voice of the same repository stays");
-        LocalSynthesizer.DeleteModel("quality", Options()).Should().BeFalse("nothing of that voice is left");
+        LocalSynthesizer.DeleteModel("amy", Options()).Should().BeFalse("nothing of that voice is left");
     }
 
     [Fact]

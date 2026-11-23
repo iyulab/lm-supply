@@ -22,7 +22,7 @@ public sealed class DriverLibrariesSerialGroup;
 [Collection(nameof(DriverLibrariesSerialGroup))]
 public sealed class CpuProviderDriverLibrariesTests
 {
-    private const string Alias = "fast";
+    private const string Alias = "entry";
     private static readonly string[] DriverLibraries = ["nvml.dll", "nvcuda.dll", "nvcuda64.dll"];
 
     private static string[] LoadedDriverLibraries()

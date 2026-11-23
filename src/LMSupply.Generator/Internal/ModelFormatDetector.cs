@@ -31,7 +31,7 @@ internal static class ModelFormatDetector
             return ModelFormat.Gguf;
         }
 
-        // 1. Check if it's a GGUF registry alias (e.g., "gguf:gemma4-default", "gguf:gemma4-fast")
+        // 1. Check if it's a GGUF registry alias (e.g., "gguf:gemma4-e4b", "gguf:gemma4-e2b")
         if (GgufModelRegistry.IsAlias(modelIdOrPath))
         {
             return ModelFormat.Gguf;

@@ -7,7 +7,7 @@ namespace LMSupply.Generator.Gguf;
 /// </summary>
 public sealed record RecommendedModel
 {
-    /// <summary>The catalog alias that loads this model (for example <c>gguf:qwen3-balanced</c>).</summary>
+    /// <summary>The catalog alias that loads this model (for example <c>gguf:balanced</c>).</summary>
     public required string Alias { get; init; }
 
     /// <summary>The rung of the ladder, in the library's words.</summary>

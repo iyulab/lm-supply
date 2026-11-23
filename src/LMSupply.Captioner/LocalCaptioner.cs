@@ -106,7 +106,7 @@ public static class LocalCaptioner
                 throw new ModelNotFoundException(
                     $"Could not determine model type for: {modelIdOrPath}. " +
                     $"Discovered ONNX files: [{string.Join(", ", discovery.OnnxFiles)}]. " +
-                    "Use a known model ID (e.g., 'default', 'quality') or ensure the model follows a supported format.",
+                    "Use a known model ID (e.g., 'default', 'entry') or ensure the model follows a supported format.",
                     modelIdOrPath);
             }
 
@@ -119,7 +119,8 @@ public static class LocalCaptioner
         else
         {
             throw new ModelNotFoundException(
-                $"Unknown model '{modelIdOrPath}'. Use a known model ID (e.g., 'default', 'quality'), " +
+                $"Unknown model '{modelIdOrPath}'. {(CaptionerModelRegistry.Default.DescribeRetiredAlias(modelIdOrPath) is { } retired ? retired + " " : "")}" +
+                "Use a known model ID (e.g., 'default', 'entry'), " +
                 "a HuggingFace repo ID (e.g., 'Xenova/vit-gpt2-image-captioning'), " +
                 "or a local path to a model directory.",
                 modelIdOrPath);
@@ -258,7 +259,8 @@ public static class LocalCaptioner
         }
 
         throw new ModelNotFoundException(
-            $"Unknown model '{baseId}'. Use a known model ID (e.g., 'default', 'quality'), a HuggingFace repo ID, " +
+            $"Unknown model '{baseId}'. {(CaptionerModelRegistry.Default.DescribeRetiredAlias(baseId) is { } retired ? retired + " " : "")}" +
+            "Use a known model ID (e.g., 'default', 'entry'), a HuggingFace repo ID, " +
             "or a local path to a model directory.",
             baseId);
     }
@@ -347,7 +349,8 @@ public static class LocalCaptioner
         }
 
         throw new ModelNotFoundException(
-            $"Unknown model '{baseId}'. Use a known model ID (e.g., 'default', 'quality'), a HuggingFace repo ID, " +
+            $"Unknown model '{baseId}'. {(CaptionerModelRegistry.Default.DescribeRetiredAlias(baseId) is { } retired ? retired + " " : "")}" +
+            "Use a known model ID (e.g., 'default', 'entry'), a HuggingFace repo ID, " +
             "or a local path to a model directory.",
             baseId);
     }

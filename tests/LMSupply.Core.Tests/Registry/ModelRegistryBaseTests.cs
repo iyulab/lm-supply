@@ -12,13 +12,21 @@ internal sealed record TestModelInfo : IModelInfoBase
 
     // What tells the models of one repository apart; null when the id names one model.
     public string? Variant { get; init; }
+    public ModelTier? Tier { get; init; }
     public string CatalogKey => Variant is null ? Id : $"{Id}:{Variant}";
 }
 
 internal sealed class TestModelRegistry : ModelRegistryBase<TestModelInfo>
 {
-    public TestModelRegistry(IEnumerable<TestModelInfo> systemModels)
-        : base(systemModels) { }
+    private readonly IReadOnlyDictionary<string, string>? _retired;
+
+    public TestModelRegistry(IEnumerable<TestModelInfo> systemModels, IReadOnlyDictionary<string, string>? retired = null)
+        : base(systemModels)
+    {
+        _retired = retired;
+    }
+
+    protected override IReadOnlyDictionary<string, string> RetiredAliases => _retired ?? base.RetiredAliases;
 
     protected override TestModelInfo GetAutoModel()
         => new() { Id = "auto/model", AliasName = "auto", Description = "Auto-selected" };

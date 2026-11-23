@@ -23,8 +23,8 @@ public class ModelRegistryTests
     }
 
     [Theory]
-    [InlineData("quality", "BAAI/bge-reranker-base")]
-    [InlineData("fast", "cross-encoder/ms-marco-TinyBERT-L-2-v2")]
+    [InlineData("balanced", "BAAI/bge-reranker-base")]
+    [InlineData("entry", "cross-encoder/ms-marco-TinyBERT-L-2-v2")]
     [InlineData("multilingual", "onnx-community/bge-reranker-v2-m3-ONNX")]
     public void Resolve_BuiltInAliases_ShouldReturnCorrectModel(string alias, string expectedId)
     {
@@ -106,7 +106,7 @@ public class ModelRegistryTests
         var aliases = new RerankerModelRegistry(RerankerModels.All).GetAliases();
 
         var aliasNames = aliases.Select(a => a.Name).ToList();
-        aliasNames.Should().Contain(["auto", "default", "quality", "fast", "multilingual", "large"]);
+        aliasNames.Should().Contain(["auto", "default", "balanced", "entry", "multilingual", "advanced"]);
         aliases.Should().AllSatisfy(a => a.Kind.Should().Be(AliasKind.System));
     }
 

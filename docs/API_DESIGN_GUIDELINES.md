@@ -248,11 +248,12 @@ All packages MUST support these standard aliases:
 
 | Alias | Purpose |
 |-------|---------|
-| `default` | Best balance of speed, quality, and size |
-| `fast` | Fastest inference, smallest model |
-| `quality` | Highest accuracy, larger model |
-| `large` | Largest available model |
+| `default` | The model the domain recommends; wherever the domain has a `basic` rung, that model |
+| `entry` · `basic` · `balanced` · `advanced` · `frontier` | The rungs of the domain's ladder (`ModelTier`), lightest to most capable. A domain holds only the rungs it has a distinct model for; asking for an absent rung is `ModelNotFoundException`, never a neighbour. A rung alias names no model family or generation |
 | `multilingual` | Best multi-language support |
+
+The size adjectives `fast`, `quality`, `large` and `xlarge` are not aliases (a model that is a variant, a voice or a
+preset is named for what it is: `turbo-ko`, `ryan`, `multilingual`). A model off the ladder has `Tier == null`.
 
 ### 5.2 WellKnownModels Registry
 

@@ -62,19 +62,13 @@ public sealed class TextGeneratorBuilder
     }
 
     /// <summary>
-    /// Uses a well-known model by preset.
+    /// Uses the ONNX catalog's model for a rung of its ladder (see <see cref="ModelTier"/>).
     /// </summary>
-    /// <param name="preset">Model preset from WellKnownModels.</param>
-    public TextGeneratorBuilder WithModel(GeneratorModelPreset preset)
+    /// <param name="tier">The rung. The ONNX catalog holds <see cref="ModelTier.Entry"/> and <see cref="ModelTier.Advanced"/>.</param>
+    /// <exception cref="Exceptions.ModelNotFoundException">The catalog holds no model for the rung.</exception>
+    public TextGeneratorBuilder WithModel(ModelTier tier)
     {
-        _modelId = preset switch
-        {
-            GeneratorModelPreset.Default => WellKnownModels.Generator.Default,
-            GeneratorModelPreset.Fast => WellKnownModels.Generator.Fast,
-            GeneratorModelPreset.Quality => WellKnownModels.Generator.Quality,
-            GeneratorModelPreset.Small => WellKnownModels.Generator.Small,
-            _ => throw new ArgumentOutOfRangeException(nameof(preset))
-        };
+        _modelId = GeneratorModelRegistry.Default.ResolveTier(tier).AliasName;
         _modelPath = null;
         return this;
     }
@@ -352,22 +346,4 @@ public sealed class TextGeneratorBuilder
         // Auto-detect from model ID
         return ChatFormatterFactory.Create(modelId);
     }
-}
-
-/// <summary>
-/// Preset model configurations.
-/// </summary>
-public enum GeneratorModelPreset
-{
-    /// <summary>Balanced model - Phi-3.5 Mini (MIT license).</summary>
-    Default,
-
-    /// <summary>Fast/small model - Llama 3.2 1B.</summary>
-    Fast,
-
-    /// <summary>Quality model - Phi-4.</summary>
-    Quality,
-
-    /// <summary>Smallest model - Llama 3.2 1B.</summary>
-    Small
 }

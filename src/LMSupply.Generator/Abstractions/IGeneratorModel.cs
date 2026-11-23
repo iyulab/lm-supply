@@ -198,7 +198,7 @@ public readonly record struct GeneratorModelInfo(
     public IReadOnlyList<string> KnownIssues { get; init; } = [];
 
     /// <summary>
-    /// Gets the id the load was asked for: a registry alias (<c>gguf:gemma4-balanced</c>), a HuggingFace repo id,
+    /// Gets the id the load was asked for: a registry alias (<c>gguf:gemma4-e4b-q8_0</c>), a HuggingFace repo id,
     /// or a path. <see cref="ModelId"/> describes what was loaded; this is what was requested.
     /// Set by GGUF (llama-server) loads; <see langword="null"/> otherwise.
     /// </summary>

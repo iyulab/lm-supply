@@ -21,7 +21,7 @@ public sealed class LocalChatClientLiveTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    public static TheoryData<string> Models { get; } = ["gguf:gemma4-default", "gguf:qwen3-fast", "gguf:qwen3-balanced"];
+    public static TheoryData<string> Models { get; } = ["gguf:gemma4-e4b", "gguf:entry", "gguf:balanced"];
 
     [Description("Gets the current weather for a city.")]
     private static string GetWeather([Description("The city name")] string city) => $"sunny in {city}";

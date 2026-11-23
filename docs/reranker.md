@@ -59,17 +59,17 @@ Output:
 | Alias | HuggingFace ID | Max Tokens | Size | Languages | Description |
 |-------|---------------|------------|------|-----------|-------------|
 | `default` | cross-encoder/ms-marco-MiniLM-L-6-v2 | 512 | ~90MB | English | Fast, good quality for English |
-| `fast` | cross-encoder/ms-marco-TinyBERT-L-2-v2 | 512 | ~18MB | English | Ultra-fast |
+| `entry` | cross-encoder/ms-marco-TinyBERT-L-2-v2 | 512 | ~18MB | English | Ultra-fast |
 | `ms-marco-l12` | cross-encoder/ms-marco-MiniLM-L-12-v2 | 512 | ~134MB | English | Higher accuracy than `default` |
-| `quality` | BAAI/bge-reranker-base | 512 | ~1.1GB | English, Chinese | Higher accuracy than `default` |
-| `large` | BAAI/bge-reranker-large | 512 | ~2.2GB | English, Chinese | Highest accuracy (graph + external weights) |
+| `balanced` | BAAI/bge-reranker-base | 512 | ~1.1GB | English, Chinese | Higher accuracy than `default` |
+| `advanced` | BAAI/bge-reranker-large | 512 | ~2.2GB | English, Chinese | Highest accuracy (graph + external weights) |
 | `multilingual` | onnx-community/bge-reranker-v2-m3-ONNX | 8192 | ~2.3GB | 100+ languages | Long context (ONNX export of BAAI/bge-reranker-v2-m3) |
 | `multilingual-fast` | gguf:gpustack/bge-reranker-v2-m3-GGUF (Q4_K_M) | 8192 | ~440MB | 100+ languages | The same model, quantized, served by llama-server: a fraction of the download and of the CPU latency |
-| `auto` | by hardware tier | | | | Low → `default` (English-only), Medium → `multilingual-fast` when a llama-server binary is already cached, otherwise `quality`; High/Ultra → `multilingual` |
+| `auto` | by hardware tier | | | | Low → `default` (English-only), Medium → `multilingual-fast` when a llama-server binary is already cached, otherwise `balanced`; High/Ultra → `multilingual` |
 
-> **Non-English queries.** `default`, `fast` and `ms-marco-l12` are English-only cross-encoders: over a Korean query they
-> score an unrelated Korean passage above an English passage that answers it. `quality` and `large` tokenize any language
-> but their model cards list English and Chinese as the training languages — on a Korean corpus `quality` can rank worse
+> **Non-English queries.** `default`, `entry` and `ms-marco-l12` are English-only cross-encoders: over a Korean query they
+> score an unrelated Korean passage above an English passage that answers it. `balanced` and `advanced` tokenize any language
+> but their model cards list English and Chinese as the training languages — on a Korean corpus `balanced` can rank worse
 > than no reranking at all. For other languages or mixed-language corpora use `multilingual`
 > or `multilingual-fast`.
 
@@ -78,7 +78,7 @@ Sizes are what a load downloads: the ONNX exports are fp32. `multilingual-fast` 
 resolves to it and `auto` does so only on a Medium host where that binary is **already** in the cache (from a generator
 or embedder that used it, or an earlier `multilingual-fast` load): `auto` never downloads a server binary on its own.
 
-`large` and `multilingual` keep their weights in a separate `onnx/model.onnx_data` file next to the graph; it is downloaded
+`advanced` and `multilingual` keep their weights in a separate `onnx/model.onnx_data` file next to the graph; it is downloaded
 with the model, and a cache that holds the graph without it is completed on the next load.
 
 You can also use any HuggingFace cross-encoder model by its full ID:
@@ -333,9 +333,9 @@ if (info != null)
 2. **Adjust batch size** - Larger batches are faster but use more memory
 3. **Use GPU acceleration** - Install ONNX Runtime GPU package for significant speedup
 4. **Choose the right model**:
-   - `fast` for latency-critical applications
+   - `entry` for latency-critical applications
    - `default` for balanced performance
-   - `quality` when accuracy is paramount
+   - `balanced` when accuracy is paramount
    - `multilingual` for non-English or mixed-language content
 5. **Warmup before production** - Call `WarmupAsync()` to pre-load the model
 

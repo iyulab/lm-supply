@@ -52,7 +52,7 @@ await generator.DisposeAsync();
 
 ```csharp
 // Same resolution as LoadAsync (aliases, default/auto, repo ids), no model load:
-var path = await LocalGenerator.DownloadModelAsync("gguf:gemma4-default");
+var path = await LocalGenerator.DownloadModelAsync("gguf:gemma4-e4b");
 ```
 
 ## Chat Completion

@@ -59,7 +59,7 @@ public sealed class OfflineLoadTests : IDisposable
         // No runtime download: a session here fails to provision instead of fetching ONNX Runtime from the feed
         using var runtime = BundledRuntime.Absent();
         // ViT-GPT2's layout (two graphs): the file list below is that model's.
-        var model = LocalCaptioner.Registry.Resolve("fast");
+        var model = LocalCaptioner.Registry.Resolve("entry");
         var modelDir = Path.Combine(CacheManager.GetModelDirectory(_cacheDir, model.RepoId), model.Subfolder ?? string.Empty);
         Directory.CreateDirectory(modelDir);
         foreach (var file in new[] { model.EncoderFile, model.DecoderFile, "config.json", "vocab.json", "merges.txt", "tokenizer.json", "tokenizer_config.json", "special_tokens_map.json" })
@@ -67,7 +67,7 @@ public sealed class OfflineLoadTests : IDisposable
         var before = Snapshot();
 
         var options = new CaptionerOptions { CacheDirectory = _cacheDir, DisableAutoDownload = true };
-        var load = () => LocalCaptioner.LoadAsync("fast", options, cancellationToken: Ct);
+        var load = () => LocalCaptioner.LoadAsync("entry", options, cancellationToken: Ct);
 
         var failure = await load.Should().ThrowAsync<Exception>("placeholder files are not a model");
         failure.Which.Message.Should().NotContain("downloads are disabled", "every file the loader needs is in the cache");

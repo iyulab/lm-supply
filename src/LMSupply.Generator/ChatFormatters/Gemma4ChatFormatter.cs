@@ -100,7 +100,7 @@ public sealed class Gemma4ChatFormatter : IChatFormatter
 
     /// <inheritdoc />
     /// <remarks>
-    /// Gemma 4 E4B at gguf:gemma4-default emits empty tool args under llama-server's
+    /// Gemma 4 E4B at gguf:gemma4-e4b emits empty tool args under llama-server's
     /// native template because the model misinterprets the raw JSON schema.
     /// This override exposes <c>Required parameters (MUST be provided): name (type)</c>
     /// marker lines that LlamaServerGeneratorModel injects as a system message.

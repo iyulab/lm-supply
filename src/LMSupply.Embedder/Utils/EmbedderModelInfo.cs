@@ -19,6 +19,12 @@ public sealed record EmbedderModelInfo : IModelInfoBase, IModelMemoryInfo
     public string AliasName { get; init; } = string.Empty;
 
     /// <summary>
+    /// The rung this model holds on the domain's ladder (<see cref="ModelTier"/>), or <see langword="null"/> when it is
+    /// off the ladder — a variant, a voice or a preset. The rung's name is an alias of the model.
+    /// </summary>
+    public ModelTier? Tier { get; init; }
+
+    /// <summary>
     /// Gets the embedding dimensions.
     /// </summary>
     public required int Dimensions { get; init; }

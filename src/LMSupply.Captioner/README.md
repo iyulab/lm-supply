@@ -27,25 +27,25 @@ Console.WriteLine(result.Caption);
 
 | Model ID | Download | Description |
 |----------|----------|-------------|
-| `default` (also `fast`, `auto`) | ~1 GB | ViT-GPT2 — fast, one-sentence captions; tends to name a familiar scene rather than the subject |
-| `quality` | ~275 MB (int8) · ~545 MB (fp16) · ~1.1 GB (fp32) | Florence-2 base — names the main subjects of everyday photos; brief, detailed or paragraph captions |
+| `entry` | ~1 GB | ViT-GPT2 — fast, one-sentence captions; tends to name a familiar scene rather than the subject |
+| `default` (also `basic`, `florence-2-base`, `auto`) | ~275 MB (int8) · ~545 MB (fp16) · ~1.1 GB (fp32) | Florence-2 base — names the main subjects of everyday photos; brief, detailed or paragraph captions |
 
-`quality` is published in quantized variants; a load takes the one the hardware tier picks, or the one you name with
+`basic` is published in quantized variants; a load takes the one the hardware tier picks, or the one you name with
 `QuantizationHint` or a qualifier (`"quality:fp16"`). `LocalCaptioner.GetDownloadSizeBytesAsync` answers what a load
 will download, for a consent screen.
 
 ```csharp
 using LMSupply.Captioner;
 
-long bytes = await LocalCaptioner.GetDownloadSizeBytesAsync("quality");
+long bytes = await LocalCaptioner.GetDownloadSizeBytesAsync("basic");
 
-await using var captioner = await LocalCaptioner.LoadAsync("quality",
+await using var captioner = await LocalCaptioner.LoadAsync("basic",
     new CaptionerOptions { Detail = CaptionDetail.Detailed, MaxLength = 100 });
 var result = await captioner.CaptionAsync("photo.jpg");
 ```
 
-`Detail` (`Brief` · `Detailed` · `Paragraph`) is read by `quality`; `default` captions at one level and refuses any other
-value at load. `Prompt` (caption prefix) is read by `default`; `quality` refuses it — its prompt selects the task.
+`Detail` (`Brief` · `Detailed` · `Paragraph`) is read by `basic` (`default`); `entry` captions at one level and refuses any other
+value at load. `Prompt` (caption prefix) is read by `entry`; `basic` refuses it — its prompt selects the task.
 
 ## Advanced Usage
 

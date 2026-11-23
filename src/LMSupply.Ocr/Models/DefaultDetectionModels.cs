@@ -26,10 +26,10 @@ internal static class DefaultDetectionModels
     /// <summary>
     /// Same model registered under the "default" alias.
     /// </summary>
-    public static DetectionModelInfo DbNetV5Default { get; } = DbNetV5 with { AliasName = "default" };
+    public static DetectionModelInfo DbNetV5Default { get; } = DbNetV5 with { AliasName = "default", Tier = ModelTier.Basic };
 
     /// <summary>
-    /// PaddleOCR v3 Detection (DBNet), the built-in detection model before v5: smaller (2.3 MB) and the "fast" alias.
+    /// PaddleOCR v3 Detection (DBNet), the built-in detection model before v5: smaller (2.3 MB) and the <c>entry</c> rung.
     /// </summary>
     public static DetectionModelInfo DbNetV3 { get; } = new(
         RepoId: DefaultRepoId,
@@ -44,9 +44,9 @@ internal static class DefaultDetectionModels
     };
 
     /// <summary>
-    /// Same model registered under the "fast" alias (single-model domain).
+    /// Same model registered under the <c>entry</c> alias.
     /// </summary>
-    public static DetectionModelInfo DbNetV3Fast { get; } = DbNetV3 with { AliasName = "fast" };
+    public static DetectionModelInfo DbNetV3Entry { get; } = DbNetV3 with { AliasName = "entry", Tier = ModelTier.Entry };
 
     /// <summary>
     /// Gets all built-in detection models.
@@ -55,8 +55,8 @@ internal static class DefaultDetectionModels
     public static IReadOnlyList<DetectionModelInfo> All { get; } =
     [
         DbNetV5,          // dbnet-v5 (primary)
-        DbNetV5Default,   // default (alias)
+        DbNetV5Default,   // default (alias, basic)
         DbNetV3,          // dbnet-v3
-        DbNetV3Fast,      // fast (alias)
+        DbNetV3Entry,     // entry (alias)
     ];
 }

@@ -22,7 +22,7 @@ namespace LMSupply.Integration.Tests.Functional;
 [Trait("Category", "LocalOnly")]
 public sealed class LlamaCpuOnlyConformanceTests
 {
-    private const string FastModel = "gguf:gemma4-fast";
+    private const string FastModel = "gguf:gemma4-e2b";
 
     [Fact]
     public async Task CpuOnly_LoadsAndGenerates()

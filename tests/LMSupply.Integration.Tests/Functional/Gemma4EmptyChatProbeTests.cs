@@ -28,7 +28,7 @@ namespace LMSupply.Integration.Tests.Functional;
 [Trait("Category", "LocalOnly")]
 public class Gemma4EmptyChatProbeTests
 {
-    private const string FastModel = "gguf:gemma4-fast";
+    private const string FastModel = "gguf:gemma4-e2b";
 
     private static ChatMessage[] MultiTurn() =>
     [

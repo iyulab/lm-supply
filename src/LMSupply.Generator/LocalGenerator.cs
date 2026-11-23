@@ -28,7 +28,7 @@ public static class LocalGenerator
     /// One of:
     /// <list type="bullet">
     ///   <item><c>"default"</c> / <c>"auto"</c> — hardware-aware selection (see remarks).</item>
-    ///   <item>A GGUF alias (<c>"gguf:gemma4-default"</c>, <c>"gguf:gemma4-fast"</c>, <c>"gguf:gemma4-quality"</c>, <c>"gguf:auto"</c>, etc.).</item>
+    ///   <item>A GGUF alias (<c>"gguf:gemma4-e4b"</c>, <c>"gguf:gemma4-e2b"</c>, <c>"gguf:gemma4-26b-a4b"</c>, <c>"gguf:auto"</c>, etc.).</item>
     ///   <item>An ONNX alias (<c>"phi-4-mini"</c>, <c>"fast"</c>, <c>"quality"</c>, <c>"phi-3.5-mini"</c>).</item>
     ///   <item>A HuggingFace repo ID (e.g., <c>"microsoft/Phi-4-mini-instruct-onnx"</c>).</item>
     ///   <item>A local file path (GGUF) or directory (ONNX).</item>
@@ -62,7 +62,7 @@ public static class LocalGenerator
 
         // User alias translation precedes ALL format detection: an alias is a name
         // substitution, so the gguf/default/path checks below must see the TARGET
-        // (e.g. "my-writer" -> "gguf:qwen3-quality" must enter the GGUF path).
+        // (e.g. "my-writer" -> "gguf:advanced" must enter the GGUF path).
         if (GeneratorModelRegistry.Default.TryGetUserAliasTarget(modelId, out var userAliasTarget))
         {
             modelId = userAliasTarget!;
@@ -107,6 +107,10 @@ public static class LocalGenerator
         {
             return Internal.GeneratorModelLoader.LoadFromPathAsync(modelId, options, modelId, configBasePath: null, progress, cancellationToken);
         }
+
+        // A name this catalog retired is not a Hugging Face repository: answer with what replaced it instead of a hub lookup.
+        if (!modelId.Contains('/') && GeneratorModelRegistry.Default.DescribeRetiredAlias(modelId) is { } retired)
+            throw new LMSupply.Exceptions.ModelNotFoundException($"Model '{modelId}' not found. {retired}", modelId);
 
         return Internal.GeneratorModelLoader.LoadAsync(modelId, options, progress, cancellationToken);
     }
@@ -431,7 +435,7 @@ public static class LocalGenerator
     /// the file that alias loads on this host — every shard of a split model, and the registry default
     /// unless it would not fit the provider's memory budget, in which case the cached smaller
     /// quantization the load would use. Another quantization of the same repository does not count:
-    /// <c>gguf:gemma4-balanced</c> (Q8_0) is not downloaded because <c>gguf:gemma4-default</c>'s Q4_0
+    /// <c>gguf:gemma4-e4b-q8_0</c> (Q8_0) is not downloaded because <c>gguf:gemma4-e4b</c>'s Q4_0
     /// file is. When the cached files alone do not settle which file the load takes (no quantization
     /// fits, so the load takes the repository's smallest), the decision is made over the repository
     /// listing cached at the last download; with no cached listing the answer is
@@ -570,7 +574,7 @@ public static class LocalGenerator
     /// <para>
     /// The id resolves as <see cref="IsModelDownloadedAsync"/> resolves it (registry alias, <c>gguf:</c> alias, <c>"default"</c>/<c>"auto"</c>,
     /// repository id). A <c>gguf:</c> registry alias deletes the files a load of it opens on this host (every shard of a split
-    /// model): several aliases share a repository (<c>gguf:gemma4-default</c> and <c>gguf:gemma4-balanced</c> are two
+    /// model): several aliases share a repository (<c>gguf:gemma4-e4b</c> and <c>gguf:gemma4-e4b-q8_0</c> are two
     /// quantizations of one), and the others' files stay — the repository's private state goes with its last file
     /// (<see cref="CacheManager.DeleteModelFiles"/>). Any other id names one model per repository, and
     /// <see cref="CacheManager.DeleteModel"/> deletes this library's files of that repository. Nothing another tool put in the
@@ -837,7 +841,7 @@ public static class LocalGenerator
         // Sized for the load's context like "gguf:auto" (GeneratorModelLoader) — one rule for all three names.
         var selection = Gguf.GgufModelRegistry.GetAutoSelection(
             options.SelectionProvider, options.MaxContextLength, options.AutoSelectionGoal);
-        // Pass the alias (e.g. "gguf:gemma4-fast") rather than RepoId so the downstream
+        // Pass the alias (e.g. "gguf:gemma4-e2b") rather than RepoId so the downstream
         // loader can re-resolve the registry entry and use its DefaultFile. Passing
         // RepoId would lose the DefaultFile and fall back to GgufFileSelector, which
         // can pick larger variants (e.g. bf16) that fit in VRAM+RAM but blow VRAM.

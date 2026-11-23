@@ -18,9 +18,9 @@ public static class GgufModelRegistry
 
         // Fast: Gemma 4 E2B — smallest Gemma 4, fits 4GB iGPU/mobile (~3.1GB VRAM).
         // Q4_K_M is the only tier that fits 4GB VRAM (Q8_0=4.8GB, Q5_K_M=3.2GB w/ no KV margin).
-        // Tool-call schema compliance at Q4_K_M is lower than on larger models — prefer gguf:gemma4-default
+        // Tool-call schema compliance at Q4_K_M is lower than on larger models — prefer gguf:gemma4-e4b
         // or above for agentic workloads. Auto-selection picks E2B only when E4B doesn't fit.
-        ["gguf:gemma4-fast"] = new GgufModelInfo
+        ["gguf:gemma4-e2b"] = new GgufModelInfo
         {
             RepoId = "unsloth/gemma-4-E2B-it-GGUF",
             DisplayName = "Gemma 4 E2B Instruct",
@@ -45,7 +45,7 @@ public static class GgufModelRegistry
         // caused a size/quant fallback, the (then-unfiltered) mtp-* companion could be selected
         // instead of a real model and crash llama-server (ggml-org/llama.cpp#24343). Verified via
         // huggingface.co/ggml-org/gemma-4-E4B-it-GGUF file listing before changing this.
-        ["gguf:gemma4-default"] = new GgufModelInfo
+        ["gguf:gemma4-e4b"] = new GgufModelInfo
         {
             RepoId = "ggml-org/gemma-4-E4B-it-GGUF",
             DisplayName = "Gemma 4 E4B Instruct",
@@ -64,7 +64,7 @@ public static class GgufModelRegistry
 
         // Balanced: Gemma 4 E4B Q8_0 — higher quality E4B for 10-12GB VRAM (RTX 3060 12GB, etc.)
         // Fills the gap between default (5.3GB) and quality (16.8GB)
-        ["gguf:gemma4-balanced"] = new GgufModelInfo
+        ["gguf:gemma4-e4b-q8_0"] = new GgufModelInfo
         {
             RepoId = "ggml-org/gemma-4-E4B-it-GGUF",
             DisplayName = "Gemma 4 E4B Instruct (Q8_0)",
@@ -82,9 +82,9 @@ public static class GgufModelRegistry
         },
 
         // Quality: Gemma 4 26B MoE — 31B-class performance with 4B active params
-        // NOTE (2026-08-17): this repo also never published a K-quant — see gemma4-default's note
+        // NOTE (2026-08-17): this repo also never published a K-quant — see gemma4-e4b's note
         // above for the shared root cause.
-        ["gguf:gemma4-quality"] = new GgufModelInfo
+        ["gguf:gemma4-26b-a4b"] = new GgufModelInfo
         {
             RepoId = "ggml-org/gemma-4-26B-A4B-it-GGUF",
             DisplayName = "Gemma 4 26B A4B Instruct (MoE)",
@@ -103,9 +103,9 @@ public static class GgufModelRegistry
         },
 
         // Large: Gemma 4 31B Dense — maximum quality single-GPU model
-        // NOTE (2026-08-17): this repo also never published a K-quant — see gemma4-default's note
+        // NOTE (2026-08-17): this repo also never published a K-quant — see gemma4-e4b's note
         // above for the shared root cause.
-        ["gguf:gemma4-large"] = new GgufModelInfo
+        ["gguf:gemma4-31b"] = new GgufModelInfo
         {
             RepoId = "ggml-org/gemma-4-31B-it-GGUF",
             DisplayName = "Gemma 4 31B Instruct",
@@ -123,9 +123,9 @@ public static class GgufModelRegistry
         },
 
         // XLarge: Server-grade MoE model (split GGUF — 3 shards in Q4_K_M/ subfolder)
-        ["gguf:xlarge"] = new GgufModelInfo
+        ["gguf:frontier"] = new GgufModelInfo
         {
-            Tier = ModelTier.ExtraLarge,
+            Tier = ModelTier.Frontier,
             RepoId = "unsloth/Qwen3.5-122B-A10B-GGUF",
             DisplayName = "Qwen 3.5 122B A10B (MoE)",
             DefaultFile = "Q4_K_M/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf",
@@ -192,13 +192,13 @@ public static class GgufModelRegistry
 
         // ============================================================
         // Qwen3/3.5/3.6 tiers — Apache 2.0, ChatML, mix of GQA and MoE
-        // auto-selection pool: qwen3-fast/default/balanced/quality (qwen3-large excluded)
+        // auto-selection pool: entry/basic/balanced/advanced (qwen3.6-35b-a3b-q4_k_m excluded)
         // ============================================================
 
         // Fast: Qwen3.5-2B Q4_K_M — ~1.5GB model, ~2.25GB VRAM@4K, thinking OFF by default
-        ["gguf:qwen3-fast"] = new GgufModelInfo
+        ["gguf:entry"] = new GgufModelInfo
         {
-            Tier = ModelTier.Fast,
+            Tier = ModelTier.Entry,
             RepoId = "unsloth/Qwen3.5-2B-GGUF",
             DisplayName = "Qwen 3.5 2B Instruct",
             DefaultFile = "Qwen3.5-2B-Q4_K_M.gguf",
@@ -214,9 +214,9 @@ public static class GgufModelRegistry
 
         // Default: Qwen3.5-4B Q4_K_M — ~3.0GB model, ~4.25GB VRAM@4K; thinking ON by default
         // Use FilterReasoningTokens=true if <think> blocks should not appear in output.
-        ["gguf:qwen3-default"] = new GgufModelInfo
+        ["gguf:basic"] = new GgufModelInfo
         {
-            Tier = ModelTier.Default,
+            Tier = ModelTier.Basic,
             RepoId = "bartowski/Qwen_Qwen3.5-4B-GGUF",
             DisplayName = "Qwen 3.5 4B Instruct",
             DefaultFile = "Qwen_Qwen3.5-4B-Q4_K_M.gguf",
@@ -234,7 +234,7 @@ public static class GgufModelRegistry
         // Balanced: Qwen3.5-9B Q4_K_M — ~5.7GB model, ~5.8GB VRAM@4K; thinking OFF unless the request turns it on
         // (the chat template adds an empty think block unless enable_thinking is true). Hybrid like the 4B: 32 layers,
         // every fourth one full attention with 4 KV heads of 256 — 8 × 4 × (256 + 256) × 2 bytes = 32 KiB per token.
-        ["gguf:qwen3-balanced"] = new GgufModelInfo
+        ["gguf:balanced"] = new GgufModelInfo
         {
             Tier = ModelTier.Balanced,
             RepoId = "unsloth/Qwen3.5-9B-GGUF",
@@ -252,9 +252,9 @@ public static class GgufModelRegistry
 
         // Quality: Qwen3.6-35B-A3B IQ4_XS — MoE 35B total / 3B active; ~17.7GB model, ~19GB VRAM@4K
         // Thinking ON by default; use FilterReasoningTokens=true to suppress <think> blocks.
-        ["gguf:qwen3-quality"] = new GgufModelInfo
+        ["gguf:advanced"] = new GgufModelInfo
         {
-            Tier = ModelTier.Quality,
+            Tier = ModelTier.Advanced,
             RepoId = "unsloth/Qwen3.6-35B-A3B-GGUF",
             DisplayName = "Qwen 3.6 35B A3B Instruct (IQ4_XS)",
             DefaultFile = "Qwen3.6-35B-A3B-UD-IQ4_XS.gguf",
@@ -272,7 +272,7 @@ public static class GgufModelRegistry
 
         // Large: Qwen3.6-35B-A3B Q4_K_M — ~22.1GB model, ~23.35GB VRAM@4K
         // Excluded from auto pool: exceeds 24GB × 85% = 20.4 GB; use explicit alias only.
-        ["gguf:qwen3-large"] = new GgufModelInfo
+        ["gguf:qwen3.6-35b-a3b-q4_k_m"] = new GgufModelInfo
         {
             RepoId = "unsloth/Qwen3.6-35B-A3B-GGUF",
             DisplayName = "Qwen 3.6 35B A3B Instruct (Q4_K_M)",
@@ -292,11 +292,11 @@ public static class GgufModelRegistry
     private static readonly HashSet<string> _autoSelectionAliases =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            "gguf:qwen3-fast",
-            "gguf:qwen3-default",
-            "gguf:qwen3-balanced",
-            "gguf:qwen3-quality",
-            // qwen3-large excluded: 23.35 GB exceeds 24GB × 85% = 20.4 GB budget
+            "gguf:entry",
+            "gguf:basic",
+            "gguf:balanced",
+            "gguf:advanced",
+            // qwen3.6-35b-a3b-q4_k_m excluded: 23.35 GB exceeds 24GB × 85% = 20.4 GB budget
         };
 
     /// <summary>
@@ -339,7 +339,7 @@ public static class GgufModelRegistry
     /// Resolves an alias to model information.
     /// Supports both "gguf:alias" format and plain "alias" format.
     /// </summary>
-    /// <param name="aliasOrRepoId">The alias (e.g., "gguf:gemma4-default", "gemma4-default", "gguf:auto") or full repo ID.</param>
+    /// <param name="aliasOrRepoId">The alias (e.g., "gguf:gemma4-e4b", "gemma4-e4b", "gguf:auto") or full repo ID.</param>
     /// <returns>Model information if found, null otherwise. The <see cref="GgufModelInfo.AliasName"/> is populated for registered aliases.</returns>
     public static GgufModelInfo? Resolve(string aliasOrRepoId)
         => Resolve(aliasOrRepoId, ExecutionProvider.Auto);
@@ -610,7 +610,7 @@ public static class GgufModelRegistry
         AutoSelectionGoal goal) =>
         Select(
             _models.Where(kv => _autoSelectionAliases.Contains(kv.Key)),
-            () => WithAlias(_models["gguf:qwen3-fast"], "gguf:qwen3-fast"),
+            () => WithAlias(_models["gguf:entry"], "gguf:entry"),
             availableVram, safetyMargin, systemRamBytes, budgetContextLength, excludeKnownIssues, goal);
 
     /// <summary>
@@ -725,7 +725,7 @@ public static class GgufModelRegistry
 
     /// <summary>
     /// Checks if a string is a known GGUF alias.
-    /// Only matches "gguf:"-prefixed aliases (e.g., "gguf:gemma4-default", "gguf:gemma4-fast", "gguf:auto").
+    /// Only matches "gguf:"-prefixed aliases (e.g., "gguf:gemma4-e4b", "gguf:gemma4-e2b", "gguf:auto").
     /// Plain aliases like "default" or "fast" are reserved for ONNX models.
     /// </summary>
     public static bool IsAlias(string value)
@@ -744,6 +744,49 @@ public static class GgufModelRegistry
 
         return _models.ContainsKey(value);
     }
+
+    // COMPAT(remove-after: 0.150.0) — names retired in 0.144.0 when the tier aliases lost their model family and
+    // generation. They load nothing; the hint only tells the person who typed one what replaced it.
+    private static readonly Dictionary<string, string> _retiredAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["gguf:qwen3-fast"] = "it is now 'gguf:entry'",
+        ["gguf:qwen3-default"] = "it is now 'gguf:basic'",
+        ["gguf:qwen3-balanced"] = "it is now 'gguf:balanced'",
+        ["gguf:qwen3-quality"] = "it is now 'gguf:advanced'",
+        ["gguf:qwen3-large"] = "it is now 'gguf:qwen3.6-35b-a3b-q4_k_m' (the same model, off the ladder)",
+        ["gguf:xlarge"] = "it is now 'gguf:frontier'",
+        ["gguf:gemma4-fast"] = "it is now 'gguf:gemma4-e2b' (named for the model; Gemma 4 is off the ladder)",
+        ["gguf:gemma4-default"] = "it is now 'gguf:gemma4-e4b'",
+        ["gguf:gemma4-balanced"] = "it is now 'gguf:gemma4-e4b-q8_0'",
+        ["gguf:gemma4-quality"] = "it is now 'gguf:gemma4-26b-a4b'",
+        ["gguf:gemma4-large"] = "it is now 'gguf:gemma4-31b'",
+    };
+
+    /// <summary>
+    /// When <paramref name="alias"/> is a GGUF alias that was retired, the sentence that says what replaced it;
+    /// otherwise <see langword="null"/>. The retired name never resolves — this is only for the error message.
+    /// </summary>
+    public static string? DescribeRetiredAlias(string? alias)
+    {
+        if (string.IsNullOrWhiteSpace(alias))
+            return null;
+
+        var key = alias.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) ? alias : $"gguf:{alias}";
+        return _retiredAliases.TryGetValue(key, out var replacement)
+            ? $"'{alias}' is no longer an alias; {replacement}."
+            : null;
+    }
+
+    /// <summary>
+    /// Gets the GGUF catalog's ladder: the occupied rungs, lowest first, each with the alias that names it
+    /// (<c>gguf:entry</c> … <c>gguf:frontier</c>) and its model.
+    /// </summary>
+    public static IReadOnlyList<ModelTierEntry<GgufModelInfo>> GetTiers()
+        => _models
+            .Where(kv => kv.Value.Tier is not null)
+            .OrderBy(kv => kv.Value.Tier)
+            .Select(kv => new ModelTierEntry<GgufModelInfo>(kv.Value.Tier!.Value, kv.Key, WithAlias(kv.Value, kv.Key)))
+            .ToList();
 
     /// <summary>
     /// Gets all available alias names including "gguf:auto".

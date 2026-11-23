@@ -17,9 +17,9 @@ public class CatalogLicenseTests
     }
 
     [Theory]
-    [InlineData("fast", "Apache-2.0")] // ViT-GPT2: the conversion's card states none; the model it converts is Apache-2.0
+    [InlineData("entry", "Apache-2.0")] // ViT-GPT2: the conversion's card states none; the model it converts is Apache-2.0
     [InlineData("default", "MIT")] // Florence-2 since 0.104.0
-    [InlineData("quality", "MIT")]
+    [InlineData("basic", "MIT")]
     public void Alias_ReportsTheConvertedModelsLicense(string alias, string license)
         => CaptionerModelRegistry.Default.Resolve(alias).License.Should().Be(license);
 }

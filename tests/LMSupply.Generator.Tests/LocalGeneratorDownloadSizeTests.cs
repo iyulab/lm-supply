@@ -7,11 +7,11 @@ namespace LMSupply.Generator.Tests;
 /// <summary>
 /// <see cref="LocalGenerator.GetDownloadSizeBytesAsync"/> is the size of the files the load picks on this host, at the
 /// lengths the repository lists. The listing is seeded into the cache (fresh, so no request is made); the download reads
-/// the same listing, so these facts hold for what it would fetch. <c>gguf:qwen3-fast</c> fits any host.
+/// the same listing, so these facts hold for what it would fetch. <c>gguf:entry</c> fits any host.
 /// </summary>
 public sealed class LocalGeneratorDownloadSizeTests : IDisposable
 {
-    private const string Alias = "gguf:qwen3-fast";
+    private const string Alias = "gguf:entry";
     private readonly string _cacheDir = Path.Combine(Path.GetTempPath(), "lmsupply-gsize-" + Guid.NewGuid().ToString("N"));
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -50,7 +50,7 @@ public sealed class LocalGeneratorDownloadSizeTests : IDisposable
     [Fact]
     public async Task SplitRegistryModel_IsEveryShard()
     {
-        const string alias = "gguf:xlarge";
+        const string alias = "gguf:frontier";
         var info = GgufModelRegistry.Resolve(alias)!;
         var shards = GgufModelDownloader.GenerateShardFilenames(info.DefaultFile, info.ShardCount!.Value);
         SeedListing(info.RepoId, [.. shards.Select((s, i) => (s, 1_000_000L * (i + 1)))]);

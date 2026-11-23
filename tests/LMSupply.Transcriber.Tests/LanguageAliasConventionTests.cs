@@ -7,19 +7,19 @@ namespace LMSupply.Transcriber.Tests;
 /// <summary>
 /// Tests for the Transcriber language alias naming convention.
 /// Convention: Language-specific aliases use {tier}-{lang} pattern (ISO 639-1 codes).
-/// Examples: large-ko, fast-ko, quality-ja
+/// Examples: turbo-ko, entry-ko, balanced-ja
 /// Standalone language aliases (english) are also allowed for backward compatibility.
 /// </summary>
 public class LanguageAliasConventionTests
 {
     private static readonly Regex LanguageAliasPattern = new(
-        @"^(fast|default|quality|large|turbo|medium|distil)-[a-z]{2}$",
+        @"^(entry|basic|balanced|advanced|frontier|default|turbo|medium|distil)-[a-z]{2}$",
         RegexOptions.Compiled);
 
     [Fact]
-    public void LargeKo_FollowsTierLangPattern()
+    public void TurboKo_FollowsTierLangPattern()
     {
-        LanguageAliasPattern.IsMatch("large-ko").Should().BeTrue();
+        LanguageAliasPattern.IsMatch("turbo-ko").Should().BeTrue();
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public class LanguageAliasConventionTests
     [Fact]
     public void KoreanModel_HasCorrectLanguageMetadata()
     {
-        var model = TranscriberModelRegistry.Default.Resolve("large-ko");
+        var model = TranscriberModelRegistry.Default.Resolve("turbo-ko");
 
         model.SupportedLanguages.Should().Contain("ko");
         model.IsMultilingual.Should().BeFalse();
@@ -74,7 +74,7 @@ public class LanguageAliasConventionTests
     [Fact]
     public void LanguageAliases_ShouldNotConflictWithStandardTiers()
     {
-        var standardTiers = new[] { "default", "fast", "quality", "large", "medium", "turbo", "distil", "english", "auto" };
+        var standardTiers = new[] { "default", "entry", "basic", "balanced", "advanced", "frontier", "medium", "turbo", "distil", "english", "auto" };
         var aliases = TranscriberModelRegistry.Default.GetAliases();
 
         var languageAliases = aliases
@@ -119,7 +119,7 @@ public class LanguageAliasConventionTests
     {
         // For {tier}-{lang} aliases, the tier part should correspond to a real tier
         var existingTiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            { "fast", "default", "quality", "large", "medium", "turbo", "distil" };
+            { "entry", "default", "basic", "balanced", "advanced", "frontier", "medium", "turbo", "distil" };
 
         var aliases = TranscriberModelRegistry.Default.GetAliases()
             .Where(a => LanguageAliasPattern.IsMatch(a.Name))

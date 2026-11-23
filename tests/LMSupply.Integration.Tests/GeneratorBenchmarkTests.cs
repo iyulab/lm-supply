@@ -21,7 +21,7 @@ public class GeneratorBenchmarkTests
 
         // Load model
         var loadSw = Stopwatch.StartNew();
-        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-e2b", cancellationToken: TestContext.Current.CancellationToken);
         loadSw.Stop();
 
         var info = model.GetModelInfo();
@@ -106,7 +106,7 @@ public class GeneratorBenchmarkTests
     {
         System.Console.WriteLine("=== Chat Completion Benchmark ===\n");
 
-        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalGenerator.LoadAsync("gguf:gemma4-e2b", cancellationToken: TestContext.Current.CancellationToken);
 
         // Warmup
         var warmupMessages = new[] { ChatMessage.User("Hi") };

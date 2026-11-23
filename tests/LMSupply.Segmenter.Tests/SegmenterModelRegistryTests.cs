@@ -23,9 +23,8 @@ public class SegmenterModelRegistryTests
     }
 
     [Theory]
-    [InlineData("quality", "onnx-community/maskformer-resnet50-ade20k-full")]
-    [InlineData("fast", "onnx-community/mediapipe_selfie_segmentation")]
-    [InlineData("large", "optimum/segformer-b0-finetuned-ade-512-512")]
+    [InlineData("balanced", "onnx-community/maskformer-resnet50-ade20k-full")]
+    [InlineData("entry", "onnx-community/mediapipe_selfie_segmentation")]
     public void Resolve_BuiltInAliases_ShouldReturnCorrectModel(string alias, string expectedId)
     {
         var model = _registry.Resolve(alias);
@@ -95,8 +94,7 @@ public class SegmenterModelRegistryTests
     {
         var models = _registry.GetAvailableModels();
 
-        // SegFormerB0, MediaPipeSelfie, MaskFormerResNet50, SegFormerB0Large (same ID as B0), MobileSAM
-        // But SegFormerB0 and SegFormerB0Large share the same ID so only 4 unique by ID
+        // SegFormerB0, MediaPipeSelfie, MaskFormerResNet50, MobileSAM
         models.Should().HaveCountGreaterThanOrEqualTo(4);
     }
 
@@ -106,7 +104,7 @@ public class SegmenterModelRegistryTests
         var aliases = _registry.GetAliases();
 
         var aliasNames = aliases.Select(a => a.Name).ToList();
-        aliasNames.Should().Contain(["auto", "default", "quality", "fast", "large", "interactive"]);
+        aliasNames.Should().Contain(["auto", "default", "balanced", "entry", "basic", "interactive"]);
         aliases.Should().AllSatisfy(a => a.Kind.Should().Be(AliasKind.System));
     }
 
