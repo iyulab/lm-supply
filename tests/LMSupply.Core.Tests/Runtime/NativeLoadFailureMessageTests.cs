@@ -12,10 +12,10 @@ namespace LMSupply.Core.Tests.Runtime;
 public class NativeLoadFailureMessageTests
 {
     private const string SigningRefusal =
-        "Unable to load shared library '/Users/app/Library/Caches/LMSupply/runtimes/onnxruntime/cpu/1.31.0/osx-arm64/libonnxruntime.dylib' "
-        + "or one of its dependencies. dlopen(/Users/app/Library/Caches/LMSupply/runtimes/onnxruntime/cpu/1.31.0/osx-arm64/libonnxruntime.dylib, 0x0001): "
-        + "tried: '/Users/app/Library/Caches/LMSupply/runtimes/onnxruntime/cpu/1.31.0/osx-arm64/libonnxruntime.dylib' "
-        + "(code signature in <5C1A0E5E-0B7B-3F54-9F4E-6E0D5D1C7A10> '/Users/app/Library/Caches/LMSupply/runtimes/onnxruntime/cpu/1.31.0/osx-arm64/libonnxruntime.dylib' "
+        "Unable to load shared library '/Users/user/Library/Caches/LMSupply/runtimes/onnxruntime/cpu/1.31.0/osx-arm64/libonnxruntime.dylib' "
+        + "or one of its dependencies. dlopen(/Users/user/Library/Caches/LMSupply/runtimes/onnxruntime/cpu/1.31.0/osx-arm64/libonnxruntime.dylib, 0x0001): "
+        + "tried: '/Users/user/Library/Caches/LMSupply/runtimes/onnxruntime/cpu/1.31.0/osx-arm64/libonnxruntime.dylib' "
+        + "(code signature in <5C1A0E5E-0B7B-3F54-9F4E-6E0D5D1C7A10> '/Users/user/Library/Caches/LMSupply/runtimes/onnxruntime/cpu/1.31.0/osx-arm64/libonnxruntime.dylib' "
         + "not valid for use in process: mapping process and mapped file (non-platform) have different Team IDs)";
 
     [Theory]
