@@ -317,6 +317,36 @@ public class CacheManagerTests
         }
     }
 
+    [Fact]
+    public void GetCachedModelsWithInfo_EmptySnapshot_IsListedAsIncomplete_AndLeftOutOfAByTypeListing()
+    {
+        // A directory a failed or aborted run leaves behind holds no files; the listing shows it (so a cache view can offer
+        // to clear it) but marks it incomplete, and the by-type listing — what a model lookup uses — does not offer it.
+        var cacheDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(Path.Combine(cacheDir, "models--test--empty", "snapshots", "main"));
+        var snapshotDir = Path.Combine(cacheDir, "models--test--whole", "snapshots", "main");
+        Directory.CreateDirectory(snapshotDir);
+        File.WriteAllBytes(Path.Combine(snapshotDir, "model.onnx"), new byte[CachedModelInfo.MinimumCompleteSize]);
+        File.WriteAllText(Path.Combine(snapshotDir, "tokenizer.json"), "{}");
+
+        try
+        {
+            var models = CacheManager.GetCachedModelsWithInfo(cacheDir);
+            models.Select(m => m.RepoId).Should().Equal("test/empty", "test/whole");
+            var empty = models.Single(m => m.RepoId == "test/empty");
+            empty.FileCount.Should().Be(0);
+            empty.SizeBytes.Should().Be(0);
+            empty.IsComplete.Should().BeFalse();
+            models.Single(m => m.RepoId == "test/whole").IsComplete.Should().BeTrue();
+
+            CacheManager.GetCachedModelsByType(cacheDir, ModelType.Embedder).Should().NotContain(m => m.RepoId == "test/empty");
+        }
+        finally
+        {
+            Directory.Delete(cacheDir, recursive: true);
+        }
+    }
+
     // ── GetCachedModelsByType tests ────────────────────────────────
 
     [Fact]
