@@ -131,9 +131,9 @@ public class InfrastructureFunctionalTests
         var cacheDir = CacheManager.GetDefaultCacheDirectory();
         var cachedModels = CacheManager.GetCachedModels(cacheDir).ToList();
 
-        cachedModels.Should().NotBeEmpty("at least the loaded model should be cached");
-        cachedModels.Should().Contain(m => m.ModelId.Contains("MiniLM") || m.ModelId.Contains("minilm") || m.ModelId.Length > 0,
-            "cached models should include the 'fast' Embedder model");
+        // The listing is the host's whole cache, so the check is for the model this test loaded, by its repository id.
+        var repoId = model.GetModelInfo()!.RepoId;
+        cachedModels.Should().Contain(m => m.ModelId == repoId, "the loaded 'fast' Embedder model should be listed");
     }
 
     [Fact]
@@ -146,13 +146,13 @@ public class InfrastructureFunctionalTests
         var cacheDir = CacheManager.GetDefaultCacheDirectory();
         var cachedModels = CacheManager.GetCachedModelsWithInfo(cacheDir);
 
-        cachedModels.Should().NotBeEmpty();
-
-        var firstModel = cachedModels[0];
-        firstModel.RepoId.Should().NotBeNullOrEmpty();
-        firstModel.LocalPath.Should().NotBeNullOrEmpty();
-        firstModel.SizeBytes.Should().BeGreaterThan(0);
-        firstModel.FileCount.Should().BeGreaterThan(0);
+        // The listing is the host's whole cache — other runs may leave empty or partial entries in it, and entries are
+        // ordered by repository id — so the fields are read from the model this test loaded, not from whatever is first.
+        var loaded = cachedModels.Should().ContainSingle(m => m.RepoId == model.GetModelInfo()!.RepoId).Subject;
+        loaded.LocalPath.Should().NotBeNullOrEmpty();
+        loaded.SizeBytes.Should().BeGreaterThan(0);
+        loaded.FileCount.Should().BeGreaterThan(0);
+        loaded.IsComplete.Should().BeTrue();
     }
 
     [Fact]

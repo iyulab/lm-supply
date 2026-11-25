@@ -334,6 +334,14 @@ foreach (var segment in meeting.Segments)
 // MaxSpeakers bounds the estimate (attendees); NumSpeakers forces an exact count and splits a voice to reach it.
 // The diarization models download on first use; to fetch them at an install step instead, load with
 // new TranscriberOptions { PreloadDiarization = true }. LocalTranscriber.IsDiarizationDownloadedAsync() checks the cache.
+
+// Who spoke when, without transcribing: speaker turns of a recording
+await using var diarizer = await LocalSpeakerDiarizer.LoadAsync();
+var turns = (await diarizer.DiarizeAsync("meeting.wav")).Turns;   // (Start, End, Speaker "S1", "S2", …)
+
+// Where speech is, without transcribing: speech spans of a recording (Silero VAD, 2.2 MB, on the CPU)
+await using var detector = await LocalVoiceActivityDetector.LoadAsync();
+var speech = (await detector.DetectAsync("meeting.wav")).Segments;   // (Start, End) in seconds
 // For a consent screen: LocalTranscriber.GetDownloadSizeBytesAsync(options) is the model's files that load downloads (the
 // quantization it picks, plus the pair when PreloadDiarization is set) — TranscriberModelInfo.SizeBytes is the
 // full-precision export's size — and new TranscriberArtifacts(options).GetRemainingDownloadAsync("default").TotalBytes adds

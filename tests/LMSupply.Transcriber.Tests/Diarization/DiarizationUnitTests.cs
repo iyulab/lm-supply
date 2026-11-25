@@ -118,7 +118,7 @@ public class DiarizationUnitTests
     [Fact]
     public void Assign_TakesTheLargestOverlapThenTheNearestTurn()
     {
-        var turns = new[] { new SpeakerTurn(0, 4, 0), new SpeakerTurn(4, 10, 1), new SpeakerTurn(20, 25, 0) };
+        var turns = new[] { new DiarizedTurn(0, 4, 0), new DiarizedTurn(4, 10, 1), new DiarizedTurn(20, 25, 0) };
         var segments = new[] { Segment(0.5, 3), Segment(3, 6), Segment(12, 13), Segment(18, 19.5) };
 
         var labelled = DiarizationStage.Assign(segments, turns);

@@ -89,4 +89,90 @@ public class SpeakerDiarizerIntegrationTests
 
         turns.Select(t => t.Speaker).Distinct().Should().HaveCount(4, "the recording has four speakers");
     }
+
+    /// <summary>
+    /// The public surface gives sherpa's reference turns on its own test recording — the same turns the internal
+    /// diarizer gives — from a path, from a stream and from bytes, with labels in speaking order.
+    /// </summary>
+    [Fact]
+    public async Task PublicSurface_ReproducesTheSherpaReference_FromPathStreamAndBytes()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var path = await RecordingAsync(ct);
+        await using var diarizer = await LocalSpeakerDiarizer.LoadAsync(cancellationToken: ct);
+        var options = new DiarizeOptions { SpeakerThreshold = 0.5f };
+
+        await using var stream = File.OpenRead(path);
+        var results = new[]
+        {
+            await diarizer.DiarizeAsync(path, options, ct),
+            await diarizer.DiarizeAsync(stream, options, ct),
+            await diarizer.DiarizeAsync(await File.ReadAllBytesAsync(path, ct), options, ct),
+        };
+
+        foreach (var result in results)
+        {
+            result.Turns.Should().HaveCount(SherpaReference.Length);
+            result.SpeakerCount.Should().Be(2);
+            result.DurationSeconds.Should().BeApproximately(56.0, 5.0, "a recording of about a minute");
+            for (var i = 0; i < SherpaReference.Length; i++)
+            {
+                result.Turns[i].Start.Should().BeApproximately(SherpaReference[i].Start, 0.05);
+                result.Turns[i].End.Should().BeApproximately(SherpaReference[i].End, 0.05);
+                result.Turns[i].Speaker.Should().Be($"S{SherpaReference[i].Speaker + 1}");
+            }
+        }
+    }
+
+    [Fact]
+    public async Task PublicSurface_ASpeakerCountFixesTheCount_AndABoundCapsIt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var path = await RecordingAsync(ct);
+        await using var diarizer = await LocalSpeakerDiarizer.LoadAsync(cancellationToken: ct);
+
+        var four = await diarizer.DiarizeAsync(path, new DiarizeOptions { NumSpeakers = 4 }, ct);
+        var capped = await diarizer.DiarizeAsync(path, new DiarizeOptions { NumSpeakers = null, MaxSpeakers = 1 }, ct);
+
+        four.SpeakerCount.Should().Be(4, "the recording has four speakers");
+        capped.SpeakerCount.Should().Be(1);
+        capped.Turns.Should().OnlyContain(t => t.Speaker == "S1");
+    }
+
+    /// <summary>The standalone diarizer and a diarized transcription name the same voices the same way.</summary>
+    [Fact]
+    public async Task PublicSurface_LabelsAgreeWithADiarizedTranscription()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var path = await RecordingAsync(ct);
+        await using var diarizer = await LocalSpeakerDiarizer.LoadAsync(cancellationToken: ct);
+        await using var model = await LocalTranscriber.LoadAsync("default", cancellationToken: ct);
+
+        var turns = (await diarizer.DiarizeAsync(path, new DiarizeOptions { SpeakerThreshold = 0.5f }, ct)).Turns;
+        var transcript = await model.TranscribeAsync(
+            path, new TranscribeOptions { Diarize = true, Language = "zh", SpeakerThreshold = 0.5f }, ct);
+
+        transcript.Segments.Should().NotBeEmpty();
+        foreach (var segment in transcript.Segments)
+        {
+            var mid = (segment.Start + segment.End) / 2;
+            var inside = turns.Where(t => t.Start <= mid && mid <= t.End).Select(t => t.Speaker).ToList();
+            if (inside.Count > 0)
+                inside.Should().Contain(segment.Speaker, $"segment at {mid:F1} s is labelled with a voice talking then");
+        }
+    }
+
+    [Fact]
+    public async Task PublicSurface_RefusesAudioThatIsNoAudio()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var diarizer = await LocalSpeakerDiarizer.LoadAsync(cancellationToken: ct);
+
+        await FluentActions.Awaiting(() => diarizer.DiarizeAsync(Array.Empty<byte>(), cancellationToken: ct))
+            .Should().ThrowAsync<InvalidDataException>();
+        await FluentActions.Awaiting(() => diarizer.DiarizeAsync(new byte[] { 1, 2, 3, 4 }, cancellationToken: ct))
+            .Should().ThrowAsync<InvalidDataException>();
+        await FluentActions.Awaiting(() => diarizer.DiarizeAsync(new byte[10], new DiarizeOptions { NumSpeakers = 0 }, ct))
+            .Should().ThrowAsync<ArgumentOutOfRangeException>("the settings are checked before the audio is read");
+    }
 }

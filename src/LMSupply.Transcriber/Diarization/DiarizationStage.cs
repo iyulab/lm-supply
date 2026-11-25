@@ -23,21 +23,31 @@ internal sealed class DiarizationStage : IAsyncDisposable
 
     public static void Validate(TranscribeOptions? options)
     {
-        if (options?.NumSpeakers is <= 0)
-            throw new ArgumentOutOfRangeException(nameof(options), options.NumSpeakers,
-                "TranscribeOptions.NumSpeakers must be positive when set.");
-        if (options?.MinSpeakers is <= 0)
-            throw new ArgumentOutOfRangeException(nameof(options), options.MinSpeakers,
-                "TranscribeOptions.MinSpeakers must be positive when set.");
-        if (options?.MaxSpeakers is <= 0)
-            throw new ArgumentOutOfRangeException(nameof(options), options.MaxSpeakers,
-                "TranscribeOptions.MaxSpeakers must be positive when set.");
-        if (options is { MinSpeakers: { } min, MaxSpeakers: { } max } && min > max)
-            throw new ArgumentOutOfRangeException(nameof(options), min,
-                $"TranscribeOptions.MinSpeakers ({min}) must not exceed MaxSpeakers ({max}).");
-        if (options?.SpeakerThreshold is { } t && (t <= 0 || t >= 2 || float.IsNaN(t)))
-            throw new ArgumentOutOfRangeException(nameof(options), t,
-                "TranscribeOptions.SpeakerThreshold is a cosine distance and must be in (0, 2).");
+        if (options is null)
+            return;
+        ValidateBounds(nameof(TranscribeOptions), options.NumSpeakers, options.MinSpeakers, options.MaxSpeakers,
+            options.SpeakerThreshold, nameof(options));
+    }
+
+    /// <summary>The rules for the speaker count and cut a diarization call takes, whichever options type carries them.</summary>
+    internal static void ValidateBounds(
+        string owner, int? numSpeakers, int? minSpeakers, int? maxSpeakers, float? threshold, string paramName)
+    {
+        if (numSpeakers is <= 0)
+            throw new ArgumentOutOfRangeException(paramName, numSpeakers,
+                $"{owner}.NumSpeakers must be positive when set.");
+        if (minSpeakers is <= 0)
+            throw new ArgumentOutOfRangeException(paramName, minSpeakers,
+                $"{owner}.MinSpeakers must be positive when set.");
+        if (maxSpeakers is <= 0)
+            throw new ArgumentOutOfRangeException(paramName, maxSpeakers,
+                $"{owner}.MaxSpeakers must be positive when set.");
+        if (minSpeakers is { } min && maxSpeakers is { } max && min > max)
+            throw new ArgumentOutOfRangeException(paramName, min,
+                $"{owner}.MinSpeakers ({min}) must not exceed MaxSpeakers ({max}).");
+        if (threshold is { } t && (t <= 0 || t >= 2 || float.IsNaN(t)))
+            throw new ArgumentOutOfRangeException(paramName, t,
+                $"{owner}.SpeakerThreshold is a cosine distance and must be in (0, 2).");
     }
 
     public async Task<TranscriptionResult> ApplyAsync(
@@ -71,7 +81,7 @@ internal sealed class DiarizationStage : IAsyncDisposable
     /// No turns at all leaves every speaker null.
     /// </summary>
     internal static IReadOnlyList<TranscriptionSegment> Assign(
-        IReadOnlyList<TranscriptionSegment> segments, IReadOnlyList<SpeakerTurn> turns)
+        IReadOnlyList<TranscriptionSegment> segments, IReadOnlyList<DiarizedTurn> turns)
     {
         if (turns.Count == 0)
             return segments;
@@ -110,7 +120,7 @@ internal sealed class DiarizationStage : IAsyncDisposable
                 NoSpeechProb = segment.NoSpeechProb,
                 CompressionRatio = segment.CompressionRatio,
                 Words = segment.Words,
-                Speaker = $"S{speaker + 1}",
+                Speaker = SpeakerTurn.LabelOf(speaker),
             });
         }
         return labelled;

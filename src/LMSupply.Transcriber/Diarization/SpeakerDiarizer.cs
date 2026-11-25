@@ -5,7 +5,7 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 namespace LMSupply.Transcriber.Diarization;
 
 /// <summary>A span of audio attributed to one speaker (0-based, stable within one recording).</summary>
-internal readonly record struct SpeakerTurn(double Start, double End, int Speaker);
+internal readonly record struct DiarizedTurn(double Start, double End, int Speaker);
 
 /// <summary>
 /// Offline speaker diarization: pyannote segmentation-3.0 over 10 s windows (1 s step), one speaker embedding per
@@ -117,7 +117,7 @@ internal sealed class SpeakerDiarizer : IAsyncDisposable
     }
 
     /// <summary>Speaker turns of 16 kHz mono <paramref name="samples"/>, ordered by start.</summary>
-    public IReadOnlyList<SpeakerTurn> Diarize(float[] samples, int numSpeakers = 0, float threshold = DefaultThreshold,
+    public IReadOnlyList<DiarizedTurn> Diarize(float[] samples, int numSpeakers = 0, float threshold = DefaultThreshold,
         int minSpeakers = 0, int maxSpeakers = 0, CancellationToken cancellationToken = default)
     {
         if (samples.Length == 0)
@@ -317,12 +317,12 @@ internal sealed class SpeakerDiarizer : IAsyncDisposable
     }
 
     /// <summary>Frame labels → turns: frame times, merging same-speaker gaps below 0.5 s, dropping turns under 0.3 s.</summary>
-    internal static IReadOnlyList<SpeakerTurn> ToTurns(int[,] labels, int speakerCount)
+    internal static IReadOnlyList<DiarizedTurn> ToTurns(int[,] labels, int speakerCount)
     {
         const double scale = (double)ReceptiveFieldShift / SampleRate;
         const double offset = 0.5 * ReceptiveFieldSize / SampleRate;
         var frames = labels.GetLength(0);
-        var turns = new List<SpeakerTurn>();
+        var turns = new List<DiarizedTurn>();
 
         for (var s = 0; s < Math.Min(speakerCount, labels.GetLength(1)); s++)
         {
@@ -360,7 +360,7 @@ internal sealed class SpeakerDiarizer : IAsyncDisposable
             {
                 if (end - start <= MinDurationOn)
                     continue;
-                turns.Add(new SpeakerTurn(start, end, s));
+                turns.Add(new DiarizedTurn(start, end, s));
             }
         }
 

@@ -713,18 +713,20 @@ public static class LocalEmbedder
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
         var cacheDir = options?.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
 
+        // On a throwaway: preparing the target records a variant qualifier on the options it is given.
+        var target = PrepareLoadTarget(modelId, options?.Clone() ?? new EmbedderOptions());
+
         string? repoId;
-        if (IsGgufModel(modelId))
+        if (IsGgufModel(target))
         {
-            var repoIdOrPath = StripGgufPrefix(modelId);
+            var repoIdOrPath = StripGgufPrefix(target);
             repoId = !File.Exists(repoIdOrPath) && repoIdOrPath.Contains('/') && !repoIdOrPath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)
                 ? repoIdOrPath
                 : null;
         }
         else
         {
-            var (baseId, _) = LMSupplyOptionsBase.SplitQualifier(modelId);
-            repoId = EmbedderModelRegistry.Default.TryResolve(baseId, out var modelInfo) ? modelInfo!.RepoId : baseId;
+            repoId = EmbedderModelRegistry.Default.TryResolve(target, out var modelInfo) ? modelInfo!.RepoId : target;
             if (File.Exists(repoId) || Directory.Exists(repoId))
                 repoId = null;
         }
@@ -755,22 +757,39 @@ public static class LocalEmbedder
         // An unsupported provider is refused here, before any model resolution or download (0.67.1).
         ExecutionProviderSupport.ThrowIfUnsupported(options.Provider);
 
-        // Parse variant qualifier
-        var (baseId, qualifier) = LMSupplyOptionsBase.SplitQualifier(modelId);
-        modelId = baseId;
-        options.QuantizationHint ??= qualifier;
+        // The target the load resolves: variant qualifier, user alias, built-in GGUF alias.
+        var target = PrepareLoadTarget(modelId, options);
 
         // A GGUF model: the one file its load opens (the largest quantization that fits in memory).
-        if (IsGgufModel(modelId))
+        if (IsGgufModel(target))
         {
-            return await ResolveGgufFileAsync(modelId, options, progress, cancellationToken);
+            return await ResolveGgufFileAsync(target, options, progress, cancellationToken);
         }
+
+        // A model on local disk has nothing to download.
+        if (File.Exists(target))
+            return Path.GetDirectoryName(Path.GetFullPath(target))!;
+        if (target.EndsWith(".onnx", StringComparison.OrdinalIgnoreCase))
+            throw new ModelNotFoundException($"Model file not found: '{target}'.", target);
 
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         using var downloader = new HuggingFaceDownloader(cacheDir, localFilesOnly: options.DisableAutoDownload);
+        return await DownloadRepositoryFilesAsync(downloader, target, options, progress, cancellationToken);
+    }
 
-        // Known model alias / registered model
-        if (EmbedderModelRegistry.Default.TryResolve(modelId, out var modelInfo))
+    /// <summary>
+    /// The repository half of <see cref="DownloadModelAsync"/>, over a given downloader: the branches of
+    /// <see cref="PlanDownloadAsync"/>, which are the load's.
+    /// </summary>
+    internal static async Task<string> DownloadRepositoryFilesAsync(
+        HuggingFaceDownloader downloader,
+        string target,
+        EmbedderOptions options,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        // Not TryResolve: it answers any "org/repo" with a placeholder entry, whose file set is not the one the load opens.
+        if (EmbedderModelRegistry.Default.TryResolveCatalog(target, out var modelInfo, out var resolvedId))
         {
             return await downloader.DownloadModelAsync(
                 modelInfo!.RepoId,
@@ -779,32 +798,17 @@ public static class LocalEmbedder
                 cancellationToken: cancellationToken);
         }
 
-        // HuggingFace repo ID with auto-discovery
-        if (modelId.Contains('/'))
+        if (resolvedId.Contains('/'))
         {
-            var hwPrefs = ModelPreferences.ForProvider(options.Provider);
-            var preferences = options.QuantizationHint is { } hint
-                ? new ModelPreferences
-                {
-                    PreferLowMemory = hwPrefs.PreferLowMemory,
-                    QuantizationPriority = ModelPreferences.ForQuantizationHint(hint).QuantizationPriority,
-                    PreferredProvider = options.Provider != ExecutionProvider.Auto
-                        ? options.Provider : hwPrefs.PreferredProvider
-                }
-                : hwPrefs;
-
             var (downloadedDir, _) = await downloader.DownloadWithDiscoveryAsync(
-                modelId,
-                preferences: preferences,
+                resolvedId,
+                preferences: OnnxPreferences(options),
                 progress: progress,
                 cancellationToken: cancellationToken);
             return downloadedDir;
         }
 
-        throw new ModelNotFoundException(
-            $"Unknown model '{modelId}'. Use a known model alias, a HuggingFace repo ID, " +
-            "or a local path to an ONNX model file.",
-            modelId);
+        throw UnknownModel(target);
     }
 
     /// <summary>

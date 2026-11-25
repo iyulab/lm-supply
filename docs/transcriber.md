@@ -30,7 +30,8 @@ dotnet add package LMSupply.Transcriber
 - **Multilingual**: Support for 99+ languages with auto-detection
 - **Timestamps**: Segment-level timestamps (word-level timestamps are not produced)
 - **Streaming**: Real-time transcription as audio is processed
-- **Speaker diarization**: `Diarize = true` labels each segment with its speaker (`S1`, `S2`, …), locally (0.79.0+)
+- **Speaker diarization**: `Diarize = true` labels each segment with its speaker (`S1`, `S2`, …), locally (0.79.0+); `LocalSpeakerDiarizer` returns the speaker turns alone
+- **Voice activity detection**: `LocalVoiceActivityDetector` returns the spans of a recording that hold speech (Silero VAD, 2.2 MB, on the CPU), to feed a recognizer only speech or to cut a long recording at its pauses
 - **GPU Acceleration**: CUDA and CoreML support
 - **Audio formats**: WAV, MP3, and Opus in WebM or Ogg — what a browser records with `MediaRecorder` (Chromium/Edge
   WebM/Opus, Firefox Ogg/Opus) — from a file path, a `Stream` or a `byte[]`; the container is recognised from its
@@ -266,6 +267,72 @@ long? whole = first.TotalBytes;                                                 
   only, whatever `PreloadDiarization` says, so a cached model reads as available before the pair is installed.
 - `LocalTranscriber.Pool` keys models by id only: a pooled model that was loaded without `PreloadDiarization` is
   returned as is, and its pair loads on the first diarized call.
+
+#### Who spoke when, without transcribing
+
+`LocalSpeakerDiarizer` runs the same diarization on a recording and returns the speaker turns, with no transcription
+model loaded. The audio goes in whole — a path, a stream or bytes in any container the library decodes (WAV, MP3,
+Opus …); the sample rate is read from the container.
+
+```csharp
+await using var diarizer = await LocalSpeakerDiarizer.LoadAsync();
+
+var result = await diarizer.DiarizeAsync("meeting.wav", new DiarizeOptions { MaxSpeakers = 5 });
+
+Console.WriteLine($"{result.SpeakerCount} speakers in {result.DurationSeconds:F0} s");
+foreach (var turn in result.Turns)
+    Console.WriteLine($"{turn.Speaker}: {turn.Start:F1}-{turn.End:F1} s");
+```
+
+- A `SpeakerTurn` is `(Start, End, Speaker)` in seconds from the start of the recording, ordered by start. `Speaker` is
+  the same label a diarized transcription gives its segments (`"S1"`, `"S2"`, … in speaking order), so the two outputs
+  of one recording line up. Turns of different speakers may overlap (at most two at one instant); a recording with no
+  speech gives no turns.
+- `DiarizeOptions` carries `NumSpeakers`, `MinSpeakers`, `MaxSpeakers` and `SpeakerThreshold` with the meaning and
+  defaults described above. A setting out of range throws `ArgumentOutOfRangeException` before the audio is read; audio
+  that is empty or no readable format throws `InvalidDataException`.
+- The models are the same pair and the same cache. `LocalSpeakerDiarizer.IsDownloadedAsync` (no request, writes
+  nothing), `DownloadAsync` (fetch without loading) and `DownloadSizeBytes` (32.5 MB) serve an install or consent step;
+  `SpeakerDiarizerOptions.DisableAutoDownload` refuses a download.
+- One loaded diarizer serves concurrent calls. The recording is decoded into memory, so very long recordings take
+  memory in proportion to their length (16 kHz mono floats: about 3.8 MB a minute).
+- There is no overload for raw samples: decode or resample to a container first (a WAV header is enough) — the input
+  contract stays one thing, whatever the caller's pipeline holds.
+
+#### Where speech is, without transcribing
+
+`LocalVoiceActivityDetector` finds the spans of a recording that hold speech — what to hand a recognizer, or what to keep of
+a recording. The input is the same as above: a path, a stream or bytes in any container the library decodes.
+
+```csharp
+await using var detector = await LocalVoiceActivityDetector.LoadAsync();
+
+var result = await detector.DetectAsync("meeting.wav", new VadOptions
+{
+    MinSilenceDuration = TimeSpan.FromMilliseconds(500),   // a pause this long ends a span
+    MaxSpeechDuration = TimeSpan.FromSeconds(30),           // cut longer runs, for a 30 s recognizer window
+});
+
+Console.WriteLine($"{result.SpeechSeconds:F0} s of speech in {result.DurationSeconds:F0} s");
+foreach (var span in result.Segments)
+    Console.WriteLine($"{span.Start:F1}-{span.End:F1} s");
+```
+
+- A `SpeechSegment` is `(Start, End)` in seconds on the recording's own time axis, ordered by start and not overlapping; a
+  recording with no speech gives none. The model is Silero VAD (MIT, about 2.2 MB), fetched on first use into the shared
+  cache and run on the CPU unless `VoiceActivityDetectorOptions.Provider` names another provider (`Auto` means the CPU
+  here: the model is small and read one 32 ms window at a time).
+- `VadOptions` carries the settings of Silero's reference utility with its defaults: `Threshold` (0.5; speech ends only
+  once the probability has fallen 0.15 below it, so a wavering value does not cut a span), `MinSpeechDuration` (250 ms),
+  `MinSilenceDuration` (100 ms — raise it to get turns instead of phrases), `SpeechPadding` (30 ms on each side; spans
+  whose paddings meet share the gap) and `MaxSpeechDuration` (none; a longer run is cut at its latest pause of about
+  100 ms or more, else at the limit). A setting out of range throws `ArgumentOutOfRangeException` before the audio is
+  read; audio that is empty or no readable format throws `InvalidDataException`.
+- `LocalVoiceActivityDetector.IsDownloadedAsync` (no request, writes nothing), `DownloadAsync` and `DownloadSizeBytes`
+  serve an install or consent step; `VoiceActivityDetectorOptions.DisableAutoDownload` refuses a download. One loaded
+  detector serves concurrent calls, and the recording is decoded into memory like the diarizer's.
+- This finds speech; it does not remove noise, and transcription does not use it — pass a transcriber the spans you want
+  read. The model can take music or singing for speech; raise `Threshold` to be stricter.
 
 ### Model Configuration
 
