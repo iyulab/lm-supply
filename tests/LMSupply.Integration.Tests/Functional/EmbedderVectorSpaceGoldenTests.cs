@@ -48,11 +48,16 @@ public sealed class EmbedderVectorSpaceGoldenTests
     /// The pre-load read (0.72.0) goes through the same resolution as the load and must give the same value
     /// for every family here — including a repository-id model whose dimension comes from config.json.
     /// </summary>
+    /// <remarks>
+    /// The pre-load read answers from cached files only (<c>null</c> otherwise), so the files are fetched first —
+    /// without it this fact passes only when something else already cached the model.
+    /// </remarks>
     [Theory]
     [MemberData(nameof(Models))]
     public async Task The_preload_revision_equals_the_loaded_revision(string model)
     {
         var options = new EmbedderOptions { Provider = ExecutionProvider.Cpu };
+        await LocalEmbedder.DownloadModelAsync(model, options, cancellationToken: TestContext.Current.CancellationToken);
         var preload = await LocalEmbedder.GetVectorSpaceRevisionAsync(model, options, TestContext.Current.CancellationToken);
         var retrievalPreload = await LocalEmbedder.GetRetrievalVectorSpaceRevisionAsync(model, options, TestContext.Current.CancellationToken);
         await using var embedder = await LocalEmbedder.LoadAsync(model, options, cancellationToken: TestContext.Current.CancellationToken);
