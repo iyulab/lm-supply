@@ -194,7 +194,7 @@ test.describe('Registry API', () => {
     const body = await resp.json();
     const aliases: string[] = body.models.map((m: { aliasName: string }) => m.aliasName);
     expect(aliases[0]).toBe('default');
-    expect(aliases).toContain('gguf:qwen3-balanced');
+    expect(aliases).toContain('gguf:balanced');
     expect(aliases.filter(a => a.startsWith('gguf:')).length).toBeGreaterThan(5);
     expect(new Set(aliases).size).toBe(aliases.length);
 

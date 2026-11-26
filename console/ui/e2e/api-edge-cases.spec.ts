@@ -168,7 +168,7 @@ test.describe('Model List Detail', () => {
     // At least some aliases should exist
     const hasAliases = ids.some(id =>
       id === 'default' || id.includes(':default') ||
-      id === 'fast' || id.includes(':fast')
+      id === 'entry' || id.includes(':entry')
     );
     expect(hasAliases).toBe(true);
   });

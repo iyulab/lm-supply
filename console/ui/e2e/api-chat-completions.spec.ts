@@ -28,17 +28,17 @@ test.describe('Basic Chat Completions', () => {
   // A model served by llama-server says why it stopped: a limit that ends the answer is `length`, not `stop`. (The budget of the first
   // request holds a thinking model's reasoning as well as its answer.)
   test('finish_reason is "stop" when the answer ends and "length" when the token limit ends it', async ({ request }) => {
-    await requireCachedModel(request, 'generator', 'gguf:qwen3-balanced');
+    await requireCachedModel(request, 'generator', 'gguf:balanced');
     test.setTimeout(300_000);
     const ended = await request.post(`${BASE}/v1/chat/completions`, {
-      data: { model: 'gguf:qwen3-balanced', messages: [{ role: 'user', content: 'Say hi.' }], max_completion_tokens: 2000 },
+      data: { model: 'gguf:balanced', messages: [{ role: 'user', content: 'Say hi.' }], max_completion_tokens: 2000 },
       timeout: 240_000,
     });
     expect(ended.status()).toBe(200);
     expect((await ended.json()).choices[0].finish_reason).toBe('stop');
 
     const cut = await request.post(`${BASE}/v1/chat/completions`, {
-      data: { model: 'gguf:qwen3-balanced', messages: [{ role: 'user', content: 'Write a long essay about rivers.' }], max_completion_tokens: 8 },
+      data: { model: 'gguf:balanced', messages: [{ role: 'user', content: 'Write a long essay about rivers.' }], max_completion_tokens: 8 },
       timeout: 240_000,
     });
     expect(cut.status()).toBe(200);
@@ -48,7 +48,7 @@ test.describe('Basic Chat Completions', () => {
 
     // The same limit on a streamed answer: the final chunk carries the reason.
     const streamed = await request.post(`${BASE}/v1/chat/completions`, {
-      data: { model: 'gguf:qwen3-balanced', messages: [{ role: 'user', content: 'Write a long essay about rivers.' }], max_completion_tokens: 8, stream: true },
+      data: { model: 'gguf:balanced', messages: [{ role: 'user', content: 'Write a long essay about rivers.' }], max_completion_tokens: 8, stream: true },
       timeout: 240_000,
     });
     expect(streamed.status()).toBe(200);
@@ -62,12 +62,12 @@ test.describe('Basic Chat Completions', () => {
   // The two streams that are not a plain pass-through of the model's chunks — a strict `json_schema` answer (buffered, validated, then sent) and
   // a speculative one (`draft_model`) — say the same: a limit that cuts the answer is `length`.
   test('a streamed strict json_schema answer and a streamed speculative answer cut by the token limit end with "length"', async ({ request }) => {
-    await requireCachedModel(request, 'generator', 'gguf:qwen3-balanced');
+    await requireCachedModel(request, 'generator', 'gguf:balanced');
     test.setTimeout(480_000);
     const finalReasons = async (extra: Record<string, unknown>) => {
       const streamed = await request.post(`${BASE}/v1/chat/completions`, {
         data: {
-          model: 'gguf:qwen3-balanced',
+          model: 'gguf:balanced',
           messages: [{ role: 'user', content: 'Write a long essay about rivers.' }],
           max_completion_tokens: 8,
           stream: true,
@@ -88,7 +88,7 @@ test.describe('Basic Chat Completions', () => {
         json_schema: { name: 'essay', strict: true, schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
       },
     })).toEqual(['length']);
-    expect(await finalReasons({ draft_model: 'gguf:qwen3-balanced' })).toEqual(['length']);
+    expect(await finalReasons({ draft_model: 'gguf:balanced' })).toEqual(['length']);
   });
 
   test('empty messages returns 400', async ({ request }) => {

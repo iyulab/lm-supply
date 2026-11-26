@@ -51,7 +51,7 @@ test.describe('Cross-domain API workflows', () => {
 
     // Embed with fast model
     const res2 = await request.post('/v1/embeddings', {
-      data: { model: 'fast', input: [text] },
+      data: { model: 'entry', input: [text] },
     });
     expect(res2.status()).toBe(200);
     const body2 = await res2.json();
