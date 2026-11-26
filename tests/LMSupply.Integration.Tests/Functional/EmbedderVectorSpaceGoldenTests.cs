@@ -38,7 +38,7 @@ public sealed class EmbedderVectorSpaceGoldenTests
     public static TheoryData<string> Models => new()
     {
         "default",                  // BAAI/bge-m3 — SentencePiece (XLM-R), CLS, no prefix
-        "fast",                     // intfloat/multilingual-e5-small — SentencePiece, mean, "query: "/"passage: "
+        "entry",                    // intfloat/multilingual-e5-small — SentencePiece, mean, "query: "/"passage: "
         "BAAI/bge-small-en-v1.5",   // WordPiece by repository id — CLS from 1_Pooling/config.json
     };
 

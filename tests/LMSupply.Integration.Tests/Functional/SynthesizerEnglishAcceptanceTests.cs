@@ -18,8 +18,8 @@ public sealed class SynthesizerEnglishAcceptanceTests(ITestOutputHelper output)
     // Measured (Whisper "default", CPU), word error rate over all 120 words / over the 97 words of prose and figures, with
     // the voice's noise turned off (Noiseless), which makes a run repeat its figures exactly:
     //   default (espeak voice "en", British-style)  0.025 / 0.010
-    //   fast ("en-us")                              0.008 / 0.000
-    //   quality ("en-us")                           0.050 / 0.000
+    //   ryan ("en-us")                              0.008 / 0.000
+    //   amy ("en-us")                               0.050 / 0.000
     //   british ("en-gb-x-rp")                      0.025 / 0.010
     //   lessac ("en-us")                            not measured without noise; 0.033 / 0.000-0.010 with it
     // With the voice's own noise every run differs: over 10 runs british ranged 0.000-0.062 on prose and figures and
@@ -53,7 +53,7 @@ public sealed class SynthesizerEnglishAcceptanceTests(ITestOutputHelper output)
         ("out-of-dictionary", "We drove from Pellington to Oakhurst and Fernvale."),
     ];
 
-    public static TheoryData<string> Voices { get; } = ["default", "lessac", "fast", "quality", "british"];
+    public static TheoryData<string> Voices { get; } = ["default", "lessac", "ryan", "amy", "british"];
 
     [Theory]
     [MemberData(nameof(Voices))]

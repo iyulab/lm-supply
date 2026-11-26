@@ -71,7 +71,7 @@ public sealed class Florence2CaptionerIntegrationTests
     [Fact]
     public async Task DownloadSize_MatchesTheVariantTheLoadPicks()
     {
-        var fp16 = await LocalCaptioner.GetDownloadSizeBytesAsync("quality:fp16", cancellationToken: Ct);
+        var fp16 = await LocalCaptioner.GetDownloadSizeBytesAsync("florence-2-base:fp16", cancellationToken: Ct);
         var int8 = await LocalCaptioner.GetDownloadSizeBytesAsync("basic", new CaptionerOptions { QuantizationHint = "int8" }, Ct);
 
         int8.Should().BeInRange(250_000_000, 300_000_000);

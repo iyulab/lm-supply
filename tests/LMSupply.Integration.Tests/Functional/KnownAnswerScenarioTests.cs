@@ -66,7 +66,7 @@ public class KnownAnswerScenarioTests(GeneratedScenes scenes) : IClassFixture<Ge
     [Fact]
     public async Task Captioner_NamesWhatThePictureShows()
     {
-        await using var captioner = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var captioner = await LocalCaptioner.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var onBus = await captioner.CaptionAsync(scenes.Bus, TestContext.Current.CancellationToken);
         var onApple = await captioner.CaptionAsync(scenes.Apple, TestContext.Current.CancellationToken);

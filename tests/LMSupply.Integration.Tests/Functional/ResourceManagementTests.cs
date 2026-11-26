@@ -27,7 +27,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Embedder_DoubleDispose_NoException()
     {
-        var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
         await model.DisposeAsync(); // Should not throw
     }
@@ -35,7 +35,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Reranker_DoubleDispose_NoException()
     {
-        var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalReranker.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
         await model.DisposeAsync();
     }
@@ -51,7 +51,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Transcriber_DoubleDispose_NoException()
     {
-        var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
         await model.DisposeAsync();
     }
@@ -59,7 +59,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Synthesizer_DoubleDispose_NoException()
     {
-        var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
         await model.DisposeAsync();
     }
@@ -75,7 +75,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Segmenter_DoubleDispose_NoException()
     {
-        var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalSegmenter.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
         await model.DisposeAsync();
     }
@@ -83,7 +83,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Captioner_DoubleDispose_NoException()
     {
-        var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalCaptioner.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
         await model.DisposeAsync();
     }
@@ -93,7 +93,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Embedder_UseAfterDispose_ThrowsException()
     {
-        var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
 
         Func<Task> act = async () => await model.EmbedAsync("test");
@@ -103,7 +103,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Reranker_UseAfterDispose_ThrowsException()
     {
-        var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalReranker.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
 
         string[] docs = ["doc1"];
@@ -126,13 +126,13 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Embedder_ModelSwap_WorksCleanly()
     {
-        await using (var modelA = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken))
+        await using (var modelA = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken))
         {
             var embA = await modelA.EmbedAsync("test", TestContext.Current.CancellationToken);
             embA.Length.Should().BeGreaterThan(0);
         }
 
-        await using (var modelB = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken))
+        await using (var modelB = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken))
         {
             var embB = await modelB.EmbedAsync("test", TestContext.Current.CancellationToken);
             embB.Length.Should().BeGreaterThan(0);
@@ -142,14 +142,14 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Reranker_ModelSwap_WorksCleanly()
     {
-        await using (var modelA = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken))
+        await using (var modelA = await LocalReranker.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken))
         {
             string[] docs = ["hello"];
             var result = await modelA.RerankAsync("test", docs, cancellationToken: TestContext.Current.CancellationToken);
             result.Should().HaveCount(1);
         }
 
-        await using (var modelB = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken))
+        await using (var modelB = await LocalReranker.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken))
         {
             string[] docs = ["hello"];
             var result = await modelB.RerankAsync("test", docs, cancellationToken: TestContext.Current.CancellationToken);
@@ -162,7 +162,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Embedder_FullLifecycle_NoLeak()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         await model.WarmupAsync(TestContext.Current.CancellationToken);
 
@@ -176,7 +176,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Synthesizer_FullLifecycle_NoLeak()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         for (var i = 0; i < 3; i++)
         {
@@ -190,7 +190,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Embedder_ConcurrentInference_AllComplete()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var tasks = Enumerable.Range(0, 10)
             .Select(i => model.EmbedAsync($"concurrent text {i}").AsTask())
@@ -208,7 +208,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Reranker_ConcurrentInference_AllComplete()
     {
-        await using var model = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalReranker.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         string[] docs = ["alpha", "beta", "gamma"];
         var tasks = Enumerable.Range(0, 5)
@@ -240,7 +240,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Captioner_UseAfterDispose_ThrowsException()
     {
-        var model = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalCaptioner.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
 
         var imageBytes = TestDataHelper.CreateGradientBmp(64, 64);
@@ -251,7 +251,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Segmenter_UseAfterDispose_ThrowsException()
     {
-        var model = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalSegmenter.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
 
         var imageBytes = TestDataHelper.CreateGradientBmp(64, 64);
@@ -262,7 +262,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Synthesizer_UseAfterDispose_ThrowsException()
     {
-        var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
 
         // Phonemes, not text: text is refused for want of a phonemizer, which would pass this without touching the disposed model.
@@ -273,7 +273,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Transcriber_UseAfterDispose_ThrowsException()
     {
-        var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
 
         var wavBytes = TestDataHelper.CreateToneWav(16000, 1.0f, 440);
@@ -313,7 +313,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Ocr_DoubleDispose_NoException()
     {
-        var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalOcr.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
         await model.DisposeAsync();
     }
@@ -321,7 +321,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Ocr_UseAfterDispose_ThrowsException()
     {
-        var model = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalOcr.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
 
         var imageBytes = TestDataHelper.CreateGradientBmp(200, 50);
@@ -334,8 +334,8 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_ConcurrentLoading_TwoDifferentDomains_BothSucceed()
     {
-        var embedderTask = LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
-        var rerankerTask = LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var embedderTask = LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
+        var rerankerTask = LocalReranker.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         await Task.WhenAll(embedderTask, rerankerTask);
 
@@ -355,14 +355,14 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Captioner_ModelSwap_WorksCleanly()
     {
-        await using (var modelA = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken))
+        await using (var modelA = await LocalCaptioner.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken))
         {
             var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
             var caption = await modelA.CaptionAsync(imageBytes, TestContext.Current.CancellationToken);
             caption.Caption.Should().NotBeNullOrEmpty();
         }
 
-        await using (var modelB = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken))
+        await using (var modelB = await LocalCaptioner.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken))
         {
             var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
             var caption = await modelB.CaptionAsync(imageBytes, TestContext.Current.CancellationToken);
@@ -373,14 +373,14 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Segmenter_ModelSwap_WorksCleanly()
     {
-        await using (var modelA = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken))
+        await using (var modelA = await LocalSegmenter.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken))
         {
             var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
             var result = await modelA.SegmentAsync(imageBytes, TestContext.Current.CancellationToken);
             result.ClassMap.Should().NotBeEmpty();
         }
 
-        await using (var modelB = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken))
+        await using (var modelB = await LocalSegmenter.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken))
         {
             var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
             var result = await modelB.SegmentAsync(imageBytes, TestContext.Current.CancellationToken);

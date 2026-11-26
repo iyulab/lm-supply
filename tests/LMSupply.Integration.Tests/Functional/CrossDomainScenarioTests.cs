@@ -50,7 +50,7 @@ public class CrossDomainScenarioTests
         var query = "What is machine learning?";
 
         // 2. Embed query and documents
-        await using var embedder = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var embedder = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var queryEmb = await embedder.EmbedAsync(query, TestContext.Current.CancellationToken);
         var docEmbs = await embedder.EmbedAsync(documents, TestContext.Current.CancellationToken);
@@ -72,7 +72,7 @@ public class CrossDomainScenarioTests
         // 4. Rerank the top 5
         var top5Docs = similarities.Select(s => documents[s.Index]).ToArray();
 
-        await using var reranker = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var reranker = await LocalReranker.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         var reranked = await reranker.RerankAsync(query, top5Docs, topK: 3, cancellationToken: TestContext.Current.CancellationToken);
 
         reranked.Should().HaveCount(3);
@@ -96,14 +96,14 @@ public class CrossDomainScenarioTests
         detections.Should().NotBeNull();
 
         // 2. Segment the image
-        await using var segmenter = await LocalSegmenter.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var segmenter = await LocalSegmenter.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         var segmentation = await segmenter.SegmentAsync(imageBytes, TestContext.Current.CancellationToken);
         segmentation.Width.Should().BeGreaterThan(0);
         segmentation.Height.Should().BeGreaterThan(0);
         segmentation.ClassMap.Should().NotBeEmpty();
 
         // 3. Caption the image
-        await using var captioner = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var captioner = await LocalCaptioner.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         var caption = await captioner.CaptionAsync(imageBytes, TestContext.Current.CancellationToken);
         caption.Caption.Should().NotBeNullOrEmpty();
 
@@ -125,7 +125,7 @@ public class CrossDomainScenarioTests
         translation.TranslatedText.Should().NotBeNullOrEmpty();
 
         // 2. Embed the English translation
-        await using var embedder = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var embedder = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         var translatedEmb = await embedder.EmbedAsync(translation.TranslatedText, TestContext.Current.CancellationToken);
 
         // 3. Also embed a reference English text
@@ -143,7 +143,7 @@ public class CrossDomainScenarioTests
     [Trait("Scenario", "SemanticConsistency")]
     public async Task Scenario_EmbedAndRerank_ConsistentSemantics()
     {
-        await using var embedder = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var embedder = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         // Create semantically related and unrelated pairs
         var catEmb = await embedder.EmbedAsync("cat", TestContext.Current.CancellationToken);
@@ -160,7 +160,7 @@ public class CrossDomainScenarioTests
         carVehicle.Should().BeGreaterThan(catCar, "car-vehicle > cat-car");
 
         // Now verify reranker agrees with embedder's ranking
-        await using var reranker = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var reranker = await LocalReranker.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         string[] docs = ["kitten", "car", "dog", "airplane"];
         var reranked = await reranker.RerankAsync("cat", docs, cancellationToken: TestContext.Current.CancellationToken);
@@ -179,8 +179,8 @@ public class CrossDomainScenarioTests
     public async Task Scenario_MultipleModels_LoadedSimultaneously()
     {
         // Load 3 different domain models at the same time
-        await using var embedder = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
-        await using var reranker = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var embedder = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
+        await using var reranker = await LocalReranker.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         await using var translator = await LocalTranslator.LoadAsync("ko-en", cancellationToken: TestContext.Current.CancellationToken);
 
         // Use each one
@@ -204,7 +204,7 @@ public class CrossDomainScenarioTests
     public async Task Scenario2_OcrToTranslate_PipelineCompletes()
     {
         // 1. OCR: recognize text from an image (gradient has no real text, but pipeline should complete)
-        await using var ocr = await LocalOcr.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var ocr = await LocalOcr.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         var imageBytes = TestDataHelper.CreateGradientBmp(400, 100);
         var ocrResult = await ocr.RecognizeAsync(imageBytes, TestContext.Current.CancellationToken);
 
@@ -230,7 +230,7 @@ public class CrossDomainScenarioTests
     public async Task Scenario3_CaptionToImageGenToCaption_PipelineCompletes()
     {
         // 1. Caption original image
-        await using var captioner = await LocalCaptioner.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var captioner = await LocalCaptioner.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
         var originalCaption = await captioner.CaptionAsync(imageBytes, TestContext.Current.CancellationToken);
 
@@ -265,7 +265,7 @@ public class CrossDomainScenarioTests
         translation.TranslatedText.Should().NotBeNullOrEmpty("the translator should produce English text");
 
         // 2. Speak the translation with no phonemizer set
-        await using var synthesizer = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var synthesizer = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
         var speech = await synthesizer.SynthesizeAsync(translation.TranslatedText, cancellationToken: TestContext.Current.CancellationToken);
         speech.AudioSamples.Should().NotBeEmpty();
         speech.UnknownPhonemes.Should().BeEmpty();
@@ -289,7 +289,7 @@ public class CrossDomainScenarioTests
         generated.Should().NotBeNullOrEmpty();
 
         // 2. Embed the generated text and a reference
-        await using var embedder = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var embedder = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         var generatedEmb = await embedder.EmbedAsync("Machine learning is " + generated, TestContext.Current.CancellationToken);
         var referenceEmb = await embedder.EmbedAsync("Artificial intelligence and machine learning", TestContext.Current.CancellationToken);
         var unrelatedEmb = await embedder.EmbedAsync("Italian pasta recipes and cooking techniques", TestContext.Current.CancellationToken);
@@ -311,18 +311,18 @@ public class CrossDomainScenarioTests
         var originalText = Helpers.SpokenPhonemes.WeatherText;
 
         // 1. Synthesize the sentence from its phonemes
-        await using var synthesizer = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var synthesizer = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
         var audio = await synthesizer.SynthesizePhonemesAsync([Helpers.SpokenPhonemes.Weather], cancellationToken: TestContext.Current.CancellationToken);
         var wavBytes = audio.ToWavBytes();
 
         // 2. Transcribe back to text
-        await using var transcriber = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var transcriber = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         var transcription = await transcriber.TranscribeAsync(wavBytes, cancellationToken: TestContext.Current.CancellationToken);
 
         transcription.Text.Should().NotBeNullOrEmpty();
 
         // 3. Embed original and transcribed text
-        await using var embedder = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var embedder = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         var originalEmb = await embedder.EmbedAsync(originalText, TestContext.Current.CancellationToken);
         var transcribedEmb = await embedder.EmbedAsync(transcription.Text, TestContext.Current.CancellationToken);
         var unrelatedEmb = await embedder.EmbedAsync("Database query optimization techniques", TestContext.Current.CancellationToken);
@@ -350,7 +350,7 @@ public class CrossDomainScenarioTests
         translation.TranslatedText.Should().NotBeNullOrEmpty();
 
         // 2. Embed the English translation + reference
-        await using var embedder = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var embedder = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         var translatedEmb = await embedder.EmbedAsync(translation.TranslatedText, TestContext.Current.CancellationToken);
         translatedEmb.Length.Should().BeGreaterThan(0);
 
@@ -383,9 +383,9 @@ public class CrossDomainScenarioTests
     public async Task Scenario_ParallelInference_AllCompleteWithoutConflict()
     {
         // Load models
-        await using var embedder = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
-        await using var reranker = await LocalReranker.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
-        await using var synthesizer = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var embedder = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
+        await using var reranker = await LocalReranker.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
+        await using var synthesizer = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         // Run inference in parallel across different domains
         var embedTask = embedder.EmbedAsync("parallel test", TestContext.Current.CancellationToken).AsTask();

@@ -6,7 +6,7 @@ using Xunit;
 namespace LMSupply.Integration.Tests;
 
 /// <summary>
-/// <see cref="ModelLifecycle"/> over a real download (the <c>fast</c> embedder from Hugging Face into an empty cache): a
+/// <see cref="ModelLifecycle"/> over a real download (the <c>entry</c> embedder from Hugging Face into an empty cache): a
 /// watcher sees progress, a cancel leaves the model <see cref="ModelState.Missing"/> with its partial file kept for a resume,
 /// the next download ends <see cref="ModelState.Ready"/>, and a delete by the alias takes the model back to Missing.
 /// Run locally only — requires network access.
@@ -15,7 +15,7 @@ namespace LMSupply.Integration.Tests;
 [Trait("Category", "LocalOnly")]
 public sealed class ModelLifecycleDownloadFacts : IDisposable
 {
-    private const string Alias = "fast";
+    private const string Alias = "entry";
     private readonly string _cacheDir = Path.Combine(Path.GetTempPath(), "lmsupply-lifecycle-" + Guid.NewGuid().ToString("N"));
 
     public void Dispose()

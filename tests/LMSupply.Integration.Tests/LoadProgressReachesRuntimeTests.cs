@@ -132,7 +132,7 @@ public sealed class LoadProgressReachesRuntimeTests
             "Segmenter" => Box(LocalSegmenter.LoadAsync("default", new SegmenterOptions { DisableAutoDownload = true }, progress, ct)),
             "InteractiveSegmenter" => Box(LocalSegmenter.LoadInteractiveAsync("interactive", new SegmenterOptions { DisableAutoDownload = true }, progress, ct)),
             "Synthesizer" => Box(LocalSynthesizer.LoadAsync("default", new SynthesizerOptions { DisableAutoDownload = true }, progress, ct)),
-            "Transcriber" => Box(LocalTranscriber.LoadAsync("fast", new TranscriberOptions { DisableAutoDownload = true }, progress, ct)),
+            "Transcriber" => Box(LocalTranscriber.LoadAsync("entry", new TranscriberOptions { DisableAutoDownload = true }, progress, ct)),
             "Translator" => Box(LocalTranslator.LoadAsync("default", new TranslatorOptions { DisableAutoDownload = true }, progress, ct)),
             _ => throw new ArgumentOutOfRangeException(nameof(domain)),
         };

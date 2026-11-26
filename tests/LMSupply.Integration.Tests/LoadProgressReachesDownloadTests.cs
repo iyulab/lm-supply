@@ -72,7 +72,7 @@ public sealed class LoadProgressReachesDownloadTests : IDisposable
             "InteractiveSegmenter" => Box(LocalSegmenter.LoadInteractiveAsync("interactive", new SegmenterOptions { CacheDirectory = _cache }, progress, ct)),
             "Synthesizer" => Box(LocalSynthesizer.LoadAsync("default", new SynthesizerOptions { CacheDirectory = _cache }, progress, ct)),
             "Translator" => Box(LocalTranslator.LoadAsync("default", new TranslatorOptions { CacheDirectory = _cache }, progress, ct)),
-            "Transcriber" => Box(LocalTranscriber.LoadAsync("fast", new TranscriberOptions { CacheDirectory = _cache }, progress, ct)),
+            "Transcriber" => Box(LocalTranscriber.LoadAsync("entry", new TranscriberOptions { CacheDirectory = _cache }, progress, ct)),
             _ => throw new ArgumentOutOfRangeException(nameof(domain)),
         };
 

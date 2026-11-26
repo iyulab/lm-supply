@@ -46,7 +46,7 @@ public sealed class ConsoleRegistryListingTests(WebApplicationFactory<Program> f
 
         var listed = json.GetProperty("models").EnumerateArray().Select(m => m.GetProperty("aliasName").GetString()!).ToList();
 
-        Assert.Equal(["default", "lessac", "fast", "quality", "british", "korean", "chinese"], listed);
+        Assert.Equal(["default", "lessac", "ryan", "amy", "british", "korean", "chinese"], listed);
     }
 
     /// <summary>

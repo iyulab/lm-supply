@@ -29,8 +29,8 @@ public class InfrastructureFunctionalTests
     [Trait("Axis", "Download")]
     public async Task DL1_FirstDownload_CreatesCache()
     {
-        // Use Embedder "fast" (smallest model) — likely already cached
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        // Use Embedder "entry" (smallest model) — likely already cached
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
 
@@ -45,12 +45,12 @@ public class InfrastructureFunctionalTests
     {
         // First load (ensure cached)
         var sw1 = Stopwatch.StartNew();
-        await using var model1 = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model1 = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         var firstLoadMs = sw1.ElapsedMilliseconds;
 
         // Second load should be faster (no download, no discovery)
         var sw2 = Stopwatch.StartNew();
-        await using var model2 = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model2 = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         var secondLoadMs = sw2.ElapsedMilliseconds;
 
         // Second load should be at least as fast (network-free)
@@ -68,7 +68,7 @@ public class InfrastructureFunctionalTests
 
         // LoadAsync with progress - using Embedder as proxy
         // Note: If already cached, progress may not report (no download needed)
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         // Just verify it doesn't throw — progress reporting depends on cache state
         model.Should().NotBeNull();
@@ -81,7 +81,7 @@ public class InfrastructureFunctionalTests
         using var cts = new CancellationTokenSource();
         cts.Cancel(); // Cancel immediately
 
-        var act = async () => await LocalEmbedder.LoadAsync("fast", cancellationToken: cts.Token);
+        var act = async () => await LocalEmbedder.LoadAsync("entry", cancellationToken: cts.Token);
 
         // Should throw OperationCanceledException or TaskCanceledException
         await act.Should().ThrowAsync<OperationCanceledException>();
@@ -126,7 +126,7 @@ public class InfrastructureFunctionalTests
     public async Task CACHE1_CachedModelsList_ContainsLoadedModel()
     {
         // Ensure at least one model is cached
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var cacheDir = CacheManager.GetDefaultCacheDirectory();
         var cachedModels = CacheManager.GetCachedModels(cacheDir).ToList();
@@ -141,7 +141,7 @@ public class InfrastructureFunctionalTests
     public async Task CACHE2_CachedModelsWithInfo_HasValidFields()
     {
         // Ensure at least one model is cached
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var cacheDir = CacheManager.GetDefaultCacheDirectory();
         var cachedModels = CacheManager.GetCachedModelsWithInfo(cacheDir);
@@ -160,7 +160,7 @@ public class InfrastructureFunctionalTests
     public async Task CACHE3_TotalCacheSize_IsPositive()
     {
         // Ensure at least one model is cached
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var cacheDir = CacheManager.GetDefaultCacheDirectory();
         var totalSize = CacheManager.GetTotalCacheSize(cacheDir);
@@ -313,7 +313,7 @@ public class InfrastructureFunctionalTests
     {
         // GPU-2: Verify explicit provider override actually selects the requested provider
         var options = new EmbedderOptions { Provider = ExecutionProvider.Cpu };
-        await using var model = await LocalEmbedder.LoadAsync("fast", options, cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", options, cancellationToken: TestContext.Current.CancellationToken);
 
         model.RequestedProvider.Should().Be(ExecutionProvider.Cpu,
             "requested provider should reflect the explicit override");
@@ -334,7 +334,7 @@ public class InfrastructureFunctionalTests
         // Should either fallback gracefully or throw a meaningful error
         try
         {
-            await using var model = await LocalEmbedder.LoadAsync("fast", options, cancellationToken: TestContext.Current.CancellationToken);
+            await using var model = await LocalEmbedder.LoadAsync("entry", options, cancellationToken: TestContext.Current.CancellationToken);
 
             // If it loads, it must have fallen back to a different provider
             model.ActiveProviders.Should().NotContain("CoreMLExecutionProvider",
@@ -408,16 +408,17 @@ public class InfrastructureFunctionalTests
 
     [Theory]
     [Trait("Axis", "Consistency")]
-    [InlineData("Embedder")]
-    [InlineData("Reranker")]
-    [InlineData("Detector")]
-    [InlineData("Segmenter")]
-    [InlineData("Transcriber")]
-    [InlineData("Synthesizer")]
-    [InlineData("Captioner")]
-    public void CONSISTENCY_StandardDomains_GetAvailableModels_ContainsFast(string domain)
+    [InlineData("Embedder", "entry")]
+    [InlineData("Reranker", "entry")]
+    [InlineData("Detector", "rt-detr-v2-r34")]
+    [InlineData("Segmenter", "entry")]
+    [InlineData("Transcriber", "entry")]
+    [InlineData("Synthesizer", "ryan")]
+    [InlineData("Captioner", "entry")]
+    public void CONSISTENCY_StandardDomains_GetAvailableModels_ContainsFast(string domain, string alias)
     {
-        // Note: Translator uses language-pair aliases (ko-en, ja-en), not "fast"
+        // Each domain's name for its small model: the entry rung, or a model name where the domain has no entry rung.
+        // Translator uses language-pair aliases (ko-en, ja-en).
         var models = domain switch
         {
             "Embedder" => LocalEmbedder.GetAvailableModels().ToList(),
@@ -430,7 +431,7 @@ public class InfrastructureFunctionalTests
             _ => throw new ArgumentException($"Unknown domain: {domain}")
         };
 
-        models.Should().Contain("fast", $"{domain} should support 'fast' alias");
+        models.Should().Contain(alias, $"{domain} should support '{alias}' alias");
     }
 
     [Fact]

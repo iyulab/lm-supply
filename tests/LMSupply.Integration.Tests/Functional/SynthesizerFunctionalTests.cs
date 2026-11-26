@@ -28,7 +28,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_FastAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
         model.SampleRate.Should().BeGreaterThan(0);
@@ -38,7 +38,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_FastAlias_ReportsWhatItsConfigDeclares()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         // This voice's config names no phoneme type (so it is "espeak") and declares 16 kHz audio.
         model.SampleRate.Should().Be(16000);
@@ -49,7 +49,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_GetModelInfo_ReturnsValidInfo()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var info = model.GetModelInfo();
         info.Should().NotBeNull();
@@ -61,7 +61,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_BasicSynthesis_ReturnsAudioSamples()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var result = await model.SynthesizePhonemesAsync(Hello, cancellationToken: TestContext.Current.CancellationToken);
 
@@ -75,7 +75,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_ToWavBytes_ProducesValidWav()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var result = await model.SynthesizePhonemesAsync(Hello, cancellationToken: TestContext.Current.CancellationToken);
         var wavBytes = result.ToWavBytes();
@@ -94,7 +94,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_AudioDuration_IsPositive()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var result = await model.SynthesizePhonemesAsync(Hello, cancellationToken: TestContext.Current.CancellationToken);
 
@@ -105,7 +105,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_AudioSamples_AreInValidRange()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var result = await model.SynthesizePhonemesAsync(Hello, cancellationToken: TestContext.Current.CancellationToken);
 
@@ -117,7 +117,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_MorePhonemes_ProduceLongerAudio()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var shortResult = await model.SynthesizePhonemesAsync(["hˈaɪ."], cancellationToken: TestContext.Current.CancellationToken);
         var longResult = await model.SynthesizePhonemesAsync([SpokenPhonemes.Fox], cancellationToken: TestContext.Current.CancellationToken);
@@ -132,7 +132,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_TextWithoutAPhonemizer_IsSpokenByTheBuiltInOne()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var result = await model.SynthesizeAsync("2024 January 1st, $100.00", cancellationToken: TestContext.Current.CancellationToken);
 
@@ -145,7 +145,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_PhonemesTheVoiceDoesNotKnow_AreSkippedAndReported()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         // '%' and '@' are not phonemes of this voice.
         var result = await model.SynthesizePhonemesAsync(["hˈaɪ% @."], cancellationToken: TestContext.Current.CancellationToken);
@@ -158,7 +158,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_ManySentences_DoNotOOM()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var sentences = Enumerable.Repeat(SpokenPhonemes.Hello, 50).ToList();
         var act = () => model.SynthesizePhonemesAsync(sentences, cancellationToken: TestContext.Current.CancellationToken);
@@ -173,7 +173,7 @@ public class SynthesizerFunctionalTests
     public async Task CrossDomain_TtsToStt_ProducesRecognizableText()
     {
         // 1. Synthesize speech
-        await using var synthesizer = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var synthesizer = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
         var synthesis = await synthesizer.SynthesizePhonemesAsync(Hello, cancellationToken: TestContext.Current.CancellationToken);
 
         synthesis.AudioSamples.Should().NotBeEmpty("synthesis should produce audio");
@@ -182,7 +182,7 @@ public class SynthesizerFunctionalTests
         var wavBytes = synthesis.ToWavBytes();
 
         // 3. Transcribe the synthesized audio
-        await using var transcriber = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var transcriber = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
         var transcription = await transcriber.TranscribeAsync(wavBytes, cancellationToken: TestContext.Current.CancellationToken);
 
         // 4. Verify the transcription is not empty; whether it matches is SynthesizerIntelligibilityFacts' question
@@ -208,7 +208,7 @@ public class SynthesizerFunctionalTests
         var models = LocalSynthesizer.GetAvailableModels().ToList();
 
         models.Should().NotBeEmpty();
-        models.Should().Contain("fast");
+        models.Should().Contain("ryan");
     }
 
     [Fact]
@@ -225,7 +225,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_Voice_IsPopulated()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         model.Voice.Should().NotBeNullOrEmpty("model should have a voice identifier");
     }
@@ -234,7 +234,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_ModelProperties_ArePopulated()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ActiveProviders.Should().NotBeNull();
         model.RequestedProvider.Should().BeDefined();
@@ -244,7 +244,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_SynthesizeWithSpeakerId_Works()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var options = new SynthesizeOptions { SpeakerId = 0 };
         var result = await model.SynthesizePhonemesAsync(Hello, options, TestContext.Current.CancellationToken);
@@ -258,7 +258,7 @@ public class SynthesizerFunctionalTests
     public async Task I_SynthesizeToStream_Works()
     {
         var options = new SynthesizerOptions { Phonemizer = new SpokenPhonemes.Phonemizer() };
-        await using var model = await LocalSynthesizer.LoadAsync("fast", options, cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", options, cancellationToken: TestContext.Current.CancellationToken);
 
         using var stream = new MemoryStream();
         await model.SynthesizeToStreamAsync(SpokenPhonemes.HelloText, stream, cancellationToken: TestContext.Current.CancellationToken);
@@ -270,7 +270,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_Streaming_YieldsOneChunkPerSentence()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var chunks = new List<AudioChunk>();
         await foreach (var chunk in model.SynthesizePhonemesStreamingAsync(
@@ -288,7 +288,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_NoPhonemes_AreRefusedNotAnsweredWithSilence()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.SynthesizePhonemesAsync([], cancellationToken: TestContext.Current.CancellationToken);
 
@@ -300,7 +300,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_PunctuationOnly_DoesNotCrash()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.SynthesizePhonemesAsync(["..., ???, !!!"], cancellationToken: TestContext.Current.CancellationToken);
         await act.Should().NotThrowAsync("punctuation-only phonemes should not crash");
@@ -315,8 +315,8 @@ public class SynthesizerFunctionalTests
         var models = LocalSynthesizer.GetAvailableModels().ToList();
 
         models.Should().Contain("default");
-        models.Should().Contain("fast");
-        models.Should().Contain("quality");
+        models.Should().Contain("ryan");
+        models.Should().Contain("amy");
         models.Should().Contain("auto");
     }
 
@@ -375,7 +375,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_QualityAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("quality", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("amy", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
         model.SampleRate.Should().BeGreaterThan(0);
@@ -394,7 +394,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_SpeedOption_AffectsDuration()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var normalResult = await model.SynthesizePhonemesAsync([SpokenPhonemes.Fox], new SynthesizeOptions { Speed = 1.0f }, TestContext.Current.CancellationToken);
         var fastResult = await model.SynthesizePhonemesAsync([SpokenPhonemes.Fox], new SynthesizeOptions { Speed = 2.0f }, TestContext.Current.CancellationToken);
@@ -408,7 +408,7 @@ public class SynthesizerFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_ToPcm16Bytes_ProducesValidData()
     {
-        await using var model = await LocalSynthesizer.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalSynthesizer.LoadAsync("ryan", cancellationToken: TestContext.Current.CancellationToken);
 
         var result = await model.SynthesizePhonemesAsync(Hello, cancellationToken: TestContext.Current.CancellationToken);
         var pcmBytes = result.ToPcm16Bytes();

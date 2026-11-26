@@ -19,7 +19,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_FastAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
     }
@@ -28,7 +28,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_GetModelInfo_ReturnsValidInfo()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var info = model.GetModelInfo();
         info.Should().NotBeNull();
@@ -48,7 +48,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_ToneWav_ProducesResult()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var wavBytes = TestDataHelper.CreateToneWav(16000, 1.0f, 440);
         var result = await model.TranscribeAsync(wavBytes, cancellationToken: TestContext.Current.CancellationToken);
@@ -61,7 +61,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_TranscribeFromByteArray_Works()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var wavBytes = TestDataHelper.CreateToneWav(16000, 2.0f, 440);
         var result = await model.TranscribeAsync(wavBytes, cancellationToken: TestContext.Current.CancellationToken);
@@ -76,7 +76,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_SegmentTimestamps_AreOrdered()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var wavBytes = TestDataHelper.CreateToneWav(16000, 3.0f, 440);
         var result = await model.TranscribeAsync(wavBytes, cancellationToken: TestContext.Current.CancellationToken);
@@ -96,7 +96,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_SegmentStartEndOrder_IsValid()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var wavBytes = TestDataHelper.CreateToneWav(16000, 3.0f, 440);
         var result = await model.TranscribeAsync(wavBytes, cancellationToken: TestContext.Current.CancellationToken);
@@ -114,7 +114,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_SilenceWav_DoesNotCrash()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var wavBytes = TestDataHelper.CreateSilenceWav(16000, 3.0f);
 
@@ -127,7 +127,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_ShortAudio_DoesNotCrash()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         // Very short: 0.1 second
         var wavBytes = TestDataHelper.CreateToneWav(16000, 0.1f, 440);
@@ -140,7 +140,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_InvalidAudioData_ThrowsCleanError()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         // Send random non-audio bytes
         var invalidData = new byte[] { 0x00, 0x01, 0x02, 0x03, 0x04 };
@@ -190,7 +190,7 @@ public class TranscriberFunctionalTests
         var models = LocalTranscriber.GetAvailableModels().ToList();
 
         models.Should().NotBeEmpty();
-        models.Should().Contain("fast");
+        models.Should().Contain("entry");
     }
 
     [Fact]
@@ -207,7 +207,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_TranscribeWithLanguageHint_Works()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var wavBytes = TestDataHelper.CreateToneWav(16000, 2.0f, 440);
         var options = new TranscribeOptions { Language = "en" };
@@ -220,7 +220,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_TranscribeFromStream_Works()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var wavBytes = TestDataHelper.CreateToneWav(16000, 2.0f, 440);
         using var stream = new MemoryStream(wavBytes);
@@ -234,7 +234,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_DetectedLanguage_IsNotEmpty()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var wavBytes = TestDataHelper.CreateToneWav(16000, 2.0f, 440);
         var result = await model.TranscribeAsync(wavBytes, cancellationToken: TestContext.Current.CancellationToken);
@@ -246,7 +246,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_NullOptions_UsesDefaults()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var wavBytes = TestDataHelper.CreateToneWav(16000, 1.0f, 440);
         var result = await model.TranscribeAsync(wavBytes, options: null, cancellationToken: TestContext.Current.CancellationToken);
@@ -258,7 +258,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_ModelProperties_ArePopulated()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ActiveProviders.Should().NotBeNull();
         model.RequestedProvider.Should().BeDefined();
@@ -273,8 +273,8 @@ public class TranscriberFunctionalTests
         var models = LocalTranscriber.GetAvailableModels().ToList();
 
         models.Should().Contain("default");
-        models.Should().Contain("fast");
-        models.Should().Contain("quality");
+        models.Should().Contain("entry");
+        models.Should().Contain("balanced");
         models.Should().Contain("auto");
     }
 
@@ -358,7 +358,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_QualityAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalTranscriber.LoadAsync("quality", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("balanced", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
     }
@@ -376,7 +376,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_TranslateOption_ProducesEnglishText()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var wavBytes = TestDataHelper.CreateToneWav(16000, 2.0f, 440);
         var options = new TranscribeOptions { Translate = true };
@@ -411,7 +411,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_WordTimestamps_ProducesSegments()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var wavBytes = TestDataHelper.CreateToneWav(16000, 3.0f, 440);
         var options = new TranscribeOptions { WordTimestamps = true };
@@ -426,7 +426,7 @@ public class TranscriberFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_RepeatTranscription_IsDeterministic()
     {
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         // A tone has no speech: the greedy decode fails the quality checks and the window falls back
         // to sampling, so only a seed makes two calls read the same.
@@ -464,7 +464,7 @@ public class TranscriberFunctionalTests
     public async Task I_TranscribeWithKoreanLanguageHint_Works()
     {
         // TR-Q2: Verify Korean language hint is accepted and produces a result
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var wavBytes = TestDataHelper.CreateToneWav(16000, 2.0f, 440);
         var options = new TranscribeOptions { Language = "ko" };
@@ -489,7 +489,7 @@ public class TranscriberFunctionalTests
             return;
         }
 
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var tempPath = TestDataHelper.SaveToTempFile(mp3Bytes, ".mp3");
         try
@@ -512,7 +512,7 @@ public class TranscriberFunctionalTests
         // TR-Q1: 44.1kHz WAV exercises resampling to 16kHz in AudioProcessor
         var wavBytes = TestDataHelper.CreateToneWav(44100, 2.0f, 440);
 
-        await using var model = await LocalTranscriber.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalTranscriber.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var tempPath = TestDataHelper.SaveToTempFile(wavBytes, ".wav");
         try

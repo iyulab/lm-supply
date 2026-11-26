@@ -76,11 +76,11 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-GET")]
     public async Task GET_ModelById_ReturnsModelInfo()
     {
-        var response = await _client.GetAsync("/v1/models/fast", TestContext.Current.CancellationToken);
+        var response = await _client.GetAsync("/v1/models/entry", TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: TestContext.Current.CancellationToken);
-        json.GetProperty("id").GetString().Should().Be("fast");
+        json.GetProperty("id").GetString().Should().Be("entry");
     }
 
     [Fact]
@@ -269,11 +269,11 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
             .Select(m => m.GetProperty("aliasName").GetString()!)
             .ToList();
 
-        // One entry per distinct model: "quality" is bge-m3 like "default", so it resolves but is not listed twice
+        // One entry per distinct model: "basic" is bge-m3 like "default", so it resolves but is not listed twice
         aliases.Should().Contain("default");
-        aliases.Should().Contain("fast");
-        aliases.Should().Contain("large");
-        aliases.Should().NotContain("quality");
+        aliases.Should().Contain("entry");
+        aliases.Should().Contain("multilingual-e5-large");
+        aliases.Should().NotContain("basic");
     }
 
     [Fact]
@@ -589,7 +589,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task POST_Speech_MissingInput_Returns400()
     {
-        var content = JsonContent.Create(new { input = "", model = "fast" });
+        var content = JsonContent.Create(new { input = "", model = "ryan" });
         var response = await _client.PostAsync("/v1/audio/speech", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -700,7 +700,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_Caption_FormData_MissingFile_Returns400()
     {
         using var formContent = new MultipartFormDataContent();
-        formContent.Add(new StringContent("fast"), "model");
+        formContent.Add(new StringContent("entry"), "model");
         var response = await _client.PostAsync("/v1/images/caption", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -762,7 +762,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task POST_Transcribe_FormData_MissingFile_Returns400()
     {
         using var formContent = new MultipartFormDataContent();
-        formContent.Add(new StringContent("fast"), "model");
+        formContent.Add(new StringContent("entry"), "model");
         var response = await _client.PostAsync("/v1/audio/transcriptions", formContent, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -774,7 +774,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Inference")]
     public async Task POST_Embeddings_ReturnsOpenAICompatibleResponse()
     {
-        var content = JsonContent.Create(new { input = "Hello, world!", model = "fast" });
+        var content = JsonContent.Create(new { input = "Hello, world!", model = "entry" });
         var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -795,7 +795,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         var content = JsonContent.Create(new
         {
             input = inputs,
-            model = "fast"
+            model = "entry"
         });
         var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
@@ -813,7 +813,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         {
             query = "What is machine learning?",
             documents = rerankDocs,
-            model = "fast",
+            model = "entry",
             return_documents = true
         });
         var response = await _client.PostAsync("/v1/rerank", content, TestContext.Current.CancellationToken);
@@ -876,7 +876,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Category", "Integration")]
     public async Task POST_Speech_EnglishText_ReturnsAudio()
     {
-        var content = JsonContent.Create(new { input = "Hello, this is a test.", model = "fast", voice = "fast" });
+        var content = JsonContent.Create(new { input = "Hello, this is a test.", model = "ryan", voice = "ryan" });
         var response = await _client.PostAsync("/v1/audio/speech", content, TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -891,7 +891,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         var wavBytes = TestDataHelper.CreateToneWav(16000, 1.0f, 440);
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new ByteArrayContent(wavBytes), "file", "test.wav");
-        formContent.Add(new StringContent("fast"), "model");
+        formContent.Add(new StringContent("entry"), "model");
 
         var response = await _client.PostAsync("/v1/audio/transcriptions", formContent, TestContext.Current.CancellationToken);
 
@@ -908,7 +908,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new ByteArrayContent(imageBytes), "file", "test.bmp");
-        formContent.Add(new StringContent("fast"), "model");
+        formContent.Add(new StringContent("entry"), "model");
 
         var response = await _client.PostAsync("/v1/images/caption", formContent, TestContext.Current.CancellationToken);
 
@@ -926,7 +926,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         var imageBytes = TestDataHelper.CreateGradientBmp(640, 480);
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new ByteArrayContent(imageBytes), "file", "test.bmp");
-        formContent.Add(new StringContent("fast"), "model");
+        formContent.Add(new StringContent("rt-detr-v2-r34"), "model");
 
         var response = await _client.PostAsync("/v1/images/detect", formContent, TestContext.Current.CancellationToken);
 
@@ -942,7 +942,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         var imageBytes = TestDataHelper.CreateGradientBmp(256, 256);
         using var formContent = new MultipartFormDataContent();
         formContent.Add(new ByteArrayContent(imageBytes), "file", "test.bmp");
-        formContent.Add(new StringContent("fast"), "model");
+        formContent.Add(new StringContent("entry"), "model");
 
         var response = await _client.PostAsync("/v1/images/segment", formContent, TestContext.Current.CancellationToken);
 
@@ -973,7 +973,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     [Trait("Axis", "API-Error")]
     public async Task POST_Embeddings_EmptyInput_ReturnsError()
     {
-        var content = JsonContent.Create(new { input = "", model = "fast" });
+        var content = JsonContent.Create(new { input = "", model = "entry" });
         var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         // Empty input should either succeed with empty embedding or return 400
@@ -991,7 +991,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         {
             query = "What is AI?",
             documents = docs,
-            model = "fast",
+            model = "entry",
             top_n = 2
         });
         var response = await _client.PostAsync("/v1/rerank", content, TestContext.Current.CancellationToken);
@@ -1011,7 +1011,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         {
             query = "What is ML?",
             documents = docs,
-            model = "fast",
+            model = "entry",
             return_documents = true
         });
         var response = await _client.PostAsync("/v1/rerank", content, TestContext.Current.CancellationToken);
@@ -1060,7 +1060,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
         // API-5: Concurrent requests should all succeed
         var tasks = Enumerable.Range(0, 5).Select(i =>
         {
-            var content = JsonContent.Create(new { input = $"test input {i}", model = "fast" });
+            var content = JsonContent.Create(new { input = $"test input {i}", model = "entry" });
             return _client.PostAsync("/v1/embeddings", content);
         });
 
@@ -1079,7 +1079,7 @@ public class ConsoleHostApiTests : IClassFixture<WebApplicationFactory<Program>>
     {
         // API-4: Large request should not crash the server
         var largeText = string.Join(" ", Enumerable.Repeat("hello world test", 500));
-        var content = JsonContent.Create(new { input = largeText, model = "fast" });
+        var content = JsonContent.Create(new { input = largeText, model = "entry" });
         var response = await _client.PostAsync("/v1/embeddings", content, TestContext.Current.CancellationToken);
 
         // Should either succeed (with truncation) or fail with a clear error

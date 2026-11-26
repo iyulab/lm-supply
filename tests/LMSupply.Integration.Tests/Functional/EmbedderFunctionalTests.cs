@@ -33,7 +33,7 @@ public class EmbedderFunctionalTests
 
     [Theory]
     [Trait("Axis", "Loading")]
-    [InlineData("fast", 384)]
+    [InlineData("entry", 384)]
     [InlineData("default", 1024)]
     public async Task L_KnownAliases_LoadWithExpectedDimensions(string alias, int expectedDims)
     {
@@ -47,7 +47,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_WarmupAsync_CompletesWithoutError()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.WarmupAsync();
         await act.Should().NotThrowAsync();
@@ -57,7 +57,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_GetModelInfo_ReturnsValidInfo()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var info = model.GetModelInfo();
         info.Should().NotBeNull();
@@ -87,7 +87,7 @@ public class EmbedderFunctionalTests
     public async Task L_ExplicitCpuProvider_LoadsSuccessfully()
     {
         var options = new EmbedderOptions { Provider = ExecutionProvider.Cpu };
-        await using var model = await LocalEmbedder.LoadAsync("fast", options, cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", options, cancellationToken: TestContext.Current.CancellationToken);
 
         model.Dimensions.Should().BeGreaterThan(0);
     }
@@ -103,14 +103,14 @@ public class EmbedderFunctionalTests
         // The four standard aliases are the registry's public contract; naming a model that is
         // not in it (this assertion used to expect "all-MiniLM-L6-v2") is how this suite rots
         // unnoticed, since CI never runs it.
-        models.Should().Contain(["default", "fast", "quality", "large"]);
+        models.Should().Contain(["default", "entry", "basic", "multilingual-e5-large"]);
     }
 
 
     // ── Tokenizer conformance ───────────────────────────────────────
 
     /// <summary>
-    /// XLM-RoBERTa models (default=bge-m3, fast/large=multilingual-e5-*) do not use the SentencePiece
+    /// XLM-RoBERTa models (default=bge-m3, entry and multilingual-e5-large=multilingual-e5-*) do not use the SentencePiece
     /// model's raw ids as-is — fairseq reserves <c>0..3</c>, which shifts content tokens by one.
     /// Shape and range assertions alone cannot detect misaligned ids, so this pins the ids themselves.
     /// </summary>
@@ -153,7 +153,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_SingleText_ReturnsCorrectDimensionVector()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var embedding = await model.EmbedAsync("hello world", TestContext.Current.CancellationToken);
 
@@ -166,7 +166,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_BatchTexts_ReturnsCorrectCountAndOrder()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var texts = new[] { "cat", "dog", "airplane" };
         var embeddings = await model.EmbedAsync(texts, TestContext.Current.CancellationToken);
@@ -182,7 +182,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_BatchEmbeddings_PreserveOrder()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var texts = new[] { "alpha", "beta", "gamma" };
         var batchResult = await model.EmbedAsync(texts, TestContext.Current.CancellationToken);
@@ -201,7 +201,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_EmbeddingsAreNormalized_ByDefault()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var embedding = await model.EmbedAsync("test normalization", TestContext.Current.CancellationToken);
 
@@ -216,7 +216,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_SimilarTexts_HaveHigherSimilarity()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var catEmb = await model.EmbedAsync("cat", TestContext.Current.CancellationToken);
         var kittenEmb = await model.EmbedAsync("kitten", TestContext.Current.CancellationToken);
@@ -233,7 +233,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_IdenticalTexts_HaveMaxSimilarity()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var emb1 = await model.EmbedAsync("The quick brown fox", TestContext.Current.CancellationToken);
         var emb2 = await model.EmbedAsync("The quick brown fox", TestContext.Current.CancellationToken);
@@ -247,7 +247,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_DimensionMatchesModelSpec()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var embedding = await model.EmbedAsync("dimension check", TestContext.Current.CancellationToken);
         embedding.Length.Should().Be(384, "the fast alias is multilingual-e5-small, which is 384-dimensional");
@@ -257,7 +257,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_RepeatInference_IsDeterministic()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var emb1 = await model.EmbedAsync("determinism check", TestContext.Current.CancellationToken);
         var emb2 = await model.EmbedAsync("determinism check", TestContext.Current.CancellationToken);
@@ -271,7 +271,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_SemanticClusters_AreDistinguishable()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         // Cluster 1: Animals
         var dog = await model.EmbedAsync("dog", TestContext.Current.CancellationToken);
@@ -293,7 +293,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ConcurrentInference_ProducesConsistentResults()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         const string text = "concurrent test";
         var tasks = Enumerable.Range(0, 5)
@@ -317,7 +317,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_EmojiText_DoesNotCrash()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = async () => await model.EmbedAsync(TestDataHelper.EmojiText);
         var result = await act.Should().NotThrowAsync();
@@ -330,7 +330,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_SpecialCharacters_DoesNotCrash()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var specialTexts = new[]
         {
@@ -353,7 +353,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_VeryLongText_DoesNotOOM()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         // ~10000 tokens worth of text — should truncate, not OOM
         var longText = TestDataHelper.GenerateLongText(10_000);
@@ -367,7 +367,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_EmptyString_HandlesGracefully()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         // Empty string should either produce a valid embedding or throw ArgumentException — never crash
         try
@@ -386,7 +386,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_EmptyBatch_ReturnsEmptyArray()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var embeddings = await model.EmbedAsync(Array.Empty<string>(), TestContext.Current.CancellationToken);
 
@@ -397,7 +397,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_SingleCharacter_ProducesValidEmbedding()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var embedding = await model.EmbedAsync("a", TestContext.Current.CancellationToken);
         embedding.Length.Should().Be(model.Dimensions);
@@ -408,7 +408,7 @@ public class EmbedderFunctionalTests
     public async Task E_NullOptions_UsesDefaults()
     {
         // options=null should not cause NullReferenceException
-        await using var model = await LocalEmbedder.LoadAsync("fast", options: null, cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", options: null, cancellationToken: TestContext.Current.CancellationToken);
 
         var embedding = await model.EmbedAsync("null options test", TestContext.Current.CancellationToken);
         embedding.Length.Should().BeGreaterThan(0);
@@ -418,7 +418,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_BatchWithSingleItem_Works()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         string[] singleBatch = ["single item batch"];
         var embeddings = await model.EmbedAsync(singleBatch, TestContext.Current.CancellationToken);
@@ -430,7 +430,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_MixedLengthBatch_Works()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var texts = new[]
         {
@@ -465,7 +465,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_ModelProperties_ArePopulated()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ActiveProviders.Should().NotBeNull();
         model.RequestedProvider.Should().BeDefined();
@@ -475,7 +475,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_QualityAlias_LoadsWithHigherDimensions()
     {
-        await using var model = await LocalEmbedder.LoadAsync("quality", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("basic", cancellationToken: TestContext.Current.CancellationToken);
 
         model.Dimensions.Should().BeGreaterThanOrEqualTo(384,
             "quality model should have >= 384 dimensions");
@@ -486,7 +486,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_CosineSimilarity_IsSymmetric()
     {
-        await using var model = await LocalEmbedder.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("entry", cancellationToken: TestContext.Current.CancellationToken);
 
         var emb1 = await model.EmbedAsync("hello world", TestContext.Current.CancellationToken);
         var emb2 = await model.EmbedAsync("goodbye world", TestContext.Current.CancellationToken);
@@ -599,11 +599,11 @@ public class EmbedderFunctionalTests
         var models = LocalEmbedder.GetAvailableModels().ToList();
 
         models.Should().Contain("default");
-        models.Should().Contain("fast");
-        models.Should().Contain("quality");
-        models.Should().Contain("large");
+        models.Should().Contain("entry");
+        models.Should().Contain("basic");
+        models.Should().Contain("multilingual-e5-large");
         models.Should().Contain("auto");
-        // There is no "multilingual" alias: "default"/"quality" (bge-m3) and "large" (multilingual-e5-large)
+        // There is no "multilingual" alias: "default"/"basic" (bge-m3) and "multilingual-e5-large"
         // are the multilingual entries. This fact used to expect one and rotted unseen (LocalOnly).
         models.Should().NotContain("multilingual");
     }
@@ -614,10 +614,10 @@ public class EmbedderFunctionalTests
     {
         var models = LocalEmbedder.GetAvailableModels().ToList();
 
-        // bge-m3 is registered under the "default" and "quality" aliases, not under its own name.
+        // bge-m3 is registered under the "default" alias and the "basic" rung, not under its own name.
         models.Should().Contain("multilingual-e5-small", "multilingual E5 small should be registered");
         models.Should().Contain("multilingual-e5-base", "multilingual E5 base should be registered");
-        LocalEmbedder.GetAllModels().Should().Contain(m => m.RepoId == "BAAI/bge-m3", "bge-m3 backs the default and quality aliases");
+        LocalEmbedder.GetAllModels().Should().Contain(m => m.RepoId == "BAAI/bge-m3", "bge-m3 backs the default and basic aliases");
     }
 
     [Fact]
@@ -632,7 +632,7 @@ public class EmbedderFunctionalTests
         var registered = LocalEmbedder.GetAllModels().Select(m => m.AliasName).Distinct().ToList();
         models.Should().OnlyHaveUniqueItems();
         models.Should().Contain(registered, "every registered model is available under its own name");
-        models.Should().Contain(["auto", "default", "fast", "quality", "large"],
+        models.Should().Contain(["auto", "default", "entry", "basic", "multilingual-e5-large"],
             "the four standard aliases and the auto selector are always available");
     }
 
@@ -642,7 +642,7 @@ public class EmbedderFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_LargeAlias_LoadsWithExpectedDimensions()
     {
-        await using var model = await LocalEmbedder.LoadAsync("large", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalEmbedder.LoadAsync("multilingual-e5-large", cancellationToken: TestContext.Current.CancellationToken);
 
         model.Dimensions.Should().Be(1024,
             "large alias (multilingual-e5-large) has 1024 dimensions");
@@ -712,7 +712,7 @@ public class EmbedderFunctionalTests
     /// this suite does not. What is kept here is only the part that suite cannot express: that the
     /// tiers are distinct models rather than the same one under three names.
     /// </summary>
-    private static readonly string[] TierAliases = ["default", "fast", "quality", "large"];
+    private static readonly string[] TierAliases = ["default", "entry", "basic", "multilingual-e5-large"];
 
     [Fact]
     [Trait("Axis", "Loading")]
@@ -723,9 +723,9 @@ public class EmbedderFunctionalTests
             .ToArray();
 
         tiers.Should().AllSatisfy(t => t.Should().NotBeNullOrWhiteSpace());
-        // "quality" is bge-m3 like "default" by design (DefaultModels.BgeM3QualityAlias); the other tiers are distinct models
-        tiers[2].Should().Be(tiers[0], "\"quality\" names the default model for pipelines that ask for the quality tier");
-        tiers.Distinct().Should().HaveCount(3, "default, fast and large are three different models");
+        // "basic" is bge-m3 like "default" by design (the basic rung is the default model); the others are distinct models
+        tiers[2].Should().Be(tiers[0], "\"basic\" names the default model for pipelines that ask for the basic rung");
+        tiers.Distinct().Should().HaveCount(3, "default, entry and multilingual-e5-large are three different models");
     }
 
     // ── GetAllModels API (no model loading) ───────────────────────
@@ -915,7 +915,7 @@ public class EmbedderFunctionalTests
     {
         // E-Q4: Same model family (nomic-embed-text-v1.5) in GGUF and ONNX
         // should produce very similar embeddings (cosine similarity > 0.8)
-        await using var onnxModel = await LocalEmbedder.LoadAsync("nomic-embed-text-v1.5", cancellationToken: TestContext.Current.CancellationToken); // ONNX ("large" is multilingual-e5-large)
+        await using var onnxModel = await LocalEmbedder.LoadAsync("nomic-embed-text-v1.5", cancellationToken: TestContext.Current.CancellationToken); // ONNX
         await using var ggufModel = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF", cancellationToken: TestContext.Current.CancellationToken);
 
         var text = "Machine learning is a subset of artificial intelligence.";

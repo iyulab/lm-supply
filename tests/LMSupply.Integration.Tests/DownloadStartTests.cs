@@ -27,9 +27,9 @@ public class DownloadStartTests
 
     [Theory]
     [InlineData("default")]
-    [InlineData("fast")]
-    [InlineData("quality")]
-    [InlineData("large")]
+    [InlineData("entry")]
+    [InlineData("basic")]
+    [InlineData("multilingual-e5-large")]
     [InlineData("multilingual-e5-small")] // the bare "multilingual" alias was removed (docs/embedder.md)
     public async Task Embedder_DownloadStarts_ForAlias(string alias)
     {
@@ -44,8 +44,8 @@ public class DownloadStartTests
 
     [Theory]
     [InlineData("default")]
-    [InlineData("fast")]
-    [InlineData("quality")]
+    [InlineData("entry")]
+    [InlineData("balanced")]
     public async Task Reranker_DownloadStarts_ForAlias(string alias)
     {
         await VerifyDownloadStartsAsync(
@@ -104,7 +104,7 @@ public class DownloadStartTests
 
     [Theory]
     [InlineData("default")]
-    [InlineData("fast")]
+    [InlineData("ryan")]
     public async Task Synthesizer_DownloadStarts_ForAlias(string alias)
     {
         await VerifyDownloadStartsAsync(
@@ -118,7 +118,7 @@ public class DownloadStartTests
 
     [Theory]
     [InlineData("default")]
-    [InlineData("fast")]
+    [InlineData("entry")]
     public async Task Captioner_DownloadStarts_ForAlias(string alias)
     {
         await VerifyDownloadStartsAsync(
@@ -147,7 +147,7 @@ public class DownloadStartTests
 
     [Theory]
     [InlineData("default")]
-    [InlineData("fast")]
+    [InlineData("rt-detr-v2-r34")]
     public async Task Detector_DownloadStarts_ForAlias(string alias)
     {
         await VerifyDownloadStartsAsync(
@@ -161,7 +161,7 @@ public class DownloadStartTests
 
     [Theory]
     [InlineData("default")]
-    [InlineData("fast")]
+    [InlineData("entry")]
     public async Task Segmenter_DownloadStarts_ForAlias(string alias)
     {
         await VerifyDownloadStartsAsync(
