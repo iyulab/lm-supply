@@ -11,12 +11,12 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
     /// <summary>
     /// Auto-selection candidates sorted by size descending (largest first).
     /// </summary>
-    private static readonly DetectorModelInfo[] AutoCandidates =
+    internal static readonly DetectorModelInfo[] AutoCandidates =
     [
         DetectorModels.RtDetrV2L,   // 42M params, 169MB
         DetectorModels.RtDetrV2M,   // 36M params, 133MB
+        DetectorModels.RtDetrV2MS,  // 31M params, 126MB
         DetectorModels.RtDetrV2S,   // 20M params, 80MB
-        DetectorModels.RtDetrV2MS,  // 15M params, 126MB
     ];
 
     /// <summary>

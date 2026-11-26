@@ -38,7 +38,7 @@ foreach (var detection in results)
 | Alias | Model | Size | mAP | Licence | Classes |
 |-------|-------|------|-----|---------|---------|
 | `default` | RT-DETR v2 Small | ~80 MB | 48.1 | Apache-2.0 | COCO-80 |
-| `fast` | RT-DETR v2 Mini-Small | ~126 MB | 46.0 | Apache-2.0 | COCO-80 |
+| `fast` | RT-DETR v2 Medium (ResNet-34) | ~126 MB | 49.9 | Apache-2.0 | COCO-80 |
 | `quality` | RT-DETR v2 Medium | ~133 MB | 51.9 | Apache-2.0 | COCO-80 |
 | `large` | RT-DETR v2 Large | ~169 MB | 53.4 | Apache-2.0 | COCO-80 |
 | `xlarge` | RT-DETR v2 XLarge | ~300 MB | 54.3 | Apache-2.0 | COCO-80 |
@@ -47,6 +47,10 @@ foreach (var detection in results)
 | `pose` | MoveNet SinglePose Lightning | ~9.4 MB | n/a | Apache-2.0 | `person`, with 17 COCO keypoints |
 | `pose-quality` | MoveNet SinglePose Thunder | ~25 MB | n/a | Apache-2.0 | `person`, with 17 COCO keypoints |
 | `pose-multi` | MoveNet MultiPose Lightning | ~19 MB | n/a | Apache-2.0 | up to 6 `person`s, with 17 COCO keypoints |
+
+`fast` keeps its old name, but its model is not the lighter one: it has more parameters (31M against 20M) and a
+larger file than `default`'s, a higher published mAP, and a lower frame rate on its authors' benchmark. For the
+lightest RT-DETR model use `default`.
 
 ### Faces
 

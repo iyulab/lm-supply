@@ -34,6 +34,24 @@ public class DetectorModelRegistryTests
         model.Id.Should().Be(expectedId);
     }
 
+    // One family, one export script: a variant with more weights has the bigger file. A row that says otherwise is wrong
+    // metadata, and everything ordered by it (the aliases, "auto") is then ordered wrongly.
+    [Fact]
+    public void RtDetrVariants_RankTheSameByParametersAndByFileSize()
+    {
+        var variants = DetectorModels.All.Where(m => m.Architecture == "RT-DETR").ToList();
+
+        variants.OrderBy(m => m.ParametersM).Select(m => m.Id)
+            .Should().Equal(variants.OrderBy(m => m.SizeBytes).Select(m => m.Id));
+    }
+
+    // "auto" takes the first candidate that fits and, when none does, the last one: both need the list to be largest first.
+    [Fact]
+    public void AutoCandidates_AreLargestFirst()
+    {
+        DetectorModelRegistry.AutoCandidates.Select(m => m.SizeBytes).Should().BeInDescendingOrder();
+    }
+
     [Fact]
     public void Resolve_FullModelId_ShouldReturnModel()
     {
