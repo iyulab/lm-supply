@@ -19,7 +19,7 @@ public sealed record DetectorModelInfo : IModelInfoBase, IModelMemoryInfo
     public required string Id { get; init; }
 
     /// <summary>
-    /// Gets or sets the model alias name (e.g., "default", "fast").
+    /// Gets or sets the model alias name (e.g., "default", "balanced").
     /// </summary>
     public required string AliasName { get; init; }
 

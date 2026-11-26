@@ -91,7 +91,7 @@ public class CrossDomainScenarioTests
         var imageBytes = TestDataHelper.CreateGradientBmp(640, 480);
 
         // 1. Detect objects
-        await using var detector = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var detector = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
         var detections = await detector.DetectAsync(imageBytes, TestContext.Current.CancellationToken);
         detections.Should().NotBeNull();
 

@@ -42,7 +42,7 @@ public class KnownAnswerScenarioTests(GeneratedScenes scenes) : IClassFixture<Ge
     [Fact]
     public async Task Detector_FindsTheBusAndTheApple()
     {
-        await using var detector = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var detector = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         var onBus = await detector.DetectAsync(scenes.Bus, TestContext.Current.CancellationToken);
         var onApple = await detector.DetectAsync(scenes.Apple, TestContext.Current.CancellationToken);

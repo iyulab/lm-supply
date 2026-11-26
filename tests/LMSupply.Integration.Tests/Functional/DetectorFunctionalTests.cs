@@ -20,7 +20,7 @@ public class DetectorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_FastAlias_LoadsSuccessfully()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ModelId.Should().NotBeNullOrEmpty();
         model.ClassLabels.Should().NotBeEmpty("COCO labels should be loaded");
@@ -30,7 +30,7 @@ public class DetectorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_GetModelInfo_ReturnsValidInfo()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         var info = model.GetModelInfo();
         info.Should().NotBeNull();
@@ -50,7 +50,7 @@ public class DetectorFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_GradientImage_RunsWithoutError()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(640, 480);
         var detections = await model.DetectAsync(imageBytes, TestContext.Current.CancellationToken);
@@ -63,7 +63,7 @@ public class DetectorFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_DetectionResults_HaveRequiredFields()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(640, 480);
         var detections = await model.DetectAsync(imageBytes, TestContext.Current.CancellationToken);
@@ -220,7 +220,7 @@ public class DetectorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ConfidenceRange_IsZeroToOne()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(640, 480);
         var detections = await model.DetectAsync(imageBytes, TestContext.Current.CancellationToken);
@@ -236,7 +236,7 @@ public class DetectorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_BoundingBoxes_AreWithinImageBounds()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         const int width = 640;
         const int height = 480;
@@ -256,7 +256,7 @@ public class DetectorFunctionalTests
     [Trait("Axis", "Quality")]
     public async Task Q_ClassLabels_ContainCOCOLabels()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         // RT-DETR uses COCO labels
         model.ClassLabels.Should().Contain("person");
@@ -269,7 +269,7 @@ public class DetectorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_BlankWhiteImage_DoesNotCrash()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateSolidBmp(1920, 1080);
         var act = () => model.DetectAsync(imageBytes);
@@ -281,7 +281,7 @@ public class DetectorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_TinyImage_DoesNotCrash()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateTinyBmp();
         var act = () => model.DetectAsync(imageBytes);
@@ -301,7 +301,7 @@ public class DetectorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_InvalidImageData_ThrowsCleanError()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         var act = () => model.DetectAsync(new byte[] { 0x00, 0x01, 0x02 });
         await act.Should().ThrowAsync<Exception>("non-image data should throw, not crash");
@@ -325,7 +325,7 @@ public class DetectorFunctionalTests
         var models = LocalDetector.GetAvailableModels().ToList();
 
         models.Should().NotBeEmpty();
-        models.Should().Contain("fast");
+        models.Should().Contain("rt-detr-v2-r34");
     }
 
     [Fact]
@@ -354,7 +354,7 @@ public class DetectorFunctionalTests
     [Trait("Axis", "Inference")]
     public async Task I_DetectFromStream_Works()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(640, 480);
         using var stream = new MemoryStream(imageBytes);
@@ -367,7 +367,7 @@ public class DetectorFunctionalTests
     [Trait("Axis", "Loading")]
     public async Task L_ModelProperties_ArePopulated()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         model.ActiveProviders.Should().NotBeNull();
         model.RequestedProvider.Should().BeDefined();
@@ -377,7 +377,7 @@ public class DetectorFunctionalTests
     [Trait("Axis", "EdgeCase")]
     public async Task E_LargeImage_DoesNotCrash()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         // Large image (1920x1080)
         var imageBytes = TestDataHelper.CreateGradientBmp(1920, 1080);
@@ -394,7 +394,7 @@ public class DetectorFunctionalTests
         var models = LocalDetector.GetAvailableModels().ToList();
 
         models.Should().Contain("default");
-        models.Should().Contain("fast");
+        models.Should().Contain("basic");
     }
 
     [Fact]
@@ -459,11 +459,11 @@ public class DetectorFunctionalTests
     {
         // Load with low threshold
         var lowOpts = new DetectorOptions { ConfidenceThreshold = 0.01f };
-        await using var lowModel = await LocalDetector.LoadAsync("fast", lowOpts, cancellationToken: TestContext.Current.CancellationToken);
+        await using var lowModel = await LocalDetector.LoadAsync("rt-detr-v2-r34", lowOpts, cancellationToken: TestContext.Current.CancellationToken);
 
         // Load with high threshold
         var highOpts = new DetectorOptions { ConfidenceThreshold = 0.99f };
-        await using var highModel = await LocalDetector.LoadAsync("fast", highOpts, cancellationToken: TestContext.Current.CancellationToken);
+        await using var highModel = await LocalDetector.LoadAsync("rt-detr-v2-r34", highOpts, cancellationToken: TestContext.Current.CancellationToken);
 
         var imageBytes = TestDataHelper.CreateGradientBmp(640, 480);
         var lowDetections = await lowModel.DetectAsync(imageBytes, TestContext.Current.CancellationToken);
@@ -506,7 +506,7 @@ public class DetectorFunctionalTests
     public async Task Q_HighContrastImage_ProducesDifferentResultsThanSolid()
     {
         // D-Q1 approximation: high-contrast scene vs. blank white image
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         var sceneImage = TestDataHelper.CreateHighContrastBmp(640, 480);
         var blankImage = TestDataHelper.CreateSolidBmp(640, 480, 255, 255, 255);

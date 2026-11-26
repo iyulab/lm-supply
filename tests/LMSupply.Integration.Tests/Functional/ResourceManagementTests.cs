@@ -67,7 +67,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Detector_DoubleDispose_NoException()
     {
-        var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
         await model.DisposeAsync();
     }
@@ -229,7 +229,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Detector_UseAfterDispose_ThrowsException()
     {
-        var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
         await model.DisposeAsync();
 
         var imageBytes = TestDataHelper.CreateGradientBmp(64, 64);
@@ -298,7 +298,7 @@ public class ResourceManagementTests
     [Fact]
     public async Task R_Detector_FullLifecycle_NoLeak()
     {
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
 
         for (var i = 0; i < 3; i++)
         {

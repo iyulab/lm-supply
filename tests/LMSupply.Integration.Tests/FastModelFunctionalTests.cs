@@ -242,7 +242,7 @@ public class FastModelFunctionalTests : IAsyncLifetime
     {
         var sw = Stopwatch.StartNew();
 
-        await using var model = await LocalDetector.LoadAsync("fast", cancellationToken: TestContext.Current.CancellationToken);
+        await using var model = await LocalDetector.LoadAsync("rt-detr-v2-r34", cancellationToken: TestContext.Current.CancellationToken);
         var loadTime = sw.ElapsedMilliseconds;
 
         // Create a simple test image
