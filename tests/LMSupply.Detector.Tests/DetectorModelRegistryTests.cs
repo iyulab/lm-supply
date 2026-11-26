@@ -24,7 +24,8 @@ public class DetectorModelRegistryTests
 
     [Theory]
     [InlineData("balanced", "xnorpx/rt-detr2-onnx:m")]
-    [InlineData("entry", "xnorpx/rt-detr2-onnx:ms")]
+    [InlineData("rt-detr-v2-r34", "xnorpx/rt-detr2-onnx:ms")]
+    [InlineData("basic", "xnorpx/rt-detr2-onnx:s")]
     [InlineData("advanced", "xnorpx/rt-detr2-onnx:l")]
     public void Resolve_BuiltInAliases_ShouldReturnCorrectModel(string alias, string expectedId)
     {
@@ -32,6 +33,24 @@ public class DetectorModelRegistryTests
 
         model.Should().NotBeNull();
         model.Id.Should().Be(expectedId);
+    }
+
+    // One family, one export script: a variant with more weights has the bigger file. A row that says otherwise is wrong
+    // metadata, and everything ordered by it (the aliases, "auto") is then ordered wrongly.
+    [Fact]
+    public void RtDetrVariants_RankTheSameByParametersAndByFileSize()
+    {
+        var variants = DetectorModels.All.Where(m => m.Architecture == "RT-DETR").ToList();
+
+        variants.OrderBy(m => m.ParametersM).Select(m => m.Id)
+            .Should().Equal(variants.OrderBy(m => m.SizeBytes).Select(m => m.Id));
+    }
+
+    // "auto" takes the first candidate that fits and, when none does, the last one: both need the list to be largest first.
+    [Fact]
+    public void AutoCandidates_AreLargestFirst()
+    {
+        DetectorModelRegistry.AutoCandidates.Select(m => m.SizeBytes).Should().BeInDescendingOrder();
     }
 
     [Fact]
@@ -104,7 +123,8 @@ public class DetectorModelRegistryTests
         var aliases = _registry.GetAliases();
 
         var aliasNames = aliases.Select(a => a.Name).ToList();
-        aliasNames.Should().Contain(["auto", "default", "balanced", "entry", "advanced", "frontier", "face", "plate", "pose", "pose-quality", "pose-multi"]);
+        aliasNames.Should().Contain(["auto", "default", "basic", "balanced", "advanced", "frontier", "rt-detr-v2-r34", "face", "plate", "pose", "pose-quality", "pose-multi"]);
+        aliasNames.Should().NotContain("entry", "no cataloged detector is lighter than the basic one");
         aliases.Should().AllSatisfy(a => a.Kind.Should().Be(AliasKind.System));
     }
 

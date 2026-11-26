@@ -140,7 +140,7 @@ LMSupply automatically selects the **best quantization file that fits your avail
 | Model | Parameters | ONNX Size | Est. Memory | Input Size |
 |-------|------------|-----------|-------------|------------|
 | RT-DETR v2 Small (`default`) | 20M | ~80MB | ~160MB | 640×640 |
-| RT-DETR v2 Mini-Small (`entry`) | 15M | ~126MB | ~250MB | 640×640 |
+| RT-DETR v2 Medium, ResNet-34 (`rt-detr-v2-r34`) | 31M | ~126MB | ~250MB | 640×640 |
 | RT-DETR v2 Medium (`balanced`) | 36M | ~133MB | ~270MB | 640×640 |
 | RT-DETR v2 Large (`advanced`) | 42M | ~169MB | ~340MB | 640×640 |
 | RT-DETR v2 XLarge (`frontier`) | 76M | ~300MB | ~600MB | 640×640 |

@@ -11,7 +11,7 @@ public sealed class DetectorOptions : LMSupplyOptionsBase
     /// Gets or sets the model identifier.
     /// <para>Supports:</para>
     /// <list type="bullet">
-    /// <item>Rung aliases: "entry", "basic" ("default"), "balanced", "advanced", "frontier"; "face" and "plate";
+    /// <item>Rung aliases: "basic" ("default"), "balanced", "advanced", "frontier" (no "entry" detector); "rt-detr-v2-r34", which holds no rung; "face" and "plate";
     /// "pose", "pose-quality" and "pose-multi" for human pose (17 COCO keypoints)</item>
     /// <item>HuggingFace model IDs: "PekingU/rtdetr_r18vd"</item>
     /// <item>Local file paths: "/path/to/model.onnx"</item>

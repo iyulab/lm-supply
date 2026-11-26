@@ -72,23 +72,22 @@ public static class DetectorModels
     };
 
     /// <summary>
-    /// RT-DETR v2 Mini-Small - Fast/lightweight model.
-    /// Apache 2.0 license, NMS-free, smaller than Small variant.
+    /// RT-DETR v2 Medium on a ResNet-34 backbone (upstream: RT-DETRv2-M*), between Small and Medium.
+    /// Apache 2.0 license, NMS-free. Larger and slower than Small, despite the "ms" file name.
     /// </summary>
     public static DetectorModelInfo RtDetrV2MS { get; } = new()
     {
         Id = "xnorpx/rt-detr2-onnx:ms",
-        AliasName = "entry",
-        Tier = ModelTier.Entry,
-        DisplayName = "RT-DETR v2 Mini-Small",
+        AliasName = "rt-detr-v2-r34",
+        DisplayName = "RT-DETR v2 Medium (ResNet-34)",
         Architecture = "RT-DETR",
-        ParametersM = 15f,
+        ParametersM = 31f,
         SizeBytes = 126_000_000,
-        MapCoco = 46.0f,
+        MapCoco = 49.9f,
         InputWidth = 640,
         InputHeight = 640,
         OnnxFile = "rt-detrv2-ms.onnx",
-        Description = "RT-DETR v2 Mini-Small for lightweight/fast inference.",
+        Description = "RT-DETR v2 Medium on a ResNet-34 backbone: more accurate than Small, and larger and slower.",
         License = "Apache-2.0"
     };
 

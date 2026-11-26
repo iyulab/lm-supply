@@ -12,7 +12,7 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
     // person who typed one what replaced it.
     private static readonly Dictionary<string, string> _retiredAliases = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["fast"] = "it is now 'entry'",
+        ["fast"] = "it is now 'rt-detr-v2-r34'",
         ["quality"] = "it is now 'balanced'",
         ["large"] = "it is now 'advanced'",
         ["xlarge"] = "it is now 'frontier'",
@@ -24,12 +24,12 @@ public sealed class DetectorModelRegistry : ModelRegistryBase<DetectorModelInfo>
     /// <summary>
     /// Auto-selection candidates sorted by size descending (largest first).
     /// </summary>
-    private static readonly DetectorModelInfo[] AutoCandidates =
+    internal static readonly DetectorModelInfo[] AutoCandidates =
     [
         DetectorModels.RtDetrV2L,   // 42M params, 169MB
         DetectorModels.RtDetrV2M,   // 36M params, 133MB
+        DetectorModels.RtDetrV2MS,  // 31M params, 126MB
         DetectorModels.RtDetrV2S,   // 20M params, 80MB
-        DetectorModels.RtDetrV2MS,  // 15M params, 126MB
     ];
 
     /// <summary>
